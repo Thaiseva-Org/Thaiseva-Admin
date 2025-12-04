@@ -1,0 +1,418 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  font-family: "Inter", "Roboto", sans-serif;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply antialiased;
+}
+
+:root {
+  /* Modern Color System */
+  --primary-50: #eff6ff;
+  --primary-100: #dbeafe;
+  --primary-500: #3b82f6;
+  --primary-600: #2563eb;
+  --primary-700: #1d4ed8;
+  --primary-800: #1e40af;
+  --primary-900: #1e3a8a;
+  
+  --secondary-50: #fff7ed;
+  --secondary-100: #ffedd5;
+  --secondary-500: #f97316;
+  --secondary-600: #ea580c;
+  --secondary-700: #c2410c;
+  
+  --success-50: #f0fdf4;
+  --success-500: #22c55e;
+  --success-600: #16a34a;
+  --success-700: #15803d;
+  
+  --danger-50: #fef2f2;
+  --danger-500: #ef4444;
+  --danger-600: #dc2626;
+  --danger-700: #b91c1c;
+  
+  --warning-50: #fffbeb;
+  --warning-500: #f59e0b;
+  --warning-600: #d97706;
+  
+  --neutral-50: #fafafa;
+  --neutral-100: #f5f5f5;
+  --neutral-200: #e5e5e5;
+  --neutral-300: #d4d4d4;
+  --neutral-500: #737373;
+  --neutral-700: #404040;
+  --neutral-800: #262626;
+  --neutral-900: #171717;
+
+  /* Legacy Variables (Updated for Modern Look) */
+  --primary-bg: #1e40af;
+  --primary-text-color: #171717;
+  --secondary-text-color: #525252;
+  --primary-block-color: #ffffff;
+  --secondary-bg: rgba(59, 130, 246, 0.05);
+  --theme-primary: #2563eb;
+
+  /* Modern Text Colors */
+  --main-headings-color: #1e3a8a;
+  --main-bg-color: #f8fafc;
+
+  /* Modern Drawer/Sidebar Colors */
+  --drawer-heading-color: #1e3a8a;
+  --drawer-main-color: #2563eb;
+  --drawer-inactive-color: #64748b;
+  --drawer-icon-color: #3b82f6;
+  --drawer-secondary-color: #eff6ff;
+  --drawer-border-color: #3b82f6;
+  --drawer-hover-color: #dbeafe;
+  --drawer-active-bg: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+
+  /* Modern Button Colors */
+  --delete-button-bg-color: #ef4444;
+  --delete-button-bg-hover-color: #dc2626;
+  --edit-button-bg-color: #f59e0b;
+  --view-button-bg-color: #3b82f6;
+  --action-button-text-color: #ffffff;
+  --button-bg-color: #3b82f6;
+  --button-hover-bg-color: #2563eb;
+  --button-active-bg-color: #1d4ed8;
+  --button-disable-bg-color: #e5e7eb;
+  --button-disable-text-color: #9ca3af;
+  --button-text-color: #ffffff;
+
+  /* Action Buttons */
+  --accept-button-bg-color: #22c55e;
+  --reject-button-bg-color: #ef4444;
+
+  /* Modern Form Colors */
+  --form-heading-color: #171717;
+  --form-subheadings-color: #404040;
+  --form-button-bg-color: #3b82f6;
+  --form-button-hover-bg-color: #2563eb;
+  --form-button-active-bg-color: #1d4ed8;
+  --form-button-disable-bg-color: #e5e7eb;
+  --form-button-disable-text-color: #9ca3af;
+  --form-helper-text-color: #f59e0b;
+
+  /* Modern Chat Colors */
+  --all-user-bg-color: #f3f4f6;
+  --all-user-hover-bg-color: #e5e7eb;
+  --all-user-details-color: #171717;
+  --chat-top-color: #eff6ff;
+  --msg-text-bg-color: #3b82f6;
+  --msg-text-color: #ffffff;
+  --msg-bg-color: #f8fafc;
+
+  /* Modern Image Colors */
+  --image-text-bg-color: rgba(59, 130, 246, 0.1);
+  --image-bg-color: #3b82f6;
+  --image-text-color: #1e3a8a;
+  --image-nnp-color: #dbeafe;
+
+  /* Modern Background Gradients */
+  --main-bg-gradient-color-1: #f8fafc;
+  --main-bg-gradient-color-2: #f1f5f9;
+
+  /* Modern Categories */
+  --categories-bg-color: #3b82f6;
+  --categories-light-bg-color: #93c5fd;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+
+  /* Border Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+
+  /* Transitions */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.triangle {
+  clip-path: polygon(35% 52%, 100% 100%, 100% 0);
+}
+
+/* Chat Styles */
+.owner {
+  @apply flex-row-reverse;
+}
+
+.owner .message-content {
+  @apply items-end;
+}
+
+.owner-message {
+  @apply rounded-l-lg rounded-br-lg bg-[var(--msg-text-bg-color)] text-[var(--msg-text-color)];
+}
+
+.message-file:hover .delete-msg-btn {
+  @apply opacity-100;
+}
+.message:hover .delete-msg-btn {
+  @apply opacity-100;
+}
+
+.delete-msg-btn {
+  @apply absolute top-1/3 -left-6 opacity-0 duration-300 text-red-500 cursor-pointer z-10;
+}
+
+.opposite-text {
+  @apply bg-white rounded-r-lg rounded-bl-lg;
+}
+
+/* Modern Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #94a3b8, #64748b);
+  border-radius: 10px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #64748b, #475569);
+}
+
+::-webkit-scrollbar-track {
+  background-color: #f1f5f9;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar:horizontal {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb:horizontal {
+  background: linear-gradient(90deg, #94a3b8, #64748b);
+  border-radius: 10px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Modern Button Styles */
+button {
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.truncate-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Modern Button Classes */
+.input-add-btn {
+  @apply bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 
+         active:from-primary-700 active:to-primary-800 text-white w-fit cursor-pointer py-2.5 px-4 
+         rounded-lg flex items-center justify-center gap-2 shadow-md hover:shadow-lg 
+         transition-all duration-200 font-medium;
+}
+
+.cross-btn {
+  @apply bg-danger-500 hover:bg-danger-600 active:bg-danger-700 cursor-pointer text-white p-1 
+         absolute top-0 right-0 text-sm h-6 w-6 rounded-full flex items-center justify-center 
+         shadow-md hover:shadow-lg transition-all duration-200;
+}
+
+.image-clear-btn {
+  @apply bg-danger-500 stroke-white hover:bg-danger-600 active:bg-danger-700 cursor-pointer 
+         text-white absolute p-1 top-0 right-0 text-sm h-6 w-6 rounded-full flex items-center 
+         justify-center shadow-md hover:shadow-lg transition-all duration-200;
+}
+
+.location-input {
+  @apply py-2 px-3 rounded-lg text-neutral-700 outline-none text-sm border border-neutral-300 
+         focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all duration-200;
+}
+
+.location-btn {
+  @apply bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 
+         text-white w-fit cursor-pointer px-4 py-2 rounded-lg flex items-center justify-center 
+         shadow-md hover:shadow-lg transition-all duration-200 font-medium;
+}
+
+.add-new-btn {
+  @apply py-2.5 px-4 rounded-lg bg-gradient-to-r from-primary-500 to-primary-600 
+         hover:from-primary-600 hover:to-primary-700 active:from-primary-700 active:to-primary-800 
+         text-white uppercase font-semibold text-sm shadow-md hover:shadow-lg 
+         disabled:from-neutral-200 disabled:to-neutral-300 disabled:text-neutral-500 
+         disabled:cursor-not-allowed disabled:shadow-none max-sm:text-xs 
+         transition-all duration-200 active:scale-95;
+}
+
+/* Modern Banner & Layout Styles */
+.banner-layout {
+  @apply p-8 pt-6 max-sm:p-6 max-sm:pt-4 rounded-2xl bg-white shadow-lg 
+         border border-neutral-100 hover:shadow-xl transition-shadow duration-300;
+}
+
+.banner-section-title {
+  @apply text-2xl max-md:text-xl font-bold pb-6 max-sm:pb-4 text-neutral-800 
+         flex items-center justify-between border-b border-neutral-200;
+}
+
+.light-text {
+  @apply text-neutral-600;
+}
+
+.common-layout {
+  @apply p-8 max-sm:p-6 max-sm:pt-4 rounded-2xl bg-white shadow-lg 
+         border border-neutral-100;
+}
+
+/* Modern Sidebar Styles */
+.sidebar-active-tab {
+  @apply bg-gradient-to-r from-primary-50 to-primary-100 text-primary-700 font-semibold 
+         border-l-4 border-l-primary-600 shadow-sm relative;
+}
+
+.sidebar-active-tab::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 60%;
+  background: linear-gradient(to bottom, transparent, var(--primary-500), transparent);
+  border-radius: 2px 0 0 2px;
+}
+
+.in-sidebar-active-tab {
+  @apply bg-gradient-to-r from-primary-50 to-primary-100 text-primary-700 font-medium
+         border-l-[3px] border-l-primary-500;
+}
+
+/* Dashboard Banner Styles */
+.banner-box-left-view {
+  @apply flex-1 flex flex-col gap-3 lg:w-[50%] bg-white relative h-80 pt-1 
+         overflow-y-scroll no-scrollbar rounded-xl;
+}
+
+.notification-left-view {
+  @apply flex-1 flex flex-col gap-3 lg:w-[50%] bg-white relative max-h-80 pt-1 
+         overflow-y-scroll no-scrollbar rounded-xl;
+}
+
+/* Modern Card Styles */
+.modern-card {
+  @apply bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 
+         border border-neutral-100 overflow-hidden;
+}
+
+.modern-card-hover {
+  @apply bg-white rounded-2xl shadow-md hover:shadow-xl hover:-translate-y-1 
+         transition-all duration-300 border border-neutral-100 overflow-hidden;
+}
+
+/* Modern Input Styles */
+.modern-input {
+  @apply w-full px-4 py-2.5 rounded-lg border border-neutral-300 
+         focus:border-primary-500 focus:ring-2 focus:ring-primary-200 
+         transition-all duration-200 outline-none text-neutral-700;
+}
+
+/* Modern Badge Styles */
+.badge-success {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold 
+         bg-success-100 text-success-700 border border-success-200;
+}
+
+.badge-danger {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold 
+         bg-danger-100 text-danger-700 border border-danger-200;
+}
+
+.badge-warning {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold 
+         bg-warning-100 text-warning-700 border border-warning-200;
+}
+
+.badge-primary {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold 
+         bg-primary-100 text-primary-700 border border-primary-200;
+}
+
+/* Animation Classes */
+.fade-in {
+  animation: fadeIn var(--transition-slow) ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp var(--transition-slow) ease-out;
+}
+
+.scale-in {
+  animation: scaleIn var(--transition-base) ease-out;
+}
+
+/* Gradient Backgrounds */
+.gradient-primary {
+  @apply bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700;
+}
+
+.gradient-secondary {
+  @apply bg-gradient-to-br from-secondary-500 via-secondary-600 to-secondary-700;
+}
+
+.gradient-success {
+  @apply bg-gradient-to-br from-success-500 via-success-600 to-success-700;
+}
+
+.gradient-danger {
+  @apply bg-gradient-to-br from-danger-500 via-danger-600 to-danger-700;
+}
+
+/* Glass Morphism Effect */
+.glass {
+  @apply bg-white/80 backdrop-blur-lg border border-white/20 shadow-xl;
+}
+
+.glass-dark {
+  @apply bg-neutral-900/80 backdrop-blur-lg border border-white/10 shadow-xl;
+}

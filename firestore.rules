@@ -1,0 +1,23 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+    }
+
+    // Restrict write access to partners collection to admins only
+    match /partners/{document=**} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Allow read/write for all other collections until Dec 31, 2025
+    // This excludes the 'partners' collection from the catch-all
+    match /{collection}/{document=**} {
+      allow read, write: if request.time < timestamp.date(2025, 12, 31) && collection != 'partners';
+    }
+  }
+}
