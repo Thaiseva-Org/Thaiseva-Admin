@@ -22,6 +22,8 @@ import FilterListIcon from "@mui/icons-material/FilterList";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import CheckIcon from "@mui/icons-material/Check";
 import ClearIcon from "@mui/icons-material/Clear";
+import DoneRoundedIcon from "@mui/icons-material/DoneRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 
 import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import {
@@ -525,7 +527,7 @@ const RoomBookings = () => {
                                     ))}
                                   </div>
                                 ) : column.property === "action" ? (
-                                  <div className="flex gap-2 justify-center">
+                                  <div className="flex gap-2 justify-center items-center">
                                     {row["status"] === 3 && (
                                       <button
                                         onClick={() => handleDelete(row.id)}
@@ -535,43 +537,28 @@ const RoomBookings = () => {
                                         <DeleteForeverIcon />
                                       </button>
                                     )}
-                                    {row["status"] !== 3 && (
-                                      <button
-                                        onClick={() =>
-                                          handleViewBookingDetails(row.bookingId)
-                                        }
-                                        className="p-2 bg-success-100 hover:bg-success-200 text-success-700 rounded-lg transition-colors"
-                                        title="View booking details"
-                                      >
-                                        <CheckBoxIcon />
-                                      </button>
-                                    )}
 
-                                    <button
-                                      onClick={() =>
-                                        handleViewPackageDetails(row.packageId)
-                                      }
-                                      className="p-2 hover:bg-primary-100 rounded-lg transition-colors"
+                                    <ViewDetailsIcon
                                       title="View Package Details"
-                                    >
-                                      <ViewDetailsIcon />
-                                    </button>
+                                      handleView={handleViewPackageDetails}
+                                      id={row.packageId}
+                                    />
 
                                     {row.status === "Pending" && (
                                       <>
                                         <button
                                           onClick={() => handleConfirmBooking(row)}
-                                          className="p-2 bg-success-100 hover:bg-success-200 text-success-700 rounded-lg transition-colors"
+                                          className="p-2 rounded-full bg-success-500 text-white hover:bg-success-600 hover:scale-110 transition-all duration-200"
                                           title="Accept Booking"
                                         >
-                                          <CheckIcon sx={{ fontSize: 20 }} />
+                                          <DoneRoundedIcon className="scale-90" />
                                         </button>
                                         <button
                                           onClick={() => handleCancelBooking(row)}
-                                          className="p-2 bg-danger-100 hover:bg-danger-200 text-danger-700 rounded-lg transition-colors"
+                                          className="p-2 rounded-full bg-danger-500 text-white hover:bg-danger-600 hover:scale-110 transition-all duration-200"
                                           title="Decline Booking"
                                         >
-                                          <ClearIcon sx={{ fontSize: 20 }} />
+                                          <CloseRoundedIcon className="scale-90" />
                                         </button>
                                       </>
                                     )}

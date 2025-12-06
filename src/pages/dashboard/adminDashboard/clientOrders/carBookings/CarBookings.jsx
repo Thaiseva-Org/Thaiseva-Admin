@@ -25,6 +25,9 @@ import LoadingContent from "../../../../../components/LoadingContent";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import DoneRoundedIcon from "@mui/icons-material/DoneRounded";
 import CloseIcon from "@mui/icons-material/Close";
+import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import RefreshIcon from "@mui/icons-material/Refresh";
 import { useContext } from "react";
 import { useState } from "react";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
@@ -354,24 +357,24 @@ const CarBookings = () => {
       </div>
 
       {/* Date Filter Section */}
-      <div className="bg-white rounded-xl shadow-md border border-neutral-200 p-4 mb-6">
+      <div className="bg-white rounded-xl shadow-lg border border-neutral-200 p-5 mb-6 hover:shadow-xl transition-shadow duration-300">
         <div className="flex justify-between items-center gap-4 flex-wrap">
-          <h3 className="text-lg font-semibold text-neutral-700 flex items-center gap-2">
-            <span>📆</span> Filter by Date Range
+          <h3 className="text-lg font-semibold text-primary-700 flex items-center gap-2">
+            <FilterListIcon className="text-primary-600" /> Filter by Date Range
           </h3>
           <form
             onSubmit={(e) => {
               handleDateRangeSubmit(e);
             }}
-            className="flex items-end gap-2 flex-wrap"
+            className="flex items-end gap-3 flex-wrap"
           >
-            <fieldset className="px-3 pb-2 border-2 border-neutral-300 rounded-lg hover:border-primary-400 transition-colors">
+            <fieldset className="px-4 pb-2.5 border border-neutral-300 rounded-lg hover:border-primary-400 focus-within:border-primary-500 transition-colors duration-200">
               <legend className="px-2 text-sm font-medium text-neutral-600">
-                Start Date
+                <CalendarMonthIcon sx={{ fontSize: 16, marginRight: '4px' }} /> Start Date
               </legend>
               <input
                 type="date"
-                className="date-input w-[7.5rem] outline-none bg-transparent text-neutral-700"
+                className="date-input w-[8rem] outline-none bg-transparent text-neutral-700"
                 placeholder="Select date"
                 value={startDate}
                 onChange={(event) => {
@@ -380,14 +383,14 @@ const CarBookings = () => {
                 max={new Date().toISOString().split("T")[0]}
               />
             </fieldset>
-            <span className="text-neutral-500 font-medium pb-2">to</span>
-            <fieldset className="px-3 pb-2 border-2 border-neutral-300 rounded-lg hover:border-primary-400 transition-colors">
+            <span className="text-neutral-400 font-medium pb-2.5 text-sm">to</span>
+            <fieldset className="px-4 pb-2.5 border border-neutral-300 rounded-lg hover:border-primary-400 focus-within:border-primary-500 transition-colors duration-200">
               <legend className="px-2 text-sm font-medium text-neutral-600">
-                End Date
+                <CalendarMonthIcon sx={{ fontSize: 16, marginRight: '4px' }} /> End Date
               </legend>
               <input
                 type="date"
-                className="date-input w-[7.5rem] outline-none bg-transparent text-neutral-700"
+                className="date-input w-[8rem] outline-none bg-transparent text-neutral-700"
                 placeholder="Select date"
                 value={endDate}
                 onChange={(event) => {
@@ -402,17 +405,22 @@ const CarBookings = () => {
               />
             </fieldset>
 
-            <button type="submit" className="btn-gradient-primary">
+            <button
+              type="submit"
+              className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 active:scale-95"
+            >
+              <FilterListIcon sx={{ fontSize: 18 }} />
               Apply Filter
             </button>
 
             <button
               type="button"
-              className="btn-gradient-secondary"
+              className="bg-gradient-to-r from-neutral-100 to-neutral-200 hover:from-neutral-200 hover:to-neutral-300 text-neutral-700 px-5 py-2.5 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 border border-neutral-300 active:scale-95"
               onClick={() => {
                 setIsRealTime(true), setStartDate(""), setEndDate("");
               }}
             >
+              <RefreshIcon sx={{ fontSize: 18 }} />
               Show Realtime
             </button>
           </form>
@@ -461,7 +469,7 @@ const CarBookings = () => {
                       (row, i) => {
                         const date = new Date(
                           row["orderedAt"]?.seconds * 1000 +
-                            row["orderedAt"]?.nanoseconds / 1000000
+                          row["orderedAt"]?.nanoseconds / 1000000
                         );
 
                         return (
@@ -478,16 +486,15 @@ const CarBookings = () => {
                                   className="px-4 py-4 text-center text-sm"
                                 >
                                   {value === "Pending" ||
-                                  value === "Accepted" ||
-                                  value === "Canceled" ? (
+                                    value === "Accepted" ||
+                                    value === "Canceled" ? (
                                     <span
-                                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                                        value === "Pending"
+                                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${value === "Pending"
                                           ? "bg-warning-100 text-warning-700"
                                           : value === "Accepted"
-                                          ? "bg-success-100 text-success-700"
-                                          : "bg-danger-100 text-danger-700"
-                                      }`}
+                                            ? "bg-success-100 text-success-700"
+                                            : "bg-danger-100 text-danger-700"
+                                        }`}
                                     >
                                       {value === "Pending" && "⏳ "}
                                       {value === "Accepted" && "✓ "}
@@ -521,13 +528,12 @@ const CarBookings = () => {
                                           row["status"] === "Canceled" ||
                                           row["status"] === "Accepted"
                                         }
-                                        className={`p-2 rounded-full transition-all duration-200 ${
-                                          !isRealTime ||
-                                          row["status"] === "Canceled" ||
-                                          row["status"] === "Accepted"
+                                        className={`p-2 rounded-full transition-all duration-200 ${!isRealTime ||
+                                            row["status"] === "Canceled" ||
+                                            row["status"] === "Accepted"
                                             ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
                                             : "bg-success-500 text-white hover:bg-success-600 hover:scale-110"
-                                        }`}
+                                          }`}
                                         title="Accept Booking"
                                       >
                                         <DoneRoundedIcon className="scale-90" />
@@ -541,13 +547,12 @@ const CarBookings = () => {
                                           row["status"] === "Canceled" ||
                                           row["status"] === "Accepted"
                                         }
-                                        className={`p-2 rounded-full transition-all duration-200 ${
-                                          !isRealTime ||
-                                          row["status"] === "Canceled" ||
-                                          row["status"] === "Accepted"
+                                        className={`p-2 rounded-full transition-all duration-200 ${!isRealTime ||
+                                            row["status"] === "Canceled" ||
+                                            row["status"] === "Accepted"
                                             ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
                                             : "bg-danger-500 text-white hover:bg-danger-600 hover:scale-110"
-                                        }`}
+                                          }`}
                                         title="Cancel Booking"
                                       >
                                         <CloseRoundedIcon className="scale-90" />
@@ -586,10 +591,10 @@ const CarBookings = () => {
                       padding: "12px 16px",
                     },
                     "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                      {
-                        color: "#6B7280",
-                        fontWeight: 500,
-                      },
+                    {
+                      color: "#6B7280",
+                      fontWeight: 500,
+                    },
                     "& .MuiTablePagination-select": {
                       borderRadius: "8px",
                       padding: "4px 8px",
