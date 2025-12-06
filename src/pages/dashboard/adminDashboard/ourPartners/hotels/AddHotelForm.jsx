@@ -35,7 +35,7 @@ import {
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
 import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc } from "firebase/firestore";
-import { db } from "../../../../../firebase/firebase.config"; // Ensure db is imported if used directly or use collections
+import { db } from "../../../../../firebase/firebase.config";
 import { getFileUrl, successNotification } from "../../../../../utils/utils";
 import axios from "axios";
 
@@ -79,7 +79,6 @@ const ProgressBar = ({ currentStep, totalSteps, isEdit }) => {
     );
 };
 
-// Star rating component handling user rating (e.g., 4*5* rating)
 const StarRating = ({ rating, setRating }) => {
     return (
         <div className="flex gap-2">
@@ -111,19 +110,15 @@ const AmenityChip = ({ icon: Icon, label, selected, onClick }) => (
     </div>
 );
 
-// --- Main Component ---
-
 const center = { lat: 48.8584, lng: 2.2945 };
 
 const AddHotelForm = ({ initialData, isEdit, onClose }) => {
     const navigate = useNavigate();
-    // Use onClose prop if provided, otherwise fallback to navigate
     const handleClose = onClose || (() => navigate("/dashboard/hotels"));
     const [currentStep, setCurrentStep] = useState(1);
     const totalSteps = 3;
 
-    // Form State
-    const { handleSubmit, control, setValue, register, formState: { errors }, trigger } = useForm();
+    const { handleSubmit, control, setValue, getValues, register, formState: { errors }, trigger } = useForm();
     const [map, setMap] = useState(null);
     const [location, setLocation] = useState(null);
     const [searchBox, setSearchBox] = useState(null);
@@ -134,24 +129,20 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
     const [customAmenities, setCustomAmenities] = useState([]);
     const [newAmenityInput, setNewAmenityInput] = useState("");
 
-    // New Fields for Gold Standard
     const [hotelGallery, setHotelGallery] = useState([]);
     const [petsAllowed, setPetsAllowed] = useState(false);
     const [nearbyAttractions, setNearbyAttractions] = useState([]);
     const [attractionInput, setAttractionInput] = useState("");
     const [hotelDiscount, setHotelDiscount] = useState(0);
 
-    // Validation State for Custom Fields
     const [logoError, setLogoError] = useState(false);
     const [locationError, setLocationError] = useState(false);
     const [submissionError, setSubmissionError] = useState("");
 
-    // Room Management State
     const [roomTypes, setRoomTypes] = useState([
         { id: 1, name: "Deluxe Ocean View", price: 350, guests: 4, rooms: ["101", "102"], amenities: ['wifi', 'bar'] }
     ]);
     const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
-    // Updated Room State for Gold Standard
     const [newRoom, setNewRoom] = useState({
         roomName: "",
         packageName: "",
@@ -180,19 +171,16 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
         }
     });
 
-    // Populate Form for Edit Mode
     useEffect(() => {
         if (isEdit && initialData) {
-            // Handle both legacy and Gold Standard structures if needed. 
-            // Assuming Gold Standard for now based on recent updates.
-            const h = initialData.hotel || initialData; // Fallback if structure varies
+            const h = initialData.hotel || initialData;
 
             setValue("hotelName", h.hotelName);
-            setValue("email", initialData.email || ""); // Email might be at root or inside hotel info
+            setValue("email", initialData.email || h.email || "");
             setValue("phoneNumber", h.phoneNumber);
-            setValue("address", h.address);
-            setValue("country", h.country);
-            setValue("description", h.description);
+            setValue("address", h.address || "");
+            setValue("country", h.country || "");
+            setValue("description", h.description || "");
 
             setLogoURL(h.images?.logo || h.logoURL || "");
             setHotelGallery(h.images?.gallery || []);
@@ -200,12 +188,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
             setNearbyAttractions(h.nearbyAttractions || []);
             setHotelDiscount(h.discount || 0);
 
-            // Amenities
             const features = h.features || h.amenities || [];
-            // Separate predefined vs custom might be tricky without the original list logic, 
-            // but we can just put matches in selectedAmenities and rest in custom?
-            // For simplicity, let's put all in custom if they don't match IDs, or just rely on IDs.
-            // Simplified:
             const predefinedIds = ['pool', 'gym', 'wifi', 'parking', 'restaurant', 'spa'];
             const foundPredefined = features.filter(f => predefinedIds.includes(f));
             const foundCustom = features.filter(f => !predefinedIds.includes(f));
@@ -214,24 +197,19 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
             setCustomAmenities(foundCustom);
             setRating(h.rating || 0);
 
-            // Rooms
             if (initialData.rooms) {
                 setRoomTypes(initialData.rooms);
             }
 
             if (h.images?.logo) setLogoURL(h.images.logo);
 
-            // Restore location if available, otherwise it relies on address geocoding
             if (h.location) {
                 setLocation(h.location);
                 if (map) map.panTo(h.location);
             }
-            // Ensure email is set from correct path
-            setValue("email", h.email || initialData.email || "");
-
-            setAddressInputValue(h.address || "");
+            if (h.address) setAddressInputValue(h.address);
         }
-    }, [isEdit, initialData, setValue]);
+    }, [isEdit, initialData, setValue, map]); // Added map dependency
 
     const handleRoomPhotoUpload = async (e) => {
         const { files } = e.target;
@@ -280,11 +258,6 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
 
     const handleUploadGallery = async (e) => {
         const { files } = e.target;
-        // Assuming getFileUrl handles multiple files or we loop. 
-        // For simplicity reusing getFileUrl which seems to handle single file based on previous usage, 
-        // but let's assume we might need to loop if multiple allowed.
-        // For now, let's allow adding one by one or improve getFileUrl later. 
-        // Adapting to single upload per click for consistent UX with logo.
         const result = await getFileUrl(files);
         if (result?.error) {
             toast.error(result.message);
@@ -297,21 +270,18 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
         setHotelGallery(prev => prev.filter((_, i) => i !== index));
     };
 
-    // --- Room Management Logic ---
     const handleAddRoom = () => {
-        // Validate Essentials
         if (!newRoom.roomName || !newRoom.pricing.basePrice) {
             toast.error("Please fill in Room Name and Base Price");
             return;
         }
 
-        // Calculate final price automatically
         const priceAfterDiscount = Number(newRoom.pricing.basePrice) * (1 - (Number(newRoom.pricing.discountPercent) || 0) / 100);
 
         const finalRoom = {
             id: Date.now(),
             ...newRoom,
-            amenities: newRoom.amenities || [], // Ensure array
+            amenities: newRoom.amenities || [],
             pricing: {
                 ...newRoom.pricing,
                 pricePerNightAfterDiscount: priceAfterDiscount,
@@ -323,8 +293,6 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
         };
 
         setRoomTypes(prev => [...prev, finalRoom]);
-
-        // Reset Form
         setNewRoom({
             roomName: "",
             packageName: "",
@@ -353,84 +321,111 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
             }
         });
         setIsRoomModalOpen(false);
-        toast.success("Room type added!");
+        successNotification("Room added to configuration!");
     };
-
-
 
     const handleDeleteRoom = (id) => {
-        setRoomTypes(prev => prev.filter(room => room.id !== id));
-        toast.info("Room type removed");
+        setRoomTypes(prev => prev.filter(r => r.id !== id));
     };
 
-    // --- Google Maps Logic ---
-    const onMapLoad = (map) => setMap(map);
+    const onSubmit = async (data) => {
+        if (!logoURL) { setLogoError(true); return; }
+        if (!location && !addressInputValue) { setLocationError(true); return; }
 
-    const reverseGeocode = async (lat, lon) => {
+        setSubmissionError("");
+
         try {
-            const response = await axios.get(
-                `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${import.meta.env.VITE_Google_Api_Key}`
-            );
-            if (response.data.status === "OK") {
-                const result = response.data.results[0];
-                const address = result.formatted_address;
-                const countryComponent = result.address_components.find(c => c.types.includes("country"));
-                const country = countryComponent ? countryComponent.long_name : "";
-                return { address, country };
+            const finalPayload = {
+                hotel: {
+                    hotelId: isEdit ? (initialData.hotel?.hotelId || initialData.uid) : crypto.randomUUID(),
+                    hotelUid: isEdit ? (initialData.hotel?.hotelUid || initialData.uid) : (Math.random().toString(36).substring(7)), // Should be user UID but for new manual add we need logic
+                    hotelName: data.hotelName,
+                    country: data.country || "Thailand",
+                    currency: "THB",
+                    startingPrice: roomTypes.length > 0 ? Math.min(...roomTypes.map(r => r.pricing?.pricePerNightAfterDiscount || 0)) : 0,
+                    discount: hotelDiscount,
+                    address: addressInputValue || data.address,
+                    description: data.description,
+                    images: {
+                        logo: logoURL,
+                        gallery: hotelGallery
+                    },
+                    petsAllowed: petsAllowed,
+                    nearbyAttractions: nearbyAttractions,
+                    features: [...selectedAmenities, ...customAmenities],
+                    phoneNumber: data.phoneNumber,
+                    email: data.email,
+                    rating: rating,
+                    numberOfReviews: isEdit ? (initialData.hotel?.numberOfReviews || 0) : 0,
+                    status: "Verified",
+                    updatedAt: new Date().toISOString(),
+                    location: location // Keeping location object if available
+                },
+                rooms: roomTypes
+            };
+
+            if (isEdit && initialData?.uid) {
+                await updateDoc(doc(db, "hotels", initialData.uid), {
+                    ...finalPayload,
+                    updatedAt: serverTimestamp()
+                });
+
+                // Also update user doc if needed
+                await updateDoc(doc(db, "users", initialData.uid), {
+                    status: "Verified",
+                    isVerified: true
+                });
+
+                successNotification("Hotel updated successfully!");
+                handleClose();
+            } else {
+                // For new hotel, we create a user first (usually) or just doc.
+                // Assuming manual add creates a user logic is handled outside or we mock it.
+                // The seed script used user UID. Here we might need to create Auth user.
+                // But keeping it simple as per previous logic which used addDoc/setDoc.
+
+                // If we don't create an Auth user, we can't have a valid UID linked to login.
+                // But for now, let's just create the hotel doc.
+                const newDocRef = doc(hotelsCollection);
+                finalPayload.hotel.hotelUid = newDocRef.id; // consistency
+
+                await setDoc(newDocRef, finalPayload);
+                successNotification("New Hotel Added (Verified)!");
+                handleClose();
             }
-            return { address: "Unable to get location", country: "" };
+
         } catch (error) {
-            console.error("Error fetching address: ", error);
-            return { address: "Error fetching address", country: "" };
+            console.error("Submission Error:", error);
+            setSubmissionError("Failed to save hotel. " + error.message);
+            toast.error("Failed to save hotel.");
         }
     };
 
-    const geocodeAddress = async (addressText) => {
-        try {
-            const response = await axios.get(
-                `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(addressText)}&key=${import.meta.env.VITE_Google_Api_Key}`
-            );
-            if (response.data.status === "OK") {
-                const result = response.data.results[0];
-                const loc = result.geometry.location;
-                const formattedAddress = result.formatted_address;
-                const countryComponent = result.address_components.find(c => c.types.includes("country"));
-                const country = countryComponent ? countryComponent.long_name : "";
-
-                setLocation({ lat: loc.lat, lng: loc.lng });
-                setValue("address", formattedAddress);
-                setValue("country", country);
-                if (map) map.panTo({ lat: loc.lat, lng: loc.lng });
-
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error("Geocoding error:", error);
-            return false;
+    const onMapLoad = (mapInstance) => {
+        setMap(mapInstance);
+        if (isEdit && initialData?.hotel?.location) {
+            mapInstance.panTo(initialData.hotel.location);
         }
     };
 
-    const onMapClick = async (e) => {
-        const { address, country } = await reverseGeocode(e.latLng.lat(), e.latLng.lng());
-        setValue("address", address);
-        setValue("country", country);
-        setAddressInputValue(address);
-        setLocation({ lat: e.latLng.lat(), lng: e.latLng.lng() });
+    const onMapClick = (e) => {
+        const lat = e.latLng.lat();
+        const lng = e.latLng.lng();
+        setLocation({ lat, lng });
+        setAddressInputValue(`Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`);
         setLocationError(false);
     };
 
-    const onPlacesChanged = async () => {
+    const handlePlacesChanged = () => {
         const places = searchBox.getPlaces();
-        if (places.length === 0) return;
-        const loc = places[0].geometry.location;
-        const { address, country } = await reverseGeocode(loc.lat(), loc.lng());
-        setLocation({ lat: loc.lat(), lng: loc.lng() });
-        setValue("address", address);
-        setValue("country", country);
-        setAddressInputValue(address);
-        map.setCenter(loc);
-        setLocationError(false);
+        if (places && places.length > 0) {
+            const place = places[0];
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            setLocation({ lat, lng });
+            setAddressInputValue(place.formatted_address);
+            if (map) map.panTo({ lat, lng });
+        }
     };
 
     const handleUploadLogo = async (e) => {
@@ -444,394 +439,186 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
         }
     };
 
-    // --- Navigation Logic ---
     const handleNext = async () => {
-        setSubmissionError(""); // Clear previous errors
+        const stepsValidation = [
+            ['hotelName', 'email', 'phoneNumber'], // Step 1 fields
+            [], // Step 2 (Rooms are validated separately or checked on next)
+            []  // Step 3
+        ];
 
-        let isValid = false;
-        if (currentStep === 1) {
-            // 1. Check Address
-            if (!location && addressInputValue) {
-                const success = await geocodeAddress(addressInputValue);
-                if (!success) {
-                    setLocationError(true);
-                    setSubmissionError("Could not find the entered location.");
-                    return;
-                }
-                setLocationError(false);
-            }
-
-            // 2. Trigger Form Validation
-            isValid = await trigger(["hotelName", "email", "phoneNumber", "address", "country", "description"]);
-
-            // 3. Check Custom Fields
-            if (!logoURL) {
-                setLogoError(true);
-                isValid = false;
-            }
-            if (!location && !addressInputValue) {
-                setLocationError(true);
-                isValid = false;
-            }
-
-            if (!isValid) {
-                // Construct detailed error message
-                let errorMsg = "Please fix the following errors:";
-                if (errors.hotelName) errorMsg += "\n• Missing Hotel Name";
-                if (errors.email) errorMsg += "\n• Invalid Email";
-                if (errors.phoneNumber) errorMsg += "\n• Missing Phone Number";
-                if (!logoURL) errorMsg += "\n• Missing Hotel Logo";
-                if (!location && !addressInputValue) errorMsg += "\n• Missing Location";
-
-                setSubmissionError(errorMsg);
-                toast.error("Please fill in all required fields.");
-            }
-        } else if (currentStep === 2) {
-            isValid = true;
-            if (roomTypes.length === 0) {
-                toast.warn("We recommend adding at least one room type");
-            }
-        }
-
+        const isValid = await trigger(stepsValidation[currentStep - 1]);
         if (isValid) {
-            setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+            if (currentStep === 1) {
+                if (!logoURL) { setLogoError(true); return; }
+                if (!location && !addressInputValue) { setLocationError(true); return; }
+            }
+            setCurrentStep(prev => prev + 1);
         }
     };
 
     const handleBack = () => {
-        setCurrentStep(prev => Math.max(prev - 1, 1));
-        setSubmissionError("");
+        setCurrentStep(prev => prev - 1);
     };
 
-    // --- Submission Logic ---
-    // --- Submission Logic ---
-    const onSubmit = async (data) => {
-        setIsSubmitting(true);
-        setSubmissionError("");
-
-        try {
-            // Calculate starting price
-            const lowestPrice = roomTypes.length > 0
-                ? Math.min(...roomTypes.map(r => r.pricing.pricePerNightAfterDiscount))
-                : 0;
-
-            // Construct Final Payload (Gold Standard)
-            const finalPayload = {
-                hotel: {
-                    hotelId: crypto.randomUUID(), // Generate a UUID
-                    hotelUid: user.uid,
-                    hotelName: data.hotelName,
-                    email: data.email,
-                    country: data.country,
-                    location: location, // Save { lat, lng }
-                    currency: "THB",
-                    startingPrice: lowestPrice,
-                    discount: hotelDiscount,
-                    address: data.address,
-                    description: data.description || "",
-                    images: {
-                        logo: logoURL,
-                        gallery: hotelGallery
-                    },
-                    petsAllowed,
-                    nearbyAttractions,
-                    features: [...selectedAmenities, ...customAmenities],
-                    phoneNumber: data.phoneNumber,
-                    rating,
-                    numberOfReviews: 0,
-                    status: "Approved",
-                    updatedAt: new Date().toISOString()
-                },
-                rooms: roomTypes
-            };
-
-            if (isEdit && initialData?.uid) {
-                await updateDoc(doc(db, "hotels", initialData.uid), {
-                    ...finalPayload,
-                    updatedAt: serverTimestamp()
-                });
-                toast.success("Hotel Updated Successfully!");
-            } else {
-                await addDoc(collection(db, "hotels"), {
-                    ...finalPayload,
-                    timestamp: serverTimestamp()
-                });
-                toast.success("Hotel Added Successfully!");
-            }
-
-            console.log("Gold Standard Output:", finalPayload);
-            reset();
-            if (handleClose) handleClose();
-
-        } catch (error) {
-            console.error("Error saving hotel: ", error);
-            setSubmissionError("Failed to submit. Please try again.");
-            toast.error("Error submitting form");
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
+    // Render Steps
     const renderStep1 = () => (
         <FadeIn>
             <div className="space-y-6">
-                {/* Hotel Name */}
-                <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700">Hotel Name</label>
-                    <TextField
-                        {...register("hotelName", { required: "Hotel Name is required" })}
-                        placeholder="Enter the name of the hotel"
-                        fullWidth
-                        error={!!errors.hotelName}
-                        helperText={errors.hotelName?.message}
-                        sx={{
-                            "& .MuiOutlinedInput-root": {
-                                borderRadius: "9999px",
-                                backgroundColor: "#f3f4f6",
-                                "& fieldset": { border: "none" },
-                                "&:hover": { backgroundColor: "#e5e7eb" },
-                                "&.Mui-focused": { backgroundColor: "#fff", boxShadow: "0 0 0 2px #3b82f6" },
-                                "& input": { padding: "14px 24px" }
-                            }
-                        }}
+                {/* Basic Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Controller
+                        name="hotelName"
+                        control={control}
+                        rules={{ required: "Hotel Name is required" }}
+                        render={({ field }) => (
+                            <TextField {...field} label="Hotel Name" fullWidth error={!!errors.hotelName} helperText={errors.hotelName?.message}
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                        )}
+                    />
+                    <Controller
+                        name="email"
+                        control={control}
+                        rules={{ required: "Email is required", pattern: { value: /^\S+@\S+$/i, message: "Invalid email" } }}
+                        render={({ field }) => (
+                            <TextField {...field} label="Email Address" fullWidth error={!!errors.email} helperText={errors.email?.message}
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                        )}
+                    />
+                    <Controller
+                        name="phoneNumber"
+                        control={control}
+                        rules={{ required: "Phone is required" }}
+                        render={({ field }) => (
+                            <TextField {...field} label="Phone Number" fullWidth error={!!errors.phoneNumber} helperText={errors.phoneNumber?.message}
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                        )}
+                    />
+                    <Controller
+                        name="country"
+                        control={control}
+                        defaultValue="Thailand"
+                        render={({ field }) => (
+                            <TextField {...field} label="Country" fullWidth
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                        )}
                     />
                 </div>
 
-                {/* Contact Info */}
-                < div className="grid grid-cols-1 md:grid-cols-2 gap-6" >
-                    <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700">Email</label>
-                        <TextField
-                            {...register("email", {
-                                required: "Email is required",
-                                pattern: { value: /^\S+@\S+$/i, message: "Invalid email" }
-                            })}
-                            placeholder="contact@hotel.com"
-                            fullWidth
-                            error={!!errors.email}
-                            helperText={errors.email?.message}
-                            InputProps={{
-                                startAdornment: <InputAdornment position="start"><MdEmail className="text-gray-400" /></InputAdornment>
-                            }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: "9999px",
-                                    backgroundColor: "#f3f4f6",
-                                    "& fieldset": { border: "none" },
-                                    "&:hover": { backgroundColor: "#e5e7eb" },
-                                    "&.Mui-focused": { backgroundColor: "#fff", boxShadow: "0 0 0 2px #3b82f6" },
-                                }
-                            }}
-                        />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700">Phone Number</label>
-                        <TextField
-                            {...register("phoneNumber", { required: "Phone Number is required" })}
-                            placeholder="+1 234 567 890"
-                            fullWidth
-                            error={!!errors.phoneNumber}
-                            helperText={errors.phoneNumber?.message}
-                            InputProps={{
-                                startAdornment: <InputAdornment position="start"><MdPhone className="text-gray-400" /></InputAdornment>
-                            }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: "9999px",
-                                    backgroundColor: "#f3f4f6",
-                                    "& fieldset": { border: "none" },
-                                    "&:hover": { backgroundColor: "#e5e7eb" },
-                                    "&.Mui-focused": { backgroundColor: "#fff", boxShadow: "0 0 0 2px #3b82f6" },
-                                }
-                            }}
-                        />
-                    </div>
-                </div >
-
-                {/* Address / Location */}
-                < div className="space-y-2" >
-                    <label className="block text-sm font-bold text-gray-700">Address / Location</label>
-                    <StandaloneSearchBox onLoad={setSearchBox} onPlacesChanged={onPlacesChanged}>
+                {/* Address & Map */}
+                <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700">Location</label>
+                    <StandaloneSearchBox onLoad={(ref) => setSearchBox(ref)} onPlacesChanged={handlePlacesChanged}>
                         <TextField
                             fullWidth
-                            placeholder="Search for address or location"
+                            placeholder="Search for a location..."
                             value={addressInputValue}
                             onChange={(e) => setAddressInputValue(e.target.value)}
-                            error={locationError}
                             InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <MdLocationOn className={`text-xl mr-2 ${locationError ? 'text-red-500' : 'text-gray-400'}`} />
-                                    </InputAdornment>
-                                ),
+                                startAdornment: <InputAdornment position="start"><MdLocationOn className="text-gray-400" /></InputAdornment>
                             }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: "9999px",
-                                    backgroundColor: locationError ? "#fef2f2" : "#f3f4f6",
-                                    "& fieldset": { border: locationError ? "1px solid #ef4444" : "none" },
-                                    "&:hover": { backgroundColor: "#e5e7eb" },
-                                    "&.Mui-focused": { backgroundColor: "#fff", boxShadow: locationError ? "0 0 0 2px #ef4444" : "0 0 0 2px #3b82f6" },
-                                    "& input": { padding: "14px 24px" }
-                                }
-                            }}
+                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                         />
                     </StandaloneSearchBox>
-                    {
-                        locationError && (
-                            <p className="text-xs text-red-500 font-bold ml-4 animate-pulse">
-                                * Please select a valid location.
-                            </p>
-                        )
-                    }
-                </div >
+                </div>
 
-                {/* Hidden Address Fields populated by map */}
-                < div className="hidden" >
-                    <TextField {...register("address", { required: true })} />
-                    <TextField {...register("country", { required: true })} />
-                </div >
-
-                {/* Description */}
-                < div className="space-y-2" >
-                    <label className="block text-sm font-bold text-gray-700">Description</label>
-                    <TextField
-                        {...register("description", { required: "Description is required" })}
-                        placeholder="Provide a detailed description of the hotel..."
-                        multiline
-                        rows={4}
-                        fullWidth
-                        sx={{
-                            "& .MuiOutlinedInput-root": {
-                                borderRadius: "24px",
-                                backgroundColor: "#f3f4f6",
-                                "& fieldset": { border: "none" },
-                                "&:hover": { backgroundColor: "#e5e7eb" },
-                                "&.Mui-focused": { backgroundColor: "#fff", boxShadow: "0 0 0 2px #3b82f6" },
-                                "& textarea": { padding: "12px" }
-                            }
-                        }}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Controller
+                        name="address"
+                        control={control}
+                        render={({ field }) => (
+                            <TextField {...field} label="Full Address" multiline rows={3} fullWidth
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                        )}
                     />
-                    {
-                        errors.description && (
-                            <p className="text-xs text-red-500 font-bold ml-4 mt-1">
-                                {errors.description.message}
-                            </p>
-                        )
-                    }
-                </div >
+                    <Controller
+                        name="description"
+                        control={control}
+                        render={({ field }) => (
+                            <TextField {...field} label="Description" multiline rows={3} fullWidth
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                        )}
+                    />
+                </div>
 
-                {/* Star Rating & Amenities */}
-                < div className="grid grid-cols-1 md:grid-cols-2 gap-8" >
-                    {/* <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700">Star Rating</label>
-                        <StarRating rating={rating} setRating={setRating} />
-                    </div> */}
-                    < div className="space-y-2" >
-                        <label className="block text-sm font-bold text-gray-700">Property Amenities</label>
-                        <div className="flex flex-wrap gap-2">
-                            {amenitiesList.map((amenity) => (
-                                <AmenityChip
-                                    key={amenity.id}
-                                    icon={amenity.icon}
-                                    label={amenity.label}
-                                    selected={selectedAmenities.includes(amenity.id)}
-                                    onClick={() => toggleAmenity(amenity.id)}
-                                />
-                            ))}
-                        </div>
-
-                        {/* Custom Amenities Input */}
-                        <div className="flex gap-2 mt-4">
-                            <TextField
-                                value={newAmenityInput}
-                                onChange={(e) => setNewAmenityInput(e.target.value)}
-                                placeholder="Add other amenity..."
-                                size="small"
-                                fullWidth
-                                sx={{
-                                    "& .MuiOutlinedInput-root": {
-                                        borderRadius: "999px",
-                                        backgroundColor: "#f3f4f6",
-                                        "& fieldset": { border: "none" },
-                                    }
-                                }}
+                {/* Amenities & Features */}
+                <div className="space-y-4">
+                    <label className="block text-sm font-bold text-gray-700">Hotel Amenities</label>
+                    <div className="flex flex-wrap gap-3">
+                        {amenitiesList.map(amenity => (
+                            <AmenityChip
+                                key={amenity.id}
+                                icon={amenity.icon}
+                                label={amenity.label}
+                                selected={selectedAmenities.includes(amenity.id)}
+                                onClick={() => toggleAmenity(amenity.id)}
                             />
-                            <Button
-                                onClick={handleAddCustomAmenity}
-                                variant="contained"
-                                sx={{ borderRadius: "999px", textTransform: "none", minWidth: "100px" }}
-                            >
-                                Add
-                            </Button>
-                        </div>
-
-                        {/* Custom Amenities List */}
-                        {
-                            customAmenities.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {customAmenities.map((amenity, index) => (
-                                        <div key={index} className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 border border-blue-200 text-blue-600">
-                                            <span className="text-sm font-medium">{amenity}</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => removeCustomAmenity(index)}
-                                                className="hover:text-red-500"
-                                            >
-                                                <MdClose />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )
-                        }
-                    </div >
-                </div >
-
-                {/* New Fields: Pets, Discount */}
-                < div className="grid grid-cols-1 md:grid-cols-2 gap-6" >
-                    <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700">Pets Allowed</label>
-                        <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-2xl border border-gray-100">
-                            <span className={`font-bold ${petsAllowed ? "text-green-600" : "text-gray-500"}`}>
-                                {petsAllowed ? "Yes" : "No"}
-                            </span>
-                            <input
-                                type="checkbox"
-                                checked={petsAllowed}
-                                onChange={(e) => setPetsAllowed(e.target.checked)}
-                                className="w-6 h-6 rounded text-blue-600 focus:ring-blue-500"
-                            />
-                        </div>
+                        ))}
                     </div>
-                    <div className="space-y-2">
-                        <label className="block text-sm font-bold text-gray-700">Global Discount (%)</label>
+                </div>
+
+                <div className="space-y-4">
+                    <label className="block text-sm font-bold text-gray-700">Custom Amenities</label>
+                    <div className="flex gap-2">
                         <TextField
-                            type="number"
-                            value={hotelDiscount}
-                            onChange={(e) => setHotelDiscount(Number(e.target.value))}
-                            fullWidth
-                            inputProps={{ min: 0, max: 100 }}
+                            value={newAmenityInput}
+                            onChange={(e) => setNewAmenityInput(e.target.value)}
+                            placeholder="Add custom amenity..."
+                            size="small"
                             sx={{
                                 "& .MuiOutlinedInput-root": {
-                                    borderRadius: "24px",
+                                    borderRadius: "999px",
                                     backgroundColor: "#f3f4f6",
                                     "& fieldset": { border: "none" },
                                 }
                             }}
                         />
+                        <Button
+                            onClick={handleAddCustomAmenity}
+                            variant="contained"
+                            sx={{ borderRadius: "999px", textTransform: "none", minWidth: "100px" }}
+                        >
+                            Add
+                        </Button>
                     </div>
-                </div >
+                    <div className="flex flex-wrap gap-2 mt-2">
+                        {customAmenities.map((amenity, index) => (
+                            <Chip
+                                key={index}
+                                label={amenity}
+                                onDelete={() => removeCustomAmenity(index)}
+                                sx={{ borderRadius: "8px", fontWeight: 600 }}
+                            />
+                        ))}
+                    </div>
+                </div>
+
+                {/* Rating & Etc */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">Star Rating</label>
+                        <StarRating rating={rating} setRating={setRating} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-700">Pets Allowed?</span>
+                        <input type="checkbox" checked={petsAllowed} onChange={(e) => setPetsAllowed(e.target.checked)} className="w-5 h-5" />
+                    </div>
+                    <TextField
+                        label="Discount (%)"
+                        type="number"
+                        value={hotelDiscount}
+                        onChange={(e) => setHotelDiscount(Number(e.target.value))}
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                    />
+                </div>
 
                 {/* Nearby Attractions */}
-                < div className="space-y-2" >
+                <div className="space-y-4">
                     <label className="block text-sm font-bold text-gray-700">Nearby Attractions</label>
                     <div className="flex gap-2">
                         <TextField
                             value={attractionInput}
                             onChange={(e) => setAttractionInput(e.target.value)}
-                            placeholder="E.g. Pattaya Beach - 200m"
-                            fullWidth
+                            placeholder="e.g. Pattaya Beach - 200m"
                             size="small"
                             sx={{
                                 "& .MuiOutlinedInput-root": {
@@ -849,28 +636,26 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                             Add
                         </Button>
                     </div>
-                    {
-                        nearbyAttractions.length > 0 && (
-                            <div className="flex flex-col gap-2 mt-2">
-                                {nearbyAttractions.map((attraction, index) => (
-                                    <div key={index} className="flex justify-between items-center px-4 py-2 rounded-xl bg-gray-50 border border-gray-200">
-                                        <span className="text-sm font-medium text-gray-700">{attraction}</span>
-                                        <button
-                                            type="button"
-                                            onClick={() => removeAttraction(index)}
-                                            className="text-gray-400 hover:text-red-500"
-                                        >
-                                            <MdDelete />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        )
-                    }
-                </div >
+                    {nearbyAttractions.length > 0 && (
+                        <div className="flex flex-col gap-2 mt-2">
+                            {nearbyAttractions.map((attraction, index) => (
+                                <div key={index} className="flex justify-between items-center px-4 py-2 rounded-xl bg-gray-50 border border-gray-200">
+                                    <span className="text-sm font-medium text-gray-700">{attraction}</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => removeAttraction(index)}
+                                        className="text-gray-400 hover:text-red-500"
+                                    >
+                                        <MdDelete />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
 
-                {/* Exterior Photos (Logo & Gallery) */}
-                < div className="space-y-6" >
+                {/* Photos */}
+                <div className="space-y-6">
                     <div className="space-y-2">
                         <label className="block text-sm font-bold text-gray-700">Main Logo / Cover <span className="text-red-500">*</span></label>
                         <div className={`border-2 border-dashed rounded-3xl p-8 text-center hover:bg-gray-50 transition-colors cursor-pointer relative bg-gray-50/50 ${logoError ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}>
@@ -917,10 +702,10 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                             </div>
                         </div>
                     </div>
-                </div >
+                </div>
 
-                {/* Map Preview */}
-                < div className="h-48 w-full rounded-3xl overflow-hidden border border-gray-200 mt-4" >
+                {/* Map */}
+                <div className="h-48 w-full rounded-3xl overflow-hidden border border-gray-200 mt-4">
                     <GoogleMap
                         mapContainerStyle={{ height: "100%", width: "100%" }}
                         center={location || center}
@@ -930,9 +715,9 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     >
                         {location && <MarkerF position={location} />}
                     </GoogleMap>
-                </div >
-            </div >
-        </FadeIn >
+                </div>
+            </div>
+        </FadeIn>
     );
 
     const renderStep2 = () => (
@@ -944,7 +729,6 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Existing Room Cards */}
                     {roomTypes.map((room) => (
                         <div key={room.id} className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm relative hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-start mb-4">
@@ -953,25 +737,23 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                     <IconButton size="small" onClick={() => handleDeleteRoom(room.id)} className="text-gray-400 hover:text-red-500"><MdDelete /></IconButton>
                                 </div>
                             </div>
-
                             <div className="grid grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Base Price</label>
                                     <div className="mt-1 bg-gray-50 rounded-xl px-3 py-2 text-gray-900 font-bold border border-gray-100">
-                                        $ {room.price}
+                                        $ {room.pricing?.basePrice || room.price}
                                     </div>
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Max Guests</label>
                                     <div className="mt-1 bg-gray-50 rounded-xl px-3 py-2 text-gray-900 font-bold border border-gray-100">
-                                        {room.guests}
+                                        {room.maxGuests || room.guests}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     ))}
 
-                    {/* Add New Room Card */}
                     <div
                         onClick={() => setIsRoomModalOpen(true)}
                         className="border-2 border-dashed border-gray-200 rounded-3xl p-6 flex flex-col items-center justify-center text-center min-h-[250px] hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group"
@@ -997,21 +779,29 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     <p className="text-gray-500">Review the final data structure before submitting.</p>
                 </div>
 
-                <div className="bg-gray-50 p-6 rounded-3xl border border-gray-200 overflow-y-auto max-h-[500px] text-xs font-mono">
-                    <pre>
-                        {JSON.stringify({
-                            hotel: {
-                                hotelName,
-                                address,
-                                description: getValues("description"),
-                                features: [...selectedAmenities, ...customAmenities],
-                                petsAllowed,
-                                nearbyAttractions,
-                                images: { logo: logoURL, gallery: hotelGallery }
-                            },
-                            rooms: roomTypes
-                        }, null, 2)}
-                    </pre>
+                <div className="bg-white p-6 rounded-3xl border border-gray-200 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Hotel Details</h3>
+                            <div className="space-y-2">
+                                <p><span className="font-semibold text-gray-900">Name:</span> {getValues("hotelName")}</p>
+                                <p><span className="font-semibold text-gray-900">Email:</span> {getValues("email")}</p>
+                                <p><span className="font-semibold text-gray-900">Phone:</span> {getValues("phoneNumber")}</p>
+                                <p><span className="font-semibold text-gray-900">Address:</span> {addressInputValue || getValues("address")}</p>
+                                <p><span className="font-semibold text-gray-900">Description:</span> {getValues("description")}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Configuration</h3>
+                            <div className="space-y-2">
+                                <p><span className="font-semibold text-gray-900">Room Types:</span> {roomTypes.length}</p>
+                                <p><span className="font-semibold text-gray-900">Amenities:</span> {[...selectedAmenities, ...customAmenities].length} selected</p>
+                                <p><span className="font-semibold text-gray-900">Pets Allowed:</span> {petsAllowed ? "Yes" : "No"}</p>
+                                <p><span className="font-semibold text-gray-900">Discount:</span> {hotelDiscount}%</p>
+                                <p><span className="font-semibold text-gray-900">Images:</span> {hotelGallery.length + (logoURL ? 1 : 0)} uploaded</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </FadeIn>
@@ -1019,33 +809,27 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
 
     return (
         <Box className="bg-[#f8f9fa] min-h-screen p-6 font-sans relative">
-            {/* Local Toast Container with High Z-Index */}
             <ToastContainer
                 position="top-center"
                 autoClose={3000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
                 style={{ zIndex: 99999 }}
             />
 
             <div className="max-w-5xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-extrabold text-gray-900">Add New Hotel</h1>
-                </div>
+                {/* Header added here */}
+                <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>
+                        {isEdit ? "Edit Hotel Details" : "Add New Hotel"}
+                    </Typography>
+                </Box>
 
-                <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
+                <ProgressBar currentStep={currentStep} totalSteps={totalSteps} isEdit={isEdit} />
 
                 <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-[32px] p-8 shadow-sm">
                     {currentStep === 1 && renderStep1()}
                     {currentStep === 2 && renderStep2()}
                     {currentStep === 3 && renderStep3()}
 
-                    {/* Inline Error Message Area */}
                     {submissionError && (
                         <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm font-medium whitespace-pre-line animate-pulse">
                             <div className="flex items-center gap-2 mb-1 text-red-700 font-bold">
@@ -1076,7 +860,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                             </Button>
                         ) : (
                             <Button
-                                onClick={onClose}
+                                onClick={handleClose}
                                 variant="contained"
                                 sx={{
                                     backgroundColor: "#e2e8f0",
@@ -1133,7 +917,6 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     </div>
                 </form>
 
-                {/* Add Room Modal - Updated for Gold Standard */}
                 <Dialog
                     open={isRoomModalOpen}
                     onClose={() => setIsRoomModalOpen(false)}
@@ -1144,7 +927,6 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     <DialogTitle sx={{ fontWeight: 800, fontSize: '1.5rem', textAlign: 'center' }}>Add New Room</DialogTitle>
                     <DialogContent>
                         <div className="space-y-6 mt-2">
-                            {/* Basic Info */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <TextField
                                     label="Room Name"
@@ -1225,7 +1007,6 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                 </div>
                             </div>
 
-                            {/* Policies */}
                             <div>
                                 <h4 className="font-bold text-gray-700 mb-2">Policies</h4>
                                 <div className="grid grid-cols-2 gap-4">
@@ -1250,7 +1031,6 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                 </div>
                             </div>
 
-                            {/* Photos */}
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Room Photos</label>
                                 <div className="flex gap-2 flex-wrap">

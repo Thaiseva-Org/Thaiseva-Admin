@@ -24,6 +24,7 @@
     "crypto-js": "^4.2.0",
     "date-fns": "^3.0.6",
     "firebase": "^10.4.0",
+    "firebase-admin": "^13.6.0",
     "lottie-react": "^2.4.0",
     "notistack": "^3.0.1",
     "postcss": "^8.4.29",

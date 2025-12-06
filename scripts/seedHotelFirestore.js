@@ -1,10 +1,14 @@
-const admin = require('firebase-admin');
+import admin from 'firebase-admin';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 const serviceAccount = require('./serviceAccountKey.json');
 
 // 1. Initialize Firebase Admin SDK
-admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount)
-});
+if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount)
+    });
+}
 
 const db = admin.firestore();
 
@@ -46,7 +50,7 @@ const hotelData = {
         "phoneNumber": "038 797 867",
         "rating": 0,
         "numberOfReviews": 0,
-        "status": "Approved",
+        "status": "Verified",
         "updatedAt": "2025-08-30T16:45:30+05:30"
     },
 
@@ -103,39 +107,21 @@ const hotelData = {
 
 // 3. Seeding Function
 const seedHotelData = async (data) => {
-    const hotelId = data.hotel.hotelId;
-    if (!hotelId) {
-        console.error("Error: hotelId is missing in the data.");
+    const hotelUid = data.hotel.hotelUid; // Use hotelUid as document ID to match authentication/user ID usually
+    if (!hotelUid) {
+        console.error("Error: hotelUid is missing in the data.");
         return;
     }
 
     try {
-        console.log(`Starting seed for Hotel ID: ${hotelId}...`);
+        console.log(`Starting seed for Hotel UID: ${hotelUid}...`);
 
-        // A. Set Hotel Document
-        // Using .set() with { merge: true } is often safer for updates, but .set() is fine for overwrite as implied.
-        const hotelRef = db.collection('hotels').doc(hotelId);
-        await hotelRef.set(data.hotel);
-        console.log(`✅ Hotel document written successfully: hotels/${hotelId}`);
+        // A. Set Hotel Document (Saving everything in one doc as requested)
+        const hotelRef = db.collection('hotels').doc(hotelUid);
 
-        // B. Add Rooms to Subcollection
-        const rooms = data.rooms || [];
-        if (rooms.length > 0) {
-            const roomsCollectionRef = hotelRef.collection('rooms');
-
-            // Use Promise.all for parallel writes
-            const roomPromises = rooms.map((room, index) => {
-                // Using .add() generates a new specific ID for each room doc
-                return roomsCollectionRef.add(room).then((docRef) => {
-                    console.log(`  - Room added with ID: ${docRef.id} (${room.roomName})`);
-                });
-            });
-
-            await Promise.all(roomPromises);
-            console.log(`✅ ${rooms.length} room(s) added successfully.`);
-        } else {
-            console.log("ℹ️ No rooms found to add.");
-        }
+        // Ensure the top-level document contains the structure: { hotel: {...}, rooms: [...] }
+        await hotelRef.set(data);
+        console.log(`✅ Hotel data written successfully to hotels/${hotelUid}`);
 
         console.log("🎉 Database seeding completed successfully!");
 

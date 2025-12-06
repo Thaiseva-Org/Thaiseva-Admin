@@ -59,13 +59,15 @@ const ExcelUploadPage = () => {
 
     const handleDownloadTemplate = async () => {
         const schema = [
-            { column: 'Hotel Name', type: String, value: hotel => hotel.hotelName, width: 20 },
+            { column: 'Hotel Name', type: String, value: hotel => hotel.hotelName, width: 25 },
             { column: 'Email', type: String, value: hotel => hotel.email, width: 25 },
             { column: 'Phone Number', type: String, value: hotel => hotel.phoneNumber, width: 15 },
             { column: 'Address', type: String, value: hotel => hotel.address, width: 30 },
             { column: 'Description', type: String, value: hotel => hotel.description, width: 30 },
-            { column: 'Bank Name', type: String, value: hotel => hotel.bankName, width: 20 },
-            { column: 'Bank Address', type: String, value: hotel => hotel.bankAddress, width: 30 }
+            { column: 'Star Rating', type: Number, value: hotel => hotel.rating, width: 10 },
+            { column: 'Pets Allowed', type: String, value: hotel => hotel.petsAllowed, width: 15 }, // "Yes" or "No"
+            { column: 'Discount', type: Number, value: hotel => hotel.discount, width: 10 },
+            { column: 'Features', type: String, value: hotel => hotel.features, width: 40 } // Comma separated
         ];
 
         const data = [
@@ -75,8 +77,10 @@ const ExcelUploadPage = () => {
                 phoneNumber: "1234567890",
                 address: "123 Main St, City, Country",
                 description: "A lovely place to stay.",
-                bankName: "Example Bank",
-                bankAddress: "Bank Street, City"
+                rating: 5,
+                petsAllowed: "No",
+                discount: 10,
+                features: "Pool, Wifi, Gym"
             }
         ];
 
@@ -142,8 +146,10 @@ const ExcelUploadPage = () => {
                 'Phone Number': 'phoneNumber',
                 'Address': 'address',
                 'Description': 'description',
-                'Bank Name': 'bankName',
-                'Bank Address': 'bankAddress'
+                'Star Rating': 'rating',
+                'Pets Allowed': 'petsAllowed',
+                'Discount': 'discount',
+                'Features': 'features'
             };
 
             const mappedData = dataRows.map(row => {
@@ -234,45 +240,48 @@ const ExcelUploadPage = () => {
                 }
 
                 if (createdUser) {
-                    const hotelInfo = {
-                        status: "Verified",
-                        verified: true,
-                        serviceCategory: "Hotel",
-                        hotelInformation: {
-                            email,
-                            hotelName,
-                            phoneNumber: phoneNumber || "",
+                    const finalPayload = {
+                        hotel: {
+                            hotelId: crypto.randomUUID(),
+                            hotelUid: createdUser.uid,
+                            hotelName: hotelName,
+                            country: "Thailand",
+                            currency: "THB",
+                            startingPrice: 0,
+                            discount: Number(row.discount) || 0,
                             address: row.address || "",
                             description: row.description || "",
-                            location: null,
-                            logoURL: "",
-                            rating: 0,
-                            amenities: [],
-                            roomTypes: []
+                            images: {
+                                logo: "",
+                                gallery: []
+                            },
+                            petsAllowed: String(row.petsAllowed).toLowerCase() === 'yes' || row.petsAllowed === true,
+                            nearbyAttractions: [], // Could also add to excel if needed
+                            features: row.features ? String(row.features).split(',').map(s => s.trim()) : [],
+                            phoneNumber: phoneNumber || "",
+                            email: email,
+                            rating: Number(row.rating) || 0,
+                            numberOfReviews: 0,
+                            status: "Verified",
+                            updatedAt: new Date().toISOString()
                         },
-                        paymentInformation: {
-                            bankName: row.bankName || "",
-                            accountNumber: "",
-                            bankAddress: row.bankAddress || ""
-                        },
-                        comission: 0,
-                        timestamp: serverTimestamp(),
-                        uid: createdUser.uid,
+                        rooms: [] // Initialize empty rooms array
                     };
 
                     await setDoc(doc(usersCollection, createdUser.uid), {
                         displayName: hotelName,
                         email,
-                        role: "Partner",
+                        role: "Partner", // Or 'Hotel'
                         serviceCategory: "Hotel",
                         status: "Verified",
                         photoURL: "",
-                        phoneNo: phoneNumber || "",
+                        phoneNumber: phoneNumber || "",
                         createdAt: new Date(),
                         uid: createdUser.uid,
+                        isVerified: true
                     });
 
-                    await setDoc(doc(hotelsCollection, createdUser.uid), hotelInfo);
+                    await setDoc(doc(hotelsCollection, createdUser.uid), finalPayload);
                     count++;
                 }
             } catch (err) {
@@ -474,8 +483,8 @@ const ExcelUploadPage = () => {
                                     <Table stickyHeader aria-label="sticky table">
                                         <TableHead>
                                             <TableRow>
-                                                {['Hotel Name', 'Email', 'Phone', 'Address', 'Description', 'Bank Name', 'Bank Address'].map((head) => (
-                                                    <TableCell key={head} sx={{ minWidth: 150, fontWeight: 'bold', bgcolor: '#3b82f6', color: '#fff', fontSize: '0.95rem', py: 2 }}>
+                                                {['Hotel Name', 'Email', 'Phone', 'Address', 'Description', 'Rating', 'Pets', 'Features'].map((head) => (
+                                                    <TableCell key={head} sx={{ minWidth: 100, fontWeight: 'bold', bgcolor: '#3b82f6', color: '#fff', fontSize: '0.95rem', py: 2 }}>
                                                         {head}
                                                     </TableCell>
                                                 ))}
@@ -574,29 +583,47 @@ const ExcelUploadPage = () => {
                                                         <TableCell>
                                                             {isEditing ? (
                                                                 <TextField
-                                                                    value={tempRowData.bankName || ''}
-                                                                    onChange={(e) => handleTempChange('bankName', e.target.value)}
+                                                                    value={tempRowData.rating || 0}
+                                                                    onChange={(e) => handleTempChange('rating', e.target.value)}
                                                                     variant="outlined"
                                                                     size="small"
-                                                                    fullWidth
+                                                                    type="number"
                                                                     sx={{ bgcolor: '#fff' }}
                                                                 />
                                                             ) : (
-                                                                <Typography variant="body2" color="text.secondary">{row.bankName}</Typography>
+                                                                <Typography variant="body2" color="text.secondary">{row.rating || 0}</Typography>
                                                             )}
                                                         </TableCell>
                                                         <TableCell>
                                                             {isEditing ? (
                                                                 <TextField
-                                                                    value={tempRowData.bankAddress || ''}
-                                                                    onChange={(e) => handleTempChange('bankAddress', e.target.value)}
+                                                                    value={tempRowData.petsAllowed || ''}
+                                                                    onChange={(e) => handleTempChange('petsAllowed', e.target.value)}
+                                                                    variant="outlined"
+                                                                    size="small"
+                                                                    placeholder="Yes/No"
+                                                                    sx={{ bgcolor: '#fff' }}
+                                                                />
+                                                            ) : (
+                                                                <Typography variant="body2" color="text.secondary">{String(row.petsAllowed)}</Typography>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {isEditing ? (
+                                                                <TextField
+                                                                    value={tempRowData.features || ''}
+                                                                    onChange={(e) => handleTempChange('features', e.target.value)}
                                                                     variant="outlined"
                                                                     size="small"
                                                                     fullWidth
                                                                     sx={{ bgcolor: '#fff' }}
                                                                 />
                                                             ) : (
-                                                                <Typography variant="body2" color="text.secondary">{row.bankAddress}</Typography>
+                                                                <Tooltip title={row.features} placement="top">
+                                                                    <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
+                                                                        {row.features}
+                                                                    </Typography>
+                                                                </Tooltip>
                                                             )}
                                                         </TableCell>
                                                         <TableCell sx={{ position: 'sticky', right: 0, bgcolor: isEditing ? '#fff' : (index % 2 === 0 ? '#fff' : '#f8fafc'), zIndex: 5, borderLeft: '1px solid #e2e8f0' }}>

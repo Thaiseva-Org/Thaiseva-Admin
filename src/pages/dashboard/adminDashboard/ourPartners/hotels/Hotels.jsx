@@ -54,6 +54,8 @@ import {
 import AddHotelSelectionModal from "./AddHotelSelectionModal";
 import { useNavigate } from "react-router-dom";
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
+import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
 
 const Hotels = () => {
   const navigate = useNavigate();
@@ -155,10 +157,10 @@ const Hotels = () => {
   // calling createData function with partner's data
   const rows = matchedHotels?.map((hotel) => {
     return createData(
-      hotel.hotelInformation?.hotelName,
-      hotel.hotelInformation?.phoneNumber,
-      hotel.hotelInformation?.email,
-      hotel.hotelInformation?.address,
+      hotel.hotelInformation?.hotelName || hotel.hotelName || hotel.hotel?.hotelName,
+      hotel.hotelInformation?.phoneNumber || hotel.phoneNumber || hotel.hotel?.phoneNumber,
+      hotel.hotelInformation?.email || hotel.email || hotel.hotel?.email,
+      hotel.hotelInformation?.address || hotel.address || hotel.hotel?.address,
       hotel.uid,
       hotel.serviceCategory,
       hotel.isBestHotel,
@@ -190,11 +192,12 @@ const Hotels = () => {
     const query = doc(hotelsCollection, id);
     const data = await getDoc(query);
 
-    setHotelDetails(data.data());
-    setStatus(data.data()?.status);
+    // Merge document ID with data
+    setHotelDetails({ ...data.data(), uid: id });
+    const s = data.data()?.status || (data.data()?.hotel ? data.data().hotel.status : "");
+    setStatus(s);
     setComission(data.data()?.comission);
-    // setIsBestHotel(data.data()?.isBestHotel || false); // setting the best hotel status
-    setViewDetailsModal(true); //opening the modal
+    setViewDetailsModal(true);
   };
 
   const handleEditHotel = (hotelData) => {
@@ -426,19 +429,6 @@ const Hotels = () => {
                                     title="Edit Hotel"
                                   >
                                     <MdEdit size={20} />
-                                  </IconButton>
-
-                                  {/* Rooms */}
-                                  <IconButton
-                                    onClick={() => navigate(`/dashboard/hotels/${row.uid}/rooms`)}
-                                    sx={{
-                                      color: '#8b5cf6',
-                                      '&:hover': { bgcolor: '#f5f3ff' },
-                                      transition: 'all 0.2s'
-                                    }}
-                                    title="Manage Rooms"
-                                  >
-                                    <MdMeetingRoom size={20} />
                                   </IconButton>
 
                                   {/* Delete */}
@@ -720,38 +710,54 @@ const Hotels = () => {
 
 
 
-        <DialogActions sx={{ px: 4, py: 3, borderTop: "1px solid #e2e8f0" }}>
+        <DialogActions sx={{ px: 4, py: 3, borderTop: "1px solid #e2e8f0", justifyContent: 'space-between' }}>
           <Button
-            onClick={handleClose}
+            variant="outlined"
+            color="secondary"
+            startIcon={<MdMeetingRoom />}
+            onClick={() => navigate(`/dashboard/hotels/${hotelDetails?.uid || hotelDetails?.hotel?.hotelUid}/rooms`)}
             sx={{
-              minWidth: "120px",
               borderRadius: "12px",
-              textTransform: "none",
               fontWeight: 600,
-              color: "#64748b",
-              "&:hover": {
-                backgroundColor: "#f8fafc",
-              },
+              textTransform: "none"
             }}
           >
-            Cancel
+            Manage Rooms
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleUpdateHotel}
-            sx={{
-              minWidth: "120px",
-              borderRadius: "12px",
-              textTransform: "none",
-              fontWeight: 600,
-              background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-              "&:hover": {
-                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
-              },
-            }}
-          >
-            💾 Save Changes
-          </Button>
+          <Box>
+            <Button
+              onClick={handleClose}
+              sx={{
+                minWidth: "120px",
+                borderRadius: "12px",
+                textTransform: "none",
+                fontWeight: 600,
+                color: "#64748b",
+                mr: 2,
+                "&:hover": {
+                  backgroundColor: "#f8fafc",
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleUpdateHotel}
+              sx={{
+                minWidth: "120px",
+                borderRadius: "12px",
+                textTransform: "none",
+                fontWeight: 600,
+                background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                "&:hover": {
+                  background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                },
+              }}
+            >
+              💾 Save Changes
+            </Button>
+          </Box>
         </DialogActions>
       </Dialog>
 
