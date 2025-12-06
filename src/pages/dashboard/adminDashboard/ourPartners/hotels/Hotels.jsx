@@ -1,4 +1,6 @@
 import CloseIcon from "@mui/icons-material/Close";
+import { MdVisibility, MdEdit, MdDelete, MdMeetingRoom, MdAdd } from "react-icons/md"; // Icons
+import AddHotelForm from "./AddHotelForm"; // Import Form
 import {
   Button,
   Box,
@@ -17,6 +19,7 @@ import {
   TextField,
   Tab,
   Tabs,
+  Tooltip,
 } from "@mui/material";
 import {
   deleteDoc,
@@ -35,9 +38,6 @@ import PageHeading from "../../../../../components/PageHeading";
 import SearchBar from "../../../../../components/SearchBar";
 import StaticMap from "../../../../../components/StaticMap";
 import SubTitle from "../../../../../components/SubTitle";
-import ViewDetailsIcon from "../../../../../components/ViewDetailsIcon";
-import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
-import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import {
   chatRoomsCollection,
   chatsCollection,
@@ -64,6 +64,8 @@ const Hotels = () => {
   const [loading, setLoading] = useState(true);
   const [viewDetailsModal, setViewDetailsModal] = useState(false); //Add service modal
   const [openSelectionModal, setOpenSelectionModal] = useState(false);
+  const [editHotelModal, setEditHotelModal] = useState(false);
+  const [selectedHotelForEdit, setSelectedHotelForEdit] = useState(null);
   const [tabValue, setTabValue] = useState(0);
   const [hotelDetails, setHotelDetails] = useState({ status: "" });
   const [status, setStatus] = useState("Pending");
@@ -87,7 +89,7 @@ const Hotels = () => {
       setLoading(true);
       const unSub = onSnapshot(hotelsCollection, (result) => {
         if (result) {
-          const list = result.docs.map((doc) => doc.data());
+          const list = result.docs.map((doc) => ({ ...doc.data(), uid: doc.id }));
           if (list?.length > 0) {
             setMatchedHotels(list);
             setLoading(false);
@@ -134,7 +136,8 @@ const Hotels = () => {
     uid,
     serviceCategory,
     isBestHotel,
-    bookings
+    bookings,
+    fullData
   ) {
     return {
       hotelName,
@@ -145,6 +148,7 @@ const Hotels = () => {
       serviceCategory,
       isBestHotel,
       bookings,
+      fullData
     };
   }
 
@@ -158,7 +162,8 @@ const Hotels = () => {
       hotel.uid,
       hotel.serviceCategory,
       hotel.isBestHotel,
-      hotel?.bookings?.length || 0
+      hotel?.bookings?.length || 0,
+      hotel // Pass full data
     );
   });
 
@@ -190,6 +195,14 @@ const Hotels = () => {
     setComission(data.data()?.comission);
     // setIsBestHotel(data.data()?.isBestHotel || false); // setting the best hotel status
     setViewDetailsModal(true); //opening the modal
+  };
+
+  const handleEditHotel = (hotelData) => {
+    // Prepare data for the form. 
+    // The form expects certain structure, passing the raw Firestore data might be easiest,
+    // and let the Form handle parsing in 'useEffect'.
+    setSelectedHotelForEdit(hotelData);
+    setEditHotelModal(true);
   };
 
   const handleDelete = async (id) => {
@@ -389,31 +402,57 @@ const Hotels = () => {
                                 </span>
                               ) : column.id === "action" ? (
                                 <div className="flex items-center justify-center gap-2">
-                                  <button
+                                  {/* View */}
+                                  <IconButton
                                     onClick={() => handleViewDetails(row.uid)}
-                                    className="p-2 hover:bg-primary-100 rounded-lg transition-colors"
-                                    title="View hotel's info"
+                                    sx={{
+                                      color: '#3b82f6',
+                                      '&:hover': { bgcolor: '#eff6ff' },
+                                      transition: 'all 0.2s'
+                                    }}
+                                    title="View Details"
                                   >
-                                    <ViewDetailsIcon />
-                                  </button>
+                                    <MdVisibility size={20} />
+                                  </IconButton>
 
-                                  <button
-                                    onClick={() =>
-                                      navigate(`/dashboard/hotels/${row.uid}/rooms`)
-                                    }
-                                    className="p-2 hover:bg-secondary-100 rounded-lg transition-colors text-secondary-600"
+                                  {/* Edit */}
+                                  <IconButton
+                                    onClick={() => handleEditHotel(row.fullData)}
+                                    sx={{
+                                      color: '#f59e0b',
+                                      '&:hover': { bgcolor: '#fffbeb' },
+                                      transition: 'all 0.2s'
+                                    }}
+                                    title="Edit Hotel"
+                                  >
+                                    <MdEdit size={20} />
+                                  </IconButton>
+
+                                  {/* Rooms */}
+                                  <IconButton
+                                    onClick={() => navigate(`/dashboard/hotels/${row.uid}/rooms`)}
+                                    sx={{
+                                      color: '#8b5cf6',
+                                      '&:hover': { bgcolor: '#f5f3ff' },
+                                      transition: 'all 0.2s'
+                                    }}
                                     title="Manage Rooms"
                                   >
-                                    <MeetingRoomIcon />
-                                  </button>
+                                    <MdMeetingRoom size={20} />
+                                  </IconButton>
 
-                                  <button
+                                  {/* Delete */}
+                                  <IconButton
                                     onClick={() => handleDelete(row.uid)}
-                                    className="p-2 hover:bg-danger-100 rounded-lg transition-colors"
-                                    title="Delete hotel"
+                                    sx={{
+                                      color: '#ef4444',
+                                      '&:hover': { bgcolor: '#fef2f2' },
+                                      transition: 'all 0.2s'
+                                    }}
+                                    title="Delete Hotel"
                                   >
-                                    <DeleteButton />
-                                  </button>
+                                    <MdDelete size={20} />
+                                  </IconButton>
                                 </div>
                               ) : (
                                 <span className="text-sm text-neutral-700">
@@ -536,7 +575,10 @@ const Hotels = () => {
                 <div className="flex justify-center">
                   <div className="relative">
                     <img
-                      src={hotelDetails?.hotelInformation?.logoURL}
+                      src={
+                        hotelDetails?.hotel?.images?.logo ||
+                        hotelDetails?.hotelInformation?.logoURL
+                      }
                       alt="Hotel Logo"
                       className="w-40 h-40 rounded-2xl object-cover border-4 border-primary-200 shadow-lg"
                     />
@@ -557,42 +599,36 @@ const Hotels = () => {
                     <TextField
                       label="Hotel Name"
                       fullWidth
-                      value={hotelDetails?.hotelInformation?.hotelName || ""}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "hotelInformation",
-                          "hotelName",
-                          e.target.value
-                        )
+                      value={
+                        hotelDetails?.hotel?.hotelName ||
+                        hotelDetails?.hotelInformation?.hotelName ||
+                        ""
                       }
+                      InputProps={{ readOnly: true }}
                       variant="outlined"
                       size="small"
                     />
                     <TextField
                       label="Email"
                       fullWidth
-                      value={hotelDetails?.hotelInformation?.email || ""}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "hotelInformation",
-                          "email",
-                          e.target.value
-                        )
+                      value={
+                        hotelDetails?.hotel?.email ||
+                        hotelDetails?.hotelInformation?.email ||
+                        ""
                       }
+                      InputProps={{ readOnly: true }}
                       variant="outlined"
                       size="small"
                     />
                     <TextField
                       label="Phone"
                       fullWidth
-                      value={hotelDetails?.hotelInformation?.phoneNumber || ""}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "hotelInformation",
-                          "phoneNumber",
-                          e.target.value
-                        )
+                      value={
+                        hotelDetails?.hotel?.phoneNumber ||
+                        hotelDetails?.hotelInformation?.phoneNumber ||
+                        ""
                       }
+                      InputProps={{ readOnly: true }}
                       variant="outlined"
                       size="small"
                     />
@@ -601,81 +637,16 @@ const Hotels = () => {
                       fullWidth
                       multiline
                       rows={2}
-                      value={hotelDetails?.hotelInformation?.address || ""}
-                      onChange={(e) =>
-                        handleInputChange(
-                          "hotelInformation",
-                          "address",
-                          e.target.value
-                        )
+                      value={
+                        hotelDetails?.hotel?.address ||
+                        hotelDetails?.hotelInformation?.address ||
+                        ""
                       }
+                      InputProps={{ readOnly: true }}
                       variant="outlined"
                       size="small"
                     />
                   </div>
-                </div>
-              </Grid>
-
-              {/* Payment Information */}
-              <Grid item xs={12}>
-                <div className="bg-gradient-to-br from-success-50 to-white rounded-xl p-4 border border-success-100">
-                  <h3 className="text-lg font-bold text-success-700 mb-3 flex items-center gap-2">
-                    <span>💳</span> Payment Information
-                  </h3>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        label="Bank Name"
-                        fullWidth
-                        value={hotelDetails?.paymentInformation?.bankName || ""}
-                        onChange={(e) =>
-                          handleInputChange(
-                            "paymentInformation",
-                            "bankName",
-                            e.target.value
-                          )
-                        }
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        label="Account Number"
-                        fullWidth
-                        value={
-                          hotelDetails?.paymentInformation?.accountNumber || ""
-                        }
-                        onChange={(e) =>
-                          handleInputChange(
-                            "paymentInformation",
-                            "accountNumber",
-                            e.target.value
-                          )
-                        }
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        label="Bank Location"
-                        fullWidth
-                        value={
-                          hotelDetails?.paymentInformation?.bankAddress || ""
-                        }
-                        onChange={(e) =>
-                          handleInputChange(
-                            "paymentInformation",
-                            "bankAddress",
-                            e.target.value
-                          )
-                        }
-                        variant="outlined"
-                        size="small"
-                      />
-                    </Grid>
-                  </Grid>
                 </div>
               </Grid>
 
@@ -687,23 +658,10 @@ const Hotels = () => {
                   </h3>
                   <div className="rounded-xl overflow-hidden border-2 border-neutral-200">
                     <StaticMap
-                      location={hotelDetails?.hotelInformation?.location}
-                    />
-                  </div>
-                </div>
-              </Grid>
-
-              {/* Hotel License */}
-              <Grid item xs={12}>
-                <div className="bg-gradient-to-br from-secondary-50 to-white rounded-xl p-4 border border-secondary-100">
-                  <h3 className="text-lg font-bold text-secondary-700 mb-3 flex items-center gap-2">
-                    <span>📄</span> Hotel License
-                  </h3>
-                  <div className="rounded-xl overflow-hidden border-2 border-secondary-200">
-                    <img
-                      src={hotelDetails?.hotelInformation?.license}
-                      alt="Hotel License"
-                      className="w-full h-auto max-h-96 object-contain bg-neutral-50"
+                      location={
+                        hotelDetails?.hotel?.location ||
+                        hotelDetails?.hotelInformation?.location
+                      }
                     />
                   </div>
                 </div>
@@ -751,7 +709,6 @@ const Hotels = () => {
                             },
                           }}
                         />
-
                       </div>
                     </Grid>
                   </Grid>
@@ -798,13 +755,36 @@ const Hotels = () => {
         </DialogActions>
       </Dialog>
 
-
-
+      {/* Edit Hotel Modal using AddHotelForm */}
+      <Dialog
+        open={editHotelModal}
+        onClose={() => setEditHotelModal(false)}
+        fullScreen
+        PaperProps={{
+          style: {
+            backgroundColor: "#f8f9fa"
+          }
+        }}
+      >
+        <div className="relative">
+          <IconButton
+            onClick={() => setEditHotelModal(false)}
+            sx={{ position: 'absolute', right: 20, top: 20, zIndex: 50, bgcolor: 'white', border: '1px solid #ccc' }}
+          >
+            <CloseIcon />
+          </IconButton>
+          <AddHotelForm
+            initialData={selectedHotelForEdit}
+            isEdit={true}
+            onClose={() => setEditHotelModal(false)}
+          />
+        </div>
+      </Dialog>
       <AddHotelSelectionModal
         open={openSelectionModal}
         onClose={() => setOpenSelectionModal(false)}
       />
-    </div >
+    </div>
   );
 };
 
