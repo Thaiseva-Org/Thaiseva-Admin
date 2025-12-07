@@ -133,7 +133,8 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
     const [petsAllowed, setPetsAllowed] = useState(false);
     const [nearbyAttractions, setNearbyAttractions] = useState([]);
     const [attractionInput, setAttractionInput] = useState("");
-    const [hotelDiscount, setHotelDiscount] = useState(0);
+    const [hotelDiscount, setHotelDiscount] = useState("");
+    const [manualStartingPrice, setManualStartingPrice] = useState("");
 
     const [logoError, setLogoError] = useState(false);
     const [locationError, setLocationError] = useState(false);
@@ -145,9 +146,8 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
     const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
     const [newRoom, setNewRoom] = useState({
         roomName: "",
-        packageName: "",
-        maxGuests: 2,
-        numberOfBeds: 1,
+        maxGuests: "",
+        numberOfBeds: "",
         bedType: "King",
         photos: [],
         amenities: [],
@@ -164,8 +164,8 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
             breakfastType: "Continental"
         },
         pricing: {
-            basePrice: 0,
-            discountPercent: 0,
+            basePrice: "",
+            discountPercent: "",
             taxIncluded: true,
             pricingBasedOnGuests: []
         }
@@ -208,6 +208,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                 if (map) map.panTo(h.location);
             }
             if (h.address) setAddressInputValue(h.address);
+            if (h.startingPrice) setManualStartingPrice(h.startingPrice);
         }
     }, [isEdit, initialData, setValue, map]); // Added map dependency
 
@@ -295,7 +296,6 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
         setRoomTypes(prev => [...prev, finalRoom]);
         setNewRoom({
             roomName: "",
-            packageName: "",
             maxGuests: 2,
             numberOfBeds: 1,
             bedType: "King",
@@ -321,7 +321,8 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
             }
         });
         setIsRoomModalOpen(false);
-        successNotification("Room added to configuration!");
+        setIsRoomModalOpen(false);
+        successNotification("Room staged! Please proceed to 'Configuration' and 'Submit' to save.");
     };
 
     const handleDeleteRoom = (id) => {
@@ -337,15 +338,16 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
         try {
             const finalPayload = {
                 hotel: {
-                    hotelId: isEdit ? (initialData.hotel?.hotelId || initialData.uid) : crypto.randomUUID(),
+                    hotelId: isEdit ? (initialData.hotel?.hotelId || initialData.uid) : (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7)),
                     hotelUid: isEdit ? (initialData.hotel?.hotelUid || initialData.uid) : (Math.random().toString(36).substring(7)), // Should be user UID but for new manual add we need logic
                     hotelName: data.hotelName,
                     country: data.country || "Thailand",
+                    country: data.country || "Thailand",
                     currency: "THB",
-                    startingPrice: roomTypes.length > 0 ? Math.min(...roomTypes.map(r => r.pricing?.pricePerNightAfterDiscount || 0)) : 0,
-                    discount: hotelDiscount,
-                    address: addressInputValue || data.address,
-                    description: data.description,
+                    startingPrice: manualStartingPrice ? Number(manualStartingPrice) : (roomTypes.length > 0 ? Math.min(...roomTypes.map(r => r.pricing?.pricePerNightAfterDiscount || 0)) : 0),
+                    discount: Number(hotelDiscount) || 0,
+                    address: addressInputValue || data.address || "",
+                    description: data.description || "",
                     images: {
                         logo: logoURL,
                         gallery: hotelGallery
@@ -353,46 +355,55 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     petsAllowed: petsAllowed,
                     nearbyAttractions: nearbyAttractions,
                     features: [...selectedAmenities, ...customAmenities],
-                    phoneNumber: data.phoneNumber,
-                    email: data.email,
+                    phoneNumber: data.phoneNumber || "",
+                    email: data.email || "",
                     rating: rating,
                     numberOfReviews: isEdit ? (initialData.hotel?.numberOfReviews || 0) : 0,
                     status: "Verified",
                     updatedAt: new Date().toISOString(),
                     location: location // Keeping location object if available
-                },
-                rooms: roomTypes
+                }
             };
 
+            const hotelDocRef = isEdit ? doc(db, "HotelDB", initialData.uid) : doc(hotelsCollection);
+            const hotelIdForSubColl = isEdit ? initialData.uid : hotelDocRef.id;
+
+            // Ensure hotelUid is consistent if new
+            if (!isEdit) {
+                finalPayload.hotel.hotelUid = hotelIdForSubColl;
+            }
+
             if (isEdit && initialData?.uid) {
-                await updateDoc(doc(db, "hotels", initialData.uid), {
+                await updateDoc(hotelDocRef, {
                     ...finalPayload,
                     updatedAt: serverTimestamp()
                 });
 
-                // Also update user doc if needed
-                await updateDoc(doc(db, "users", initialData.uid), {
+                // Also update user doc if needed (use setDoc with merge to avoid "No document to update" error)
+                await setDoc(doc(db, "users", initialData.uid), {
                     status: "Verified",
                     isVerified: true
-                });
+                }, { merge: true });
 
-                successNotification("Hotel updated successfully!");
-                handleClose();
             } else {
-                // For new hotel, we create a user first (usually) or just doc.
-                // Assuming manual add creates a user logic is handled outside or we mock it.
-                // The seed script used user UID. Here we might need to create Auth user.
-                // But keeping it simple as per previous logic which used addDoc/setDoc.
-
-                // If we don't create an Auth user, we can't have a valid UID linked to login.
-                // But for now, let's just create the hotel doc.
-                const newDocRef = doc(hotelsCollection);
-                finalPayload.hotel.hotelUid = newDocRef.id; // consistency
-
-                await setDoc(newDocRef, finalPayload);
-                successNotification("New Hotel Added (Verified)!");
-                handleClose();
+                await setDoc(hotelDocRef, finalPayload);
             }
+
+            // Save Rooms to Sub-collection
+            const roomsSubCollectionRef = collection(db, "HotelDB", hotelIdForSubColl, "rooms");
+
+            // Note: For edit, we are upserting rooms. 
+            // Currently not handling deletion of rooms that were removed from UI but exist in DB.
+            const roomPromises = roomTypes.map(async (room) => {
+                const roomId = room.id.toString();
+                const roomDocRef = doc(roomsSubCollectionRef, roomId);
+                await setDoc(roomDocRef, room, { merge: true });
+            });
+
+            await Promise.all(roomPromises);
+
+            successNotification(isEdit ? "Hotel & Rooms updated successfully!" : "New Hotel & Rooms Added (Verified)!");
+            handleClose();
 
         } catch (error) {
             console.error("Submission Error:", error);
@@ -593,7 +604,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                 </div>
 
                 {/* Rating & Etc */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">Star Rating</label>
                         <StarRating rating={rating} setRating={setRating} />
@@ -603,10 +614,17 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                         <input type="checkbox" checked={petsAllowed} onChange={(e) => setPetsAllowed(e.target.checked)} className="w-5 h-5" />
                     </div>
                     <TextField
+                        label="Starting Price"
+                        type="number"
+                        value={manualStartingPrice}
+                        onChange={(e) => setManualStartingPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                    />
+                    <TextField
                         label="Discount (%)"
                         type="number"
                         value={hotelDiscount}
-                        onChange={(e) => setHotelDiscount(Number(e.target.value))}
+                        onChange={(e) => setHotelDiscount(e.target.value === "" ? "" : Number(e.target.value))}
                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                     />
                 </div>
@@ -830,15 +848,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     {currentStep === 2 && renderStep2()}
                     {currentStep === 3 && renderStep3()}
 
-                    {submissionError && (
-                        <div className="mt-6 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm font-medium whitespace-pre-line animate-pulse">
-                            <div className="flex items-center gap-2 mb-1 text-red-700 font-bold">
-                                <MdError size={20} />
-                                <span>Action Required</span>
-                            </div>
-                            {submissionError}
-                        </div>
-                    )}
+                    {/* Alert removed as requested */}
 
                     <div className="flex justify-between items-center mt-6 pt-6">
                         {currentStep > 1 ? (
@@ -936,14 +946,6 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                     variant="outlined"
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                 />
-                                <TextField
-                                    label="Package Name"
-                                    fullWidth
-                                    value={newRoom.packageName}
-                                    onChange={(e) => setNewRoom({ ...newRoom, packageName: e.target.value })}
-                                    placeholder="e.g. Standard, Deluxe"
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                />
                             </div>
 
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -952,7 +954,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                     type="number"
                                     fullWidth
                                     value={newRoom.maxGuests}
-                                    onChange={(e) => setNewRoom({ ...newRoom, maxGuests: Number(e.target.value) })}
+                                    onChange={(e) => setNewRoom({ ...newRoom, maxGuests: e.target.value === "" ? "" : Number(e.target.value) })}
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                 />
                                 <TextField
@@ -960,7 +962,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                     type="number"
                                     fullWidth
                                     value={newRoom.numberOfBeds}
-                                    onChange={(e) => setNewRoom({ ...newRoom, numberOfBeds: Number(e.target.value) })}
+                                    onChange={(e) => setNewRoom({ ...newRoom, numberOfBeds: e.target.value === "" ? "" : Number(e.target.value) })}
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                 />
                                 <TextField
@@ -982,7 +984,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                     type="number"
                                     fullWidth
                                     value={newRoom.pricing.basePrice}
-                                    onChange={(e) => setNewRoom({ ...newRoom, pricing: { ...newRoom.pricing, basePrice: Number(e.target.value) } })}
+                                    onChange={(e) => setNewRoom({ ...newRoom, pricing: { ...newRoom.pricing, basePrice: e.target.value === "" ? "" : Number(e.target.value) } })}
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                 />
                             </div>
@@ -993,7 +995,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                     type="number"
                                     fullWidth
                                     value={newRoom.pricing.discountPercent}
-                                    onChange={(e) => setNewRoom({ ...newRoom, pricing: { ...newRoom.pricing, discountPercent: Number(e.target.value) } })}
+                                    onChange={(e) => setNewRoom({ ...newRoom, pricing: { ...newRoom.pricing, discountPercent: e.target.value === "" ? "" : Number(e.target.value) } })}
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                 />
                                 <div className="flex items-center gap-4 p-2 border border-gray-200 rounded-xl">
@@ -1049,6 +1051,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
                         <Button onClick={() => setIsRoomModalOpen(false)} sx={{ color: 'gray', fontWeight: 600 }}>Cancel</Button>
                         <Button
+                            type="button"
                             onClick={handleAddRoom}
                             variant="contained"
                             sx={{
@@ -1063,7 +1066,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     </DialogActions>
                 </Dialog>
             </div>
-        </Box>
+        </Box >
     );
 };
 

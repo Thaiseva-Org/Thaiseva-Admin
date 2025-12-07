@@ -39,7 +39,7 @@ import readXlsxFile from 'read-excel-file';
 import writeXlsxFile from 'write-excel-file';
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
-import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, collection } from "firebase/firestore";
 import {
     hotelsCollection,
     usersCollection,
@@ -67,7 +67,10 @@ const ExcelUploadPage = () => {
             { column: 'Star Rating', type: Number, value: hotel => hotel.rating, width: 10 },
             { column: 'Pets Allowed', type: String, value: hotel => hotel.petsAllowed, width: 15 }, // "Yes" or "No"
             { column: 'Discount', type: Number, value: hotel => hotel.discount, width: 10 },
-            { column: 'Features', type: String, value: hotel => hotel.features, width: 40 } // Comma separated
+            { column: 'Features', type: String, value: hotel => hotel.features, width: 40 }, // Comma separated
+            { column: 'Room Name', type: String, value: hotel => hotel.roomName, width: 25 },
+            { column: 'Room Price', type: Number, value: hotel => hotel.roomPrice, width: 15 },
+            { column: 'Max Guests', type: Number, value: hotel => hotel.maxGuests, width: 15 }
         ];
 
         const data = [
@@ -80,7 +83,10 @@ const ExcelUploadPage = () => {
                 rating: 5,
                 petsAllowed: "No",
                 discount: 10,
-                features: "Pool, Wifi, Gym"
+                features: "Pool, Wifi, Gym",
+                roomName: "Standard Room",
+                roomPrice: 1500,
+                maxGuests: 2
             }
         ];
 
@@ -149,7 +155,10 @@ const ExcelUploadPage = () => {
                 'Star Rating': 'rating',
                 'Pets Allowed': 'petsAllowed',
                 'Discount': 'discount',
-                'Features': 'features'
+                'Features': 'features',
+                'Room Name': 'roomName',
+                'Room Price': 'roomPrice',
+                'Max Guests': 'maxGuests'
             };
 
             const mappedData = dataRows.map(row => {
@@ -247,7 +256,7 @@ const ExcelUploadPage = () => {
                             hotelName: hotelName,
                             country: "Thailand",
                             currency: "THB",
-                            startingPrice: 0,
+                            startingPrice: Number(row.roomPrice) || 0,
                             discount: Number(row.discount) || 0,
                             address: row.address || "",
                             description: row.description || "",
@@ -259,13 +268,12 @@ const ExcelUploadPage = () => {
                             nearbyAttractions: [], // Could also add to excel if needed
                             features: row.features ? String(row.features).split(',').map(s => s.trim()) : [],
                             phoneNumber: phoneNumber || "",
-                            email: email,
+                            email: email || "",
                             rating: Number(row.rating) || 0,
                             numberOfReviews: 0,
                             status: "Verified",
                             updatedAt: new Date().toISOString()
-                        },
-                        rooms: [] // Initialize empty rooms array
+                        }
                     };
 
                     await setDoc(doc(usersCollection, createdUser.uid), {
@@ -281,7 +289,49 @@ const ExcelUploadPage = () => {
                         isVerified: true
                     });
 
-                    await setDoc(doc(hotelsCollection, createdUser.uid), finalPayload);
+                    // Save Hotel to HotelDB
+                    await setDoc(doc(db, "HotelDB", createdUser.uid), finalPayload);
+
+                    // Save Room to sub-collection if details exist
+                    if (row.roomName && row.roomPrice) {
+                        const roomId = Date.now().toString();
+                        const roomData = {
+                            id: roomId,
+                            roomName: row.roomName,
+                            packageName: "Standard",
+                            maxGuests: Number(row.maxGuests) || 2,
+                            numberOfBeds: 1,
+                            bedType: "King",
+                            photos: [],
+                            amenities: row.features ? String(row.features).split(',').map(s => s.trim()) : [],
+                            description: `Standard ${row.roomName}`,
+                            policies: {
+                                checkIn: "14:00",
+                                checkOut: "12:00",
+                                extraBed: "",
+                                paymentInfo: "Prepaid",
+                                refundable: true
+                            },
+                            foodInfo: {
+                                breakfastIncluded: false,
+                                breakfastType: "Continental"
+                            },
+                            pricing: {
+                                basePrice: Number(row.roomPrice),
+                                discountPercent: 0,
+                                taxIncluded: true,
+                                pricingBasedOnGuests: [],
+                                pricePerNightAfterDiscount: Number(row.roomPrice),
+                                priceForStay: {
+                                    nights: 1,
+                                    totalAmount: Number(row.roomPrice)
+                                }
+                            }
+                        };
+                        const roomsCollectionRef = collection(db, "HotelDB", createdUser.uid, "rooms");
+                        await setDoc(doc(roomsCollectionRef, roomId), roomData);
+                    }
+
                     count++;
                 }
             } catch (err) {
@@ -483,7 +533,7 @@ const ExcelUploadPage = () => {
                                     <Table stickyHeader aria-label="sticky table">
                                         <TableHead>
                                             <TableRow>
-                                                {['Hotel Name', 'Email', 'Phone', 'Address', 'Description', 'Rating', 'Pets', 'Features'].map((head) => (
+                                                {['Hotel Name', 'Email', 'Phone', 'Address', 'Desc', 'Rating', 'Pets', 'Features', 'Room Name', 'Price', 'Guests'].map((head) => (
                                                     <TableCell key={head} sx={{ minWidth: 100, fontWeight: 'bold', bgcolor: '#3b82f6', color: '#fff', fontSize: '0.95rem', py: 2 }}>
                                                         {head}
                                                     </TableCell>
@@ -625,6 +675,21 @@ const ExcelUploadPage = () => {
                                                                     </Typography>
                                                                 </Tooltip>
                                                             )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {isEditing ? (
+                                                                <TextField value={tempRowData.roomName || ''} onChange={(e) => handleTempChange('roomName', e.target.value)} variant="outlined" size="small" sx={{ bgcolor: '#fff' }} />
+                                                            ) : <Typography variant="body2" color="text.secondary">{row.roomName}</Typography>}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {isEditing ? (
+                                                                <TextField value={tempRowData.roomPrice || ''} onChange={(e) => handleTempChange('roomPrice', e.target.value)} variant="outlined" size="small" type="number" sx={{ bgcolor: '#fff' }} />
+                                                            ) : <Typography variant="body2" color="text.secondary">{row.roomPrice}</Typography>}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {isEditing ? (
+                                                                <TextField value={tempRowData.maxGuests || ''} onChange={(e) => handleTempChange('maxGuests', e.target.value)} variant="outlined" size="small" type="number" sx={{ bgcolor: '#fff' }} />
+                                                            ) : <Typography variant="body2" color="text.secondary">{row.maxGuests}</Typography>}
                                                         </TableCell>
                                                         <TableCell sx={{ position: 'sticky', right: 0, bgcolor: isEditing ? '#fff' : (index % 2 === 0 ? '#fff' : '#f8fafc'), zIndex: 5, borderLeft: '1px solid #e2e8f0' }}>
                                                             {isEditing ? (
