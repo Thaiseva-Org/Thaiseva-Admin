@@ -11,6 +11,14 @@ import {
   IconButton,
   TablePagination,
   TextField,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  Collapse,
+  Typography,
+  Card,
+  CardContent,
+  Stack,
 } from "@mui/material";
 import {
   collection,
@@ -46,6 +54,12 @@ import {
 } from "../../../../../utils/utils";
 import ViewDetailsIcon from "./../../../../../components/ViewDetailsIcon";
 
+import { getEmptySightseeingPackage } from "../../../../../utils/sightseeingTransformation";
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import RemoveCircleIcon from '@mui/icons-material/RemoveCircle';
+
 const TravelServices = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
   const [travelServices, setTravelServices] = useState([]);
@@ -66,6 +80,11 @@ const TravelServices = () => {
     discount: 0,
     location: "",
     period: 0,
+    pricePerChild: 0,
+    extraAdultPrice: 0,
+    transportType: "",
+    pickupFromHotel: false,
+    dropToAirport: false,
   });
   const [arrayData, setArrayData] = useState({
     amenities: [],
@@ -74,12 +93,84 @@ const TravelServices = () => {
     pictures: [],
     places: [],
   });
-
-  const [openModal, setOpenModal] = useState(false); // Add requirement modal
+  const [openModal, setOpenModal] = useState(false);
   const amenitiesRef = useRef();
   const hotelsRef = useRef();
   const placesRef = useRef();
   const includedRef = useRef();
+
+  // Multi-step Wizard State
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 3;
+
+  const handleNextStep = () => setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
+  const handleBackStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
+
+
+  // Expanded states for new sections
+  const [expandedSections, setExpandedSections] = useState({
+    itinerary: false,
+    hotels: false,
+    reviews: false,
+    sights: false,
+    specialRates: false
+  });
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const [itinerary, setItinerary] = useState([]);
+  const [hotelsIncluded, setHotelsIncluded] = useState([]);
+  const [sights, setSights] = useState([]);
+  const [specialRates, setSpecialRates] = useState({
+    seasonalPricing: { enabled: false, note: "" },
+    earlyBirdDiscount: { enabled: false, discountPercent: 0, description: "" }
+  });
+
+  const addItineraryDay = () => {
+    setItinerary([...itinerary, { day: itinerary.length + 1, title: "", timeline: [] }]);
+  };
+
+  const updateItineraryDay = (index, field, value) => {
+    const newItinerary = [...itinerary];
+    newItinerary[index][field] = value;
+    setItinerary(newItinerary);
+  };
+
+  const addTimelineEvent = (dayIndex) => {
+    const newItinerary = [...itinerary];
+    newItinerary[dayIndex].timeline.push({ time: "", activity: "" });
+    setItinerary(newItinerary);
+  };
+
+  const updateTimelineEvent = (dayIndex, eventIndex, field, value) => {
+    const newItinerary = [...itinerary];
+    newItinerary[dayIndex].timeline[eventIndex][field] = value;
+    setItinerary(newItinerary);
+  };
+
+  const addHotel = () => {
+    setHotelsIncluded([...hotelsIncluded, {
+      hotelId: uuid(), hotelName: "", nights: 1, roomType: "", location: ""
+    }]);
+  };
+
+  const updateHotel = (index, field, value) => {
+    const newList = [...hotelsIncluded];
+    newList[index][field] = value;
+    setHotelsIncluded(newList);
+  };
+
+  const addSight = () => {
+    setSights([...sights, { sightId: uuid(), title: "", description: "" }]);
+  };
+
+  const updateSight = (index, field, value) => {
+    const newList = [...sights];
+    newList[index][field] = value;
+    setSights(newList);
+  };
   const {
     handleSubmit,
     reset,
@@ -129,11 +220,15 @@ const TravelServices = () => {
     setLoadingServices(false);
   };
   useEffect(() => {
+    console.log(121);
+
     if (isAdmin || isSubAdmin) {
       fetchTotalPages();
       fetchData();
     }
   }, [isAdmin, isSubAdmin, refetch, page, rowsPerPage]);
+
+
 
   const columns = [
     { id: "title", label: "Title", width: "20%" },
@@ -202,24 +297,6 @@ const TravelServices = () => {
     );
   });
 
-  /* =============================================================
-              serach functionalities start
-  =============================================================*/
-  // const handleSearchByTitle = (text) => {
-  //   const matchingObjects = travelServices.filter((item) =>
-  //     item.title.toLowerCase().includes(text.toLowerCase())
-  //   );
-  //   setMatchedTravelServices(matchingObjects);
-  // };
-
-  // const handleSearchByServiceArea = (text) => {
-  //   const matchingObjects = travelServices.filter((item) =>
-  //     item.location.toLowerCase().includes(text.toLowerCase())
-  //   );
-
-  //   setMatchedTravelServices(matchingObjects);
-  // };
-
   const handleSearch = (text) => {
     const matchingObjects = travelServices.filter(
       (item) =>
@@ -230,10 +307,6 @@ const TravelServices = () => {
     setMatchedTravelServices(matchingObjects);
   };
 
-  /* =============================================================
-              serach functionalities end
-  =============================================================*/
-
   const handleChangePage = (_, newPage) => {
     setPage(newPage);
   };
@@ -243,15 +316,11 @@ const TravelServices = () => {
     setPage(0);
   };
 
-  /* =============================================================
-              Add Packages functionalities start
-  =============================================================*/
   const handleOpenModal = () => {
     reset();
     setOpenModal(true);
   };
 
-  // opening AddPackagesModal the modal while cliking on right sign icon
   const handleCloseModal = () => {
     reset();
     setPackageDetails({
@@ -262,6 +331,18 @@ const TravelServices = () => {
       discount: 0,
       location: "",
       period: 0,
+      pricePerChild: 0,
+      extraAdultPrice: 0,
+      transportType: "",
+      pickupFromHotel: false,
+      dropToAirport: false,
+    });
+    setItinerary([]);
+    setHotelsIncluded([]);
+    setSights([]);
+    setSpecialRates({
+      seasonalPricing: { enabled: false, note: "" },
+      earlyBirdDiscount: { enabled: false, discountPercent: 0, description: "" }
     });
     setCoverPhotoURL("");
     setArrayData({
@@ -271,10 +352,10 @@ const TravelServices = () => {
       pictures: [],
       places: [],
     });
-    setOpenModal(false);
+    setOpenModal(true);
+    setCurrentStep(1);
   };
 
-  // storing the requrement in the database
   const handleAddTravelService = async (data) => {
     const { title, price, description, discount, location, period } = data;
     if (!coverPhotoURL) {
@@ -283,19 +364,12 @@ const TravelServices = () => {
     if (arrayData?.amenities?.length < 3) {
       return alert("Please provide at least 3 amenities");
     }
-    // if (arrayData?.places?.length < 3) {
-    //   return alert("Please provide at least 3 places");
-    // }
-    // if (arrayData?.included?.length < 3) {
-    //   return alert("Please provide at least 3 included");
-    // }
     if (arrayData?.pictures?.length < 3) {
       return alert("Please provide at least 3 pictures");
     }
     if (
       confirm(
-        `Are you sure to ${
-          packageDetails?.title ? "update" : "add"
+        `Are you sure to ${packageDetails?.title ? "update" : "add"
         } this package?`
       )
     ) {
@@ -320,20 +394,75 @@ const TravelServices = () => {
           : new Date(),
       };
 
+      const baseStruct = getEmptySightseeingPackage();
+
       const travelDetails = {
+        ...baseStruct,
         ...travelInfo,
-        amenities: arrayData?.amenities,
-        included: arrayData?.included,
-        pictures: arrayData?.pictures,
-        hotels: arrayData?.hotels,
-        places: arrayData?.places,
+        packageId: id,
+        packageName: title,
+        about: description,
+        startingPrice: parseFloat(price),
+        currency: "THB",
+        duration: {
+          days: parseFloat(period),
+          nights: parseFloat(period) - 1 > 0 ? parseFloat(period) - 1 : 0
+        },
+        thumbnailImage: coverPhotoURL,
+
+        highlights: arrayData?.amenities || [],
+        amenities: arrayData?.amenities || [],
+        included: arrayData?.included || [],
+        packageImages: arrayData?.pictures || [],
+        pictures: arrayData?.pictures || [],
+
+        // Use new rich data states if populated, else fallback to legacy mapping
+        itinerary: itinerary.length > 0 ? itinerary : baseStruct.itinerary,
+        hotelsIncluded: hotelsIncluded.length > 0 ? hotelsIncluded : (arrayData?.hotels?.map(h => ({
+          hotelId: uuid(),
+          hotelName: h,
+          nights: 1,
+          roomType: "Standard",
+          location: location,
+          images: [],
+          amenities: []
+        })) || []),
+        hotels: arrayData?.hotels || [],
+
+        sights: sights.length > 0 ? sights : (arrayData?.places?.map(s => ({
+          sightId: uuid(),
+          title: s,
+          description: "",
+          images: [],
+          location: { latitude: 0, longitude: 0 }
+        })) || []),
+        places: arrayData?.places || [],
+
+        specialRates: specialRates,
+
+        pricingStructure: {
+          pricePerAdult: parseFloat(price),
+          pricePerChild: parseFloat(data.pricePerChild || 0),
+          extraAdultPrice: parseFloat(data.extraAdultPrice || 0)
+        },
+
+        transportType: data.transportType || "",
+        pickupDropDetails: {
+          pickupFromHotel: packageDetails.pickupFromHotel,
+          dropToAirport: packageDetails.dropToAirport,
+          availablePickupTimes: [],
+          availableDropTimes: []
+        },
+
+        rating: { average: 5, totalReviews: 0 },
       };
 
       await setDoc(doc(travelServicesCollection, id), travelInfo);
 
       await setDoc(
         doc(collection(db, "sightseeingPackagesDetails"), id),
-        travelDetails
+        travelDetails,
+        { merge: true }
       ).then(() => reset());
 
       setPackageDetails({
@@ -341,11 +470,14 @@ const TravelServices = () => {
         title: "",
         price: 0,
         description: "",
-        discount: "",
+        discount: 0,
         location: "",
-        period: "",
-        rating: 0,
-        numberOfReviews: 0,
+        period: 0,
+        pricePerChild: 0,
+        extraAdultPrice: 0,
+        transportType: "",
+        pickupFromHotel: false,
+        dropToAirport: false,
       });
 
       setCoverPhotoURL("");
@@ -357,19 +489,14 @@ const TravelServices = () => {
         places: [],
       });
       successNotification(
-        `The Package is ${
-          packageDetails?.title ? "updated" : "Added"
+        `The Package is ${packageDetails?.title ? "updated" : "Added"
         } successfully`
       );
       setOpenModal(false);
       setRefetch((p) => !p);
     }
   };
-  /* =============================================================
-              Add Packages functionalities end
-  =============================================================*/
 
-  // upadate package
   const handleViewPackage = async (id) => {
     reset();
     const snapshot = await getDoc(
@@ -397,6 +524,11 @@ const TravelServices = () => {
         location,
         period,
         timestamp,
+        pricePerChild: existingData?.pricingStructure?.pricePerChild || 0,
+        extraAdultPrice: existingData?.pricingStructure?.extraAdultPrice || 0,
+        transportType: existingData?.transportType || "",
+        pickupFromHotel: existingData?.pickupDropDetails?.pickupFromHotel || false,
+        dropToAirport: existingData?.pickupDropDetails?.dropToAirport || false,
       });
       setCoverPhotoURL(existingData?.coverPhoto);
       setArrayData((p) => ({
@@ -407,11 +539,18 @@ const TravelServices = () => {
         pictures: existingData?.pictures || [],
         places: existingData?.places || [],
       }));
+      setItinerary(existingData?.itinerary || []);
+      setHotelsIncluded(existingData?.hotelsIncluded || []);
+      setSights(existingData?.sights || []);
+      setSpecialRates(existingData?.specialRates || {
+        seasonalPricing: { enabled: false, note: "" },
+        earlyBirdDiscount: { enabled: false, discountPercent: 0, description: "" }
+      });
     }
+    setCurrentStep(1);
     setOpenModal(true);
   };
 
-  // delete package
   const handleDeletePackage = async (id) => {
     askingForDelete().then(async (result) => {
       if (result.isConfirmed) {
@@ -426,93 +565,65 @@ const TravelServices = () => {
     });
   };
 
-  // handleing add amenities
   const handleAddHotels = () => {
     const element = hotelsRef.current.querySelector("input");
-    if (!element.value) {
-      return;
-    }
+    if (!element.value) return;
     const newHotels = [...arrayData.hotels, element.value];
     setArrayData((p) => ({ ...p, hotels: newHotels }));
     element.value = "";
   };
 
-  // handling remove amenities
   const handleRemoveHotels = (i) => {
-    const { amenities } = arrayData;
+    const { amenity } = arrayData; // unused variable from original logic
     const newHotels = arrayData.hotels
       .slice(0, i)
-      .concat(amenities.slice(i + 1));
+      .concat(arrayData.hotels.slice(i + 1));
     setArrayData((p) => ({ ...p, hotels: newHotels }));
   };
 
-  // handleing add amenities
   const handleAddAmenities = () => {
     const element = amenitiesRef.current.querySelector("input");
-    if (!element.value) {
-      return;
-    }
+    if (!element.value) return;
     const newAmenities = [...arrayData.amenities, element.value];
     setArrayData((p) => ({ ...p, amenities: newAmenities }));
     element.value = "";
   };
 
-  // handling remove amenities
   const handleRemoveAmenity = (i) => {
-    const { amenities } = arrayData;
     const newAmenities = arrayData.amenities
       .slice(0, i)
-      .concat(amenities.slice(i + 1));
+      .concat(arrayData.amenities.slice(i + 1));
     setArrayData((p) => ({ ...p, amenities: newAmenities }));
   };
 
-  // handling add include
   const handleAddInclude = () => {
     const element = includedRef.current.querySelector("input");
-    if (!element.value) {
-      return;
-    }
+    if (!element.value) return;
     const newAmenities = [...arrayData.included, element.value];
     setArrayData((p) => ({ ...p, included: newAmenities }));
     element.value = "";
   };
 
-  // handling remove include
   const handleRemoveInclude = (i) => {
-    const { included } = arrayData;
     const newIncluded = arrayData.included
       .slice(0, i)
-      .concat(included.slice(i + 1));
+      .concat(arrayData.included.slice(i + 1));
     setArrayData((p) => ({ ...p, included: newIncluded }));
   };
 
-  // upload cover photo
   const handleUploadCoverPhoto = async (e) => {
     const file = e.target.files[0];
-
-    const fileRef = ref(storage, `${file.lastModified}-coverPhoto`); // firebase storage to store license img
-    //  // Uploading the profile image to storage
+    const fileRef = ref(storage, `${file.lastModified}-coverPhoto`);
     const coverPhotoTask = await uploadBytesResumable(fileRef, file);
-
-    // Get the download URL
     const photoURL = await getDownloadURL(coverPhotoTask.ref);
-
-    if (photoURL) {
-      setCoverPhotoURL(photoURL);
-    }
+    if (photoURL) setCoverPhotoURL(photoURL);
   };
 
-  // upload pictures
   const handleUploadPictures = async (e) => {
     let file = e.target.files[0];
-
-    const imageRef = ref(storage, `${file.lastModified}-placePhoto`); // firebase storage to store license img
-    //  // Uploading the profile image to storage
+    const imageRef = ref(storage, `${file.lastModified}-placePhoto`);
     const imageTask = await uploadBytesResumable(imageRef, file);
-
-    // Get the download URL
     const imageURL = await getDownloadURL(imageTask.ref);
-
     if (imageURL) {
       setArrayData((p) => ({
         ...p,
@@ -521,41 +632,33 @@ const TravelServices = () => {
     }
   };
 
-  // remove picture
   const handleRemovePicture = (i) => {
-    const { pictures } = arrayData;
     const newPictures = arrayData.pictures
       .slice(0, i)
-      .concat(pictures.slice(i + 1));
+      .concat(arrayData.pictures.slice(i + 1));
     setArrayData((p) => ({ ...p, pictures: newPictures }));
   };
 
-  // handling add Places
   const handleAddPlace = () => {
     const element = placesRef.current.querySelector("input");
-    if (!element.value) {
-      return;
-    }
+    if (!element.value) return;
     const newPlace = [...arrayData.places, element.value];
     setArrayData((p) => ({ ...p, places: newPlace }));
     element.value = "";
   };
 
-  // handling remove place
   const handleRemovePlace = (i) => {
-    const { places } = arrayData;
-    const newPlaces = arrayData.places.slice(0, i).concat(places.slice(i + 1));
+    const newPlaces = arrayData.places.slice(0, i).concat(arrayData.places.slice(i + 1));
     setArrayData((p) => ({ ...p, places: newPlaces }));
   };
 
-  // custom text field for common data
   const textField = (label, name, placeholder, defaultValue) => {
     return (
       <Grid item xs={12} sm={name === "description" ? 12 : 6}>
         <TextField
           label={label}
           type={
-            ["price", "discount", "period"].includes(name) ? "number" : "text"
+            ["price", "discount", "period", "pricePerChild", "extraAdultPrice"].includes(name) ? "number" : "text"
           }
           onWheel={(e) => e.target.blur()}
           onKeyDown={(e) => {
@@ -566,7 +669,7 @@ const TravelServices = () => {
               e.preventDefault();
             }
           }}
-          required
+          required={!["pricePerChild", "extraAdultPrice", "transportType"].includes(name)}
           defaultValue={defaultValue || ""}
           placeholder={placeholder}
           multiline={name === "description"}
@@ -579,16 +682,16 @@ const TravelServices = () => {
               name === "price"
                 ? 1
                 : name === "discount"
-                ? 0
-                : name === "period"
-                ? 1
-                : undefined,
+                  ? 0
+                  : name === "period"
+                    ? 1
+                    : undefined,
             max:
               name === "discount" ? 100 : name === "period" ? 100 : undefined,
           }}
-          {...register(name, { required: true })}
+          {...register(name, { required: !["pricePerChild", "extraAdultPrice", "transportType"].includes(name) })}
         />
-        {errors?.name && (
+        {errors?.[name] && (
           <span className="text-red-500">{label} is required</span>
         )}
       </Grid>
@@ -658,43 +761,17 @@ const TravelServices = () => {
             </div>
           </div>
         </div>
+      </div >
+
+      <div className="flex gap-4 items-center justify-between">
+        <div className="flex-grow">
+          <SearchBar
+            handleSearch={handleSearch}
+            handleOpenModal={handleOpenModal}
+            btnTitle="Add New Package"
+          />
+        </div>
       </div>
-
-      {/* <Grid container spacing={0.5} sx={{ mb: 2, mt: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField
-            label="Search By Title"
-            type="search"
-            placeholder="Travel Service Title"
-            fullWidth
-            defaultValue=""
-            onChange={(e) => handleSearchByTitle(e.target.value)}
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField
-            label="Search By location"
-            type="search"
-            placeholder="Type Location"
-            fullWidth
-            defaultValue=""
-            onChange={(e) => handleSearchByServiceArea(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={6}>
-          <div className="text-right md:pr-10 mb-4 flex items-center justify-end h-full">
-            <button onClick={handleOpenModal} className="add-new-btn">
-              Add New Package
-            </button>
-          </div>
-        </Grid>
-      </Grid> */}
-      <SearchBar
-        handleSearch={handleSearch}
-        handleOpenModal={handleOpenModal}
-        btnTitle="Add New Package"
-      />
 
       {/* Modern Table Container */}
       <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden">
@@ -810,10 +887,205 @@ const TravelServices = () => {
                 color: "var(--text-primary)",
               },
               "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                {
-                  margin: 0,
-                  fontWeight: 500,
+              {
+                margin: 0,
+                fontWeight: 500,
+              },
+              "& .MuiTablePagination-select": {
+                borderRadius: "8px",
+                backgroundColor: "white",
+                border: "1px solid #e5e7eb",
+                padding: "4px 8px",
+              },
+              "& .MuiTablePagination-actions button": {
+                borderRadius: "8px",
+                "&:hover": {
+                  backgroundColor: "var(--primary-bg-light)",
                 },
+              },
+            }}
+          />
+        </div>
+      </div>
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-primary-100 text-sm font-medium mb-1">
+                Total Packages
+              </p>
+              <p className="text-3xl font-bold">
+                {matchedTravelServices.length}
+              </p>
+            </div>
+            <div className="bg-white/20 p-3 rounded-lg">
+              <span className="text-3xl">🗺️</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-success-100 text-sm font-medium mb-1">
+                Active Tours
+              </p>
+              <p className="text-3xl font-bold">
+                {matchedTravelServices.length}
+              </p>
+            </div>
+            <div className="bg-white/20 p-3 rounded-lg">
+              <span className="text-3xl">✅</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-xl p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-secondary-100 text-sm font-medium mb-1">
+                Locations
+              </p>
+              <p className="text-3xl font-bold">
+                {new Set(matchedTravelServices.map((s) => s.location)).size}
+              </p>
+            </div>
+            <div className="bg-white/20 p-3 rounded-lg">
+              <span className="text-3xl">📍</span>
+            </div>
+          </div>
+        </div>
+      </div >
+
+      <div className="flex gap-4 items-center justify-between">
+        <div className="flex-grow">
+          <SearchBar
+            handleSearch={handleSearch}
+            handleOpenModal={handleOpenModal}
+            btnTitle="Add New Package"
+          />
+        </div>
+      </div>
+
+      {/* Modern Table Container */}
+      <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          {loadingServices ? (
+            loadingContent
+          ) : (
+            <table className="w-full">
+              <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
+                <tr>
+                  {columns.map((column) => (
+                    <th
+                      key={column.id}
+                      className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider"
+                      style={{ width: column.width }}
+                    >
+                      {column.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-200">
+                {rows.map((row, i) => {
+                  return (
+                    <tr
+                      key={i}
+                      className="hover:bg-primary-50 transition-colors duration-200"
+                    >
+                      {columns.map((column) => {
+                        let value = row[column.id];
+                        return (
+                          <td key={column.id} className="px-6 py-4 text-center">
+                            {column.id === "action" ? (
+                              <div className="flex gap-2 items-center justify-center">
+                                <button
+                                  onClick={() => handleViewPackage(row.id)}
+                                  className="p-2 hover:bg-primary-100 rounded-lg transition-colors"
+                                  title="View Details"
+                                >
+                                  <ViewDetailsIcon />
+                                </button>
+                                <button
+                                  onClick={() => handleDeletePackage(row.id)}
+                                  className="p-2 hover:bg-danger-100 rounded-lg transition-colors"
+                                  title="Delete package"
+                                >
+                                  <DeleteButton />
+                                </button>
+                              </div>
+                            ) : column.id === "price" ? (
+                              <span className="font-semibold text-success-600">
+                                ฿{value}
+                              </span>
+                            ) : column.id === "discount" ? (
+                              <span className="inline-flex items-center justify-center w-12 h-12 bg-secondary-100 text-secondary-700 rounded-full font-semibold">
+                                {value}%
+                              </span>
+                            ) : column.id === "period" ? (
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-primary-100 text-primary-700">
+                                {value} days
+                              </span>
+                            ) : column.id === "location" ? (
+                              <span className="inline-flex items-center gap-1 text-sm text-neutral-700">
+                                <span>📍</span> {value}
+                              </span>
+                            ) : column.id === "description" ? (
+                              <span className="text-sm text-neutral-600 line-clamp-2">
+                                {value}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-neutral-700 font-medium">
+                                {value}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12">
+                      <div className="flex flex-col items-center justify-center text-neutral-400">
+                        <span className="text-6xl mb-4">🗺️</span>
+                        <p className="text-lg font-medium text-neutral-500">
+                          No Packages Found
+                        </p>
+                        <p className="text-sm text-neutral-400 mt-2">
+                          Create your first sightseeing package.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Modern Pagination */}
+        <div className="border-t border-neutral-200 bg-neutral-50 px-6 py-4">
+          <TablePagination
+            rowsPerPageOptions={[10, 25, 100]}
+            component="div"
+            count={totalPages}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+            sx={{
+              "& .MuiTablePagination-toolbar": {
+                color: "var(--text-primary)",
+              },
+              "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
+              {
+                margin: 0,
+                fontWeight: 500,
+              },
               "& .MuiTablePagination-select": {
                 borderRadius: "8px",
                 backgroundColor: "white",
@@ -831,377 +1103,355 @@ const TravelServices = () => {
         </div>
       </div>
 
-      {/* <SightSeeingForm openModal={openModal} handleCloseModal={handleCloseModal} /> */}
-
-      {/* Add requirement modal */}
       <Dialog
         open={openModal}
         onClose={handleCloseModal}
         aria-labelledby="responsive-dialog-title"
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "16px",
+            backgroundImage: "none"
+          }
+        }}
       >
         <Box component="form" onSubmit={handleSubmit(handleAddTravelService)}>
-          <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">
-            {packageDetails?.title ? "Update" : "Add New"} Package
+          <DialogTitle sx={{ m: 0, p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb' }} id="customized-dialog-title">
+            <div>
+              <Typography variant="h5" component="div" fontWeight="bold" color="primary">
+                {packageDetails?.title ? "Edit Package" : "Create New Package"}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {currentStep === 1 && "Start with the basics"}
+                {currentStep === 2 && "Add detailed itinerary & content"}
+                {currentStep === 3 && "Configure pricing & logistics"}
+              </Typography>
+            </div>
+            <IconButton
+              aria-label="close"
+              onClick={handleCloseModal}
+              sx={{
+                color: (theme) => theme.palette.grey[500],
+                backgroundColor: 'white',
+                '&:hover': { backgroundColor: '#f3f4f6' }
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
           </DialogTitle>
-          <IconButton
-            aria-label="close"
-            onClick={handleCloseModal}
-            sx={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              color: "gray",
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
 
-          {/* modal body */}
-          <DialogContent dividers sx={{ p: { xs: 2, md: 2 } }}>
-            <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
-              {/* Requirement Title */}
-              {textField(
-                "Package Title",
-                "title",
-                "Package Title",
-                packageDetails?.title
-              )}
+          <DialogContent dividers sx={{ p: { xs: 2, md: 4 } }}>
 
-              {/* Requirement Title */}
-              {textField(
-                "Location",
-                "location",
-                "Location",
-                packageDetails?.location
-              )}
-
-              {/* Price */}
-              {textField("Price", "price", "Price", packageDetails?.price)}
-
-              {/* Discount */}
-              {textField(
-                "Discount",
-                "discount",
-                "Discount in %",
-                packageDetails?.discount
-              )}
-
-              {/* Description */}
-              {textField(
-                "Description",
-                "description",
-                "Type Package Description...",
-                packageDetails?.description
-              )}
-
-              {/* Period */}
-              {textField(
-                "Period (in Days)",
-                "period",
-                "Period",
-                packageDetails?.period
-              )}
-
-              {/* Number Of Passengers */}
-              {/* {textField(
-                "Number Of Passengers",
-                "NumberOfPassengers",
-                "Number Of Passengers",
-                packageDetails?.NumberOfPassengers
-              )} */}
-
-              {/* Cover Photo */}
-              <Grid item xs={12}>
-                <div className="flex md:flex-row flex-col gap-2 ">
-                  <div className="flex-1">
-                    <TextField
-                      label={"Select cover photo"}
-                      type="file"
-                      defaultValue=""
-                      onChange={handleUploadCoverPhoto}
-                      placeholder=""
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
+            {/* Visual Stepper */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between relative z-10">
+                {[1, 2, 3].map((step) => (
+                  <div key={step} className="flex flex-col items-center flex-1 cursor-pointer" onClick={() => step < currentStep ? setCurrentStep(step) : null}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg mb-2 transition-all duration-300 border-2 
+                            ${currentStep >= step ? 'bg-primary-600 text-white border-primary-600 shadow-md' : 'bg-white text-gray-400 border-gray-200'}`}>
+                      {step}
+                    </div>
+                    <span className={`text-xs font-bold uppercase tracking-wider ${currentStep >= step ? 'text-primary-800' : 'text-gray-400'}`}>
+                      {step === 1 ? "Basics" : step === 2 ? "Details" : "Settings"}
+                    </span>
                   </div>
-                  <div className="flex-1">
-                    {coverPhotoURL && (
-                      <div className="w-fit relative">
-                        <img
-                          src={coverPhotoURL}
-                          alt=""
-                          className="h-16 w-16 rounded opacity-80"
-                        />
-                        <span
-                          onClick={() => setCoverPhotoURL("")}
-                          className="absolute top-0 right-0.5"
-                        >
-                          <CloseIcon
-                            fontSize="small"
-                            sx={{ stroke: "white", strokeWidth: 0.5 }}
-                            className="bg-red-400 font-bold hover:bg-red-500 cursor-pointer text-white p-[0.1rem] rounded-full"
-                          />
-                        </span>
+                ))}
+
+                {/* Connecting Lines */}
+                <div className="absolute top-5 left-0 w-full h-[2px] bg-gray-200 -z-10 transform -translate-y-1/2 px-16">
+                  <div
+                    className="h-full bg-primary-200 transition-all duration-500 ease-out"
+                    style={{ width: `${((currentStep - 1) / 2) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+
+            <Grid container spacing={4}>
+
+              {/* STEP 1: BASIC INFORMATION */}
+              {currentStep === 1 && (
+                <div className="w-full animate-fade-in space-y-6">
+                  <Grid container spacing={3}>
+                    {textField("Package Title", "title", "e.g., Grand Thailand Tour", packageDetails?.title)}
+                    {textField("Duration (Days)", "period", "e.g., 5", packageDetails?.period)}
+                    {textField("Location", "location", "e.g., Bangkok", packageDetails?.location)}
+                    {textField("Base Price (Adult)", "price", "0", packageDetails?.price)}
+
+                    <Grid item xs={12}>
+                      <TextField
+                        label="Short Description"
+                        multiline
+                        rows={3}
+                        fullWidth
+                        {...register("description", { required: true })}
+                        defaultValue={packageDetails?.description}
+                        placeholder="A brief overview of the package..."
+                      />
+                    </Grid>
+
+                    {/* Visuals Section */}
+                    <Grid item xs={12}>
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <Typography variant="subtitle2" fontWeight="bold" color="text.secondary" sx={{ mb: 2 }}>Media Assets</Typography>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-sm font-semibold text-gray-600">Cover Image</label>
+                            <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-4 hover:bg-gray-50 transition-colors text-center cursor-pointer min-h-[120px] flex flex-col items-center justify-center">
+                              <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleUploadCoverPhoto} />
+                              {coverPhotoURL ? (
+                                <img src={coverPhotoURL} alt="Cover" className="h-24 w-auto rounded object-cover shadow-sm" />
+                              ) : (
+                                <div className="text-gray-400 flex flex-col items-center">
+                                  <span className="text-3xl mb-1">🖼️</span>
+                                  <span className="text-xs">Click to upload cover</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-sm font-semibold text-gray-600">Gallery ({arrayData.pictures.length})</label>
+                            <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-4 hover:bg-gray-50 transition-colors text-center cursor-pointer min-h-[120px] flex flex-col items-center justify-center">
+                              <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleUploadPictures} />
+                              <div className="text-gray-400 flex flex-col items-center">
+                                <span className="text-3xl mb-1">📸</span>
+                                <span className="text-xs">Click to add photos</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto py-2">
+                              {arrayData.pictures.map((pic, i) => (
+                                <div key={i} className="relative flex-shrink-0">
+                                  <img src={pic} className="h-12 w-12 rounded object-cover border" alt="gallery" />
+                                  <div className="absolute -top-1 -right-1 bg-red-500 rounded-full cursor-pointer p-0.5" onClick={() => handleRemovePicture(i)}>
+                                    <CloseIcon sx={{ fontSize: 10, color: 'white' }} />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    </Grid>
+                  </Grid>
                 </div>
-              </Grid>
+              )}
 
-              {/* Add Amenities */}
-              <Grid item xs={12}>
-                <div className="flex md:flex-row flex-col">
-                  <div className="flex-1 flex gap-2 items-center">
-                    <TextField
-                      ref={amenitiesRef}
-                      label="Add Amenities"
-                      type="text"
-                      placeholder="Add Amenities"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      fullWidth
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddAmenities();
-                        }
-                      }}
-                    />
-                    <div onClick={handleAddAmenities} className="input-add-btn">
-                      Add
+              {/* STEP 2: RICH DETAILS */}
+              {currentStep === 2 && (
+                <div className="w-full animate-fade-in space-y-6">
+
+                  {/* Itinerary */}
+                  <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                    <div className="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center">
+                      <div>
+                        <Typography variant="subtitle1" fontWeight="bold">📅 Daily Itinerary</Typography>
+                        <Typography variant="caption" color="text.secondary">Plan the trip day by day</Typography>
+                      </div>
+                      <Button size="small" variant="contained" startIcon={<AddCircleIcon />} onClick={addItineraryDay} sx={{ borderRadius: 20, textTransform: 'none' }}>Add Day</Button>
+                    </div>
+                    <div className="p-4 bg-white min-h-[200px] max-h-[400px] overflow-y-auto space-y-4">
+                      {itinerary.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-8 text-gray-400 opacity-60">
+                          <span className="text-4xl mb-2">🗓️</span>
+                          <p className="text-sm">No itinerary days added yet. Click "Add Day" to start.</p>
+                        </div>
+                      ) : (
+                        itinerary.map((day, dIndex) => (
+                          <div key={dIndex} className="border border-gray-100 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow relative bg-white">
+                            <div className="absolute top-4 right-4 text-gray-300 hover:text-red-500 cursor-pointer" onClick={() => {
+                              const newItin = itinerary.filter((_, i) => i !== dIndex);
+                              setItinerary(newItin);
+                            }}>
+                              <DeleteButton />
+                            </div>
+
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="bg-primary-50 text-primary-700 w-16 text-center py-1 rounded font-bold text-xs ring-1 ring-primary-100">
+                                Day {day.day}
+                              </div>
+                              <TextField
+                                placeholder="Day Title (e.g. Arrival in Bangkok)"
+                                variant="standard"
+                                fullWidth
+                                value={day.title}
+                                onChange={(e) => updateItineraryDay(dIndex, 'title', e.target.value)}
+                                InputProps={{ disableUnderline: true, style: { fontWeight: 600, fontSize: '1.1rem' } }}
+                              />
+                            </div>
+
+                            <div className="pl-6 border-l-2 border-dashed border-gray-200 ml-3 space-y-2">
+                              {day.timeline.map((event, tIndex) => (
+                                <div key={tIndex} className="flex gap-2 items-center group">
+                                  <div className="w-2 h-2 rounded-full bg-primary-300"></div>
+                                  <TextField placeholder="09:00" size="small" sx={{ width: 80, "& .MuiOutlinedInput-root": { backgroundColor: '#f9fafb' } }} value={event.time} onChange={(e) => updateTimelineEvent(dIndex, tIndex, 'time', e.target.value)} />
+                                  <TextField placeholder="Activity description" size="small" fullWidth sx={{ "& .MuiOutlinedInput-root": { backgroundColor: '#f9fafb' } }} value={event.activity} onChange={(e) => updateTimelineEvent(dIndex, tIndex, 'activity', e.target.value)} />
+                                </div>
+                              ))}
+                              <Button size="small" startIcon={<AddCircleIcon />} onClick={() => addTimelineEvent(dIndex)} sx={{ mt: 1, textTransform: 'none', color: 'gray' }}>Add Activity</Button>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
-                  <div className="flex-1 p-4 ">
-                    <h3 className="font-bold text-center">Added Amenities</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {arrayData.amenities &&
-                        arrayData?.amenities?.map((amenity, i) => (
-                          <Chip
-                            key={i}
-                            label={amenity}
-                            onDelete={() => handleRemoveAmenity(i)}
-                          />
-                          // <div key={i} className="flex gap-1 text-sm">
-                          //   <span>{amenity}</span>
-                          //   <div
-                          //     onClick={() => handleRemoveAmenity(i)}
-                          //     className="bg-gray-200 hover:bg-gray-300 p-1 rounded-full h-5 w-5 flex items-center justify-center cursor-pointer"
-                          //   >
-                          //     x
-                          //   </div>
-                          // </div>
+
+                  {/* Highlights & Amenities */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="border border-gray-200 rounded-xl p-4 bg-white">
+                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>✨ Highlights</Typography>
+                      <div className="flex gap-2 mb-2">
+                        <TextField ref={amenitiesRef} size="small" placeholder="Add highlight..." fullWidth onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddAmenities())} />
+                        <Button variant="contained" size="small" onClick={handleAddAmenities} sx={{ minWidth: '40px' }}>+</Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 min-h-[50px]">
+                        {arrayData.amenities.map((item, i) => (
+                          <Chip key={i} label={item} size="small" onDelete={() => handleRemoveAmenity(i)} className="bg-primary-50 text-primary-700" />
                         ))}
+                        {arrayData.amenities.length === 0 && <span className="text-xs text-gray-400 italic mt-2">No highlights added.</span>}
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </Grid>
 
-              {/* Add Places */}
-              <Grid item xs={12}>
-                <div className="flex md:flex-row flex-col">
-                  <div className="flex-1 flex gap-2 items-center">
-                    <TextField
-                      ref={placesRef}
-                      id="add-place"
-                      label="Places"
-                      type="text"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      placeholder="Add places name here"
-                      fullWidth
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddPlace();
-                        }
-                      }}
-                    />
-                    <div onClick={handleAddPlace} className="input-add-btn">
-                      Add
-                    </div>
-                  </div>
-                  <div className="flex-1 p-4 ">
-                    <h3 className="font-bold text-center">Added Places</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {arrayData.places &&
-                        arrayData?.places?.map((place, i) => (
-                          <Chip
-                            key={i}
-                            label={place}
-                            onDelete={() => handleRemovePlace(i)}
-                          />
-                          // <div key={i} className="flex gap-1">
-                          //   <span>{place}</span>
-                          //   <div
-                          //     onClick={() => handleRemovePlace(i)}
-                          //     className="bg-gray-200 hover:bg-gray-300 p-2 rounded-full h-6 w-6 flex items-center justify-center cursor-pointer"
-                          //   >
-                          //     x
-                          //   </div>
-                          // </div>
+                    <div className="border border-gray-200 rounded-xl p-4 bg-white">
+                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>✅ Included</Typography>
+                      <div className="flex gap-2 mb-2">
+                        <TextField ref={includedRef} size="small" placeholder="Add included item..." fullWidth onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddInclude())} />
+                        <Button variant="contained" size="small" onClick={handleAddInclude} sx={{ minWidth: '40px' }}>+</Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 min-h-[50px]">
+                        {arrayData.included.map((item, i) => (
+                          <Chip key={i} label={item} size="small" onDelete={() => handleRemoveInclude(i)} className="bg-success-50 text-success-700" />
                         ))}
+                        {arrayData.included.length === 0 && <span className="text-xs text-gray-400 italic mt-2">No inclusions added.</span>}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Grid>
 
-              {/* Add Hotels */}
-              <Grid item xs={12}>
-                <div className="flex md:flex-row flex-col">
-                  <div className="flex-1 flex gap-2 items-center">
-                    <TextField
-                      ref={hotelsRef}
-                      id="add-hotel"
-                      label="Hotels"
-                      type="text"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      placeholder="Add hotels name here"
-                      fullWidth
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddHotels();
-                        }
-                      }}
-                    />
-                    <div onClick={handleAddHotels} className="input-add-btn">
-                      Add
+                  {/* Places */}
+                  <div className="border border-gray-200 rounded-xl p-4 bg-white">
+                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>📍 Places / Sights</Typography>
+                    <div className="flex gap-2 mb-2">
+                      <TextField ref={placesRef} size="small" placeholder="Add place name..." fullWidth onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddPlace())} />
+                      <Button variant="contained" size="small" onClick={handleAddPlace}>Add</Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {arrayData.places.map((item, i) => (
+                        <Chip key={i} label={item} onDelete={() => handleRemovePlace(i)} variant="outlined" />
+                      ))}
                     </div>
                   </div>
-                  <div className="flex-1 p-4 ">
-                    <h3 className="font-bold text-center">Added Hotels</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {arrayData.hotels &&
-                        arrayData?.hotels?.map((hotel, i) => (
-                          <Chip
-                            key={i}
-                            label={hotel}
-                            onDelete={() => handleRemoveHotels(i)}
-                          />
-                        ))}
-                    </div>
-                  </div>
-                </div>
-              </Grid>
 
-              {/* Add Included */}
-              <Grid item xs={12}>
-                <div className="flex flex-col">
-                  <div className=" flex gap-2 items-center">
-                    <TextField
-                      ref={includedRef}
-                      label="Included"
-                      type="text"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      placeholder="What are included?"
-                      fullWidth
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          handleAddInclude();
-                        }
-                      }}
-                    />
-                    <div onClick={handleAddInclude} className="input-add-btn">
-                      Add
-                    </div>
-                  </div>
-                  <div className="flex-1 p-4 ">
-                    <h3 className="font-bold text-center">Added Includes</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {arrayData.included &&
-                        arrayData?.included?.map((item, i) => (
-                          <Chip
-                            key={i}
-                            label={item}
-                            onDelete={() => handleRemoveInclude(i)}
-                          />
-                          // <div key={i} className="flex gap-1">
-                          //   <span>{item}</span>
-                          //   <div
-                          //     onClick={() => handleRemoveInclude(i)}
-                          //     className="bg-gray-200 hover:bg-gray-300 p-2 rounded-full h-6 w-6 flex items-center justify-center cursor-pointer"
-                          //   >
-                          //     x
-                          //   </div>
-                          // </div>
-                        ))}
-                    </div>
-                  </div>
                 </div>
-              </Grid>
+              )}
 
-              {/* Add Pictures */}
-              <Grid item xs={12}>
-                <div className="flex flex-col">
-                  <div className="">
-                    <TextField
-                      label="Select Image"
-                      type="file"
-                      onChange={handleUploadPictures}
-                      defaultValue=""
-                      placeholder=""
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                    />
+              {/* STEP 3: CONFIGURATION */}
+              {currentStep === 3 && (
+                <div className="w-full animate-fade-in space-y-6">
+
+                  {/* Advanced Pricing */}
+                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <Typography variant="h6" className="text-gray-800 font-bold mb-4 flex items-center gap-2">💰 Pricing & Discounts</Typography>
+                    <Grid container spacing={3}>
+                      {textField("Child Price", "pricePerChild", "Cost per child", packageDetails?.pricePerChild)}
+                      {textField("Extra Adult", "extraAdultPrice", "Cost per extra adult", packageDetails?.extraAdultPrice)}
+                      {textField("Discount (%)", "discount", "Global discount %", packageDetails?.discount)}
+
+                      <Grid item xs={12}>
+                        <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                          <FormControlLabel control={<Checkbox checked={specialRates.earlyBirdDiscount.enabled} onChange={(e) => setSpecialRates({ ...specialRates, earlyBirdDiscount: { ...specialRates.earlyBirdDiscount, enabled: e.target.checked } })} />} label={<span className="font-bold text-gray-700">Early Bird Discount</span>} />
+                          {specialRates.earlyBirdDiscount.enabled && (
+                            <div className="flex gap-3 mt-2 pl-8">
+                              <TextField label="%" size="small" type="number" sx={{ width: 100, bgcolor: 'white' }} value={specialRates.earlyBirdDiscount.discountPercent} onChange={(e) => setSpecialRates({ ...specialRates, earlyBirdDiscount: { ...specialRates.earlyBirdDiscount, discountPercent: parseFloat(e.target.value) } })} />
+                              <TextField label="Condition Description" size="small" fullWidth sx={{ bgcolor: 'white' }} value={specialRates.earlyBirdDiscount.description} onChange={(e) => setSpecialRates({ ...specialRates, earlyBirdDiscount: { ...specialRates.earlyBirdDiscount, description: e.target.value } })} />
+                            </div>
+                          )}
+                        </div>
+                      </Grid>
+                    </Grid>
                   </div>
-                  <div className="flex-1 p-4">
-                    <h3 className="font-bold text-center my-1">
-                      Added Pictures
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {arrayData.pictures?.map((picture, i) => (
-                        <div key={i} className="relative">
-                          <img
-                            src={picture}
-                            alt=""
-                            className="h-16 w-16 rounded opacity-80"
-                          />
-                          {/* <span
-                            onClick={() => handleRemovePicture(i)}
-                            className="bg-red-400 hover:bg-red-500 cursor-pointer text-white p-1 absolute top-0 right-0 h-5 w-5 rounded-full flex items-center justify-center"
-                          >
-                            x
-                          </span> */}
-                          <span
-                            onClick={() => handleRemovePicture(i)}
-                            className="absolute top-0 right-0.5"
-                          >
-                            <CloseIcon
-                              fontSize="small"
-                              sx={{ stroke: "white", strokeWidth: 0.5 }}
-                              className="bg-red-400 font-bold hover:bg-red-500 cursor-pointer text-white p-[0.1rem] rounded-full"
-                            />
-                          </span>
+
+                  {/* Logistics */}
+                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <Typography variant="h6" className="text-gray-800 font-bold mb-4">🚐 Logistics & Transport</Typography>
+                    <Grid container spacing={3}>
+                      {textField("Transport Type", "transportType", "e.g. AC Bus, Private Van", packageDetails?.transportType)}
+                      <Grid item xs={12}>
+                        <div className="flex gap-6">
+                          <FormControlLabel control={<Checkbox checked={packageDetails.pickupFromHotel} onChange={(e) => setPackageDetails({ ...packageDetails, pickupFromHotel: e.target.checked })} />} label="Pickup from Hotel" />
+                          <FormControlLabel control={<Checkbox checked={packageDetails.dropToAirport} onChange={(e) => setPackageDetails({ ...packageDetails, dropToAirport: e.target.checked })} />} label="Drop to Airport" />
+                        </div>
+                      </Grid>
+                    </Grid>
+                  </div>
+
+                  {/* Hotels Selection */}
+                  <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                    <div className="flex justify-between items-center mb-4">
+                      <Typography variant="h6" className="text-gray-800 font-bold">🏨 Associated Hotels</Typography>
+                      <Button size="small" variant="outlined" startIcon={<AddCircleIcon />} onClick={addHotel} sx={{ borderRadius: 20 }}>Add Hotel</Button>
+                    </div>
+                    <div className="space-y-3">
+                      {hotelsIncluded.length === 0 && <p className="text-sm text-gray-400 italic text-center py-4">No hotels linked to this package.</p>}
+                      {hotelsIncluded.map((hotel, index) => (
+                        <div key={index} className="border border-gray-100 rounded-lg p-3 relative hover:bg-gray-50 transition-colors">
+                          <div className="absolute top-2 right-2 cursor-pointer text-gray-300 hover:text-red-500" onClick={() => setHotelsIncluded(hotelsIncluded.filter((_, i) => i !== index))}>
+                            <CloseIcon fontSize="small" />
+                          </div>
+                          <Grid container spacing={2} alignItems="center">
+                            <Grid item xs={6}><TextField label="Hotel Name" variant="standard" fullWidth value={hotel.hotelName} onChange={(e) => updateHotel(index, 'hotelName', e.target.value)} /></Grid>
+                            <Grid item xs={3}><TextField label="Nights" type="number" variant="standard" fullWidth value={hotel.nights} onChange={(e) => updateHotel(index, 'nights', parseInt(e.target.value))} /></Grid>
+                            <Grid item xs={3}><TextField label="Room Type" variant="standard" fullWidth value={hotel.roomType} onChange={(e) => updateHotel(index, 'roomType', e.target.value)} /></Grid>
+                          </Grid>
                         </div>
                       ))}
                     </div>
                   </div>
+
                 </div>
-
-                {/* {fileError && <span className="text-red-500 text-sm">{fileError}</span>} */}
-              </Grid>
-
-              <Grid item xs={12} sm={6}></Grid>
+              )}
             </Grid>
           </DialogContent>
-          <DialogActions>
+
+          <DialogActions sx={{ p: 3, backgroundColor: '#f9fafb', borderTop: '1px solid #e5e7eb', justifyContent: 'space-between' }}>
             <Button
-              variant="contained"
-              type="submit"
-              autoFocus
-              sx={{
-                backgroundColor: "var(--form-button-bg-color)",
-                color: "white",
-                "&:hover": {
-                  backgroundColor: "var(--form-button-hover-bg-color)",
-                },
-              }}
+              onClick={currentStep === 1 ? handleCloseModal : handleBackStep}
+              color="inherit"
+              sx={{ color: 'text.secondary', fontWeight: 'bold' }}
             >
-              {packageDetails?.title ? "Update" : "Add"}
+              {currentStep === 1 ? "Cancel" : "Back"}
             </Button>
+
+            {currentStep < 3 ? (
+              <Button
+                onClick={handleNextStep}
+                variant="contained"
+                sx={{
+                  borderRadius: '8px',
+                  px: 4,
+                  py: 1,
+                  backgroundColor: "var(--primary-color)",
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+                }}>
+                Next Step
+              </Button>
+            ) : (
+              <Button
+                variant="contained"
+                type="submit"
+                sx={{
+                  borderRadius: '8px',
+                  px: 4,
+                  py: 1,
+                  backgroundColor: "var(--success-color)", // Using success color for final action
+                  color: "white",
+                  "&:hover": {
+                    filter: 'brightness(110%)'
+                  },
+                }}
+              >
+                {packageDetails?.title ? "Update Package" : "Publish Package"}
+              </Button>
+            )}
           </DialogActions>
         </Box>
       </Dialog>
