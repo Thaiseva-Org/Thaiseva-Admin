@@ -26,6 +26,9 @@ const RoomServices = lazy(() =>
 const TravelServices = lazy(() =>
   import("./dashboard/adminDashboard/ourServices/travelServices/TravelServices")
 );
+const AddSightseeingPackage = lazy(() =>
+  import("./dashboard/adminDashboard/ourServices/travelServices/AddSightseeingPackage")
+);
 const LocalServices = lazy(() =>
   import("./dashboard/adminDashboard/ourServices/localServices/LocalServices")
 );
@@ -206,6 +209,7 @@ export {
   // Our Services export
   RoomServices,
   TravelServices,
+  AddSightseeingPackage,
   LocalServices,
   CarServices,
   SelfDriveServices,

@@ -12,6 +12,7 @@ import {
   SelfDriveBookings,
   RoomServices,
   TravelServices,
+  AddSightseeingPackage,
   LocalServices,
   Hotels,
   LocalPartners,
@@ -202,6 +203,22 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <TravelServices />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/travel-services/add",
+        element: (
+          <AdminRoute>
+            <AddSightseeingPackage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/travel-services/edit/:packageId",
+        element: (
+          <AdminRoute>
+            <AddSightseeingPackage />
           </AdminRoute>
         ),
       },
