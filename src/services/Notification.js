@@ -30,14 +30,20 @@ const fetchNotifications = async (setNotificationData) => {
   }
 };
 
-const addNotification = async (title, message, imageUrl) => {
+const addNotification = async (title, message, imageUrl, expiryDate = null) => {
   try {
-    await addDoc(notificationsCollection, {
+    const data = {
       title,
       desc: message,
       imageUrl: imageUrl ? imageUrl : "",
       datetime: serverTimestamp(),
-    });
+    };
+
+    if (expiryDate) {
+      data.expiryDate = expiryDate;
+    }
+
+    await addDoc(notificationsCollection, data);
   } catch (error) {
     console.error("Error adding notification: ", error);
   }

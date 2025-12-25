@@ -1,5 +1,19 @@
 import {
   TablePagination,
+  IconButton,
+  Tooltip,
+  Card,
+  CardMedia,
+  CardContent,
+  CardActions,
+  ToggleButtonGroup,
+  ToggleButton,
+  Grid,
+  Typography,
+  Box,
+  InputAdornment,
+  TextField,
+  Button
 } from "@mui/material";
 import {
   collection,
@@ -12,7 +26,8 @@ import {
   query,
   startAfter,
 } from "firebase/firestore";
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import { MdEdit, MdDelete, MdInfo } from "react-icons/md";
+import { GridView, ViewList, AccessTime, LocationOn, MonetizationOn, Star, Search } from "@mui/icons-material";
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Loading from "../../../../../components/Loading";
@@ -28,7 +43,7 @@ import {
   askingForDelete,
   deleteNotification,
 } from "../../../../../utils/utils";
-import ViewDetailsIcon from "./../../../../../components/ViewDetailsIcon";
+import AddSightseeingSelectionModal from "./AddSightseeingSelectionModal";
 
 const TravelServices = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
@@ -41,6 +56,8 @@ const TravelServices = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [lastDocs, setLastDocs] = useState([]);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [openSelectionModal, setOpenSelectionModal] = useState(false);
+  const [viewMode, setViewMode] = useState('list');
 
   // fetching all services
   const fetchTotalPages = async () => {
@@ -129,7 +146,8 @@ const TravelServices = () => {
     price,
     discount,
     rating,
-    id
+    id,
+    coverPhoto
   ) {
     return {
       title,
@@ -140,6 +158,7 @@ const TravelServices = () => {
       discount,
       rating,
       id,
+      coverPhoto,
     };
   }
 
@@ -153,7 +172,8 @@ const TravelServices = () => {
       service.price,
       service.discount,
       service.rating,
-      service.id
+      service.id,
+      service.coverPhoto || service.images?.[0] || 'https://via.placeholder.com/300x200?text=No+Image'
     );
   });
 
@@ -177,7 +197,7 @@ const TravelServices = () => {
   };
 
   const handleAddNewPackage = () => {
-    navigate("add");
+    setOpenSelectionModal(true);
   };
 
   const handleViewPackage = (id) => {
@@ -250,10 +270,10 @@ const TravelServices = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-secondary-100 text-sm font-medium mb-1">
+              <p className="text-orange-100 text-sm font-medium mb-1">
                 Locations
               </p>
               <p className="text-3xl font-bold">
@@ -267,13 +287,90 @@ const TravelServices = () => {
         </div>
       </div >
 
-      <div className="flex gap-4 items-center justify-between">
-        <div className="flex-grow">
-          <SearchBar
-            handleSearch={handleSearch}
-            handleOpenModal={handleAddNewPackage}
-            btnTitle="Add New Package"
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
+        <ToggleButtonGroup
+          value={viewMode}
+          exclusive
+          onChange={(e, newMode) => {
+            if (newMode) setViewMode(newMode);
+          }}
+          aria-label="view mode"
+          sx={{
+            bgcolor: 'white',
+            boxShadow: 1,
+            height: '52px', // Match Search input height aprox
+            borderRadius: '12px',
+            '& .MuiToggleButton-root': {
+              border: '1px solid #e0e0e0',
+              px: 2,
+              '&.Mui-selected': {
+                bgcolor: 'primary.main',
+                color: 'white',
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                },
+              },
+              '&:first-of-type': { borderTopLeftRadius: '12px', borderBottomLeftRadius: '12px' },
+              '&:last-of-type': { borderTopRightRadius: '12px', borderBottomRightRadius: '12px' },
+            },
+          }}
+        >
+          <ToggleButton value="list" aria-label="list view">
+            <ViewList />
+          </ToggleButton>
+          <ToggleButton value="grid" aria-label="grid view">
+            <GridView />
+          </ToggleButton>
+        </ToggleButtonGroup>
+
+        <div className="flex-grow flex gap-4 w-full md:w-auto">
+          <TextField
+            placeholder="Search here..."
+            type="search"
+            fullWidth
+            variant="outlined"
+            size="medium"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search className="text-neutral-400" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              flexGrow: 1,
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+                borderRadius: "12px",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  backgroundColor: "#f8fafc",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#3b82f6",
+                  },
+                },
+                "&.Mui-focused": {
+                  backgroundColor: "white",
+                  boxShadow: "0 0 0 3px rgba(59, 130, 246, 0.1)",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#3b82f6",
+                    borderWidth: "2px",
+                  },
+                },
+                "& .MuiOutlinedInput-notchedOutline": {
+                  borderColor: "#e5e7eb",
+                },
+              },
+            }}
+            onChange={(e) => handleSearch(e.target.value)}
           />
+
+          <button
+            className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap"
+            onClick={handleAddNewPackage}
+          >
+            <span className="text-xl">+</span> Add New Package
+          </button>
         </div>
       </div>
 
@@ -282,7 +379,7 @@ const TravelServices = () => {
         <div className="overflow-x-auto">
           {loadingServices ? (
             loadingContent
-          ) : (
+          ) : viewMode === 'list' ? (
             <table className="w-full">
               <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
                 <tr>
@@ -309,21 +406,31 @@ const TravelServices = () => {
                         return (
                           <td key={column.id} className="px-6 py-4 text-center">
                             {column.id === "action" ? (
-                              <div className="flex gap-2 items-center justify-center">
-                                <button
-                                  onClick={() => handleViewPackage(row.id)}
-                                  className="p-2 hover:bg-primary-100 rounded-lg transition-colors"
-                                  title="View Details"
-                                >
-                                  <ViewDetailsIcon />
-                                </button>
-                                <button
-                                  onClick={() => handleDeletePackage(row.id)}
-                                  className="p-2 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
-                                  title="Delete package"
-                                >
-                                  <DeleteForeverIcon />
-                                </button>
+                              <div className="flex items-center justify-center gap-2">
+                                <Tooltip title="Edit Package">
+                                  <IconButton
+                                    onClick={() => handleViewPackage(row.id)}
+                                    sx={{
+                                      color: '#f59e0b',
+                                      '&:hover': { bgcolor: '#fffbeb' },
+                                      transition: 'all 0.2s'
+                                    }}
+                                  >
+                                    <MdEdit size={20} />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Delete Package">
+                                  <IconButton
+                                    onClick={() => handleDeletePackage(row.id)}
+                                    sx={{
+                                      color: '#ef4444',
+                                      '&:hover': { bgcolor: '#fef2f2' },
+                                      transition: 'all 0.2s'
+                                    }}
+                                  >
+                                    <MdDelete size={20} />
+                                  </IconButton>
+                                </Tooltip>
                               </div>
                             ) : column.id === "price" ? (
                               <span className="font-semibold text-success-600">
@@ -373,6 +480,82 @@ const TravelServices = () => {
                 )}
               </tbody>
             </table>
+          ) : (
+            <div className="p-6 bg-neutral-50 min-h-[400px]">
+              {rows.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-neutral-400 py-12">
+                  <span className="text-6xl mb-4">🗺️</span>
+                  <p className="text-lg font-medium text-neutral-500">No Packages Found</p>
+                </div>
+              ) : (
+                <Grid container spacing={3}>
+                  {rows.map((row) => (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={row.id}>
+                      <Card sx={{
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative',
+                        transition: 'transform 0.2s, box-shadow 0.2s',
+                        borderRadius: 3,
+                        overflow: 'hidden',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        '&:hover': { transform: 'translateY(-4px)', boxShadow: 4, borderColor: 'primary.main' }
+                      }}>
+                        <CardMedia
+                          component="img"
+                          height="200"
+                          image={row.coverPhoto}
+                          alt={row.title}
+                          sx={{ height: 200, objectFit: 'cover' }}
+                        />
+                        <Box sx={{ position: 'absolute', top: 12, right: 12, bgcolor: 'rgba(255,255,255,0.95)', borderRadius: '20px', px: 1.5, py: 0.5, display: 'flex', alignItems: 'center', gap: 0.5, boxShadow: 1 }}>
+                          <Star sx={{ color: '#fbbf24', fontSize: 16 }} />
+                          <Typography variant="body2" fontWeight="700" color="text.primary">{row.rating || 4.5}</Typography>
+                        </Box>
+                        <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
+                          <Typography variant="h6" fontWeight="700" gutterBottom noWrap title={row.title} sx={{ mb: 1 }}>
+                            {row.title}
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', mb: 2 }}>
+                            <LocationOn sx={{ fontSize: 18, color: 'error.main' }} />
+                            <Typography variant="body2" noWrap>{row.location}</Typography>
+                          </Box>
+                          <div className="flex justify-between items-center mt-4">
+                            <Typography variant="h6" color="primary.main" fontWeight="800">
+                              ฿{row.price && row.price.toLocaleString()}
+                            </Typography>
+                            {row.discount > 0 && (
+                              <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-1 rounded-full">
+                                {row.discount}% OFF
+                              </span>
+                            )}
+                          </div>
+                        </CardContent>
+                        <div className="border-t border-gray-100 p-3 flex justify-between items-center bg-gray-50">
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Tooltip title="Edit">
+                              <IconButton size="small" onClick={() => handleViewPackage(row.id)} sx={{ color: '#f59e0b', bgcolor: 'white', border: '1px solid #f3f4f6', '&:hover': { bgcolor: '#fffbeb', borderColor: '#fcd34d' } }}>
+                                <MdEdit />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete">
+                              <IconButton size="small" onClick={() => handleDeletePackage(row.id)} sx={{ color: '#ef4444', bgcolor: 'white', border: '1px solid #f3f4f6', '&:hover': { bgcolor: '#fef2f2', borderColor: '#fca5a5' } }}>
+                                <MdDelete />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                          <Typography variant="caption" sx={{ bgcolor: 'secondary.main', color: 'white', px: 1.5, py: 0.5, borderRadius: 4, fontWeight: 'medium' }}>
+                            {row.period} days
+                          </Typography>
+                        </div>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </div>
           )}
         </div>
 
@@ -411,6 +594,10 @@ const TravelServices = () => {
           />
         </div>
       </div>
+      <AddSightseeingSelectionModal
+        open={openSelectionModal}
+        onClose={() => setOpenSelectionModal(false)}
+      />
     </div>
   );
 };

@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     marginLeft: 15,
     marginTop: 2,
-    fontWeight: "extrabold",
+    fontWeight: "bold",
   },
   logoContainer: {
     paddingTop: 10,

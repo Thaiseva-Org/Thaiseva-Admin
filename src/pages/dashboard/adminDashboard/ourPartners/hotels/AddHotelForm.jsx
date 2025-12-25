@@ -1,5 +1,5 @@
 import React, { useState, useRef, useContext, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
 import {
     Box,
     Button,
@@ -19,7 +19,7 @@ import {
 import {
     GoogleMap,
     MarkerF,
-    StandaloneSearchBox,
+    Autocomplete,
 } from "@react-google-maps/api";
 import { Controller, useForm } from "react-hook-form";
 import { MdLocationOn, MdPool, MdFitnessCenter, MdWifi, MdRestaurant, MdSpa, MdLocalParking, MdEdit, MdDelete, MdAdd, MdCheck, MdArrowForward, MdArrowBack, MdCloudUpload, MdAttachMoney, MdPeople, MdEmail, MdPhone, MdError, MdClose } from "react-icons/md";
@@ -34,7 +34,7 @@ import {
 } from "../../../../../firebase/firebase.config";
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
-import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc, getDocs } from "firebase/firestore";
 import { db } from "../../../../../firebase/firebase.config";
 import { getFileUrl, successNotification } from "../../../../../utils/utils";
 import axios from "axios";
@@ -112,8 +112,14 @@ const AmenityChip = ({ icon: Icon, label, selected, onClick }) => (
 
 const center = { lat: 48.8584, lng: 2.2945 };
 
-const AddHotelForm = ({ initialData, isEdit, onClose }) => {
+const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onClose }) => {
     const navigate = useNavigate();
+    const routerLocation = useLocation();
+    const { hotelId } = useParams();
+
+    const initialData = _propInitialData || routerLocation.state;
+    const isEdit = _propIsEdit || !!hotelId;
+
     const handleClose = onClose || (() => navigate("/dashboard/hotels"));
     const [currentStep, setCurrentStep] = useState(1);
     const totalSteps = 3;
@@ -140,11 +146,10 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
     const [locationError, setLocationError] = useState(false);
     const [submissionError, setSubmissionError] = useState("");
 
-    const [roomTypes, setRoomTypes] = useState([
-        { id: 1, name: "Deluxe Ocean View", price: 350, guests: 4, rooms: ["101", "102"], amenities: ['wifi', 'bar'] }
-    ]);
+    const [roomTypes, setRoomTypes] = useState([]);
     const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
-    const [newRoom, setNewRoom] = useState({
+    const [editingRoomId, setEditingRoomId] = useState(null);
+    const initialRoomState = {
         roomName: "",
         maxGuests: "",
         numberOfBeds: "",
@@ -169,7 +174,8 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
             taxIncluded: true,
             pricingBasedOnGuests: []
         }
-    });
+    };
+    const [newRoom, setNewRoom] = useState(initialRoomState);
 
     useEffect(() => {
         if (isEdit && initialData) {
@@ -209,6 +215,24 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
             }
             if (h.address) setAddressInputValue(h.address);
             if (h.startingPrice) setManualStartingPrice(h.startingPrice);
+            if (h.startingPrice) setManualStartingPrice(h.startingPrice);
+
+            // Fetch Rooms from Subcollection if editing and not available in initialData
+            if (initialData.uid) {
+                const fetchSubRooms = async () => {
+                    try {
+                        const roomsRef = collection(db, "HotelDB", initialData.uid, "rooms");
+                        const roomSnap = await getDocs(roomsRef);
+                        if (!roomSnap.empty) {
+                            const dbRooms = roomSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            setRoomTypes(dbRooms);
+                        }
+                    } catch (err) {
+                        console.error("Error fetching rooms:", err);
+                    }
+                };
+                fetchSubRooms();
+            }
         }
     }, [isEdit, initialData, setValue, map]); // Added map dependency
 
@@ -271,6 +295,25 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
         setHotelGallery(prev => prev.filter((_, i) => i !== index));
     };
 
+    const openAddRoomModal = () => {
+        setEditingRoomId(null);
+        setNewRoom(initialRoomState);
+        setIsRoomModalOpen(true);
+    };
+
+    const handleEditRoom = (room) => {
+        setEditingRoomId(room.id);
+        setNewRoom({
+            ...initialRoomState, // Start with defaults to ensure structure
+            ...room, // Override with room data
+            roomName: room.roomName || room.packageName || "",
+            pricing: { ...initialRoomState.pricing, ...room.pricing }, // Ensure deep merge for nested
+            policies: { ...initialRoomState.policies, ...room.policies },
+            foodInfo: { ...initialRoomState.foodInfo, ...room.foodInfo },
+        });
+        setIsRoomModalOpen(true);
+    };
+
     const handleAddRoom = () => {
         if (!newRoom.roomName || !newRoom.pricing.basePrice) {
             toast.error("Please fill in Room Name and Base Price");
@@ -280,8 +323,9 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
         const priceAfterDiscount = Number(newRoom.pricing.basePrice) * (1 - (Number(newRoom.pricing.discountPercent) || 0) / 100);
 
         const finalRoom = {
-            id: Date.now(),
+            id: editingRoomId || Date.now(),
             ...newRoom,
+            packageName: newRoom.roomName,
             amenities: newRoom.amenities || [],
             pricing: {
                 ...newRoom.pricing,
@@ -293,36 +337,17 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
             }
         };
 
-        setRoomTypes(prev => [...prev, finalRoom]);
-        setNewRoom({
-            roomName: "",
-            maxGuests: 2,
-            numberOfBeds: 1,
-            bedType: "King",
-            photos: [],
-            amenities: [],
-            description: "",
-            policies: {
-                checkIn: "14:00",
-                checkOut: "12:00",
-                extraBed: "",
-                paymentInfo: "Prepaid",
-                refundable: true
-            },
-            foodInfo: {
-                breakfastIncluded: false,
-                breakfastType: "Continental"
-            },
-            pricing: {
-                basePrice: 0,
-                discountPercent: 0,
-                taxIncluded: true,
-                pricingBasedOnGuests: []
-            }
-        });
+        if (editingRoomId) {
+            setRoomTypes(prev => prev.map(r => r.id === editingRoomId ? finalRoom : r));
+            successNotification("Room updated successfully!");
+        } else {
+            setRoomTypes(prev => [...prev, finalRoom]);
+            successNotification("Room staged! Please proceed to 'Configuration' and 'Submit' to save.");
+        }
+
+        setNewRoom(initialRoomState);
+        setEditingRoomId(null);
         setIsRoomModalOpen(false);
-        setIsRoomModalOpen(false);
-        successNotification("Room staged! Please proceed to 'Configuration' and 'Submit' to save.");
     };
 
     const handleDeleteRoom = (id) => {
@@ -330,6 +355,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
     };
 
     const onSubmit = async (data) => {
+        console.log("onSubmit triggered! Data:", data);
         if (!logoURL) { setLogoError(true); return; }
         if (!location && !addressInputValue) { setLocationError(true); return; }
 
@@ -342,7 +368,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     hotelUid: isEdit ? (initialData.hotel?.hotelUid || initialData.uid) : (Math.random().toString(36).substring(7)), // Should be user UID but for new manual add we need logic
                     hotelName: data.hotelName,
                     country: data.country || "Thailand",
-                    country: data.country || "Thailand",
+
                     currency: "THB",
                     startingPrice: manualStartingPrice ? Number(manualStartingPrice) : (roomTypes.length > 0 ? Math.min(...roomTypes.map(r => r.pricing?.pricePerNightAfterDiscount || 0)) : 0),
                     discount: Number(hotelDiscount) || 0,
@@ -402,7 +428,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
 
             await Promise.all(roomPromises);
 
-            successNotification(isEdit ? "Hotel & Rooms updated successfully!" : "New Hotel & Rooms Added (Verified)!");
+            successNotification(isEdit ? "Hotel & Rooms updated successfully! " : "New Hotel & Rooms Added!");
             handleClose();
 
         } catch (error) {
@@ -428,9 +454,9 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
     };
 
     const handlePlacesChanged = () => {
-        const places = searchBox.getPlaces();
-        if (places && places.length > 0) {
-            const place = places[0];
+        if (!searchBox) return;
+        const place = searchBox.getPlace();
+        if (place && place.geometry) {
             const lat = place.geometry.location.lat();
             const lng = place.geometry.location.lng();
             setLocation({ lat, lng });
@@ -482,7 +508,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                         control={control}
                         rules={{ required: "Hotel Name is required" }}
                         render={({ field }) => (
-                            <TextField {...field} label="Hotel Name" fullWidth error={!!errors.hotelName} helperText={errors.hotelName?.message}
+                            <TextField {...field} label={<span>Hotel Name <span className="text-red-500">*</span></span>} fullWidth error={!!errors.hotelName} helperText={errors.hotelName?.message}
                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
                         )}
                     />
@@ -491,7 +517,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                         control={control}
                         rules={{ required: "Email is required", pattern: { value: /^\S+@\S+$/i, message: "Invalid email" } }}
                         render={({ field }) => (
-                            <TextField {...field} label="Email Address" fullWidth error={!!errors.email} helperText={errors.email?.message}
+                            <TextField {...field} label={<span>Email Address <span className="text-red-500">*</span></span>} fullWidth error={!!errors.email} helperText={errors.email?.message}
                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
                         )}
                     />
@@ -500,7 +526,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                         control={control}
                         rules={{ required: "Phone is required" }}
                         render={({ field }) => (
-                            <TextField {...field} label="Phone Number" fullWidth error={!!errors.phoneNumber} helperText={errors.phoneNumber?.message}
+                            <TextField {...field} label={<span>Phone Number <span className="text-red-500">*</span></span>} fullWidth error={!!errors.phoneNumber} helperText={errors.phoneNumber?.message}
                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
                         )}
                     />
@@ -517,8 +543,8 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
 
                 {/* Address & Map */}
                 <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700">Location</label>
-                    <StandaloneSearchBox onLoad={(ref) => setSearchBox(ref)} onPlacesChanged={handlePlacesChanged}>
+                    <label className="block text-sm font-bold text-gray-700">Location <span className="text-red-500">*</span></label>
+                    <Autocomplete onLoad={(ref) => setSearchBox(ref)} onPlaceChanged={handlePlacesChanged}>
                         <TextField
                             fullWidth
                             placeholder="Search for a location..."
@@ -529,7 +555,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                             }}
                             sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                         />
-                    </StandaloneSearchBox>
+                    </Autocomplete>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -537,7 +563,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                         name="address"
                         control={control}
                         render={({ field }) => (
-                            <TextField {...field} label="Full Address" multiline rows={3} fullWidth
+                            <TextField {...field} label={<span>Full Address <span className="text-red-500">*</span></span>} multiline rows={3} fullWidth
                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
                         )}
                     />
@@ -545,7 +571,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                         name="description"
                         control={control}
                         render={({ field }) => (
-                            <TextField {...field} label="Description" multiline rows={3} fullWidth
+                            <TextField {...field} label={<span>Description <span className="text-red-500">*</span></span>} multiline rows={3} fullWidth
                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
                         )}
                     />
@@ -584,6 +610,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                             }}
                         />
                         <Button
+                            type="button"
                             onClick={handleAddCustomAmenity}
                             variant="contained"
                             sx={{ borderRadius: "999px", textTransform: "none", minWidth: "100px" }}
@@ -647,6 +674,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                             }}
                         />
                         <Button
+                            type="button"
                             onClick={handleAddAttraction}
                             variant="contained"
                             sx={{ borderRadius: "999px", textTransform: "none", minWidth: "100px" }}
@@ -750,8 +778,9 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     {roomTypes.map((room) => (
                         <div key={room.id} className="bg-white border border-gray-200 rounded-3xl p-6 shadow-sm relative hover:shadow-md transition-shadow">
                             <div className="flex justify-between items-start mb-4">
-                                <h3 className="text-lg font-bold text-gray-900">{room.name}</h3>
+                                <h3 className="text-lg font-bold text-gray-900">{room.name || room.roomName || "Unnamed Room"}</h3>
                                 <div className="flex gap-2">
+                                    <IconButton size="small" onClick={() => handleEditRoom(room)} className="text-gray-400 hover:text-blue-500"><MdEdit /></IconButton>
                                     <IconButton size="small" onClick={() => handleDeleteRoom(room.id)} className="text-gray-400 hover:text-red-500"><MdDelete /></IconButton>
                                 </div>
                             </div>
@@ -759,13 +788,13 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Base Price</label>
                                     <div className="mt-1 bg-gray-50 rounded-xl px-3 py-2 text-gray-900 font-bold border border-gray-100">
-                                        $ {room.pricing?.basePrice || room.price}
+                                        $ {room.pricing?.basePrice || room.price || 0}
                                     </div>
                                 </div>
                                 <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Max Guests</label>
                                     <div className="mt-1 bg-gray-50 rounded-xl px-3 py-2 text-gray-900 font-bold border border-gray-100">
-                                        {room.maxGuests || room.guests}
+                                        {room.maxGuests || room.guests || 2}
                                     </div>
                                 </div>
                             </div>
@@ -773,7 +802,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     ))}
 
                     <div
-                        onClick={() => setIsRoomModalOpen(true)}
+                        onClick={openAddRoomModal}
                         className="border-2 border-dashed border-gray-200 rounded-3xl p-6 flex flex-col items-center justify-center text-center min-h-[250px] hover:border-blue-300 hover:bg-blue-50 transition-all cursor-pointer group"
                     >
                         <div className="w-12 h-12 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -843,7 +872,15 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
 
                 <ProgressBar currentStep={currentStep} totalSteps={totalSteps} isEdit={isEdit} />
 
-                <form onSubmit={handleSubmit(onSubmit)} className="bg-white rounded-[32px] p-8 shadow-sm">
+                <form
+                    onSubmit={(e) => e.preventDefault()}
+                    className="bg-white rounded-[32px] p-8 shadow-sm"
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                            e.preventDefault();
+                        }
+                    }}
+                >
                     {currentStep === 1 && renderStep1()}
                     {currentStep === 2 && renderStep2()}
                     {currentStep === 3 && renderStep3()}
@@ -853,6 +890,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                     <div className="flex justify-between items-center mt-6 pt-6">
                         {currentStep > 1 ? (
                             <Button
+                                type="button"
                                 onClick={handleBack}
                                 variant="contained"
                                 sx={{
@@ -870,6 +908,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                             </Button>
                         ) : (
                             <Button
+                                type="button"
                                 onClick={handleClose}
                                 variant="contained"
                                 sx={{
@@ -889,6 +928,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
 
                         {currentStep < 3 ? (
                             <Button
+                                type="button"
                                 onClick={handleNext}
                                 variant="contained"
                                 sx={{
@@ -907,7 +947,8 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                             </Button>
                         ) : (
                             <Button
-                                type="submit"
+                                type="button"
+                                onClick={handleSubmit(onSubmit)}
                                 variant="contained"
                                 sx={{
                                     backgroundColor: "#22c55e",
@@ -934,7 +975,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                         style: { borderRadius: '24px', padding: '16px', maxWidth: '800px', width: '100%' }
                     }}
                 >
-                    <DialogTitle sx={{ fontWeight: 800, fontSize: '1.5rem', textAlign: 'center' }}>Add New Room</DialogTitle>
+                    <DialogTitle sx={{ fontWeight: 800, fontSize: '1.5rem', textAlign: 'center' }}>{editingRoomId ? "Edit Room" : "Add New Room"}</DialogTitle>
                     <DialogContent>
                         <div className="space-y-6 mt-2">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -943,6 +984,16 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                     fullWidth
                                     value={newRoom.roomName}
                                     onChange={(e) => setNewRoom({ ...newRoom, roomName: e.target.value })}
+                                    variant="outlined"
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                />
+                                <TextField
+                                    label="Description"
+                                    fullWidth
+                                    multiline
+                                    rows={1}
+                                    value={newRoom.description}
+                                    onChange={(e) => setNewRoom({ ...newRoom, description: e.target.value })}
                                     variant="outlined"
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                 />
@@ -1010,6 +1061,33 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                             </div>
 
                             <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Room Amenities</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {[
+                                        "Air Conditioning", "TV", "Mini Bar", "Balcony", "Coffee Maker",
+                                        "Safe", "Hairdryer", "Iron", "Desk", "Bathtub", "Kitchenette"
+                                    ].map(amenity => (
+                                        <div
+                                            key={amenity}
+                                            onClick={() => {
+                                                const current = newRoom.amenities || [];
+                                                const updated = current.includes(amenity)
+                                                    ? current.filter(a => a !== amenity)
+                                                    : [...current, amenity];
+                                                setNewRoom({ ...newRoom, amenities: updated });
+                                            }}
+                                            className={`px-3 py-1 rounded-full text-sm font-medium cursor-pointer border select-none transition-colors ${(newRoom.amenities || []).includes(amenity)
+                                                ? "bg-blue-100 border-blue-200 text-blue-600"
+                                                : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
+                                                }`}
+                                        >
+                                            {amenity}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
                                 <h4 className="font-bold text-gray-700 mb-2">Policies</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     <TextField
@@ -1049,7 +1127,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                         </div>
                     </DialogContent>
                     <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-                        <Button onClick={() => setIsRoomModalOpen(false)} sx={{ color: 'gray', fontWeight: 600 }}>Cancel</Button>
+                        <Button type="button" onClick={() => setIsRoomModalOpen(false)} sx={{ color: 'gray', fontWeight: 600 }}>Cancel</Button>
                         <Button
                             type="button"
                             onClick={handleAddRoom}
@@ -1061,7 +1139,7 @@ const AddHotelForm = ({ initialData, isEdit, onClose }) => {
                                 px: 4
                             }}
                         >
-                            Add Room
+                            {editingRoomId ? "Update Room" : "Add Room"}
                         </Button>
                     </DialogActions>
                 </Dialog>

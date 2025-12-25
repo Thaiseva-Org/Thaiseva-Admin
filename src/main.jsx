@@ -22,6 +22,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
               <PartnerChatProvider>
                 <SnackbarProvider maxSnack={3}>
                   <LoadScript
+                    id="google-map-script"
                     googleMapsApiKey={import.meta.env.VITE_Google_Api_Key}
                     libraries={["places"]}
                   >

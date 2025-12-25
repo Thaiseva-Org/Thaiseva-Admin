@@ -15,7 +15,7 @@ const styles = StyleSheet.create({
   },
   invoiceDate: {
     fontSize: 12,
-    fontStyle: "bold",
+    fontWeight: "bold",
   },
   label: {
     // width: 60,

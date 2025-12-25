@@ -41,7 +41,7 @@ const fetchBookingsTotalPages = async (
       break;
     case "Room Bookings":
       collectionRef = roomBookingCollection;
-      timestampField = "orderedAt";
+      timestampField = "createdAt";
       break;
     default:
       collectionRef = travelBookingCollection;
@@ -66,7 +66,7 @@ const fetchBookings = async (
   startDate,
   endDate,
   lastDoc = [],
-  setLastDocs = () => {},
+  setLastDocs = () => { },
   pageSize = null,
   page = 0
 ) => {
@@ -93,7 +93,7 @@ const fetchBookings = async (
       break;
     case "Room Bookings":
       collectionRef = roomBookingCollection;
-      timestampField = "orderedAt";
+      timestampField = "createdAt";
       break;
     default:
       collectionRef = travelBookingCollection;
@@ -167,9 +167,9 @@ const fetchHotelBookingsTotalPages = async (
   let queryToUse = query(
     roomBookingCollection,
     where("hotelUid", "==", id),
-    where("orderedAt", ">=", todayStart),
-    where("orderedAt", "<=", todayEnd),
-    orderBy("orderedAt", "desc")
+    where("createdAt", ">=", todayStart),
+    where("createdAt", "<=", todayEnd),
+    orderBy("createdAt", "desc")
   );
 
   const pages = await getCountFromServer(queryToUse);
@@ -183,7 +183,7 @@ const fetchHotelBookings = async (
   startDate,
   endDate,
   lastDoc = [],
-  setLastDocs = () => {},
+  setLastDocs = () => { },
   pageSize = null,
   page = 0
 ) => {
@@ -199,18 +199,18 @@ const fetchHotelBookings = async (
   let queryToUse = query(
     roomBookingCollection,
     where("hotelUid", "==", id),
-    where("orderedAt", ">=", todayStart),
-    where("orderedAt", "<=", todayEnd),
-    orderBy("orderedAt", "desc")
+    where("createdAt", ">=", todayStart),
+    where("createdAt", "<=", todayEnd),
+    orderBy("createdAt", "desc")
   );
 
   if (pageSize) {
     queryToUse = query(
       roomBookingCollection,
       where("hotelUid", "==", id),
-      where("orderedAt", ">=", todayStart),
-      where("orderedAt", "<=", todayEnd),
-      orderBy("orderedAt", "desc"),
+      where("createdAt", ">=", todayStart),
+      where("createdAt", "<=", todayEnd),
+      orderBy("createdAt", "desc"),
       limit(pageSize)
     );
   }
@@ -219,9 +219,9 @@ const fetchHotelBookings = async (
     queryToUse = query(
       roomBookingCollection,
       where("hotelUid", "==", id),
-      where("orderedAt", ">=", todayStart),
-      where("orderedAt", "<=", todayEnd),
-      orderBy("orderedAt", "desc"),
+      where("createdAt", ">=", todayStart),
+      where("createdAt", "<=", todayEnd),
+      orderBy("createdAt", "desc"),
       startAfter(lastDoc[page - 1]),
       limit(pageSize)
     );

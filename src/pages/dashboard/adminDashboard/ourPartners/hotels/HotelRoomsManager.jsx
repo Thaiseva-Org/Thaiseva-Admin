@@ -17,7 +17,7 @@ import {
     TableRow,
     TextField,
 } from "@mui/material";
-import { deleteDoc, doc, setDoc, onSnapshot, query, where } from "firebase/firestore";
+import { deleteDoc, doc, setDoc, onSnapshot, query, where, serverTimestamp } from "firebase/firestore";
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { v4 as uuid } from "uuid";
@@ -185,10 +185,15 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             duration: 30,
             pricingOverrides: pricingOverrides,
             status: "Approved", // Default status as per requirement
+            updatedAt: serverTimestamp(),
         };
 
+        if (!roomDetails.id) {
+            packageDetails.createdAt = serverTimestamp();
+        }
+
         // await setDoc(doc(hotelPackages, id), packageInfo);
-        await setDoc(doc(hotelPackageDetails, id), packageDetails).then(() => {
+        await setDoc(doc(hotelPackageDetails, id), packageDetails, { merge: true }).then(() => {
             successNotification(
                 `The Package is ${roomDetails?.packageName ? "updated" : "added"
                 } successfully`
@@ -217,6 +222,17 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             amenities: room.amenities || [],
             pictures: room.pictures || [],
         });
+
+        reset({
+            packageName: room.packageName,
+            price: room.price,
+            address: room.address,
+            description: room.description,
+            discount: room.discount,
+            period: room.period,
+            numberOfGuests: room.numberOfGuests,
+        });
+
         setPricingOverrides(room.pricingOverrides || []);
         setOpenModal(true);
     };

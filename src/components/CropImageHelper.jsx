@@ -1,53 +1,70 @@
-// cropImageHelper.js
-export default function getCroppedImg(imageSrc, croppedAreaPixels) {
-  return new Promise((resolve, reject) => {
+const createImage = (url) =>
+  new Promise((resolve, reject) => {
     const image = new Image();
-    image.src = imageSrc;
-    image.onload = () => {
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d");
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", (error) => reject(error));
+    image.setAttribute("crossOrigin", "anonymous"); // needed to avoid cross-origin issues on CodeSandbox
+    image.src = url;
+  });
 
-      // Set canvas dimensions to match the cropped area
-      canvas.width = croppedAreaPixels.width;
-      canvas.height = croppedAreaPixels.height;
+function getRadianAngle(degreeValue) {
+  return (degreeValue * Math.PI) / 180;
+}
 
-      // Create a circular mask (clip-path) for the image
-      ctx.beginPath();
-      ctx.arc(
-        croppedAreaPixels.width / 2,
-        croppedAreaPixels.height / 2,
-        Math.min(croppedAreaPixels.width, croppedAreaPixels.height) / 2,
-        0,
-        2 * Math.PI
-      );
-      ctx.clip();
+/**
+ * This function was adapted from the one in the ReadMe of https://github.com/DominicTobias/react-image-crop
+ * @param {string} imageSrc - Image File url
+ * @param {Object} pixelCrop - pixelCrop Object provided by react-easy-crop
+ * @param {number} rotation - optional rotation parameter
+ */
+export default async function getCroppedImg(imageSrc, pixelCrop, rotation = 0) {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
 
-      // Draw the cropped portion of the image on the canvas
-      ctx.drawImage(
-        image,
-        croppedAreaPixels.x,
-        croppedAreaPixels.y,
-        croppedAreaPixels.width,
-        croppedAreaPixels.height,
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
+  const maxSize = Math.max(image.width, image.height);
+  const safeArea = 2 * ((maxSize / 2) * Math.sqrt(2));
 
-      // Convert canvas to a Blob
-      canvas.toBlob((blob) => {
-        if (blob) {
-          // Convert blob to a File
-          const file = new File([blob], "cropped_image.png", { type: "image/png" });
-          // console.log(file);
-          resolve(file);
-        } else {
-          reject(new Error("Failed to create Blob from canvas"));
-        }
-      }, "image/png");
-    };
+  // set each dimensions to double largest dimension to allow for a safe area for the
+  // image to rotate in without being clipped by canvas context
+  canvas.width = safeArea;
+  canvas.height = safeArea;
 
-    image.onerror = (error) => reject(error);
+  // translate canvas context to a central location on image to allow rotating around the center.
+  ctx.translate(safeArea / 2, safeArea / 2);
+  ctx.rotate(getRadianAngle(rotation));
+  ctx.translate(-safeArea / 2, -safeArea / 2);
+
+  // draw rotated image and store data.
+  ctx.drawImage(
+    image,
+    safeArea / 2 - image.width * 0.5,
+    safeArea / 2 - image.height * 0.5
+  );
+  const data = ctx.getImageData(
+    safeArea / 2 - image.width * 0.5 + pixelCrop.x,
+    safeArea / 2 - image.height * 0.5 + pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  // set canvas width to final desired crop size - this will clear existing context
+  canvas.width = pixelCrop.width;
+  canvas.height = pixelCrop.height;
+
+  // paste generated rotate image with correct offsets for x,y crop values.
+  ctx.putImageData(data, 0, 0);
+
+  // Convert canvas to a Blob
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) {
+        // Convert blob to a File
+        const file = new File([blob], "cropped_image.png", { type: "image/png" });
+        resolve(file);
+      } else {
+        reject(new Error("Failed to create Blob from canvas"));
+      }
+    }, "image/png");
   });
 }

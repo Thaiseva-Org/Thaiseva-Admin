@@ -11,6 +11,7 @@ import {
     FormControlLabel,
     Checkbox,
     Paper,
+    Autocomplete,
 } from "@mui/material";
 import {
     AddCircle as AddCircleIcon,
@@ -27,6 +28,7 @@ import {
     doc,
     setDoc,
     getDoc,
+    getDocs,
     collection,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
@@ -58,11 +60,11 @@ const ProgressBar = ({ currentStep, totalSteps }) => {
     const progress = (currentStep / totalSteps) * 100;
 
     return (
-        <div className="w-full max-w-5xl mx-auto mb-8 animate-fade-in">
+        <div className="w-full max-w-5xl mx-auto animate-fade-in">
             <div className="flex justify-between mb-2 px-1">
                 <span className={`text-sm font-bold transition-colors duration-300 ${currentStep >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>1. Basics</span>
                 <span className={`text-sm font-bold transition-colors duration-300 ${currentStep >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>2. Details</span>
-                <span className={`text-sm font-bold transition-colors duration-300 ${currentStep >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>3. Settings</span>
+                <span className={`text-sm font-bold transition-colors duration-300 ${currentStep >= 3 ? 'text-blue-600' : 'text-gray-400'}`}>3. Configuration</span>
             </div>
             <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden shadow-inner">
                 <div
@@ -118,6 +120,47 @@ const AddSightseeingPackage = () => {
     const placesRef = useRef();
     const includedRef = useRef();
     const excludedRef = useRef();
+
+    const [availableHotels, setAvailableHotels] = useState([]);
+    const [hotelRoomsMap, setHotelRoomsMap] = useState({});
+
+    useEffect(() => {
+        const fetchAllHotels = async () => {
+            try {
+                console.warn("DEBUG: Fetching hotels from HotelDB...");
+                const snapshot = await getDocs(collection(db, "HotelDB"));
+                console.warn("DEBUG: Snapshot size:", snapshot.size);
+
+                const list = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    console.warn("DEBUG: Doc Data:", doc.id, data);
+                    // Handle both structures: direct fields or nested under 'hotel'
+                    return {
+                        id: doc.id,
+                        hotelName: data.hotelName || data.hotel?.hotelName,
+                        address: data.address || data.hotel?.address
+                    };
+                }).filter(h => h.hotelName); // Filter out invalid
+
+                console.warn("DEBUG: Filtered List:", list);
+                setAvailableHotels(list);
+            } catch (err) {
+                console.error("Failed to load hotels", err);
+            }
+        };
+        fetchAllHotels();
+    }, []);
+
+    const fetchRoomsForHotel = async (hotelId) => {
+        if (!hotelId || hotelRoomsMap[hotelId]) return;
+        try {
+            const snapshot = await getDocs(collection(db, "HotelDB", hotelId, "rooms"));
+            const rooms = snapshot.docs.map(doc => doc.data());
+            setHotelRoomsMap(prev => ({ ...prev, [hotelId]: rooms }));
+        } catch (err) {
+            console.error("Failed to load rooms for hotel", hotelId, err);
+        }
+    };
 
     const [itinerary, setItinerary] = useState([]);
     const [hotelsIncluded, setHotelsIncluded] = useState([]);
@@ -223,7 +266,7 @@ const AddSightseeingPackage = () => {
 
     const addHotel = () => {
         setHotelsIncluded([...hotelsIncluded, {
-            hotelId: uuid(), hotelName: "", nights: 1, roomType: "", location: ""
+            hotelId: "", hotelName: "", nights: 1, roomType: "", location: "", isManual: false
         }]);
     };
 
@@ -333,25 +376,35 @@ const AddSightseeingPackage = () => {
     };
 
     const handleUploadCoverPhoto = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const fileRef = ref(storage, `${file.lastModified}-coverPhoto`);
-        const coverPhotoTask = await uploadBytesResumable(fileRef, file);
-        const photoURL = await getDownloadURL(coverPhotoTask.ref);
-        if (photoURL) setCoverPhotoURL(photoURL);
+        try {
+            const file = e.target.files[0];
+            if (!file) return;
+            const fileRef = ref(storage, `${file.lastModified}-coverPhoto`);
+            const coverPhotoTask = await uploadBytesResumable(fileRef, file);
+            const photoURL = await getDownloadURL(coverPhotoTask.ref);
+            if (photoURL) setCoverPhotoURL(photoURL);
+        } catch (error) {
+            console.error("Cover photo upload failed:", error);
+            toast.error("Failed to upload cover photo");
+        }
     };
 
     const handleUploadPictures = async (e) => {
-        let file = e.target.files[0];
-        if (!file) return;
-        const imageRef = ref(storage, `${file.lastModified}-placePhoto`);
-        const imageTask = await uploadBytesResumable(imageRef, file);
-        const imageURL = await getDownloadURL(imageTask.ref);
-        if (imageURL) {
-            setArrayData((p) => ({
-                ...p,
-                pictures: [...arrayData.pictures, imageURL],
-            }));
+        try {
+            let file = e.target.files[0];
+            if (!file) return;
+            const imageRef = ref(storage, `${file.lastModified}-placePhoto`);
+            const imageTask = await uploadBytesResumable(imageRef, file);
+            const imageURL = await getDownloadURL(imageTask.ref);
+            if (imageURL) {
+                setArrayData((p) => ({
+                    ...p,
+                    pictures: [...arrayData.pictures, imageURL],
+                }));
+            }
+        } catch (error) {
+            console.error("Gallery upload failed:", error);
+            toast.error("Failed to upload gallery image");
         }
     };
 
@@ -454,13 +507,17 @@ const AddSightseeingPackage = () => {
     };
 
     const textField = (label, name, placeholder, defaultValue) => {
+        const isRequired = !["pricePerChild", "extraAdultPrice", "transportType", "discount"].includes(name);
         return (
             <Grid item xs={12} sm={name === "description" ? 12 : 6}>
                 <TextField
-                    label={label}
+                    label={
+                        <span>
+                            {label} {isRequired && <span className="text-red-500">*</span>}
+                        </span>
+                    }
                     type={["price", "discount", "period", "pricePerChild", "extraAdultPrice"].includes(name) ? "number" : "text"}
                     onWheel={(e) => e.target.blur()}
-                    required={!["pricePerChild", "extraAdultPrice", "transportType", "discount"].includes(name)}
                     defaultValue={defaultValue || ""}
                     placeholder={placeholder}
                     multiline={name === "description"}
@@ -471,7 +528,8 @@ const AddSightseeingPackage = () => {
                         min: name === "price" ? 1 : name === "discount" ? 0 : name === "period" ? 1 : undefined,
                         max: name === "discount" ? 100 : name === "period" ? 100 : undefined,
                     }}
-                    {...register(name, { required: !["pricePerChild", "extraAdultPrice", "transportType", "discount"].includes(name) })}
+                    InputLabelProps={{ shrink: !!defaultValue ? true : undefined }}
+                    {...register(name, { required: isRequired })}
                 />
                 {errors?.[name] && <span className="text-red-500">{label} is required</span>}
             </Grid>
@@ -490,38 +548,24 @@ const AddSightseeingPackage = () => {
                 />
             </div>
 
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-5xl mx-auto space-y-8">
                 <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
 
-                <div className="absolute top-28 right-8 z-10">
-                    {!isEdit && (
-                        <Button
-                            type="button"
-                            variant="outlined"
-                            startIcon={<AutoFixHighIcon />}
-                            onClick={handleAutofill}
-                            size="small"
-                            sx={{
-                                textTransform: 'none',
-                                borderRadius: '12px',
-                                bgcolor: 'white',
-                                borderColor: '#e2e8f0',
-                                color: '#64748b',
-                                '&:hover': {
-                                    borderColor: '#cbd5e1',
-                                    bgcolor: '#f8fafc'
-                                }
-                            }}
-                        >
-                            Autofill Data
-                        </Button>
-                    )}
-                </div>
 
-                <Paper className="rounded-2xl shadow-xl border border-neutral-200 overflow-hidden bg-white/80 backdrop-blur-sm">
+
+                <Paper elevation={0} className="rounded-2xl bg-white shadow-sm border border-slate-100">
                     {/* Header removed as it's cleaner without the stepper header block */}
 
-                    <Box component="form" onSubmit={handleSubmit(handleSavePackage)} className="p-6 md:p-8">
+                    <Box
+                        component="form"
+                        onSubmit={(e) => e.preventDefault()}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                                e.preventDefault();
+                            }
+                        }}
+                        className="px-6 py-10 md:px-8 md:py-12"
+                    >
                         <Grid container spacing={4}>
 
                             {/* STEP 1: BASIC INFORMATION */}
@@ -541,6 +585,7 @@ const AddSightseeingPackage = () => {
                                                 fullWidth
                                                 {...register("description", { required: true })}
                                                 defaultValue={packageDetails?.description}
+                                                InputLabelProps={{ shrink: !!packageDetails?.description ? true : undefined }}
                                                 placeholder="A brief overview of the package..."
                                             />
                                         </Grid>
@@ -766,45 +811,6 @@ const AddSightseeingPackage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Places */}
-                                    <div className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm">
-                                        <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>📍 Places / Sights</Typography>
-                                        <div className="flex gap-2 mb-4">
-                                            <TextField
-                                                ref={placesRef}
-                                                size="small"
-                                                placeholder="Add place name..."
-                                                fullWidth
-                                                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddPlace())}
-                                                sx={{
-                                                    "& .MuiOutlinedInput-root": {
-                                                        borderRadius: "999px",
-                                                        backgroundColor: "#f3f4f6",
-                                                        "& fieldset": { border: "none" },
-                                                    }
-                                                }}
-                                            />
-                                            <Button
-                                                variant="contained"
-                                                onClick={handleAddPlace}
-                                                sx={{
-                                                    borderRadius: "999px",
-                                                    minWidth: '80px',
-                                                    boxShadow: 'none',
-                                                    textTransform: 'none'
-                                                }}
-                                            >
-                                                Add
-                                            </Button>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2 p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-                                            {arrayData.places.map((item, i) => (
-                                                <Chip key={i} label={item} onDelete={() => handleRemovePlace(i)} variant="outlined" sx={{ bgcolor: 'white' }} />
-                                            ))}
-                                            {arrayData.places.length === 0 && <span className="text-sm text-gray-400 italic">No places added yet.</span>}
-                                        </div>
-                                    </div>
-
                                 </div>
                             )}
 
@@ -858,13 +864,72 @@ const AddSightseeingPackage = () => {
                                             {hotelsIncluded.length === 0 && <p className="text-sm text-gray-400 italic text-center py-8 border-2 border-dashed border-gray-100 rounded-xl">No hotels linked to this package.</p>}
                                             {hotelsIncluded.map((hotel, index) => (
                                                 <div key={index} className="border border-gray-200 rounded-xl p-4 relative hover:bg-gray-50 transition-colors bg-white shadow-sm">
-                                                    <div className="absolute top-2 right-2 cursor-pointer text-gray-300 hover:text-red-500" onClick={() => setHotelsIncluded(hotelsIncluded.filter((_, i) => i !== index))}>
+                                                    <div className="absolute top-2 right-2 cursor-pointer text-gray-300 hover:text-red-500 z-10" onClick={() => setHotelsIncluded(hotelsIncluded.filter((_, i) => i !== index))}>
                                                         <CloseIcon fontSize="small" />
                                                     </div>
+
+                                                    {/* Toggle Mode */}
+                                                    <div className="mb-4 flex items-center gap-2">
+                                                        <FormControlLabel
+                                                            control={
+                                                                <Checkbox
+                                                                    checked={!hotel.isManual}
+                                                                    onChange={(e) => {
+                                                                        const isPartner = e.target.checked;
+                                                                        updateHotel(index, 'isManual', !isPartner);
+                                                                        if (!isPartner) {
+                                                                            // Switch to Manual - clear IDs but keep names if useful? Or clear?
+                                                                            updateHotel(index, 'hotelId', uuid());
+                                                                        }
+                                                                    }}
+                                                                    size="small"
+                                                                />
+                                                            }
+                                                            label={<span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">Use Partner Hotel</span>}
+                                                        />
+                                                    </div>
+
                                                     <Grid container spacing={3} alignItems="center">
-                                                        <Grid item xs={6}><TextField label="Hotel Name" variant="standard" fullWidth value={hotel.hotelName} onChange={(e) => updateHotel(index, 'hotelName', e.target.value)} /></Grid>
-                                                        <Grid item xs={3}><TextField label="Nights" type="number" variant="standard" fullWidth value={hotel.nights} onChange={(e) => updateHotel(index, 'nights', parseInt(e.target.value))} /></Grid>
-                                                        <Grid item xs={3}><TextField label="Room Type" variant="standard" fullWidth value={hotel.roomType} onChange={(e) => updateHotel(index, 'roomType', e.target.value)} /></Grid>
+                                                        <Grid item xs={6}>
+                                                            {!hotel.isManual ? (
+                                                                <Autocomplete
+                                                                    options={availableHotels}
+                                                                    getOptionLabel={(option) => option.hotelName || ""}
+                                                                    value={availableHotels.find(h => h.id === hotel.hotelId) || null}
+                                                                    onChange={(e, newVal) => {
+                                                                        if (newVal) {
+                                                                            updateHotel(index, 'hotelName', newVal.hotelName);
+                                                                            updateHotel(index, 'hotelId', newVal.id);
+                                                                            fetchRoomsForHotel(newVal.id);
+                                                                        } else {
+                                                                            updateHotel(index, 'hotelName', "");
+                                                                            updateHotel(index, 'hotelId', "");
+                                                                        }
+                                                                    }}
+                                                                    renderInput={(params) => <TextField {...params} label="Select Partner Hotel" variant="standard" fullWidth />}
+                                                                />
+                                                            ) : (
+                                                                <TextField label="Hotel Name (Manual)" variant="standard" fullWidth value={hotel.hotelName} onChange={(e) => updateHotel(index, 'hotelName', e.target.value)} />
+                                                            )}
+                                                        </Grid>
+
+                                                        <Grid item xs={3}>
+                                                            <TextField label="Nights" type="number" variant="standard" fullWidth value={hotel.nights} onChange={(e) => updateHotel(index, 'nights', parseInt(e.target.value))} />
+                                                        </Grid>
+
+                                                        <Grid item xs={3}>
+                                                            {!hotel.isManual && hotelRoomsMap[hotel.hotelId] ? (
+                                                                <Autocomplete
+                                                                    options={hotelRoomsMap[hotel.hotelId].map(r => r.name || r.roomName || "Standard")}
+                                                                    freeSolo
+                                                                    value={hotel.roomType}
+                                                                    onChange={(e, val) => updateHotel(index, 'roomType', val)}
+                                                                    renderInput={(params) => <TextField {...params} label="Room Type" variant="standard" fullWidth />}
+                                                                />
+                                                            ) : (
+                                                                <TextField label="Room Type" variant="standard" fullWidth value={hotel.roomType} onChange={(e) => updateHotel(index, 'roomType', e.target.value)} />
+                                                            )}
+                                                        </Grid>
                                                     </Grid>
                                                 </div>
                                             ))}
@@ -877,6 +942,7 @@ const AddSightseeingPackage = () => {
                         {/* Navigation Buttons */}
                         <div className="flex justify-between pt-8 mt-8 border-t border-gray-200">
                             <Button
+                                type="button"
                                 onClick={currentStep === 1 ? () => navigate("/dashboard/travel-services") : handleBackStep}
                                 variant="contained"
                                 sx={{
@@ -895,6 +961,7 @@ const AddSightseeingPackage = () => {
 
                             {currentStep < 3 ? (
                                 <Button
+                                    type="button"
                                     onClick={handleNextStep}
                                     variant="contained"
                                     size="large"
@@ -913,7 +980,8 @@ const AddSightseeingPackage = () => {
                             ) : (
                                 <Button
                                     variant="contained"
-                                    type="submit"
+                                    type="button"
+                                    onClick={handleSubmit(handleSavePackage)}
                                     size="large"
                                     startIcon={<SaveIcon />}
                                     sx={{

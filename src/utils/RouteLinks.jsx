@@ -120,11 +120,11 @@ export const ourServiceLinks = [
     lable: "Local Services",
     icon: <ManageAccountsIcon />,
   },
-  {
-    url: "/dashboard/room-services",
-    lable: "Room Services",
-    icon: <LocalHotelIcon />,
-  },
+  // {
+  //   url: "/dashboard/room-services",
+  //   lable: "Room Services",
+  //   icon: <LocalHotelIcon />,
+  // },
   {
     url: "/dashboard/travel-services",
     lable: "Travel Services",
@@ -169,11 +169,11 @@ export const newprimaryLinks = [
 
 export const hotellinks = [
   { url: "/dashboard/hotels", lable: "Hotels", icon: <ApartmentIcon /> },
-  {
-    url: "/dashboard/room-services",
-    lable: "Room Services",
-    icon: <LocalHotelIcon />,
-  },
+  // {
+  //   url: "/dashboard/room-services",
+  //   lable: "Room Services",
+  //   icon: <LocalHotelIcon />,
+  // },
   {
     url: "/dashboard/room-bookings",
     lable: "Room Bookings",

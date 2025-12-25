@@ -1,6 +1,24 @@
 import {
   TablePagination,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Avatar,
+  Button,
+  Box,
+  Card,
+  CardContent,
+  Grid,
+  Typography,
+  Chip,
+  IconButton,
+  Tooltip
 } from "@mui/material";
+import { Download as DownloadIcon, FileDownload as FileDownloadIcon, Person as PersonIcon, Article as ArticleIcon, Visibility as VisibilityIcon } from "@mui/icons-material";
 import { useState, useEffect, useContext } from "react";
 import PageHeading from "../../../../components/PageHeading";
 import LoadingContent from "../../../../components/LoadingContent";
@@ -34,11 +52,11 @@ const UserData = () => {
 
   const columns = [
     { id: "profile", label: "Profile", width: "10%" },
-    { id: "name", label: "Name", width: "18%" },
-    { id: "contact", label: "Contact", width: "12%" },
-    { id: "email", label: "Email", width: "15%" },
-    { id: "location", label: "Location", width: "25%" },
-    { id: "createdAt", label: "Registered On", width: "20%" },
+    { id: "name", label: "Name", width: "20%" },
+    { id: "contact", label: "Contact", width: "15%" },
+    { id: "email", label: "Email", width: "20%" },
+    { id: "location", label: "Location", width: "20%" },
+    { id: "createdAt", label: "Registered On", width: "15%" },
   ];
 
   // creating single row
@@ -133,189 +151,281 @@ const UserData = () => {
 
   const fileName = `UserData.csv`;
 
+  const StatCard = ({ title, value, icon, color, gradient }) => (
+    <Card sx={{
+      borderRadius: 4,
+      boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)",
+      height: '100%',
+      position: 'relative',
+      overflow: 'hidden',
+      transition: 'transform 0.2s',
+      '&:hover': {
+        transform: 'translateY(-4px)',
+        boxShadow: "0 20px 40px -12px rgba(0,0,0,0.15)",
+      }
+    }}>
+      <div
+        style={{
+          background: gradient,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '6px'
+        }}
+      />
+      <CardContent sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Box>
+            <Typography variant="body2" sx={{ color: color, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', mb: 1 }}>
+              {title}
+            </Typography>
+            <Typography variant="h3" fontWeight={800} color="text.primary">
+              {value}
+            </Typography>
+          </Box>
+          <Box sx={{
+            p: 2,
+            borderRadius: '16px',
+            background: `${color}15`, // 10% opacity
+            color: color,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: `0 4px 12px ${color}20`
+          }}>
+            {icon}
+          </Box>
+        </Box>
+      </CardContent>
+    </Card>
+  );
+
   return (
-    <div className="animate-fade-in">
-      <PageHeading 
-        text="User Data" 
+    <div className="animate-fade-in pb-8">
+      <PageHeading
+        text="User Data"
         subtitle="Manage and view all registered users"
         icon="👥"
       />
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-primary-100 text-sm font-medium mb-1">Total Users</p>
-              <p className="text-3xl font-bold">{totalPages}</p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">👥</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-success-100 text-sm font-medium mb-1">Current Page</p>
-              <p className="text-3xl font-bold">{page + 1}</p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">📄</span>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-secondary-100 text-sm font-medium mb-1">Showing</p>
-              <p className="text-3xl font-bold">{matchedRequirements.length}</p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">📊</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <Grid container spacing={3} mb={4}>
+        <Grid item xs={12} md={4}>
+          <StatCard
+            title="Total Users"
+            value={totalPages}
+            icon={<PersonIcon fontSize="large" />}
+            color="#3b82f6" // Blue
+            gradient="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <StatCard
+            title="Current Page"
+            value={page + 1}
+            icon={<ArticleIcon fontSize="large" />}
+            color="#10b981" // Green
+            gradient="linear-gradient(135deg, #10b981 0%, #059669 100%)"
+          />
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <StatCard
+            title="Showing Records"
+            value={matchedRequirements.length}
+            icon={<VisibilityIcon fontSize="large" />}
+            color="#8b5cf6" // Violet
+            gradient="linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
+          />
+        </Grid>
+      </Grid>
 
       {/* Action Buttons */}
-      <div className="flex gap-3 flex-wrap mb-6">
-        {!csvData && (
-          <button
-            className="btn-gradient-primary shadow-lg hover:shadow-xl transition-all duration-300"
+      <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
+        {!csvData ? (
+          <Button
+            variant="contained"
             onClick={handleDownload}
             disabled={isDownloading}
+            startIcon={isDownloading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <DownloadIcon />}
+            sx={{
+              borderRadius: 3,
+              textTransform: 'none',
+              px: 3,
+              py: 1.2,
+              fontWeight: 600,
+              boxShadow: '0 8px 16px -4px rgba(59, 130, 246, 0.2)',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                boxShadow: '0 12px 20px -6px rgba(59, 130, 246, 0.3)',
+              }
+            }}
           >
-            {isDownloading ? (
-              <>
-                <span className="inline-block animate-spin mr-2">⏳</span>
-                Generating...
-              </>
-            ) : (
-              <>
-                <span className="mr-2">📥</span>
-                Generate CSV
-              </>
-            )}
-          </button>
-        )}
-        {csvData && (
+            {isDownloading ? "Generating CSV..." : "Generate CSV"}
+          </Button>
+        ) : (
           <CSVLink
-            className="btn-gradient-secondary shadow-lg hover:shadow-xl transition-all duration-300 inline-flex items-center"
             data={csvData}
             headers={headers}
             filename={fileName}
+            style={{ textDecoration: 'none' }}
           >
-            <span className="mr-2">📤</span>
-            Export to CSV
+            <Button
+              variant="contained"
+              startIcon={<FileDownloadIcon />}
+              sx={{
+                borderRadius: 3,
+                textTransform: 'none',
+                px: 3,
+                py: 1.2,
+                fontWeight: 600,
+                boxShadow: '0 8px 16px -4px rgba(16, 185, 129, 0.2)',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                  boxShadow: '0 12px 20px -6px rgba(16, 185, 129, 0.3)',
+                }
+              }}
+            >
+              Export to CSV
+            </Button>
           </CSVLink>
         )}
-      </div>
+      </Box>
 
       {/* Modern Table Container */}
-      <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden">
-        <div className="overflow-x-auto">
+      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <TableContainer>
           {loadingReq ? (
-            <LoadingContent variant="skeleton" />
+            <Box sx={{ p: 4 }}>
+              <LoadingContent variant="skeleton" />
+            </Box>
           ) : (
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
-                <tr>
+            <Table sx={{ minWidth: 650 }}>
+              <TableHead>
+                <TableRow sx={{ background: 'linear-gradient(90deg, #3b82f6 0%, #2563eb 100%)' }}>
                   {columns.map((column) => (
-                    <th
+                    <TableCell
                       key={column.id}
-                      className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider"
-                      style={{ width: column.width }}
+                      align="left"
+                      sx={{
+                        py: 2,
+                        px: 3,
+                        fontWeight: 600,
+                        color: '#f8fafc',
+                        fontSize: '0.875rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        borderBottom: 'none'
+                      }}
                     >
                       {column.label}
-                    </th>
+                    </TableCell>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200">
+                </TableRow>
+              </TableHead>
+              <TableBody>
                 {rows.map((row, i) => (
-                  <tr 
-                    key={i} 
-                    className="hover:bg-primary-50 transition-colors duration-200"
+                  <TableRow
+                    key={i}
+                    hover
+                    sx={{
+                      '&:last-child td, &:last-child th': { border: 0 },
+                      transition: 'all 0.2s',
+                      '&:hover': {
+                        backgroundColor: '#f1f5f9',
+                        transform: 'scale(1.002)',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                      }
+                    }}
                   >
                     {columns.map((column) => {
-                      let value = row[column.id];
-
+                      const value = row[column.id];
                       return (
-                        <td key={column.id} className="px-6 py-4 text-center">
-                          {column?.id === "createdAt" ? (
-                            <span className="text-sm text-neutral-600">
-                              {value.toLocaleString()}
-                            </span>
-                          ) : column?.id === "profile" ? (
-                            <div className="flex items-center justify-center w-full">
-                              <img
-                                loading="lazy"
-                                src={value}
-                                alt="User profile"
-                                className="w-12 h-12 lg:w-16 lg:h-16 rounded-full object-cover border-2 border-primary-200 shadow-md"
-                              />
-                            </div>
+                        <TableCell key={column.id} align="left" sx={{ py: 2, px: 3 }}>
+                          {column.id === "profile" ? (
+                            <Avatar
+                              src={value}
+                              alt={row.name}
+                              sx={{
+                                width: 48,
+                                height: 48,
+                                border: '2px solid white',
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                                transition: 'transform 0.2s',
+                                '&:hover': { transform: 'scale(1.1)' }
+                              }}
+                            />
+                          ) : column.id === "createdAt" ? (
+                            <Chip
+                              label={value.toLocaleDateString()}
+                              size="small"
+                              sx={{
+                                bgcolor: '#eff6ff',
+                                color: '#2563eb',
+                                fontWeight: 600,
+                                borderRadius: '8px',
+                                border: '1px solid #bfdbfe'
+                              }}
+                            />
+                          ) : column.id === "email" ? (
+                            <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569' }}>
+                              {value || "-"}
+                            </Typography>
+                          ) : column.id === "name" ? (
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                              {value || "-"}
+                            </Typography>
                           ) : (
-                            <span className="text-sm text-neutral-700">{value}</span>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                              {value || "-"}
+                            </Typography>
                           )}
-                        </td>
+                        </TableCell>
                       );
                     })}
-                  </tr>
+                  </TableRow>
                 ))}
                 {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12">
-                      <div className="flex flex-col items-center justify-center text-neutral-400">
-                        <span className="text-6xl mb-4">👤</span>
-                        <p className="text-lg font-medium text-neutral-500">No Users Found</p>
-                        <p className="text-sm text-neutral-400 mt-2">There are no registered users at this time.</p>
-                      </div>
-                    </td>
-                  </tr>
+                  <TableRow>
+                    <TableCell colSpan={6} sx={{ py: 8, textAlign: 'center' }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'text.secondary' }}>
+                        <PersonIcon sx={{ fontSize: 60, opacity: 0.2, mb: 2 }} />
+                        <Typography variant="h6" color="text.primary" gutterBottom>
+                          No Users Found
+                        </Typography>
+                        <Typography variant="body2">
+                          There are no registered users at this time.
+                        </Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
-        </div>
-        
+        </TableContainer>
+
         {/* Modern Pagination */}
-        <div className="border-t border-neutral-200 bg-neutral-50 px-6 py-4">
-          <TablePagination
-            rowsPerPageOptions={[10, 25, 100]}
-            component="div"
-            count={totalPages}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            sx={{
-              '& .MuiTablePagination-toolbar': {
-                color: 'var(--text-primary)',
-              },
-              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-                margin: 0,
-                fontWeight: 500,
-              },
-              '& .MuiTablePagination-select': {
-                borderRadius: '8px',
-                backgroundColor: 'white',
-                border: '1px solid #e5e7eb',
-                padding: '4px 8px',
-              },
-              '& .MuiTablePagination-actions button': {
-                borderRadius: '8px',
-                '&:hover': {
-                  backgroundColor: 'var(--primary-bg-light)',
-                },
-              },
-            }}
-          />
-        </div>
-      </div>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 100]}
+          component="div"
+          count={totalPages}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+              fontWeight: 500,
+              color: 'text.secondary',
+            }
+          }}
+        />
+      </Paper>
     </div>
   );
 };

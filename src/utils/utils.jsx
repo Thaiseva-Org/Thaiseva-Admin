@@ -42,7 +42,16 @@ function timeAgo(date) {
 }
 
 function getDateAndTime(timestamp) {
-  const date = new Date(timestamp);
+  if (!timestamp) return "N/A";
+  let date;
+  if (timestamp.seconds) {
+    date = new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
+  } else {
+    date = new Date(timestamp);
+  }
+
+  if (isNaN(date.getTime())) return "Invalid Date";
+
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "2-digit",
@@ -54,7 +63,16 @@ function getDateAndTime(timestamp) {
 }
 
 function getDate(timestamp) {
-  const date = new Date(timestamp);
+  if (!timestamp) return "N/A";
+  let date;
+  if (timestamp.seconds) {
+    date = new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
+  } else {
+    date = new Date(timestamp);
+  }
+
+  if (isNaN(date.getTime())) return "Invalid Date";
+
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "2-digit",

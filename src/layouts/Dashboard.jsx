@@ -1,4 +1,4 @@
-import { ExpandLess, ExpandMore } from "@mui/icons-material";
+import { ExpandLess, ExpandMore, Logout } from "@mui/icons-material";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import {
   AppBar,
@@ -17,6 +17,7 @@ import {
   Menu,
   Toolbar,
   Typography,
+  Button
 } from "@mui/material";
 import PropTypes from "prop-types";
 import * as React from "react";
@@ -182,6 +183,16 @@ function Dashboard(props) {
       payload: {},
     });
   };
+
+  // Sync chatRoom with URL on mount/update to handle refreshes
+  React.useEffect(() => {
+    const path = location.pathname;
+    if (path === "/dashboard/customer-chat") setChatRoom("CustomerSupport");
+    else if (path === "/dashboard/driver-chat") setChatRoom("DriversSupport");
+    else if (path === "/dashboard/partner-chat") setChatRoom("LocalPartnerSupport");
+    else if (path === "/dashboard/hotel-chat") setChatRoom("HotelSupport");
+    else if (path === "/dashboard/restaurant-chat") setChatRoom("CustomerSupport");
+  }, [location.pathname, setChatRoom]);
 
   // showig dashboard title based on user category
   let text = "";
@@ -669,7 +680,7 @@ function Dashboard(props) {
                 </ListItem>
               </Link>
             ))}
-            {isAdmin && (
+            {/* {isAdmin && (
               <ListItem
                 disablePadding
                 sx={{ mt: 0.5 }}
@@ -690,7 +701,7 @@ function Dashboard(props) {
                   </ListItemButton>
                 </Link>
               </ListItem>
-            )}
+            )} */}
 
             <div className="text-[var(--drawer-heading-color)] border-b-2 mt-4 mb-2 border-[var(--drawer-heading-color)] pl-2 text-lg font-bold  py-1 z-10 overflow-hidden">
               Hotel Related
@@ -1097,37 +1108,22 @@ function Dashboard(props) {
                   </p>
                 </div>
               )}
-              <Avatar
-                alt="Cindy Baker"
-                src={user?.photoURL}
-                className="border-2 bg-white border-yellow-300 cursor-pointer"
-                id="fade-button"
-                aria-controls={avaterMenu ? "fade-menu" : undefined}
-                aria-haspopup="true"
-                aria-expanded={avaterMenu ? "true" : undefined}
-                onClick={handleClick}
-              />
-
-              <div>
-                <Menu
-                  id="fade-menu"
-                  MenuListProps={{
-                    "aria-labelledby": "fade-button",
-                  }}
-                  anchorEl={anchorEl}
-                  open={avaterMenu}
-                  onClose={handleClose}
-                  TransitionComponent={Fade}
-                  sx={{ mt: 0.5 }}
-                >
-                  <button
-                    onClick={handleLogOut}
-                    className="h-fit font-bold text-white rounded-lg py-1 px-2 text-xs m-2 bg-[var(--button-bg-color)]"
-                  >
-                    Log Out
-                  </button>
-                </Menu>
-              </div>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<Logout />}
+                onClick={handleLogOut}
+                sx={{
+                  ml: 2,
+                  borderRadius: '10px',
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  borderWidth: '2px',
+                  '&:hover': { borderWidth: '2px' }
+                }}
+              >
+                Log Out
+              </Button>
             </div>
           </div>
         </Toolbar>

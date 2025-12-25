@@ -8,7 +8,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     alignItems: "center",
     height: 24,
-    fontStyle: "bold",
+    fontWeight: "bold",
   },
   description: {
     width: "75%",

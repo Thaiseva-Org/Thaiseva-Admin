@@ -1,8 +1,12 @@
 {
   "hosting": {
-    "site": "thaiseva-super-admin",
+    "site": "thaiseva-admindashboard-demo",
     "public": "dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "rewrites": [
       {
         "source": "**",

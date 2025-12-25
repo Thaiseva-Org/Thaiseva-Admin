@@ -524,12 +524,11 @@ const SubAdmins = () => {
                   helperText={
                     error.for === "photoURL" && (
                       <span
-                        className={` text-sm ${
-                          (error?.text.includes("select") && "text-red-500") ||
+                        className={` text-sm ${(error?.text.includes("select") && "text-red-500") ||
                           (error?.text.includes("uploading") &&
                             "text-orange-500") ||
                           (error?.text.includes("success") && "text-green-500")
-                        }`}
+                          }`}
                       >
                         {error.text}
                       </span>

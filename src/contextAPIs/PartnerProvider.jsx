@@ -340,8 +340,8 @@ const PartnerProvider = ({ children }) => {
       const unSub = onSnapshot(
         query(
           roomBookingCollection,
-          where("orderedAt", ">=", last24Hours),
-          orderBy("orderedAt", "desc")
+          where("createdAt", ">=", last24Hours),
+          orderBy("createdAt", "desc")
         ),
         (result) => {
           if (result.docs.length > 0) {
@@ -373,8 +373,8 @@ const PartnerProvider = ({ children }) => {
         query(
           roomBookingCollection,
           where("hotelUid", "==", userData?.uid),
-          where("orderedAt", ">=", last24Hours),
-          orderBy("orderedAt", "desc")
+          where("createdAt", ">=", last24Hours),
+          orderBy("createdAt", "desc")
         ),
         (result) => {
           if (result.docs.length > 0) {
@@ -480,9 +480,7 @@ const PartnerProvider = ({ children }) => {
       setLoadingData(true);
       const unSub = onSnapshot(
         query(
-          travelBookingCollection,
-          where("orderedAt", ">=", last24Hours),
-          orderBy("orderedAt", "desc")
+          travelBookingCollection
         ),
         (result) => {
           if (result.docs.length > 0) {
@@ -496,7 +494,12 @@ const PartnerProvider = ({ children }) => {
                 ...data,
               };
             });
-
+            // Sort client-side
+            list.sort((a, b) => {
+              const timeA = a.orderedAt?.seconds || a.timestamp?.seconds || 0;
+              const timeB = b.orderedAt?.seconds || b.timestamp?.seconds || 0;
+              return timeB - timeA;
+            });
             setTravelBookings(list);
             setLoadingData(false);
           }
@@ -537,7 +540,7 @@ const PartnerProvider = ({ children }) => {
         doc(db, "chatRooms", "CustomerSupport"),
         async (docSnap) => {
           const data = docSnap.data();
-          
+
           if (!data) {
             setChatCount(0);
             return;
@@ -545,25 +548,25 @@ const PartnerProvider = ({ children }) => {
 
           // Filter out restaurant chats by checking user data
           const unreadChats = Object.values(data).filter((chat) => chat.isRead === false);
-          
+
           // Fetch user data to check if they are restaurants
           const userChecks = await Promise.all(
             unreadChats.map(async (chat) => {
               const uid = chat?.userInfo?.uid;
               if (!uid) return true; // Include if no uid
-              
+
               try {
                 const userDocRef = doc(db, "users", uid);
                 const userDoc = await getDoc(userDocRef);
-                
+
                 if (userDoc.exists()) {
                   const userData = userDoc.data();
-                  const isRestaurant = 
+                  const isRestaurant =
                     userData.serviceCategory === "Restaurant" ||
                     userData.role === "Restaurant" ||
                     chat?.userInfo?.serviceCategory === "Restaurant" ||
                     chat?.userInfo?.role === "Restaurant";
-                  
+
                   return !isRestaurant; // Return true if NOT a restaurant (i.e., is a customer)
                 }
               } catch (error) {
@@ -594,7 +597,7 @@ const PartnerProvider = ({ children }) => {
         doc(db, "chatRooms", "CustomerSupport"),
         async (docSnap) => {
           const data = docSnap.data();
-          
+
           if (!data) {
             setRestaurantChatCount(0);
             return;
@@ -602,25 +605,25 @@ const PartnerProvider = ({ children }) => {
 
           // Filter to get only restaurant chats
           const unreadChats = Object.values(data).filter((chat) => chat.isRead === false);
-          
+
           // Fetch user data to check if they are restaurants
           const restaurantChecks = await Promise.all(
             unreadChats.map(async (chat) => {
               const uid = chat?.userInfo?.uid;
               if (!uid) return false; // Exclude if no uid
-              
+
               try {
                 const userDocRef = doc(db, "users", uid);
                 const userDoc = await getDoc(userDocRef);
-                
+
                 if (userDoc.exists()) {
                   const userData = userDoc.data();
-                  const isRestaurant = 
+                  const isRestaurant =
                     userData.serviceCategory === "Restaurant" ||
                     userData.role === "Restaurant" ||
                     chat?.userInfo?.serviceCategory === "Restaurant" ||
                     chat?.userInfo?.role === "Restaurant";
-                  
+
                   return isRestaurant; // Return true if IS a restaurant
                 }
               } catch (error) {
@@ -651,7 +654,7 @@ const PartnerProvider = ({ children }) => {
         doc(db, "chatRooms", "HotelSupport"),
         async (docSnap) => {
           const data = docSnap.data();
-          
+
           if (!data) {
             setHotelChatCount(0);
             return;

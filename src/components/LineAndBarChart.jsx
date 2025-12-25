@@ -14,10 +14,10 @@ import { dateCalculator } from "../utils/utils";
 
 const LineAndBarChart = ({
   title,
-  all,
-  hotelStatistics,
-  localStatistics,
-  travelStatistics,
+  all = [],
+  hotelStatistics = [],
+  localStatistics = [],
+  travelStatistics = [],
   chartType,
 }) => {
   ChartJS.register(

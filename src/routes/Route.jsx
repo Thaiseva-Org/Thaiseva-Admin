@@ -43,6 +43,7 @@ import {
   HotelRoomsPage,
   AddHotelForm,
   ExcelUploadPage,
+  SightseeingExcelUploadPage,
 } from "../pages";
 import StatisticsProvider from "../contextAPIs/StatisticsProvider";
 import { Suspense } from "react";
@@ -222,6 +223,14 @@ export const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
+      {
+        path: "/dashboard/travel-services/excel-upload",
+        element: (
+          <AdminRoute>
+            <SightseeingExcelUploadPage />
+          </AdminRoute>
+        ),
+      },
       // {
       //   path: "/dashboard/food-services",
       //   element: (
@@ -276,6 +285,14 @@ export const router = createBrowserRouter([
       },
       {
         path: "/dashboard/hotels/add",
+        element: (
+          <AdminRoute>
+            <AddHotelForm />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/hotels/edit/:hotelId",
         element: (
           <AdminRoute>
             <AddHotelForm />

@@ -51,19 +51,23 @@ const AuthProvider = ({ children }) => {
         setUser(currentUser);
         setLoading(false);
 
-        const userDoc = await getDocs(
-          query(usersCollection, where("uid", "==", currentUser.uid))
-        );
-        if (!userDoc.empty) {
-          const userData = userDoc.docs[0].data();
-          setUserData(userData);
-
-          setIsAdmin(userData.role === "Admin");
-          setIsPatner(userData.role === "Partner");
-          setIsSubAdmin(userData.role === "Sub Admin");
-          setIsVerifiedPartner(
-            userData.role === "Partner" && userData.status === "Verified"
+        try {
+          const userDoc = await getDocs(
+            query(usersCollection, where("uid", "==", currentUser.uid))
           );
+          if (!userDoc.empty) {
+            const userData = userDoc.docs[0].data();
+            setUserData(userData);
+
+            setIsAdmin(userData?.role === "Admin");
+            setIsPatner(userData?.role === "Partner");
+            setIsSubAdmin(userData?.role === "Sub Admin");
+            setIsVerifiedPartner(
+              userData?.role === "Partner" && userData?.status === "Verified"
+            );
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
         }
       } else {
         setUser(null);

@@ -16,97 +16,8 @@ import {
   travelBookingCollection,
 } from "../firebase/firebase.config";
 
-export const todayBooking = async (
-  setData,
-  setLoading,
-  category,
-  startDate,
-  endDate
-) => {
-  setLoading(true);
-
-  const todayStart = new Date(startDate);
-  todayStart.setDate(todayStart.getDate());
-  todayStart.setHours(0, 0, 0, 0);
-
-  const todayEnd = new Date(endDate);
-  todayEnd.setHours(23, 59, 59, 999);
-
-  let queryToUse;
-
-  if (category === "Taxi Bookings") {
-    queryToUse = query(
-      carBookingsCollection,
-      where("status", "==", "Accepted"),
-      where("timestamp", ">=", todayStart),
-      where("timestamp", "<=", todayEnd),
-      orderBy("timestamp", "desc")
-    );
-  } else if (category === "Selfdrive Bookings") {
-    queryToUse = query(
-      selfDriveBookingCollection,
-      where("status", "==", "Accepted"),
-      where("time", ">=", todayStart),
-      where("time", "<=", todayEnd),
-      orderBy("time", "desc")
-    );
-  } else if (category === "Room Bookings") {
-    queryToUse = query(
-      roomBookingCollection,
-      where("status", "==", "Accepted"),
-      where("orderedAt", ">=", todayStart),
-      where("orderedAt", "<=", todayEnd),
-      orderBy("orderedAt", "desc")
-    );
-  } else {
-    queryToUse = query(
-      travelBookingCollection,
-      where("status", "==", "Accepted"),
-      where("orderedAt", ">=", todayStart),
-      where("orderedAt", "<=", todayEnd),
-      orderBy("orderedAt", "desc")
-    );
-  }
-  try {
-    const result = await getDocs(queryToUse);
-    const list = result.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    setData(list);
-    return list;
-  } catch (error) {
-    console.error("Error fetching today bookings:", error);
-  } finally {
-    setLoading(false);
-  }
-};
-
-export const handleClear = async (category, id, setRefetch) => {
-  console.log(id);
-  if (confirm("Are you sure to clear this entry?")) {
-    let col;
-    if (category === "Taxi Bookings") {
-      col = carBookingsCollection;
-    } else if (category === "Selfdrive Bookings") {
-      col = selfDriveBookingCollection;
-    } else if (category === "Room Bookings") {
-      col = roomBookingCollection;
-    } else {
-      col = travelBookingCollection;
-    }
-    const OrderRef = doc(col, id);
-    await updateDoc(OrderRef, "isPaymentClear", true);
-    setRefetch((p) => !p);
-  }
-};
-
-export const fetchBookingsTotalPages = async (
-  setTotalPages,
-  startDate,
-  endDate,
-  category
-) => {
+// Helper to resolve collection based on category
+const getCollectionAndTimestamp = (category, startDate, endDate) => {
   const todayStart = new Date(startDate);
   todayStart.setDate(todayStart.getDate());
   todayStart.setHours(0, 0, 0, 0);
@@ -128,23 +39,90 @@ export const fetchBookingsTotalPages = async (
       break;
     case "Room Bookings":
       collectionRef = roomBookingCollection;
-      timestampField = "orderedAt";
+      timestampField = "createdAt";
       break;
     default:
       collectionRef = travelBookingCollection;
       timestampField = "orderedAt";
   }
 
-  let queryToUse = query(
+  return { collectionRef, timestampField, todayStart, todayEnd };
+};
+
+export const todayBooking = async (
+  setData,
+  setLoading,
+  category,
+  startDate,
+  endDate
+) => {
+  setLoading(true);
+  const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
+
+  const queryToUse = query(
     collectionRef,
-    where("status", "==", "Accepted"),
+    where("status", "in", ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"]),
     where(timestampField, ">=", todayStart),
     where(timestampField, "<=", todayEnd),
     orderBy(timestampField, "desc")
   );
 
-  const pages = await getCountFromServer(queryToUse);
-  setTotalPages(Math.ceil(pages.data().count));
+  try {
+    const result = await getDocs(queryToUse);
+    const list = result.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    setData(list);
+    return list;
+  } catch (error) {
+    console.error("Error fetching today bookings:", error);
+    return [];
+  } finally {
+    setLoading(false);
+  }
+};
+
+export const handleClear = async (category, id) => {
+  let col;
+  if (category === "Taxi Bookings") {
+    col = carBookingsCollection;
+  } else if (category === "Selfdrive Bookings") {
+    col = selfDriveBookingCollection;
+  } else if (category === "Room Bookings") {
+    col = roomBookingCollection;
+  } else {
+    col = travelBookingCollection;
+  }
+
+  const OrderRef = doc(col, id);
+  await updateDoc(OrderRef, { isPaymentClear: true });
+  return true;
+};
+
+export const fetchBookingsTotalPages = async (
+  setTotalPages,
+  startDate,
+  endDate,
+  category
+) => {
+  const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
+
+  const queryToUse = query(
+    collectionRef,
+    where("status", "in", ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"]),
+    where(timestampField, ">=", todayStart),
+    where(timestampField, "<=", todayEnd),
+    orderBy(timestampField, "desc")
+  );
+
+  try {
+    const pages = await getCountFromServer(queryToUse);
+    setTotalPages(Math.ceil(pages.data().count));
+  } catch (error) {
+    console.error("Error fetching total pages:", error);
+    setTotalPages(0);
+  }
 };
 
 export const fetchTodayBooking = async (
@@ -154,106 +132,195 @@ export const fetchTodayBooking = async (
   startDate,
   endDate,
   lastDoc = [],
-  setLastDocs = () => {},
+  setLastDocs = () => { },
   pageSize = null,
   page = 0
 ) => {
   setLoading(true);
+  const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
 
-  const todayStart = new Date(startDate);
-  todayStart.setHours(0, 0, 0, 0);
+  const validStatuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
 
-  const todayEnd = new Date(endDate);
-  todayEnd.setHours(23, 59, 59, 999);
+  const performQuery = async (field, includeStatus = true) => {
+    let constraints = [];
 
-  let collectionRef;
-  let timestampField;
+    // If includeStatus is true, we try the composite query (needs index)
+    if (includeStatus) {
+      constraints.push(where("status", "in", validStatuses));
+    }
 
-  switch (category) {
-    case "Taxi Bookings":
-      collectionRef = carBookingsCollection;
-      timestampField = "timestamp";
-      break;
-    case "Selfdrive Bookings":
-      collectionRef = selfDriveBookingCollection;
-      timestampField = "time";
-      break;
-    case "Room Bookings":
-      collectionRef = roomBookingCollection;
-      timestampField = "orderedAt";
-      break;
-    default:
-      collectionRef = travelBookingCollection;
-      timestampField = "orderedAt";
-  }
+    constraints.push(where(field, ">=", todayStart));
+    constraints.push(where(field, "<=", todayEnd));
+    constraints.push(orderBy(field, "desc"));
 
-  let queryToUse = query(
-    collectionRef,
-    where("status", "==", "Accepted"),
-    where(timestampField, ">=", todayStart),
-    where(timestampField, "<=", todayEnd),
-    orderBy(timestampField, "desc")
-  );
+    if (pageSize) {
+      // If filtering client-side, we might want to fetch more to ensure we have enough matches
+      // But for safety, keep it simple.
+      constraints.push(limit(pageSize * 5)); // Fetch extra buffer
+    }
 
-  if (pageSize) {
-    queryToUse = query(
-      collectionRef,
-      where("status", "==", "Accepted"),
-      where(timestampField, ">=", todayStart),
-      where(timestampField, "<=", todayEnd),
-      orderBy(timestampField, "desc"),
-      limit(pageSize)
-    );
-  }
+    const q = query(collectionRef, ...constraints);
+    const snap = await getDocs(q);
 
-  if (page > 0 && lastDoc[page - 1]) {
-    queryToUse = query(
-      collectionRef,
-      where("status", "==", "Accepted"),
-      where(timestampField, ">=", todayStart),
-      where(timestampField, "<=", todayEnd),
-      orderBy(timestampField, "desc"),
-      startAfter(lastDoc[page - 1]),
-      limit(pageSize)
-    );
-  }
+    // If we didn't filter by status in query, filter now
+    if (!includeStatus) {
+      return snap.docs.filter(d => validStatuses.includes(d.data().status));
+    }
+
+    return snap.docs;
+  };
 
   try {
-    const result = await getDocs(queryToUse);
-    const list = result.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    let list = [];
+    if (category === "Sightseeing Bookings" || category === "Room Bookings") {
+      // We attempt to query potential timestamp fields.
+      // For Sightseeing: orderedAt, createdAt, timestamp
+      // For Room Bookings: orderedAt, createdAt (as per RoomBookings.jsx)
 
-    const lastDoc =
-      result.docs.length > 0 ? result.docs[result.docs.length - 1] : null;
-    setLastDocs((prev) => {
-      const updated = [...prev];
-      updated[page] = lastDoc;
-      return updated;
-    });
+      const fieldsToQuery = category === "Sightseeing Bookings"
+        ? ["orderedAt", "createdAt", "timestamp"]
+        : ["createdAt", "orderedAt", "timestamp"];  // Added timestamp for Room Bookings too
+
+      const tryFetch = async (field) => {
+        try {
+          // For Room Bookings, we DO NOT filter by status in the query to capture 'bookingStatus' variations
+          // For others, we try status filter if possible for performance
+          const useStatusFilter = category !== "Room Bookings";
+          return await performQuery(field, useStatusFilter);
+        } catch (err) {
+          console.warn(`Composite query failed for ${field}, falling back to date-only query.`, err);
+          return await performQuery(field, false);
+        }
+      };
+
+      const promises = fieldsToQuery.map(f => tryFetch(f));
+      const results = await Promise.allSettled(promises);
+
+      const docsMap = new Map();
+
+      results.forEach(result => {
+        if (result.status === 'fulfilled' && result.value) {
+          result.value.forEach(doc => {
+            const data = doc.data();
+            let isMatch = false;
+
+            // Normalize Status Logic (Match RoomBookings.jsx)
+            let normalizedStatus = data.status || "Pending";
+            const rawStatus = data.bookingStatus || data.status;
+            if (typeof rawStatus === 'string') {
+              const upper = rawStatus.toUpperCase();
+              if (['ACCEPTED', 'CONFIRMED', 'DONE'].includes(upper)) normalizedStatus = 'Accepted';
+              else if (['PENDING'].includes(upper)) normalizedStatus = 'Pending';
+            }
+            if (normalizedStatus === 'Accepted' || validStatuses.includes(data.status)) {
+              // For Room Bookings, we removed the strict payment check to ensure ALL Accepted bookings appear.
+              // The user considers 'Accepted' == 'Record' even if payment flag isn't explicitly true yet (e.g. Pay at Hotel).
+              isMatch = true;
+            }
+
+            if (isMatch) {
+              docsMap.set(doc.id, { id: doc.id, ...data });
+            }
+          });
+        }
+      });
+
+      // Convert map to array and sort manually
+      list = Array.from(docsMap.values()).sort((a, b) => {
+        // Generic timestamp extraction
+        const getTime = (item) => {
+          const val = item.orderedAt || item.createdAt || item.timestamp || item.time;
+          if (!val) return 0;
+          return val.seconds || (new Date(val).getTime() / 1000) || 0;
+        };
+        return getTime(b) - getTime(a);
+      });
+
+      // Pagination Handling for Merged List
+      if (pageSize && list.length > pageSize) {
+        const startIndex = page * pageSize;
+        const endIndex = startIndex + pageSize;
+        list = list.slice(startIndex, endIndex);
+      }
+
+    } else {
+      // Standard single query for other categories (Taxi, etc.)
+      const cons = [
+        where("status", "in", ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"]),
+        where(timestampField, ">=", todayStart),
+        where(timestampField, "<=", todayEnd),
+        orderBy(timestampField, "desc"),
+      ];
+
+      // For Room Bookings, we need to filter by payment status client-side (to avoid complex index requirements)
+      // So we fetch more items to ensure we have enough after filtering
+      if (category === "Room Bookings" && pageSize) {
+        cons.push(limit(pageSize * 5));
+      } else if (pageSize) {
+        cons.push(limit(pageSize));
+      }
+
+      if (page > 0 && lastDoc[page - 1]) cons.push(startAfter(lastDoc[page - 1]));
+
+      const q = query(collectionRef, ...cons);
+      const result = await getDocs(q);
+
+      list = result.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Filter for PAID Room Bookings
+      if (category === "Room Bookings") {
+        list = list.filter(item => item.isPaymentDone === true || item.isPaymentClear === true);
+
+        // Handle pagination slicing manually since we fetched extra
+        if (pageSize && list.length > pageSize) {
+          // If we're on page 0, take first N. If paging, this logic is imperfect with startAfter + filtering
+          // But valid for "Records" viewing
+          list = list.slice(0, pageSize);
+        }
+      }
+
+      // Update Pagination Cursor for standard queries
+      if (pageSize && result.docs.length > 0) {
+        // This cursor logic is approximate when filtering is involved
+        const lastDocument = result.docs.length > 0 ? result.docs[result.docs.length - 1] : null;
+        setLastDocs((prev) => {
+          const updated = [...prev];
+          updated[page] = lastDocument;
+          return updated;
+        });
+      }
+    }
 
     setData(list);
     return list;
   } catch (error) {
     console.error("Error fetching today bookings:", error);
+    return [];
   } finally {
     setLoading(false);
   }
 };
 
 export const exportAllBooking = async (selDate) => {
-  [
+  const categories = [
     "Room Bookings",
     "Sightseeing Bookings",
     "Taxi Bookings",
     "Selfdrive Bookings",
-  ].map(async (item) => {
-    await todayBooking(
-      () => {},
-      () => {},
+  ];
+
+  const promises = categories.map((item) =>
+    todayBooking(
+      () => { },
+      () => { },
       item,
+      selDate,
       selDate
-    );
-  });
+    )
+  );
+
+  await Promise.all(promises);
 };

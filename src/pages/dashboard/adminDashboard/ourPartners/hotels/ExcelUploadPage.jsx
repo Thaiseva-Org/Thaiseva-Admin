@@ -22,7 +22,8 @@ import {
     CardContent,
     Stack,
     Tooltip,
-    Zoom
+    Zoom,
+    Chip
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -39,7 +40,8 @@ import readXlsxFile from 'read-excel-file';
 import writeXlsxFile from 'write-excel-file';
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
-import { doc, serverTimestamp, setDoc, collection } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, collection, query, where } from "firebase/firestore";
+import { db } from "../../../../../firebase/firebase.config";
 import {
     hotelsCollection,
     usersCollection,
@@ -56,6 +58,8 @@ const ExcelUploadPage = () => {
     const [editingRow, setEditingRow] = useState(null);
     const [tempRowData, setTempRowData] = useState(null);
     const [dragActive, setDragActive] = useState(false);
+    const [batchResults, setBatchResults] = useState(null); // New state for summary
+
 
     const handleDownloadTemplate = async () => {
         const schema = [
@@ -126,6 +130,7 @@ const ExcelUploadPage = () => {
         setLoading(true);
         setError("");
         setSuccessCount(0);
+        setBatchResults(null);
 
         try {
             const rows = await readXlsxFile(file);
@@ -170,10 +175,30 @@ const ExcelUploadPage = () => {
                         obj[key] = row[index];
                     }
                 });
+
+                // --- VALIDATION LOGIC ---
+                const missing = [];
+                if (!obj.hotelName) missing.push('hotelName');
+                if (!obj.email) missing.push('email');
+                if (!obj.phoneNumber) missing.push('phoneNumber');
+                if (!obj.address) missing.push('address');
+                if (!obj.description) missing.push('description');
+                if (!obj.features) missing.push('features');
+                if (!obj.roomName) missing.push('roomName');
+                if (!obj.roomPrice) missing.push('roomPrice');
+
+                obj._errors = missing;
                 return obj;
             });
 
             setPreviewData(mappedData);
+
+            // Check for immediate errors to notify user
+            const hasValidationErrors = mappedData.some(r => r._errors && r._errors.length > 0);
+            if (hasValidationErrors) {
+                setError("Some rows are missing compulsory fields. Please edit the highlighted red cells before confirming.");
+            }
+
             setLoading(false);
         } catch (err) {
             console.error("Error parsing file:", err);
@@ -201,157 +226,202 @@ const ExcelUploadPage = () => {
     };
 
     const handleTempChange = (field, value) => {
-        setTempRowData(prev => ({ ...prev, [field]: value }));
+        setTempRowData(prev => {
+            const updated = { ...prev, [field]: value };
+            // Auto-clear error if field is filled
+            if (value && updated._errors && updated._errors.includes(field)) {
+                updated._errors = updated._errors.filter(e => e !== field);
+            }
+            return updated;
+        });
     };
 
     const handleConfirmUpload = async () => {
         setLoading(true);
-        await processExcelData(previewData);
+        const results = await processExcelData(previewData);
+        setBatchResults(results); // Show summary instead of clearing immediately
         setPreviewData([]);
+        setLoading(false);
     };
 
     const handleCancelPreview = () => {
         setPreviewData([]);
         setError("");
+        setBatchResults(null);
     };
 
     const processExcelData = async (data) => {
-        let count = 0;
-        let errors = [];
-
+        const results = [];
         const secondaryApp = initializeApp(firebaseConfig, "Secondary");
         const secondaryAuth = getAuth(secondaryApp);
 
+        // 1. Group rows by Email (to handle multiple rooms per hotel)
+        const groups = {};
         for (const row of data) {
-            const email = row.email;
-            const hotelName = row.hotelName;
-            const phoneNumber = row.phoneNumber;
+            const email = row.email?.trim();
+            if (!email) continue;
+            if (!groups[email]) groups[email] = [];
+            groups[email].push(row);
+        }
 
-            if (!email || !hotelName) {
-                errors.push(`Skipped row missing email or name.`);
-                continue;
-            }
+        // 2. Process each hotel group
+        for (const email of Object.keys(groups)) {
+            const rows = groups[email];
+            const firstRow = rows[0]; // Use first row for Hotel Details
+            const hotelName = firstRow.hotelName;
 
             try {
-                let createdUser;
+                // Check if user exists (logic relying on creation failure or custom query if possible)
+                // Since we can't easily query Auth, we'll try to create. 
+                // If it fails with 'email-already-in-use', we'll try to find the existing doc in Firestore.
+
+                let uid = null;
+                let isNew = true;
+
                 try {
                     const res = await createUserWithEmailAndPassword(secondaryAuth, email, "TempPass123!");
-                    createdUser = res.user;
-                    await updateProfile(createdUser, { displayName: hotelName });
+                    uid = res.user.uid;
+                    await updateProfile(res.user, { displayName: hotelName });
                     await signOut(secondaryAuth);
                 } catch (authErr) {
                     if (authErr.code === 'auth/email-already-in-use') {
-                        errors.push(`Email ${email} already exists.`);
+                        // User exists, try to find UID from Firestore users collection
+                        // (We need to query users collection by email)
+                        const { getDocs, query, where, collection } = await import("firebase/firestore");
+                        const q = query(usersCollection, where("email", "==", email));
+                        const querySnapshot = await getDocs(q);
+
+                        if (!querySnapshot.empty) {
+                            uid = querySnapshot.docs[0].id;
+                            isNew = false;
+                        } else {
+                            results.push({ name: hotelName, email, status: 'Error', message: "Email exists in Auth but not in DB. Manual check required." });
+                            continue;
+                        }
                     } else {
-                        errors.push(`Failed to create user for ${email}: ${authErr.message}`);
+                        throw authErr;
                     }
-                    continue;
                 }
 
-                if (createdUser) {
-                    const finalPayload = {
-                        hotel: {
-                            hotelId: crypto.randomUUID(),
-                            hotelUid: createdUser.uid,
-                            hotelName: hotelName,
-                            country: "Thailand",
-                            currency: "THB",
-                            startingPrice: Number(row.roomPrice) || 0,
-                            discount: Number(row.discount) || 0,
-                            address: row.address || "",
-                            description: row.description || "",
-                            images: {
-                                logo: "",
-                                gallery: []
-                            },
-                            petsAllowed: String(row.petsAllowed).toLowerCase() === 'yes' || row.petsAllowed === true,
-                            nearbyAttractions: [], // Could also add to excel if needed
-                            features: row.features ? String(row.features).split(',').map(s => s.trim()) : [],
-                            phoneNumber: phoneNumber || "",
-                            email: email || "",
-                            rating: Number(row.rating) || 0,
-                            numberOfReviews: 0,
-                            status: "Verified",
-                            updatedAt: new Date().toISOString()
-                        }
+                if (uid) {
+                    // Update/Create Hotel Document
+                    // Only update basic fields if it's new, or maybe update everything? 
+                    // Let's assume Excel is source of truth, BUT we must NOT overwrite images with empty ones if they exist.
+
+                    const hotelPayload = {
+                        hotelId: uid, // Use UID as ID
+                        hotelUid: uid,
+                        hotelName: hotelName,
+                        country: "Thailand",
+                        currency: "THB",
+                        startingPrice: Number(firstRow.roomPrice) || 0,
+                        discount: Number(firstRow.discount) || 0,
+                        address: firstRow.address || "",
+                        description: firstRow.description || "",
+                        petsAllowed: String(firstRow.petsAllowed).toLowerCase() === 'yes' || firstRow.petsAllowed === true,
+                        // features: firstRow.features ? String(firstRow.features).split(',').map(s => s.trim()) : [], // Careful not to overwrite if existing?
+                        phoneNumber: firstRow.phoneNumber || "",
+                        email: email || "",
+                        rating: Number(firstRow.rating) || 0,
+                        status: "Verified",
+                        updatedAt: new Date().toISOString()
                     };
 
-                    await setDoc(doc(usersCollection, createdUser.uid), {
-                        displayName: hotelName,
-                        email,
-                        role: "Partner", // Or 'Hotel'
-                        serviceCategory: "Hotel",
-                        status: "Verified",
-                        photoURL: "",
-                        phoneNumber: phoneNumber || "",
-                        createdAt: new Date(),
-                        uid: createdUser.uid,
-                        isVerified: true
-                    });
-
-                    // Save Hotel to HotelDB
-                    await setDoc(doc(db, "HotelDB", createdUser.uid), finalPayload);
-
-                    // Save Room to sub-collection if details exist
-                    if (row.roomName && row.roomPrice) {
-                        const roomId = Date.now().toString();
-                        const roomData = {
-                            id: roomId,
-                            roomName: row.roomName,
-                            packageName: "Standard",
-                            maxGuests: Number(row.maxGuests) || 2,
-                            numberOfBeds: 1,
-                            bedType: "King",
-                            photos: [],
-                            amenities: row.features ? String(row.features).split(',').map(s => s.trim()) : [],
-                            description: `Standard ${row.roomName}`,
-                            policies: {
-                                checkIn: "14:00",
-                                checkOut: "12:00",
-                                extraBed: "",
-                                paymentInfo: "Prepaid",
-                                refundable: true
-                            },
-                            foodInfo: {
-                                breakfastIncluded: false,
-                                breakfastType: "Continental"
-                            },
-                            pricing: {
-                                basePrice: Number(row.roomPrice),
-                                discountPercent: 0,
-                                taxIncluded: true,
-                                pricingBasedOnGuests: [],
-                                pricePerNightAfterDiscount: Number(row.roomPrice),
-                                priceForStay: {
-                                    nights: 1,
-                                    totalAmount: Number(row.roomPrice)
-                                }
-                            }
-                        };
-                        const roomsCollectionRef = collection(db, "HotelDB", createdUser.uid, "rooms");
-                        await setDoc(doc(roomsCollectionRef, roomId), roomData);
+                    if (firstRow.features) {
+                        hotelPayload.features = String(firstRow.features).split(',').map(s => s.trim());
                     }
 
-                    count++;
+                    // Only set images if new, otherwise don't touch them (to avoid wiping existing photos)
+                    if (isNew) {
+                        hotelPayload.images = { logo: "", gallery: [] };
+                        hotelPayload.numberOfReviews = 0;
+                        hotelPayload.nearbyAttractions = [];
+                    }
+
+                    // Update User Doc
+                    await setDoc(doc(usersCollection, uid), {
+                        displayName: hotelName,
+                        email,
+                        role: "Partner",
+                        serviceCategory: "Hotel",
+                        status: "Verified",
+                        phoneNumber: firstRow.phoneNumber || "",
+                        uid: uid,
+                        isVerified: true,
+                        // Only set createdAt if new
+                        ...(isNew && { createdAt: new Date() })
+                    }, { merge: true });
+
+                    // Update Hotel Doc
+                    await setDoc(doc(db, "HotelDB", uid), { hotel: hotelPayload }, { merge: true });
+
+
+                    // Process Rooms (All rows in group)
+                    const roomsCollectionRef = collection(db, "HotelDB", uid, "rooms");
+                    let roomsAdded = 0;
+
+                    for (const row of rows) {
+                        if (row.roomName && row.roomPrice) {
+                            // Create a deterministic ID based on room name to avoid duplicates if re-uploaded? 
+                            // Or just Date.now() + random? using random for safety.
+                            const roomId = `${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+
+                            const roomData = {
+                                id: roomId,
+                                roomName: row.roomName,
+                                packageName: row.roomName, // Fallback
+                                maxGuests: Number(row.maxGuests) || 2,
+                                numberOfBeds: 1,
+                                bedType: "King",
+                                photos: [],
+                                amenities: row.features ? String(row.features).split(',').map(s => s.trim()) : [],
+                                description: `Standard ${row.roomName}`,
+                                policies: {
+                                    checkIn: "14:00",
+                                    checkOut: "12:00",
+                                    extraBed: "",
+                                    paymentInfo: "Prepaid",
+                                    refundable: true
+                                },
+                                foodInfo: {
+                                    breakfastIncluded: false,
+                                    breakfastType: "Continental"
+                                },
+                                pricing: {
+                                    basePrice: Number(row.roomPrice),
+                                    discountPercent: 0,
+                                    taxIncluded: true,
+                                    pricePerNightAfterDiscount: Number(row.roomPrice),
+                                    priceForStay: {
+                                        nights: 1,
+                                        totalAmount: Number(row.roomPrice)
+                                    }
+                                }
+                            };
+
+                            await setDoc(doc(roomsCollectionRef, roomId), roomData);
+                            roomsAdded++;
+                        }
+                    }
+
+                    results.push({
+                        name: hotelName,
+                        email: email,
+                        uid: uid,
+                        status: 'Success',
+                        isNew,
+                        roomsAdded
+                    });
                 }
+
             } catch (err) {
-                console.error("Error processing row:", err);
-                errors.push(`Error processing ${email}`);
+                console.error("Error processing group:", email, err);
+                results.push({ name: hotelName, email, status: 'Error', message: err.message });
             }
         }
 
         await deleteApp(secondaryApp);
-        setLoading(false);
-        setSuccessCount(count);
-
-        if (errors.length > 0) {
-            setError(`Processed ${count} hotels. Errors: ${errors.slice(0, 3).join(", ")}...`);
-        } else {
-            successNotification(`Successfully added ${count} hotels!`);
-            setTimeout(() => {
-                navigate('/dashboard/hotels');
-            }, 2000);
-        }
+        return results;
     };
 
     return (
@@ -387,8 +457,104 @@ const ExcelUploadPage = () => {
                     </Box>
                 )}
 
-                {!loading && previewData.length === 0 && (
+                {/* Summary View */}
+                {!loading && batchResults && (
+                    <Zoom in={true}>
+                        <Card sx={{ borderRadius: '24px', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05)' }}>
+                            <CardContent sx={{ p: 4 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                                    <CheckCircleIcon sx={{ fontSize: 40, color: '#22c55e', mr: 2 }} />
+                                    <Box>
+                                        <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                                            Upload Completed!
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            Your hotels have been processed. Use the "Add Photos" button to complete their profiles.
+                                        </Typography>
+                                    </Box>
+                                </Box>
+
+                                <TableContainer sx={{ mb: 4, bgcolor: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                    <Table>
+                                        <TableHead>
+                                            <TableRow>
+                                                <TableCell sx={{ fontWeight: 600 }}>Hotel Name</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                                                <TableCell sx={{ fontWeight: 600 }}>Rooms Added</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 600 }}>Action</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {batchResults.map((res, i) => (
+                                                <TableRow key={i}>
+                                                    <TableCell sx={{ fontWeight: 500 }}>{res.name}</TableCell>
+                                                    <TableCell>
+                                                        {res.status === 'Success' ? (
+                                                            <Chip
+                                                                label={res.isNew ? "Created" : "Updated"}
+                                                                color={res.isNew ? "success" : "info"}
+                                                                size="small"
+                                                                variant="soft"
+                                                            />
+                                                        ) : (
+                                                            <Chip label="Error" color="error" size="small" />
+                                                        )}
+                                                        {res.status === 'Error' && <Typography variant="caption" display="block" color="error">{res.message}</Typography>}
+                                                    </TableCell>
+                                                    <TableCell>{res.roomsAdded || 0}</TableCell>
+                                                    <TableCell align="right">
+                                                        {res.status === 'Success' && (
+                                                            <Button
+                                                                variant="outlined"
+                                                                size="small"
+                                                                startIcon={<CloudUploadIcon />}
+                                                                onClick={() => window.open(`/dashboard/hotels/edit/${res.uid}`, '_blank')}
+                                                                sx={{ textTransform: 'none', borderRadius: '8px' }}
+                                                            >
+                                                                Add Photos
+                                                            </Button>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+                                    <Button
+                                        variant="text"
+                                        onClick={() => {
+                                            setBatchResults(null);
+                                            setPreviewData([]);
+                                        }}
+                                        sx={{ textTransform: 'none', color: '#64748b' }}
+                                    >
+                                        Upload More
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        onClick={() => navigate('/dashboard/hotels')}
+                                        sx={{
+                                            textTransform: 'none',
+                                            borderRadius: '12px',
+                                            bgcolor: '#3b82f6',
+                                            px: 4
+                                        }}
+                                    >
+                                        Done & Go to List
+                                    </Button>
+                                </Box>
+                            </CardContent>
+                        </Card>
+                    </Zoom>
+                )}
+
+                {/* Upload Section (Hidden if Results shown) */}
+                {!loading && !batchResults && previewData.length === 0 && (
                     <Card sx={{ borderRadius: '24px', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.05)', overflow: 'visible' }}>
+                        {/* ... Existing Upload Card Content ... */}
+
                         <CardContent sx={{ p: 6 }}>
                             <Stack spacing={4} alignItems="center">
                                 {error && (
@@ -510,6 +676,7 @@ const ExcelUploadPage = () => {
                                     variant="contained"
                                     onClick={handleConfirmUpload}
                                     startIcon={<CheckCircleIcon />}
+                                    disabled={previewData.some(r => r._errors && r._errors.length > 0)}
                                     sx={{
                                         bgcolor: '#3b82f6',
                                         borderRadius: '12px',
@@ -521,6 +688,10 @@ const ExcelUploadPage = () => {
                                         '&:hover': {
                                             bgcolor: '#2563eb',
                                             boxShadow: '0 6px 16px rgba(59, 130, 246, 0.4)',
+                                        },
+                                        '&:disabled': {
+                                            bgcolor: '#94a3b8',
+                                            color: '#f1f5f9'
                                         }
                                     }}
                                 >
@@ -548,7 +719,7 @@ const ExcelUploadPage = () => {
                                                 const isEditing = editingRow === index;
                                                 return (
                                                     <TableRow key={index} hover role="checkbox" tabIndex={-1} sx={{ '&:nth-of-type(odd)': { bgcolor: '#f8fafc' }, transition: 'background-color 0.2s' }}>
-                                                        <TableCell>
+                                                        <TableCell sx={{ border: (row._errors?.includes('hotelName')) ? '2px solid #ef4444' : 'none' }}>
                                                             {isEditing ? (
                                                                 <TextField
                                                                     value={tempRowData.hotelName || ''}
@@ -556,13 +727,14 @@ const ExcelUploadPage = () => {
                                                                     variant="outlined"
                                                                     size="small"
                                                                     fullWidth
+                                                                    error={!tempRowData.hotelName}
                                                                     sx={{ bgcolor: '#fff' }}
                                                                 />
                                                             ) : (
-                                                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>{row.hotelName}</Typography>
+                                                                <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>{row.hotelName || <span style={{ color: 'red' }}>Required</span>}</Typography>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell sx={{ border: (row._errors?.includes('email')) ? '2px solid #ef4444' : 'none' }}>
                                                             {isEditing ? (
                                                                 <TextField
                                                                     value={tempRowData.email || ''}
@@ -570,13 +742,14 @@ const ExcelUploadPage = () => {
                                                                     variant="outlined"
                                                                     size="small"
                                                                     fullWidth
+                                                                    error={!tempRowData.email}
                                                                     sx={{ bgcolor: '#fff' }}
                                                                 />
                                                             ) : (
-                                                                <Typography variant="body2" color="text.secondary">{row.email}</Typography>
+                                                                <Typography variant="body2" color="text.secondary">{row.email || <span style={{ color: 'red' }}>Required</span>}</Typography>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell sx={{ border: (row._errors?.includes('phoneNumber')) ? '2px solid #ef4444' : 'none' }}>
                                                             {isEditing ? (
                                                                 <TextField
                                                                     value={tempRowData.phoneNumber || ''}
@@ -584,13 +757,14 @@ const ExcelUploadPage = () => {
                                                                     variant="outlined"
                                                                     size="small"
                                                                     fullWidth
+                                                                    error={!tempRowData.phoneNumber}
                                                                     sx={{ bgcolor: '#fff' }}
                                                                 />
                                                             ) : (
-                                                                <Typography variant="body2" color="text.secondary">{row.phoneNumber}</Typography>
+                                                                <Typography variant="body2" color="text.secondary">{row.phoneNumber || <span style={{ color: 'red' }}>Required</span>}</Typography>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell sx={{ border: (row._errors?.includes('address')) ? '2px solid #ef4444' : 'none' }}>
                                                             {isEditing ? (
                                                                 <TextField
                                                                     value={tempRowData.address || ''}
@@ -600,17 +774,18 @@ const ExcelUploadPage = () => {
                                                                     fullWidth
                                                                     multiline
                                                                     maxRows={3}
+                                                                    error={!tempRowData.address}
                                                                     sx={{ bgcolor: '#fff' }}
                                                                 />
                                                             ) : (
-                                                                <Tooltip title={row.address} placement="top">
+                                                                <Tooltip title={row.address || "Missing Address"} placement="top">
                                                                     <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px' }}>
-                                                                        {row.address}
+                                                                        {row.address || <span style={{ color: 'red' }}>Required</span>}
                                                                     </Typography>
                                                                 </Tooltip>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell sx={{ border: (row._errors?.includes('description')) ? '2px solid #ef4444' : 'none' }}>
                                                             {isEditing ? (
                                                                 <TextField
                                                                     value={tempRowData.description || ''}
@@ -620,12 +795,13 @@ const ExcelUploadPage = () => {
                                                                     fullWidth
                                                                     multiline
                                                                     maxRows={3}
+                                                                    error={!tempRowData.description}
                                                                     sx={{ bgcolor: '#fff' }}
                                                                 />
                                                             ) : (
-                                                                <Tooltip title={row.description} placement="top">
+                                                                <Tooltip title={row.description || "Missing Description"} placement="top">
                                                                     <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '250px' }}>
-                                                                        {row.description}
+                                                                        {row.description || <span style={{ color: 'red' }}>Required</span>}
                                                                     </Typography>
                                                                 </Tooltip>
                                                             )}
@@ -658,7 +834,7 @@ const ExcelUploadPage = () => {
                                                                 <Typography variant="body2" color="text.secondary">{String(row.petsAllowed)}</Typography>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell sx={{ border: (row._errors?.includes('features')) ? '2px solid #ef4444' : 'none' }}>
                                                             {isEditing ? (
                                                                 <TextField
                                                                     value={tempRowData.features || ''}
@@ -666,25 +842,26 @@ const ExcelUploadPage = () => {
                                                                     variant="outlined"
                                                                     size="small"
                                                                     fullWidth
+                                                                    error={!tempRowData.features}
                                                                     sx={{ bgcolor: '#fff' }}
                                                                 />
                                                             ) : (
-                                                                <Tooltip title={row.features} placement="top">
+                                                                <Tooltip title={row.features || "Missing Features"} placement="top">
                                                                     <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
-                                                                        {row.features}
+                                                                        {row.features || <span style={{ color: 'red' }}>Required</span>}
                                                                     </Typography>
                                                                 </Tooltip>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell sx={{ border: (row._errors?.includes('roomName')) ? '2px solid #ef4444' : 'none' }}>
                                                             {isEditing ? (
-                                                                <TextField value={tempRowData.roomName || ''} onChange={(e) => handleTempChange('roomName', e.target.value)} variant="outlined" size="small" sx={{ bgcolor: '#fff' }} />
-                                                            ) : <Typography variant="body2" color="text.secondary">{row.roomName}</Typography>}
+                                                                <TextField value={tempRowData.roomName || ''} onChange={(e) => handleTempChange('roomName', e.target.value)} variant="outlined" size="small" error={!tempRowData.roomName} sx={{ bgcolor: '#fff' }} />
+                                                            ) : <Typography variant="body2" color="text.secondary">{row.roomName || <span style={{ color: 'red' }}>Required</span>}</Typography>}
                                                         </TableCell>
-                                                        <TableCell>
+                                                        <TableCell sx={{ border: (row._errors?.includes('roomPrice')) ? '2px solid #ef4444' : 'none' }}>
                                                             {isEditing ? (
-                                                                <TextField value={tempRowData.roomPrice || ''} onChange={(e) => handleTempChange('roomPrice', e.target.value)} variant="outlined" size="small" type="number" sx={{ bgcolor: '#fff' }} />
-                                                            ) : <Typography variant="body2" color="text.secondary">{row.roomPrice}</Typography>}
+                                                                <TextField value={tempRowData.roomPrice || ''} onChange={(e) => handleTempChange('roomPrice', e.target.value)} variant="outlined" size="small" type="number" error={!tempRowData.roomPrice} sx={{ bgcolor: '#fff' }} />
+                                                            ) : <Typography variant="body2" color="text.secondary">{row.roomPrice || <span style={{ color: 'red' }}>Required</span>}</Typography>}
                                                         </TableCell>
                                                         <TableCell>
                                                             {isEditing ? (

@@ -490,10 +490,10 @@ const CarBookings = () => {
                                     value === "Canceled" ? (
                                     <span
                                       className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${value === "Pending"
-                                          ? "bg-warning-100 text-warning-700"
-                                          : value === "Accepted"
-                                            ? "bg-success-100 text-success-700"
-                                            : "bg-danger-100 text-danger-700"
+                                        ? "bg-warning-100 text-warning-700"
+                                        : value === "Accepted"
+                                          ? "bg-success-100 text-success-700"
+                                          : "bg-danger-100 text-danger-700"
                                         }`}
                                     >
                                       {value === "Pending" && "⏳ "}
@@ -529,10 +529,10 @@ const CarBookings = () => {
                                           row["status"] === "Accepted"
                                         }
                                         className={`p-2 rounded-full transition-all duration-200 ${!isRealTime ||
-                                            row["status"] === "Canceled" ||
-                                            row["status"] === "Accepted"
-                                            ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                                            : "bg-success-500 text-white hover:bg-success-600 hover:scale-110"
+                                          row["status"] === "Canceled" ||
+                                          row["status"] === "Accepted"
+                                          ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                                          : "bg-success-500 text-white hover:bg-success-600 hover:scale-110"
                                           }`}
                                         title="Accept Booking"
                                       >
@@ -548,10 +548,10 @@ const CarBookings = () => {
                                           row["status"] === "Accepted"
                                         }
                                         className={`p-2 rounded-full transition-all duration-200 ${!isRealTime ||
-                                            row["status"] === "Canceled" ||
-                                            row["status"] === "Accepted"
-                                            ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                                            : "bg-danger-500 text-white hover:bg-danger-600 hover:scale-110"
+                                          row["status"] === "Canceled" ||
+                                          row["status"] === "Accepted"
+                                          ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                                          : "bg-danger-500 text-white hover:bg-danger-600 hover:scale-110"
                                           }`}
                                         title="Cancel Booking"
                                       >

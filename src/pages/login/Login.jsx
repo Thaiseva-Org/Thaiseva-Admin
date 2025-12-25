@@ -7,7 +7,6 @@ import {
   FaLock,
   FaExclamationCircle,
   FaUser,
-  FaHotel,
   FaRegEyeSlash,
   FaRegEye,
   // FaCar,
@@ -191,22 +190,14 @@ const Login = () => {
               {"Want to be a partner?"}
             </p>
           </div>
-          <div className="grid gap-3 grid-cols-2 mt-3">
+          <div className="grid gap-3 grid-cols-1 mt-3">
             <button
               onClick={() => {
                 navigate("/partner-onboarding");
               }}
-              className="w-full bg-white border border-gray-300 text-gray-700 font-semibold py-1 px-2 rounded-lg flex items-center justify-center hover:bg-gray-50 focus:outline-none focus:shadow-outline transition duration-300"
-            >
-              <FaUser className="mr-4 text-blue-500 " /> Local Assistance
-            </button>
-            <button
-              onClick={() => {
-                navigate("/hotel-onboarding");
-              }}
               className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg flex items-center justify-center hover:bg-gray-50 focus:outline-none focus:shadow-outline transition duration-300"
             >
-              <FaHotel className="mr-4 text-blue-500 " /> Hotel
+              <FaUser className="mr-4 text-blue-500 " /> Local Assistance
             </button>
             {/* <button
               onClick={() => {

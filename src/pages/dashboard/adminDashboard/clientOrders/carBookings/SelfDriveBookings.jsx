@@ -153,9 +153,9 @@ const SelfDriveBookings = () => {
         booking?.date || "-",
         booking?.time || "-",
         `${booking?.fromLocation?.primary} ${booking?.fromLocation?.secondary}` ||
-          "-",
+        "-",
         `${booking?.toLocation?.primary} ${booking?.toLocation?.secondary}` ||
-          "-",
+        "-",
         booking?.status === "pending"
           ? "Pending"
           : booking?.status || "Pending",
@@ -485,7 +485,7 @@ const SelfDriveBookings = () => {
                 </thead>
                 <tbody className="divide-y divide-neutral-200">
                   {(isRealTime ? selfDriveBookings : matchedBookings).length ===
-                  0 ? (
+                    0 ? (
                     <tr>
                       <td colSpan={10} className="px-4 py-12 text-center">
                         <div className="flex flex-col items-center justify-center gap-3">
@@ -505,7 +505,7 @@ const SelfDriveBookings = () => {
                       (row, i) => {
                         const date = new Date(
                           row["orderedAt"]?.seconds * 1000 +
-                            row["orderedAt"]?.nanoseconds / 1000000
+                          row["orderedAt"]?.nanoseconds / 1000000
                         );
 
                         return (
@@ -522,16 +522,15 @@ const SelfDriveBookings = () => {
                                   className="px-4 py-4 text-center text-sm"
                                 >
                                   {value === "Pending" ||
-                                  value === "Accepted" ||
-                                  value === "Canceled" ? (
+                                    value === "Accepted" ||
+                                    value === "Canceled" ? (
                                     <span
-                                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                                        value === "Pending"
-                                          ? "bg-warning-100 text-warning-700"
-                                          : value === "Accepted"
+                                      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${value === "Pending"
+                                        ? "bg-warning-100 text-warning-700"
+                                        : value === "Accepted"
                                           ? "bg-success-100 text-success-700"
                                           : "bg-danger-100 text-danger-700"
-                                      }`}
+                                        }`}
                                     >
                                       {value === "Pending" && "⏳ "}
                                       {value === "Accepted" && "✓ "}
@@ -556,13 +555,12 @@ const SelfDriveBookings = () => {
                                           row["status"] === "Canceled" ||
                                           row["status"] === "Accepted"
                                         }
-                                        className={`p-2 rounded-full transition-all duration-200 ${
-                                          !isRealTime ||
+                                        className={`p-2 rounded-full transition-all duration-200 ${!isRealTime ||
                                           row["status"] === "Canceled" ||
                                           row["status"] === "Accepted"
-                                            ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                                            : "bg-success-500 text-white hover:bg-success-600 hover:scale-110"
-                                        }`}
+                                          ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                                          : "bg-success-500 text-white hover:bg-success-600 hover:scale-110"
+                                          }`}
                                         title="Accept Booking"
                                       >
                                         <DoneRoundedIcon className="scale-90" />
@@ -577,13 +575,12 @@ const SelfDriveBookings = () => {
                                           row["status"] === "Canceled" ||
                                           row["status"] === "Accepted"
                                         }
-                                        className={`p-2 rounded-full transition-all duration-200 ${
-                                          !isRealTime ||
-                                          row["status"] === "Canceled" ||
-                                          row["status"] === "Accepted"
-                                            ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
-                                            : "bg-danger-500 text-white hover:bg-danger-600 hover:scale-110"
-                                        }`}
+                                        className={`p-2 rounded-full transition-all duration-200 ${!isRealTime ||
+                                          w["status"] === "Canceled" ||
+                                          w["status"] === "Accepted"
+                                          ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
+                                          : "bg-danger-500 text-white hover:bg-danger-600 hover:scale-110"
+                                          }`}
                                         title="Cancel Booking"
                                       >
                                         <CloseRoundedIcon className="scale-90" />
@@ -622,10 +619,10 @@ const SelfDriveBookings = () => {
                       padding: "12px 16px",
                     },
                     "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                      {
-                        color: "#6B7280",
-                        fontWeight: 500,
-                      },
+                    {
+                      color: "#6B7280",
+                      fontWeight: 500,
+                    },
                     "& .MuiTablePagination-select": {
                       borderRadius: "8px",
                       padding: "4px 8px",
@@ -720,14 +717,14 @@ const SelfDriveBookings = () => {
               {textField(
                 "Travel from",
                 `${bookingDetails?.fromLocation?.primary} ${bookingDetails?.fromLocation?.secondary}` ||
-                  "not available"
+                "not available"
               )}
 
               {/* To */}
               {textField(
                 "Travel to",
                 `${bookingDetails?.toLocation?.primary} ${bookingDetails?.toLocation?.secondary}` ||
-                  "not available"
+                "not available"
               )}
 
               {/* Check In Date */}
@@ -1021,7 +1018,7 @@ const SelfDriveBookings = () => {
           </DialogActions>
         </Box>
       </Dialog>
-    </div>
+    </div >
   );
 };
 

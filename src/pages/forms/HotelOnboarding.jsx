@@ -12,7 +12,7 @@ import {
 import {
   GoogleMap,
   MarkerF,
-  StandaloneSearchBox,
+  Autocomplete,
 } from "@react-google-maps/api";
 import axios from "axios";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
@@ -238,19 +238,21 @@ const HotelOnboarding = () => {
   };
 
   const onPlacesChanged = async () => {
-    const places = searchBox.getPlaces();
-    // console.log(places);
+    if (!searchBox) return;
+    const place = searchBox.getPlace();
 
-    if (places.length === 0) return;
+    if (!place || !place.geometry) return;
 
-    const location = places[0].geometry.location;
-    const address = await reverseGeocode(location.lat(), location.lng());
+    const location = place.geometry.location;
+    // Use formatted_address from Place result if available, otherwise reverse geocode
+    const address = place.formatted_address || await reverseGeocode(location.lat(), location.lng());
+
     setLocation({
       lat: location.lat(),
       lng: location.lng(),
     });
     setValue("address", address);
-    map.setCenter(location);
+    if (map) map.setCenter(location);
   };
   /* ========================================================
               Google maps functionalities Ended
@@ -278,8 +280,7 @@ const HotelOnboarding = () => {
   const reverseGeocode = async (lat, lon) => {
     try {
       const response = await axios.get(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${
-          import.meta.env.VITE_Google_Api_Key
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${import.meta.env.VITE_Google_Api_Key
         }`
       );
       if (response.data.status === "OK") {
@@ -561,9 +562,9 @@ const HotelOnboarding = () => {
           </Grid>
           <div className="w-[80%] h-[350px] my-2 relative m-auto">
             <div className="absolute top-2 left-1/3 z-10 ">
-              <StandaloneSearchBox
+              <Autocomplete
                 onLoad={onSearchLoad}
-                onPlacesChanged={onPlacesChanged}
+                onPlaceChanged={onPlacesChanged}
               >
                 <input
                   type="text"
@@ -576,7 +577,7 @@ const HotelOnboarding = () => {
                     }
                   }}
                 />
-              </StandaloneSearchBox>
+              </Autocomplete>
             </div>
             <GoogleMap
               id="map"

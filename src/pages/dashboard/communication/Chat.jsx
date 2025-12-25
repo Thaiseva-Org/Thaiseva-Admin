@@ -3,7 +3,8 @@ import MenuIcon from "@mui/icons-material/Menu";
 import { deleteDoc, deleteField, doc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { useContext, useState } from "react";
-import { AudioRecorder } from "react-audio-voice-recorder";
+// import { AudioRecorder } from "react-audio-voice-recorder";
+import VoiceRecorder from "../../../components/VoiceRecorder"; // Import Custom Recorder
 import { AdminChatContext } from "../../../contextAPIs/AdminChatProvider";
 import { db, storage } from "../../../firebase/firebase.config";
 import { handleRedirectWhatsApp } from "../../../utils/utils";
@@ -75,7 +76,7 @@ const Chat = ({ setOpenSidebar }) => {
               <span className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-success-500 border-2 border-white rounded-full"></span>
             </div>
           )}
-          
+
           <div className="flex flex-col">
             <p className="font-bold text-neutral-800 text-lg">
               {data?.oppositeUser?.displayName || "No Username"}
@@ -90,15 +91,9 @@ const Chat = ({ setOpenSidebar }) => {
         {data?.oppositeUser?.uid && (
           <div className="flex items-center gap-2">
             {/* Audio Recorder */}
-            <div className="h-10">
-              <AudioRecorder
-                onRecordingComplete={addAudioElement}
-                audioTrackConstraints={{
-                  noiseSuppression: true,
-                  echoCancellation: true,
-                }}
-                downloadFileExtension="webm"
-              />
+            {/* Audio Recorder */}
+            <div className="h-10 flex items-center">
+              <VoiceRecorder onRecordingComplete={addAudioElement} />
             </div>
 
             {/* WhatsApp Button */}

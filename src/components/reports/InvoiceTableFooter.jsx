@@ -9,7 +9,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: 24,
     fontSize: 12,
-    fontStyle: "bold",
+    fontWeight: "bold",
   },
   description: {
     width: "75%",

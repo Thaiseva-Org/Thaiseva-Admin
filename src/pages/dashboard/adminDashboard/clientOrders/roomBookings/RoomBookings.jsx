@@ -1,6 +1,7 @@
 import { useContext } from "react";
 import { useState } from "react";
 import { useEffect } from "react";
+import { MdVisibility, MdInfo } from "react-icons/md";
 import {
   Box,
   Button,
@@ -24,6 +25,18 @@ import CheckIcon from "@mui/icons-material/Check";
 import ClearIcon from "@mui/icons-material/Clear";
 import DoneRoundedIcon from "@mui/icons-material/DoneRounded";
 import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
+import HotelIcon from "@mui/icons-material/Hotel";
+import PersonIcon from "@mui/icons-material/Person";
+import PaymentsIcon from "@mui/icons-material/Payments";
+import EmailIcon from "@mui/icons-material/Email";
+import PhoneIcon from "@mui/icons-material/Phone";
+import PublicIcon from "@mui/icons-material/Public";
+
+import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
+import NumbersIcon from "@mui/icons-material/Numbers";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import CreditCardIcon from "@mui/icons-material/CreditCard";
+import BedroomParentIcon from "@mui/icons-material/BedroomParent";
 
 import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import {
@@ -80,8 +93,12 @@ const RoomBookings = () => {
 
   const handleDateRangeSubmit = (event) => {
     event.preventDefault();
-    if (endDate == "") {
+    if (endDate === "") {
       alert("Please select both start and end!!");
+      return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+      alert("Start Date cannot be after End Date!!");
       return;
     }
     setPage(0);
@@ -139,68 +156,67 @@ const RoomBookings = () => {
   ];
 
   // creating single row
-  function createData(
-    hotelName,
-    name,
-    phone,
-    noOfRooms,
-    checkIn,
-    checkOut,
-    amount,
-    orderedAt,
-    roomNumbers,
-    status,
-    packageId,
-    bookingId,
-    managerPhone,
-    hotelUid,
-    userId
-  ) {
-    const checkInDate = checkIn.seconds
-      ? new Date(checkIn?.seconds * 1000 + checkIn?.nanoseconds / 1000000)
-      : new Date(checkIn);
-    const checkOutDate = checkOut.seconds
-      ? new Date(checkOut?.seconds * 1000 + checkOut?.nanoseconds / 1000000)
-      : new Date(checkOut);
+  // creating single row
+  function createData(booking) {
+    const checkInRaw = booking.checkInDate || booking.checkIn;
+    const checkOutRaw = booking.checkOutDate || booking.checkOut;
+    const orderedAtRaw = booking.createdAt || booking.orderedAt;
+
+    const checkInDate = checkInRaw?.seconds
+      ? new Date(checkInRaw.seconds * 1000 + checkInRaw.nanoseconds / 1000000)
+      : new Date(checkInRaw);
+
+    const checkOutDate = checkOutRaw?.seconds
+      ? new Date(checkOutRaw.seconds * 1000 + checkOutRaw.nanoseconds / 1000000)
+      : new Date(checkOutRaw);
+
+    // Normalize Status
+    let status = booking.status;
+    const rawStatus = booking.bookingStatus || booking.status;
+    if (typeof rawStatus === 'string') {
+      const upper = rawStatus.toUpperCase();
+      if (upper === 'PENDING') status = 'Pending';
+      else if (upper === 'ACCEPTED' || upper === 'CONFIRMED') status = 'Accepted';
+      else if (upper === 'CANCELED' || upper === 'CANCELLED' || upper === 'REJECTED' || upper === 'DENIED') status = 'Canceled';
+      else status = rawStatus; // Fallback
+    }
+
     return {
-      hotelName,
-      name,
-      phone,
-      noOfRooms,
+      ...booking,
+      hotelName: booking.hotelName,
+      name: booking.fullName || booking.guestDetails?.name || "N/A",
+      phone: booking.phone || booking.guestDetails?.phone || "N/A",
+      email: booking.email || booking.guestDetails?.email || "N/A",
+      noOfRooms: booking.rooms || booking.noOfRooms,
       checkIn: getDate(checkInDate),
       checkOut: getDate(checkOutDate),
-      amount,
-      orderedAt,
-      roomNumbers,
-      status,
-      packageId,
-      bookingId,
-      managerPhone,
-      hotelUid,
-      userId,
+      amount: booking.amountTHB || booking.amount,
+      orderedAt: orderedAtRaw,
+      roomNumbers: booking.roomNumbers,
+      status: status,
+      packageId: booking.packageId,
+      bookingId: booking.id || booking.bookingId,
+      managerPhone: booking.managerPhone,
+      hotelUid: booking.hotelUid,
+      userId: booking.userId,
+      // New fields mapping
+      adults: booking.adults,
+      children: booking.children,
+      nationality: booking.nationality,
+      nights: booking.nights,
+      roomName: booking.roomName,
+      paymentMethod: booking.paymentMethod,
+      isPaymentDone: booking.isPaymentDone,
+      currency: booking.currency,
+      amountINR: booking.amountINR,
+      amountTHB: booking.amountTHB,
     };
   }
 
   // calling createData function with partner's data
   const rows = (bookings) => {
     return bookings?.map((booking) => {
-      return createData(
-        booking?.hotelName,
-        booking?.guestDetails?.name,
-        booking?.guestDetails?.phone,
-        booking.noOfRooms,
-        booking.checkInDate,
-        booking.checkOutDate,
-        booking.amount,
-        booking.orderedAt,
-        booking.roomNumbers,
-        booking.status,
-        booking.packageId,
-        booking.id,
-        booking.managerPhone,
-        booking.hotelUid,
-        booking.userId
-      );
+      return createData(booking);
     });
   };
 
@@ -221,6 +237,8 @@ const RoomBookings = () => {
 
       const updatedDoc = {
         status: "Accepted",
+        bookingStatus: "ACCEPTED",
+        isBookingConfirmed: true,
       };
       await updateDoc(
         doc(roomBookingCollection, booking.bookingId),
@@ -249,6 +267,8 @@ const RoomBookings = () => {
     if (confirm("Are you sure to decline this booking?")) {
       const updatedDoc = {
         status: "Canceled",
+        bookingStatus: "CANCELED",
+        isBookingConfirmed: false,
       };
 
       await updateDoc(
@@ -288,7 +308,24 @@ const RoomBookings = () => {
     });
   };
 
-  // custom text field for common data
+  // Custom detail item renderer with improved styling
+  const renderDetailItem = (label, value, icon, isFullWidth = false, colorClass = "text-primary-600 bg-primary-50") => {
+    return (
+      <Grid item xs={12} sm={isFullWidth ? 12 : 6}>
+        <div className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-neutral-50 transition-all duration-200 border border-transparent hover:border-neutral-200 group">
+          <div className={`mt-0.5 p-2 rounded-lg ${colorClass} group-hover:scale-110 transition-transform duration-200 shadow-sm`}>
+            {icon}
+          </div>
+          <div>
+            <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">{label}</p>
+            <p className="text-neutral-900 font-medium text-[15px] leading-snug">{value}</p>
+          </div>
+        </div>
+      </Grid>
+    );
+  };
+
+  // Legacy text field for Package Details modal
   const textField = (label, value, is12) => {
     return (
       <Grid item xs={12} sm={label === "Description" || is12 ? 12 : 6}>
@@ -488,10 +525,15 @@ const RoomBookings = () => {
                           {columns.map((column) => {
                             const value = row[column.property];
 
-                            const date = new Date(
-                              row["orderedAt"]?.seconds * 1000 +
-                              row["orderedAt"]?.nanoseconds / 1000000
-                            );
+                            let dateDisplay = "N/A";
+                            if (column.property === "orderedAt" && row["orderedAt"]) {
+                              const orderedAt = row["orderedAt"];
+                              const dateObj = orderedAt?.seconds
+                                ? new Date(orderedAt.seconds * 1000 + orderedAt.nanoseconds / 1000000)
+                                : new Date(orderedAt);
+                              dateDisplay = getDateAndTime(dateObj);
+                            }
+
                             return (
                               <td
                                 key={column.property}
@@ -499,32 +541,34 @@ const RoomBookings = () => {
                               >
                                 {column.property === "status" ? (
                                   <span
-                                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${value === "Pending"
+                                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${value === "Pending" || value === "PENDING"
                                       ? "bg-warning-100 text-warning-700 border border-warning-300"
-                                      : value === "Accepted"
+                                      : value === "Accepted" || value === "ACCEPTED"
                                         ? "bg-success-100 text-success-700 border border-success-300"
                                         : "bg-danger-100 text-danger-700 border border-danger-300"
                                       }`}
                                   >
-                                    {value === "Accepted" && "✓ "}
-                                    {value === "Pending" && "⏳ "}
-                                    {value === "Canceled" && "✗ "}
+                                    {(value === "Accepted" || value === "ACCEPTED") && "✓ "}
+                                    {(value === "Pending" || value === "PENDING") && "⏳ "}
+                                    {(value === "Canceled" || value === "CANCELED" || value === "REJECTED") && "✗ "}
                                     {value}
                                   </span>
                                 ) : column.property === "orderedAt" ? (
                                   <span className="text-sm text-neutral-600">
-                                    {getDateAndTime(date)}
+                                    {dateDisplay}
                                   </span>
                                 ) : column.property === "roomNumbers" ? (
                                   <div className="flex items-center justify-center flex-wrap gap-1">
-                                    {value?.map((item, i) => (
+                                    {(value && value.length > 0) ? value.map((item, i) => (
                                       <span
                                         key={i}
                                         className="bg-primary-100 text-primary-700 font-semibold py-1 px-2 rounded-lg text-xs border border-primary-200"
                                       >
                                         {item}
                                       </span>
-                                    ))}
+                                    )) : (
+                                      <span className="text-neutral-400 text-xs">-</span>
+                                    )}
                                   </div>
                                 ) : column.property === "action" ? (
                                   <div className="flex gap-2 justify-center items-center">
@@ -538,11 +582,23 @@ const RoomBookings = () => {
                                       </button>
                                     )}
 
-                                    <ViewDetailsIcon
-                                      title="View Package Details"
-                                      handleView={handleViewPackageDetails}
-                                      id={row.packageId}
-                                    />
+                                    <button
+                                      onClick={() => handleViewBookingDetails(row.bookingId)}
+                                      className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+                                      title="View Booking Details"
+                                    >
+                                      <MdVisibility size={20} />
+                                    </button>
+
+                                    {row.packageId && (
+                                      <button
+                                        onClick={() => handleViewPackageDetails(row.packageId)}
+                                        className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-colors"
+                                        title="View Package Details"
+                                      >
+                                        <MdInfo size={20} />
+                                      </button>
+                                    )}
 
                                     {row.status === "Pending" && (
                                       <>
@@ -647,100 +703,167 @@ const RoomBookings = () => {
         open={openBookingDetailsModal}
         onClose={() => setOpenBookingDetailsModal(false)}
         aria-labelledby="responsive-dialog-title"
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          style: { borderRadius: 24, padding: 0, backgroundColor: '#F8FAFC' }
+        }}
       >
-        <Box>
-          <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">
-            Booking Details
-          </DialogTitle>
-          <IconButton
-            aria-label="close"
+        <DialogTitle sx={{ m: 0, p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #fff 0%, #f1f5f9 100%)', borderBottom: '1px solid #e2e8f0' }} id="customized-dialog-title">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-white rounded-xl shadow-sm text-primary-600 border border-neutral-100">
+              <HotelIcon />
+            </div>
+            <div>
+              <span className="block font-extrabold text-xl text-slate-800 tracking-tight">Booking Details</span>
+              <span className="block text-xs font-medium text-slate-500 mt-0.5">ID: {bookingDetails?.bookingId}</span>
+            </div>
+          </div>
+          <span className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm border ${bookingDetails?.status === "Accepted" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+            bookingDetails?.status === "Pending" ? "bg-amber-50 text-amber-700 border-amber-200" :
+              "bg-rose-50 text-rose-700 border-rose-200"
+            }`}>
+            {bookingDetails?.status === "Accepted" && <span className="mr-1.5">✓</span>}
+            {bookingDetails?.status}
+          </span>
+        </DialogTitle>
+        <IconButton
+          aria-label="close"
+          onClick={() => setOpenBookingDetailsModal(false)}
+          sx={{
+            position: "absolute",
+            right: 16,
+            top: 16,
+            color: "neutral.400",
+            '&:hover': { color: 'neutral.600', bgcolor: 'neutral.100' }
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+
+        {/* modal body */}
+        <DialogContent sx={{ p: 3, bgcolor: '#f8fafc' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* Stay Info */}
+            <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 h-full flex flex-col">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <BedroomParentIcon fontSize="small" />
+                </div>
+                <h3 className="font-bold text-base text-slate-800">Stay Information</h3>
+              </div>
+              <Grid container spacing={1}>
+                {renderDetailItem("Hotel Name", bookingDetails?.hotelName || "N/A", <HotelIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
+                {renderDetailItem("Room Type", bookingDetails?.roomName || "N/A", <MeetingRoomIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
+                {renderDetailItem("Rooms", bookingDetails?.noOfRooms || "N/A", <BedroomParentIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
+                {renderDetailItem("Nights", bookingDetails?.nights || "N/A", <NumbersIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
+                {renderDetailItem("Check In", bookingDetails?.checkIn || "N/A", <CalendarMonthIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
+                {renderDetailItem("Check Out", bookingDetails?.checkOut || "N/A", <CalendarMonthIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
+              </Grid>
+            </div>
+
+            {/* Guest Info */}
+            <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 h-full flex flex-col">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                  <PersonIcon fontSize="small" />
+                </div>
+                <h3 className="font-bold text-base text-slate-800">Guest Information</h3>
+              </div>
+              <Grid container spacing={1}>
+                {renderDetailItem("Guest Name", bookingDetails?.name || "N/A", <PersonIcon fontSize="small" />, false, "text-purple-600 bg-purple-50")}
+                {renderDetailItem("Phone", bookingDetails?.phone || "N/A", <PhoneIcon fontSize="small" />, false, "text-purple-600 bg-purple-50")}
+                {renderDetailItem("Email", bookingDetails?.email || "N/A", <EmailIcon fontSize="small" />, false, "text-purple-600 bg-purple-50")}
+                {renderDetailItem("Nationality", bookingDetails?.nationality || "N/A", <PublicIcon fontSize="small" />, false, "text-purple-600 bg-purple-50")}
+                {renderDetailItem("Guests", `${bookingDetails?.adults || 0} Adults, ${bookingDetails?.children || 0} Children`, <PersonIcon fontSize="small" />, true, "text-purple-600 bg-purple-50")}
+              </Grid>
+            </div>
+
+            {/* Payment Info */}
+            <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 h-full flex flex-col">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                  <PaymentsIcon fontSize="small" />
+                </div>
+                <h3 className="font-bold text-base text-slate-800">Payment Details</h3>
+              </div>
+              <Grid container spacing={1}>
+                {renderDetailItem("Amount (THB)", `฿${bookingDetails?.amountTHB || bookingDetails?.amount || 0}`, <AttachMoneyIcon fontSize="small" />, false, "text-emerald-600 bg-emerald-50")}
+                {bookingDetails?.amountINR && renderDetailItem("Amount (INR)", `₹${bookingDetails?.amountINR}`, <AttachMoneyIcon fontSize="small" />, false, "text-emerald-600 bg-emerald-50")}
+                {renderDetailItem("Payment Method", bookingDetails?.paymentMethod || "N/A", <CreditCardIcon fontSize="small" />, false, "text-emerald-600 bg-emerald-50")}
+                <Grid item xs={12} sm={6}>
+                  <div className="flex items-start gap-2 p-2.5 rounded-xl hover:bg-neutral-50 transition-all duration-200 border border-transparent hover:border-neutral-200 group">
+                    <div className="text-emerald-600 mt-0.5 p-2 bg-emerald-50 rounded-lg group-hover:scale-110 transition-transform duration-200 shadow-sm">
+                      <DoneRoundedIcon fontSize="small" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">Payment Status</p>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold mt-0.5 ${bookingDetails?.isPaymentDone ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20" : "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20"}`}>
+                        {bookingDetails?.isPaymentDone ? "PAID" : "UNPAID"}
+                      </span>
+                    </div>
+                  </div>
+                </Grid>
+              </Grid>
+            </div>
+
+            {/* Admin Info */}
+            {(bookingDetails?.managerPhone || (bookingDetails?.roomNumbers && bookingDetails.roomNumbers.length > 0)) && (
+              <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 h-full flex flex-col">
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                  <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                    <HotelIcon fontSize="small" />
+                  </div>
+                  <h3 className="font-bold text-base text-slate-800">Administrative</h3>
+                </div>
+                <Grid container spacing={1}>
+                  {renderDetailItem("Manager's Number", bookingDetails?.managerPhone, <PhoneIcon fontSize="small" />, false, "text-orange-600 bg-orange-50")}
+                  {bookingDetails?.roomNumbers && bookingDetails.roomNumbers.length > 0 && (
+                    <Grid item xs={12}>
+                      <div className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                        <div className="text-orange-600 mt-0.5 p-2 bg-white rounded-lg shadow-sm">
+                          <MeetingRoomIcon fontSize="small" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Booked Rooms</p>
+                          <div className="flex flex-wrap gap-2">
+                            {bookingDetails.roomNumbers.map((item, i) => (
+                              <span key={i} className="bg-white text-slate-700 font-bold py-1.5 px-3 rounded-lg border border-slate-200 shadow-sm text-xs">
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </Grid>
+                  )}
+                </Grid>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #e5e5e5', bgcolor: 'white' }}>
+          <Button
+            variant="outlined"
             onClick={() => setOpenBookingDetailsModal(false)}
             sx={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              color: "gray",
+              borderRadius: '10px',
+              textTransform: 'none',
+              fontWeight: 600,
+              color: 'neutral.600',
+              borderColor: 'neutral.300',
+              px: 3,
+              '&:hover': {
+                borderColor: 'neutral.400',
+                bgcolor: 'neutral.50',
+                color: 'neutral.800'
+              }
             }}
           >
-            <CloseIcon />
-          </IconButton>
-
-          {/* modal body */}
-          <DialogContent dividers sx={{ p: { xs: 2, md: 2 } }}>
-            <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
-              {/* Guest Name */}
-              {textField("Guest Name", bookingDetails?.name || "not available")}
-
-              {/* Guest Phone */}
-              {textField(
-                "Guest Phone",
-                bookingDetails?.phone || "not available"
-              )}
-
-              {/* Email */}
-              {/* {textField(
-                "Email",
-                bookingDetails?.guestDetails?.email || "not available"
-              )} */}
-
-              {/* Room Quantity */}
-              {textField(
-                "Room Quantity",
-                bookingDetails?.noOfRooms || "not available"
-              )}
-
-              {/* Check In Date */}
-              {textField(
-                "Check In",
-                bookingDetails?.checkIn || "not available"
-              )}
-
-              {/* Check Out Date */}
-              {textField(
-                "Check Out",
-                bookingDetails?.checkOut || "not available"
-              )}
-
-              {/* Manager's Number */}
-              {bookingDetails?.managerPhone &&
-                textField("Manager's Number", bookingDetails?.managerPhone)}
-            </Grid>
-
-            {/* manager information */}
-
-            {bookingDetails?.roomNumbers && (
-              <>
-                <h3 className="font-bold text-center">Booked Rooms</h3>
-                <div className="flex items-center justify-center w-full gap-3">
-                  {bookingDetails?.roomNumbers?.map((item, i) => (
-                    <div
-                      key={i}
-                      className="bg-[var(--primary-bg)] font-semibold opacity-80 text-white py-1 px-2 rounded text-md relative"
-                    >
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button
-              variant="contained"
-              type="submit"
-              autoFocus
-              sx={{
-                bgcolor: "var(--button-bg-color)",
-                color: "white",
-                hover: "none",
-              }}
-              className="add-new-btn"
-              onClick={() => setOpenBookingDetailsModal(false)}
-            >
-              Close
-            </Button>
-          </DialogActions>
-        </Box>
+            Close Details
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* view package details modal */}
@@ -748,126 +871,132 @@ const RoomBookings = () => {
         open={openPackageDetailsModal}
         onClose={() => setOpenPackageDetailsModal(false)}
         aria-labelledby="responsive-dialog-title"
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          style: { borderRadius: 24, padding: 0, backgroundColor: '#F8FAFC' }
+        }}
       >
-        <Box sx={{ lg: { width: "800" } }}>
-          <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">
-            Package : {packageDetails?.packageName}
-          </DialogTitle>
+        <DialogTitle sx={{ m: 0, p: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #fff 0%, #f1f5f9 100%)', borderBottom: '1px solid #e2e8f0' }} id="customized-dialog-title">
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-white rounded-xl shadow-sm text-purple-600 border border-neutral-100">
+              <BedroomParentIcon />
+            </div>
+            <div>
+              <span className="block font-extrabold text-xl text-slate-800 tracking-tight">Package Details</span>
+              <span className="block text-xs font-medium text-slate-500 mt-0.5">{packageDetails?.packageName}</span>
+            </div>
+          </div>
           <IconButton
             aria-label="close"
             onClick={() => setOpenPackageDetailsModal(false)}
             sx={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              color: "gray",
+              color: "neutral.400",
+              '&:hover': { color: 'neutral.600', bgcolor: 'neutral.100' }
             }}
           >
             <CloseIcon />
           </IconButton>
+        </DialogTitle>
 
-          {/* modal body */}
-          <DialogContent dividers sx={{ p: { xs: 2, md: 2 } }}>
-            <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
-              {/* Cover Photo */}
-              <Grid item xs={12} sm={6}>
-                {packageDetails && (
-                  <img
-                    src={packageDetails?.coverPhoto}
-                    alt=""
-                    className="h-44 w-full mx-auto rounded "
-                  />
-                )}
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                {textField("Package Name", packageDetails?.packageName, true)}
-                {textField("Hotel Name", packageDetails?.name, true)}
-                {textField("Phone", packageDetails?.phoneNumber, true)}
-                {textField("Price", packageDetails?.price, true)}
-                {/* Discount */}
-                {textField("Discount", packageDetails?.discount, true)}
-                {/* Discount Price*/}
-                {textField(
-                  "Discount Price",
-                  calculateDiscountPrice(
-                    packageDetails?.price,
-                    packageDetails?.discount
-                  ),
-                  true
-                )}
-                {/* Number Of Guests */}
-                {textField(
-                  "Number Of Guests",
-                  packageDetails?.numberOfGuests,
-                  true
-                )}
+        {/* modal body */}
+        <DialogContent sx={{ p: 3 }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Cover Photo */}
+            <div className="md:col-span-2">
+              {packageDetails?.coverPhoto && (
+                <img
+                  src={packageDetails.coverPhoto}
+                  alt="Cover"
+                  className="w-full h-48 object-cover rounded-2xl shadow-sm border border-slate-100"
+                />
+              )}
+            </div>
 
-                {/* Period */}
-                {/* {textField("Period", packageDetails?.period, true)} */}
-              </Grid>
-            </Grid>
-            <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
-              {/* Description */}
-              {textField("Description", packageDetails?.description)}
-
-              {/* Add Amenities */}
-              <Grid item xs={12}>
-                <h3 className="font-bold text-[var(--primary-bg)] border-b">
-                  Amenities
-                </h3>
-                <div className="flex flex-wrap gap-1 text-sm my-2">
-                  {packageDetails.amenities &&
-                    packageDetails?.amenities?.map((amenity, i) => (
-                      <span key={i} className="bg-gray-200 py-1 px-2 rounded">
-                        {amenity}
-                      </span>
-                    ))}
+            {/* Basic Info */}
+            <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 h-full flex flex-col md:col-span-2">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                  <MdInfo fontSize="small" />
                 </div>
+                <h3 className="font-bold text-base text-slate-800">Package Information</h3>
+              </div>
+              <Grid container spacing={1}>
+                {renderDetailItem("Package Name", packageDetails?.packageName || "N/A", <MeetingRoomIcon fontSize="small" />, false, "text-indigo-600 bg-indigo-50")}
+                {renderDetailItem("Hotel Name", packageDetails?.name || "N/A", <HotelIcon fontSize="small" />, false, "text-indigo-600 bg-indigo-50")}
+                {renderDetailItem("Phone", packageDetails?.phoneNumber || "N/A", <PhoneIcon fontSize="small" />, false, "text-indigo-600 bg-indigo-50")}
+                {renderDetailItem("Guests", packageDetails?.numberOfGuests || "N/A", <PersonIcon fontSize="small" />, false, "text-indigo-600 bg-indigo-50")}
+                {renderDetailItem("Price", `฿${packageDetails?.price || 0}`, <AttachMoneyIcon fontSize="small" />, false, "text-indigo-600 bg-indigo-50")}
+                {packageDetails?.discount > 0 && renderDetailItem("Discount", `${packageDetails?.discount}%`, <AttachMoneyIcon fontSize="small" />, false, "text-indigo-600 bg-indigo-50")}
+                {packageDetails?.discount > 0 && renderDetailItem("Price After Discount", `฿${calculateDiscountPrice(packageDetails?.price, packageDetails?.discount)}`, <AttachMoneyIcon fontSize="small" />, false, "text-emerald-600 bg-emerald-50")}
               </Grid>
+            </div>
 
-              {/* Pictures */}
-              <Grid item xs={12}>
-                <h3 className="font-bold text-[var(--primary-bg)] border-b">
-                  Room Pictures
-                </h3>
-                <div className="flex items-center justify-center">
-                  <div className="grid sm:grid-cols-3 grid-cols-1 items-center justify-center gap-2 my-2">
-                    {packageDetails.pictures?.map((picture, i) => (
-                      <div key={i}>
-                        <h4 className="text-lg w-full text-center">
-                          {picture?.label}
-                        </h4>
-                        <img
-                          src={picture?.url}
-                          alt=""
-                          className="h-36 sm:w-44 w-full rounded"
-                        />
+            {/* Description */}
+            <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 md:col-span-2">
+              <h3 className="font-bold text-sm text-slate-500 uppercase tracking-wider mb-2">Description</h3>
+              <p className="text-slate-700 text-sm leading-relaxed whitespace-pre-line">{packageDetails?.description || "No description available."}</p>
+            </div>
+
+            {/* Amenities */}
+            {packageDetails?.amenities && packageDetails.amenities.length > 0 && (
+              <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 md:col-span-2">
+                <h3 className="font-bold text-sm text-slate-500 uppercase tracking-wider mb-3">Amenities</h3>
+                <div className="flex flex-wrap gap-2">
+                  {packageDetails.amenities.map((amenity, i) => (
+                    <span key={i} className="bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium border border-slate-200">
+                      {amenity}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Gallery */}
+            {packageDetails?.pictures && packageDetails.pictures.length > 0 && (
+              <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 md:col-span-2">
+                <h3 className="font-bold text-sm text-slate-500 uppercase tracking-wider mb-3">Room Pictures</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {packageDetails.pictures.map((picture, i) => (
+                    <div key={i} className="group relative aspect-square overflow-hidden rounded-xl border border-slate-100">
+                      <img
+                        src={picture?.url}
+                        alt={picture?.label}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                        <p className="text-white text-xs truncate text-center">{picture?.label}</p>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button
-              variant="contained"
-              type="submit"
-              autoFocus
-              sx={{
-                bgcolor: "var(--button-bg-color)",
-                color: "white",
-                hover: "none",
-              }}
-              className="add-new-btn"
-              onClick={() => setOpenPackageDetailsModal(false)}
-            >
-              Close
-            </Button>
-          </DialogActions>
-        </Box>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #e5e5e5', bgcolor: 'white' }}>
+          <Button
+            variant="outlined"
+            onClick={() => setOpenPackageDetailsModal(false)}
+            sx={{
+              borderRadius: '10px',
+              textTransform: 'none',
+              fontWeight: 600,
+              color: 'neutral.600',
+              borderColor: 'neutral.300',
+              px: 3,
+              '&:hover': {
+                borderColor: 'neutral.400',
+                bgcolor: 'neutral.50',
+                color: 'neutral.800'
+              }
+            }}
+          >
+            Close Package Details
+          </Button>
+        </DialogActions>
       </Dialog>
-    </div>
+    </div >
   );
 };
 

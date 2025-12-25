@@ -29,6 +29,11 @@ const TravelServices = lazy(() =>
 const AddSightseeingPackage = lazy(() =>
   import("./dashboard/adminDashboard/ourServices/travelServices/AddSightseeingPackage")
 );
+const SightseeingExcelUploadPage = lazy(() =>
+  import(
+    "./dashboard/adminDashboard/ourServices/travelServices/SightseeingExcelUploadPage"
+  )
+);
 const LocalServices = lazy(() =>
   import("./dashboard/adminDashboard/ourServices/localServices/LocalServices")
 );
@@ -210,6 +215,7 @@ export {
   RoomServices,
   TravelServices,
   AddSightseeingPackage,
+  SightseeingExcelUploadPage,
   LocalServices,
   CarServices,
   SelfDriveServices,

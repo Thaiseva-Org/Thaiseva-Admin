@@ -155,11 +155,14 @@ const Bookings = () => {
   // calling createData function with partner's data
   const rows = (bookings) => {
     return bookings?.map((booking) => {
+      // Handle timestamp display mapping
+      const orderedAtRaw = booking.createdAt || booking.orderedAt;
+
       return createData(
         booking?.guestDetails?.name || "-",
         booking?.guestDetails?.phone || "-",
         booking.noOfRooms,
-        booking.orderedAt || "-",
+        orderedAtRaw || "-",
         booking.roomNumbers,
         booking.status || "-",
         booking.packageId,
@@ -175,15 +178,15 @@ const Bookings = () => {
       const existingData = snapshot.data();
       const checkInDate = existingData?.checkInDate?.seconds
         ? new Date(
-            existingData?.checkInDate?.seconds * 1000 +
-              existingData?.checkInDate?.nanoseconds / 1000000
-          )
+          existingData?.checkInDate?.seconds * 1000 +
+          existingData?.checkInDate?.nanoseconds / 1000000
+        )
         : new Date(existingData?.checkInDate);
       const checkOutDate = existingData?.checkOutDate?.seconds
         ? new Date(
-            existingData?.checkOutDate?.seconds * 1000 +
-              existingData?.checkOutDate?.nanoseconds / 1000000
-          )
+          existingData?.checkOutDate?.seconds * 1000 +
+          existingData?.checkOutDate?.nanoseconds / 1000000
+        )
         : new Date(existingData?.checkOutDate);
       setBookingDetails({
         ...existingData,
@@ -242,6 +245,8 @@ const Bookings = () => {
     if (confirm("Check details twice before confirming")) {
       const updatedDoc = {
         status: "Accepted",
+        bookingStatus: "ACCEPTED",
+        isBookingConfirmed: true,
         comission: Number(userData.comission || 0),
         managerPhone: data.managerPhone,
         roomNumbers: data.roomNumbers,
@@ -285,6 +290,8 @@ const Bookings = () => {
     if (confirm("Are you sure to cancel this booking?")) {
       const updatedDoc = {
         status: "Canceled",
+        bookingStatus: "CANCELED",
+        isBookingConfirmed: false,
       };
 
       await updateDoc(
@@ -443,18 +450,17 @@ const Bookings = () => {
 
                           const date = new Date(
                             row["orderedAt"].seconds * 1000 +
-                              row["orderedAt"].nanoseconds / 1000000
+                            row["orderedAt"].nanoseconds / 1000000
                           );
                           return (
                             <TableCell key={column.property} align="center">
                               {(column.property === "status" && (
                                 <span
-                                  className={`${
-                                    (value === "Pending" &&
-                                      "bg-orange-300 text-black") ||
+                                  className={`${(value === "Pending" &&
+                                    "bg-orange-300 text-black") ||
                                     (value === "Accepted" && "bg-green-500") ||
                                     (value === "Canceled" && "bg-red-600")
-                                  } text-white  py-1 px-2 rounded`}
+                                    } text-white  py-1 px-2 rounded`}
                                 >
                                   {value}
                                 </span>
@@ -523,14 +529,14 @@ const Bookings = () => {
                 )}
                 {(isRealTime ? myRoomBookings : matchedBookings).length ===
                   0 && (
-                  <TableRow>
-                    <TableCell colSpan={7}>
-                      <div className="w-full text-center my-5 light-text">
-                        No Room Bookings
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
+                    <TableRow>
+                      <TableCell colSpan={7}>
+                        <div className="w-full text-center my-5 light-text">
+                          No Room Bookings
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
               </TableBody>
             </Table>
           )}
@@ -576,44 +582,51 @@ const Bookings = () => {
 
           {/* modal body */}
           <DialogContent dividers sx={{ p: { xs: 2, md: 2 } }}>
-            <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
-              {/* Guest Name */}
-              {textField(
-                "Guest Name",
-                bookingDetails?.guestDetails?.name || "not available"
-              )}
+            {/* Stay Info */}
+            <div className="bg-neutral-50 p-4 rounded-lg mb-4 border border-neutral-200">
+              <h3 className="font-bold text-lg mb-3 text-primary-700 border-b border-neutral-200 pb-2">Stay Information</h3>
+              <Grid container spacing={2}>
+                {textField("Room Type", bookingDetails?.roomName || "N/A")}
+                {textField("Rooms", bookingDetails?.noOfRooms || "N/A")}
+                {textField("Nights", bookingDetails?.nights || "N/A")}
+                {textField("Check In", bookingDetails?.checkInDate || "N/A")}
+                {textField("Check Out", bookingDetails?.checkOutDate || "N/A")}
+              </Grid>
+            </div>
 
-              {/* Phone */}
-              {textField(
-                "Phone",
-                bookingDetails?.guestDetails?.phone || "not available"
-              )}
+            {/* Guest Info */}
+            <div className="bg-neutral-50 p-4 rounded-lg mb-4 border border-neutral-200">
+              <h3 className="font-bold text-lg mb-3 text-primary-700 border-b border-neutral-200 pb-2">Guest Information</h3>
+              <Grid container spacing={2}>
+                {textField("Guest Name", bookingDetails?.fullName || bookingDetails?.guestDetails?.name || "N/A")}
+                {textField("Phone", bookingDetails?.phone || bookingDetails?.guestDetails?.phone || "N/A")}
+                {textField("Email", bookingDetails?.email || bookingDetails?.guestDetails?.email || "N/A")}
+                {textField("Nationality", bookingDetails?.nationality || "N/A")}
+                <Grid item xs={12} sm={6}>
+                  <div className="flex gap-2">
+                    <p><span className="font-bold">Guests:</span> {bookingDetails?.adults || 0} Adults, {bookingDetails?.children || 0} Children</p>
+                  </div>
+                </Grid>
+              </Grid>
+            </div>
 
-              {/* Email */}
-              {textField(
-                "Email",
-                bookingDetails?.guestDetails?.email || "not available"
-              )}
-
-              {/* Room Quantity */}
-              {textField(
-                "Room Quantity",
-                bookingDetails?.noOfRooms || "not available"
-              )}
-
-              {/* Check In Date */}
-              {textField(
-                "Check In",
-                bookingDetails?.checkInDate || "not available"
-              )}
-
-              {/* Check Out Date */}
-              {textField(
-                "Check Out",
-                bookingDetails?.checkOutDate || "not available"
-              )}
-              <Grid item xs={12} sm={6}></Grid>
-            </Grid>
+            {/* Payment Info */}
+            <div className="bg-neutral-50 p-4 rounded-lg mb-4 border border-neutral-200">
+              <h3 className="font-bold text-lg mb-3 text-primary-700 border-b border-neutral-200 pb-2">Payment Details</h3>
+              <Grid container spacing={2}>
+                {textField("Amount (THB)", `฿${bookingDetails?.amountTHB || bookingDetails?.amount || 0}`)}
+                {bookingDetails?.amountINR && textField("Amount (INR)", `₹${bookingDetails?.amountINR}`)}
+                {textField("Payment Method", bookingDetails?.paymentMethod || "N/A")}
+                <Grid item xs={12} sm={6}>
+                  <div className="flex gap-2 items-center">
+                    <span className="font-bold">Payment Status:</span>
+                    <span className={`px-2 py-0.5 rounded text-sm font-semibold ${bookingDetails?.isPaymentDone ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"}`}>
+                      {bookingDetails?.isPaymentDone ? "PAID" : "UNPAID"}
+                    </span>
+                  </div>
+                </Grid>
+              </Grid>
+            </div>
 
             {/* manager information */}
             {bookingDetails?.status === "Pending" && (
@@ -722,11 +735,10 @@ const Bookings = () => {
               // variant="contained"
               type="submit"
               autoFocus
-              className={`add-new-btn ${
-                bookingDetails?.status === "Pending" &&
+              className={`add-new-btn ${bookingDetails?.status === "Pending" &&
                 "!bg-blue-500 hover:!bg-blue-600"
-              }`}
-              // sx={{ bgcolor: "blue", color: "white", hover: "none" }}
+                }`}
+            // sx={{ bgcolor: "blue", color: "white", hover: "none" }}
             >
               {bookingDetails?.status !== "Pending" ? "Close" : "Confirm"}
             </button>
@@ -737,7 +749,7 @@ const Bookings = () => {
                 onClick={(e) => handleCancelBooking(e)}
                 autoFocus
                 className="add-new-btn !bg-red-500 hover:!bg-red-600"
-                // sx={{ bgcolor: "blue", color: "white", hover: "none" }}
+              // sx={{ bgcolor: "blue", color: "white", hover: "none" }}
               >
                 {"Cancel"}
               </button>
