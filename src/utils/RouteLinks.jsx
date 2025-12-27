@@ -180,7 +180,7 @@ export const hotellinks = [
     icon: <BeenhereIcon />,
   },
 
-  { icon: <BedIcon />, url: "/dashboard/hotel-chat", lable: "Hotel Chat" },
+  // { icon: <BedIcon />, url: "/dashboard/hotel-chat", lable: "Hotel Chat" },
 ];
 
 export const Travellinks = [

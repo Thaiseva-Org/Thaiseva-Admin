@@ -23,7 +23,7 @@ import {
 } from "@react-google-maps/api";
 import { Controller, useForm } from "react-hook-form";
 import { MdLocationOn, MdPool, MdFitnessCenter, MdWifi, MdRestaurant, MdSpa, MdLocalParking, MdEdit, MdDelete, MdAdd, MdCheck, MdArrowForward, MdArrowBack, MdCloudUpload, MdAttachMoney, MdPeople, MdEmail, MdPhone, MdError, MdClose } from "react-icons/md";
-import { FaStar } from "react-icons/fa";
+import { FaStar, FaBed, FaMinus, FaPlus } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
@@ -154,6 +154,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
         maxGuests: "",
         numberOfBeds: "",
         bedType: "King",
+        bedDetails: [],
         photos: [],
         amenities: [],
         description: "",
@@ -187,6 +188,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             setValue("address", h.address || "");
             setValue("country", h.country || "");
             setValue("description", h.description || "");
+            setValue("policies", h.policies || "");
 
             setLogoURL(h.images?.logo || h.logoURL || "");
             setHotelGallery(h.images?.gallery || []);
@@ -303,11 +305,18 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
     const handleEditRoom = (room) => {
         setEditingRoomId(room.id);
+
+        let inferredBedDetails = room.bedDetails || [];
+        if (inferredBedDetails.length === 0 && room.bedType) {
+            inferredBedDetails = [{ type: room.bedType, count: Number(room.numberOfBeds) || 1 }];
+        }
+
         setNewRoom({
-            ...initialRoomState, // Start with defaults to ensure structure
-            ...room, // Override with room data
+            ...initialRoomState,
+            ...room,
             roomName: room.roomName || room.packageName || "",
-            pricing: { ...initialRoomState.pricing, ...room.pricing }, // Ensure deep merge for nested
+            bedDetails: inferredBedDetails,
+            pricing: { ...initialRoomState.pricing, ...room.pricing },
             policies: { ...initialRoomState.policies, ...room.policies },
             foodInfo: { ...initialRoomState.foodInfo, ...room.foodInfo },
         });
@@ -322,11 +331,17 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
         const priceAfterDiscount = Number(newRoom.pricing.basePrice) * (1 - (Number(newRoom.pricing.discountPercent) || 0) / 100);
 
+        const totalBeds = (newRoom.bedDetails || []).reduce((acc, curr) => acc + (Number(curr.count) || 0), 0) || Number(newRoom.numberOfBeds) || 0;
+        const typeSummary = (newRoom.bedDetails || []).map(b => `${b.count} ${b.type}`).join(", ") || newRoom.bedType || "King";
+
         const finalRoom = {
             id: editingRoomId || Date.now(),
             ...newRoom,
             packageName: newRoom.roomName,
             amenities: newRoom.amenities || [],
+            numberOfBeds: totalBeds,
+            bedType: typeSummary,
+            bedDetails: newRoom.bedDetails || [],
             pricing: {
                 ...newRoom.pricing,
                 pricePerNightAfterDiscount: priceAfterDiscount,
@@ -374,6 +389,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     discount: Number(hotelDiscount) || 0,
                     address: addressInputValue || data.address || "",
                     description: data.description || "",
+                    policies: data.policies || "",
                     images: {
                         logo: logoURL,
                         gallery: hotelGallery
@@ -577,6 +593,18 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     />
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+                    <Controller
+                        name="policies"
+                        control={control}
+                        render={({ field }) => (
+                            <TextField {...field} label="Hotel Policies" multiline rows={3} fullWidth
+                                placeholder="e.g. Check-in after 2 PM, No smoking, etc."
+                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                        )}
+                    />
+                </div>
+
                 {/* Amenities & Features */}
                 <div className="space-y-4">
                     <label className="block text-sm font-bold text-gray-700">Hotel Amenities</label>
@@ -704,21 +732,43 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                 <div className="space-y-6">
                     <div className="space-y-2">
                         <label className="block text-sm font-bold text-gray-700">Main Logo / Cover <span className="text-red-500">*</span></label>
-                        <div className={`border-2 border-dashed rounded-3xl p-8 text-center hover:bg-gray-50 transition-colors cursor-pointer relative bg-gray-50/50 ${logoError ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}>
+                        <div className={`border-2 border-dashed rounded-3xl p-1 text-center hover:bg-gray-50 transition-colors cursor-pointer relative bg-gray-50/50 h-58 sm:h-64 flex flex-col items-center justify-center overflow-hidden ${logoError ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}>
                             <input
                                 type="file"
                                 onChange={handleUploadLogo}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                             />
-                            <div className="flex flex-col items-center justify-center gap-2">
-                                <div className={`w-10 h-10 ${logoError ? 'text-red-400' : 'text-gray-400'}`}>
-                                    {logoError ? <MdError size={40} /> : <MdCloudUpload size={40} />}
+                            {logoURL ? (
+                                <div className="absolute inset-0 w-full h-full">
+                                    <img src={logoURL} alt="Hotel Logo" className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 hover:opacity-100 transition-opacity z-20">
+                                        <MdCloudUpload className="text-white text-4xl mb-2" />
+                                        <span className="text-white font-bold text-sm">Change Image</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setLogoURL("");
+                                        }}
+                                        className="absolute top-2 right-2 z-30 bg-white/90 p-2 rounded-full text-red-500 shadow-md hover:scale-110 transition-transform"
+                                    >
+                                        <MdDelete size={20} />
+                                    </button>
                                 </div>
-                                <p className={`font-bold text-sm ${logoError ? 'text-red-500' : 'text-blue-500'}`}>
-                                    {logoError ? "Required!" : "Upload Logo"}
-                                </p>
-                                {logoURL && <p className="text-green-500 text-xs font-bold">Uploaded!</p>}
-                            </div>
+                            ) : (
+                                <div className="flex flex-col items-center justify-center gap-2">
+                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center bg-blue-50 text-blue-500 ${logoError ? 'bg-red-50 text-red-400' : ''}`}>
+                                        {logoError ? <MdError size={24} /> : <MdCloudUpload size={24} />}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className={`font-bold text-sm ${logoError ? 'text-red-500' : 'text-gray-700'}`}>
+                                            {logoError ? "Image Required" : "Click to upload"}
+                                        </p>
+                                        <p className="text-xs text-gray-400">SVG, PNG, JPG or GIF (max. 800x400px)</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -978,85 +1028,165 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     <DialogTitle sx={{ fontWeight: 800, fontSize: '1.5rem', textAlign: 'center' }}>{editingRoomId ? "Edit Room" : "Add New Room"}</DialogTitle>
                     <DialogContent>
                         <div className="space-y-6 mt-2">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextField
-                                    label="Room Name"
-                                    fullWidth
-                                    value={newRoom.roomName}
-                                    onChange={(e) => setNewRoom({ ...newRoom, roomName: e.target.value })}
-                                    variant="outlined"
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                />
-                                <TextField
-                                    label="Description"
-                                    fullWidth
-                                    multiline
-                                    rows={1}
-                                    value={newRoom.description}
-                                    onChange={(e) => setNewRoom({ ...newRoom, description: e.target.value })}
-                                    variant="outlined"
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <TextField
-                                    label="Max Guests"
-                                    type="number"
-                                    fullWidth
-                                    value={newRoom.maxGuests}
-                                    onChange={(e) => setNewRoom({ ...newRoom, maxGuests: e.target.value === "" ? "" : Number(e.target.value) })}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                />
-                                <TextField
-                                    label="Num Beds"
-                                    type="number"
-                                    fullWidth
-                                    value={newRoom.numberOfBeds}
-                                    onChange={(e) => setNewRoom({ ...newRoom, numberOfBeds: e.target.value === "" ? "" : Number(e.target.value) })}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                />
-                                <TextField
-                                    label="Bed Type"
-                                    select
-                                    fullWidth
-                                    value={newRoom.bedType}
-                                    onChange={(e) => setNewRoom({ ...newRoom, bedType: e.target.value })}
-                                    SelectProps={{ native: true }}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                >
-                                    <option value="Single">Single</option>
-                                    <option value="Double">Double</option>
-                                    <option value="Queen">Queen</option>
-                                    <option value="King">King</option>
-                                </TextField>
-                                <TextField
-                                    label="Base Price"
-                                    type="number"
-                                    fullWidth
-                                    value={newRoom.pricing.basePrice}
-                                    onChange={(e) => setNewRoom({ ...newRoom, pricing: { ...newRoom.pricing, basePrice: e.target.value === "" ? "" : Number(e.target.value) } })}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <TextField
-                                    label="Discount (%)"
-                                    type="number"
-                                    fullWidth
-                                    value={newRoom.pricing.discountPercent}
-                                    onChange={(e) => setNewRoom({ ...newRoom, pricing: { ...newRoom.pricing, discountPercent: e.target.value === "" ? "" : Number(e.target.value) } })}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                />
-                                <div className="flex items-center gap-4 p-2 border border-gray-200 rounded-xl">
-                                    <span className="text-sm font-bold text-gray-600 pl-2">Breakfast Included?</span>
-                                    <input
-                                        type="checkbox"
-                                        checked={newRoom.foodInfo.breakfastIncluded}
-                                        onChange={(e) => setNewRoom({ ...newRoom, foodInfo: { ...newRoom.foodInfo, breakfastIncluded: e.target.checked } })}
-                                        className="w-5 h-5 text-blue-600 rounded"
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                <div className="md:col-span-6">
+                                    <TextField
+                                        label="Room Name"
+                                        fullWidth
+                                        value={newRoom.roomName}
+                                        onChange={(e) => setNewRoom({ ...newRoom, roomName: e.target.value })}
+                                        variant="outlined"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                     />
+                                </div>
+                                <div className="md:col-span-3">
+                                    <TextField
+                                        label="Base Price"
+                                        type="number"
+                                        fullWidth
+                                        value={newRoom.pricing.basePrice}
+                                        onChange={(e) => setNewRoom({ ...newRoom, pricing: { ...newRoom.pricing, basePrice: e.target.value === "" ? "" : Number(e.target.value) } })}
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                    />
+                                </div>
+                                <div className="md:col-span-3">
+                                    <TextField
+                                        label="Discount (%)"
+                                        type="number"
+                                        fullWidth
+                                        value={newRoom.pricing.discountPercent}
+                                        onChange={(e) => setNewRoom({ ...newRoom, pricing: { ...newRoom.pricing, discountPercent: e.target.value === "" ? "" : Number(e.target.value) } })}
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                <div className="md:col-span-8">
+                                    <TextField
+                                        label="Description"
+                                        fullWidth
+                                        multiline
+                                        rows={2}
+                                        value={newRoom.description}
+                                        onChange={(e) => setNewRoom({ ...newRoom, description: e.target.value })}
+                                        variant="outlined"
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                    />
+                                </div>
+                                <div className="md:col-span-2">
+                                    <TextField
+                                        label="Max Guests"
+                                        type="number"
+                                        fullWidth
+                                        value={newRoom.maxGuests}
+                                        onChange={(e) => setNewRoom({ ...newRoom, maxGuests: e.target.value === "" ? "" : Number(e.target.value) })}
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                    />
+                                </div>
+                                <div className="md:col-span-2 flex items-center justify-center border border-gray-200 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer" onClick={() => setNewRoom({ ...newRoom, foodInfo: { ...newRoom.foodInfo, breakfastIncluded: !newRoom.foodInfo.breakfastIncluded } })}>
+                                    <div className="flex flex-col items-center">
+                                        <span className="text-xs font-bold text-gray-500 mb-1 select-none">Breakfast?</span>
+                                        <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${newRoom.foodInfo.breakfastIncluded ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}>
+                                            {newRoom.foodInfo.breakfastIncluded && <MdCheck className="text-white" />}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="border border-gray-200 rounded-2xl p-5 bg-gray-50/30">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <label className="text-base font-extrabold text-gray-800 block">Bed Configuration</label>
+                                        <p className="text-xs text-gray-400 mt-0.5">Define sleeping arrangements for this room</p>
+                                    </div>
+                                    <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                                        Multi-select allowed
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                    {['Single', 'Double', 'Queen', 'King', 'Twin'].map(type => {
+                                        const saved = (newRoom.bedDetails || []).find(b => b.type === type);
+                                        const isSelected = !!saved;
+                                        const count = saved ? saved.count : 0;
+
+                                        const updateCount = (newCount) => {
+                                            if (newCount <= 0) {
+                                                setNewRoom(prev => ({
+                                                    ...prev,
+                                                    bedDetails: (prev.bedDetails || []).filter(b => b.type !== type)
+                                                }));
+                                            } else {
+                                                setNewRoom(prev => ({
+                                                    ...prev,
+                                                    bedDetails: isSelected
+                                                        ? prev.bedDetails.map(b => b.type === type ? { ...b, count: newCount } : b)
+                                                        : [...(prev.bedDetails || []), { type, count: newCount }]
+                                                }));
+                                            }
+                                        };
+
+                                        return (
+                                            <div
+                                                key={type}
+                                                onClick={() => !isSelected && updateCount(1)}
+                                                className={`
+                                                    relative flex flex-col justify-between
+                                                    cursor-pointer rounded-2xl border transition-all duration-300 select-none group overflow-hidden
+                                                    ${isSelected
+                                                        ? 'border-blue-500 bg-blue-50/30 shadow-md ring-1 ring-blue-500/20'
+                                                        : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'
+                                                    }
+                                                    h-[140px] p-4
+                                                `}
+                                            >
+                                                <div className="flex justify-between items-start w-full">
+                                                    <div className={`
+                                                        w-10 h-10 rounded-xl flex items-center justify-center transition-colors
+                                                        ${isSelected ? 'bg-blue-500 text-white shadow-blue-200' : 'bg-gray-100 text-gray-400 group-hover:bg-blue-100 group-hover:text-blue-500'}
+                                                    `}>
+                                                        <FaBed size={18} />
+                                                    </div>
+                                                    <div className={`
+                                                        w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-300
+                                                        ${isSelected ? 'border-blue-500 bg-blue-500 scale-100' : 'border-gray-200 bg-transparent scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100'}
+                                                    `}>
+                                                        <MdCheck className="text-white text-xs font-bold" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-2">
+                                                    <span className={`block font-bold text-lg mb-1 ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
+                                                        {type}
+                                                    </span>
+
+                                                    {isSelected ? (
+                                                        <div className="flex items-center bg-white rounded-lg border border-blue-200 shadow-sm w-fit mt-2" onClick={e => e.stopPropagation()}>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => updateCount(count - 1)}
+                                                                className="w-8 h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-l-lg transition-colors active:bg-blue-100"
+                                                            >
+                                                                <FaMinus size={10} />
+                                                            </button>
+                                                            <div className="w-8 h-8 flex items-center justify-center border-x border-blue-100 font-bold text-blue-900 bg-blue-50/30 text-sm">
+                                                                {count}
+                                                            </div>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => updateCount(count + 1)}
+                                                                className="w-8 h-8 flex items-center justify-center text-blue-600 hover:bg-blue-50 rounded-r-lg transition-colors active:bg-blue-100"
+                                                            >
+                                                                <FaPlus size={10} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-gray-400 font-medium mt-3 group-hover:text-blue-400 transition-colors">Tap to add</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
