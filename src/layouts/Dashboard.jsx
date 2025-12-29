@@ -56,6 +56,7 @@ import {
   // restaurantlinks,
   // driverRequest,
   Travellinks,
+  partnerManagementLinks,
 } from "../utils/RouteLinks";
 import { DRAWER_WIDTH, NAVBAR_HEIGHT } from "../utils/constants";
 
@@ -704,6 +705,22 @@ function Dashboard(props) {
             )} */}
 
             <div className="text-[var(--drawer-heading-color)] border-b-2 mt-4 mb-2 border-[var(--drawer-heading-color)] pl-2 text-lg font-bold  py-1 z-10 overflow-hidden">
+              Partner Management
+            </div>
+            {partnerManagementLinks?.map((item) => (
+              <Link to={item?.link} key={item?.link}>
+                <ListItem
+                  sx={{ py: 1.5, mb: 0.5 }}
+                  className={`justify-between relative py-3 px-4 pl-5 hover:bg-[var(--drawer-hover-color)] ${location.pathname === item?.link ? "sidebar-active-tab" : ""
+                    }`}
+                >
+                  {item?.icon}
+                  <span className="grow ml-2">{item?.label}</span>
+                </ListItem>
+              </Link>
+            ))}
+
+            <div className="text-[var(--drawer-heading-color)] border-b-2 mt-4 mb-2 border-[var(--drawer-heading-color)] pl-2 text-lg font-bold  py-1 z-10 overflow-hidden">
               Hotel Related
             </div>
             {hotellinks?.map((route, i) => (
@@ -1087,7 +1104,7 @@ function Dashboard(props) {
                             </p>
                             {/* <p className="mt-1 text-slate-500">{item.message}</p> */}
                             <p className="mt-1 text-xs text-end w-full text-slate-500">
-                              {format(item.timestamp.toDate())}
+                              {format(item.timestamp?.toDate ? item.timestamp.toDate() : new Date(item.timestamp || new Date()))}
                             </p>
                           </div>
                         </div>

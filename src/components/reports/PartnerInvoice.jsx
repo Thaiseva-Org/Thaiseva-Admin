@@ -93,6 +93,7 @@ const PartnerInvoice = ({ invoice, contactInfo }) => (
       <InvoiceNo
         paymentDate={invoice?.paymentDate}
         invoiceDate={invoice?.invoiceDate}
+        invoiceId={invoice?.partnerInvoiceId}
       />
       <InvoiceItemsTable paymentTable={invoice?.paymentTable} />
       {/* <AccountInfo bankInfo={invoice?.bankInfo} /> */}

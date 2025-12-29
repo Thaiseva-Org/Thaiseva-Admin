@@ -177,6 +177,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
         }
     };
     const [newRoom, setNewRoom] = useState(initialRoomState);
+    const [roomAmenityInput, setRoomAmenityInput] = useState("");
 
     useEffect(() => {
         if (isEdit && initialData) {
@@ -188,6 +189,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             setValue("address", h.address || "");
             setValue("country", h.country || "");
             setValue("description", h.description || "");
+            setValue("totalRooms", h.totalRooms || "");
             setValue("policies", h.policies || "");
 
             setLogoURL(h.images?.logo || h.logoURL || "");
@@ -387,6 +389,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     currency: "THB",
                     startingPrice: manualStartingPrice ? Number(manualStartingPrice) : (roomTypes.length > 0 ? Math.min(...roomTypes.map(r => r.pricing?.pricePerNightAfterDiscount || 0)) : 0),
                     discount: Number(hotelDiscount) || 0,
+                    totalRooms: Number(data.totalRooms) || 0,
                     address: addressInputValue || data.address || "",
                     description: data.description || "",
                     policies: data.policies || "",
@@ -518,43 +521,69 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
         <FadeIn>
             <div className="space-y-6">
                 {/* Basic Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Controller
-                        name="hotelName"
-                        control={control}
-                        rules={{ required: "Hotel Name is required" }}
-                        render={({ field }) => (
-                            <TextField {...field} label={<span>Hotel Name <span className="text-red-500">*</span></span>} fullWidth error={!!errors.hotelName} helperText={errors.hotelName?.message}
-                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
-                        )}
-                    />
-                    <Controller
-                        name="email"
-                        control={control}
-                        rules={{ required: "Email is required", pattern: { value: /^\S+@\S+$/i, message: "Invalid email" } }}
-                        render={({ field }) => (
-                            <TextField {...field} label={<span>Email Address <span className="text-red-500">*</span></span>} fullWidth error={!!errors.email} helperText={errors.email?.message}
-                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
-                        )}
-                    />
-                    <Controller
-                        name="phoneNumber"
-                        control={control}
-                        rules={{ required: "Phone is required" }}
-                        render={({ field }) => (
-                            <TextField {...field} label={<span>Phone Number <span className="text-red-500">*</span></span>} fullWidth error={!!errors.phoneNumber} helperText={errors.phoneNumber?.message}
-                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
-                        )}
-                    />
-                    <Controller
-                        name="country"
-                        control={control}
-                        defaultValue="Thailand"
-                        render={({ field }) => (
-                            <TextField {...field} label="Country" fullWidth
-                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
-                        )}
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    <div className="md:col-span-6">
+                        <Controller
+                            name="hotelName"
+                            control={control}
+                            rules={{ required: "Hotel Name is required" }}
+                            render={({ field }) => (
+                                <TextField {...field} label={<span>Hotel Name <span className="text-red-500">*</span></span>} fullWidth error={!!errors.hotelName} helperText={errors.hotelName?.message}
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                            )}
+                        />
+                    </div>
+                    <div className="md:col-span-6">
+                        <Controller
+                            name="email"
+                            control={control}
+                            rules={{ required: "Email is required", pattern: { value: /^\S+@\S+$/i, message: "Invalid email" } }}
+                            render={({ field }) => (
+                                <TextField {...field} label={<span>Email Address <span className="text-red-500">*</span></span>} fullWidth error={!!errors.email} helperText={errors.email?.message}
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                            )}
+                        />
+                    </div>
+                    <div className="md:col-span-4">
+                        <Controller
+                            name="phoneNumber"
+                            control={control}
+                            rules={{ required: "Phone is required" }}
+                            render={({ field }) => (
+                                <TextField {...field} label={<span>Phone Number <span className="text-red-500">*</span></span>} fullWidth error={!!errors.phoneNumber} helperText={errors.phoneNumber?.message}
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                            )}
+                        />
+                    </div>
+                    <div className="md:col-span-4">
+                        <Controller
+                            name="country"
+                            control={control}
+                            defaultValue="Thailand"
+                            render={({ field }) => (
+                                <TextField {...field} label="Country" fullWidth
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                            )}
+                        />
+                    </div>
+                    <div className="md:col-span-4">
+                        <Controller
+                            name="totalRooms"
+                            control={control}
+                            rules={{ required: "Total Rooms is required" }}
+                            render={({ field }) => (
+                                <TextField
+                                    {...field}
+                                    label="Total Rooms Available"
+                                    type="number"
+                                    fullWidth
+                                    error={!!errors.totalRooms}
+                                    helperText={errors.totalRooms?.message}
+                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                />
+                            )}
+                        />
+                    </div>
                 </div>
 
                 {/* Address & Map */}
@@ -588,18 +617,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                         control={control}
                         render={({ field }) => (
                             <TextField {...field} label={<span>Description <span className="text-red-500">*</span></span>} multiline rows={3} fullWidth
-                                sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
-                        )}
-                    />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
-                    <Controller
-                        name="policies"
-                        control={control}
-                        render={({ field }) => (
-                            <TextField {...field} label="Hotel Policies" multiline rows={3} fullWidth
-                                placeholder="e.g. Check-in after 2 PM, No smoking, etc."
                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
                         )}
                     />
@@ -813,7 +830,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     </GoogleMap>
                 </div>
             </div>
-        </FadeIn>
+        </FadeIn >
     );
 
     const renderStep2 = () => (
@@ -891,6 +908,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                         <div>
                             <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Configuration</h3>
                             <div className="space-y-2">
+                                <p><span className="font-semibold text-gray-900">Total Rooms:</span> {getValues("totalRooms")}</p>
                                 <p><span className="font-semibold text-gray-900">Room Types:</span> {roomTypes.length}</p>
                                 <p><span className="font-semibold text-gray-900">Amenities:</span> {[...selectedAmenities, ...customAmenities].length} selected</p>
                                 <p><span className="font-semibold text-gray-900">Pets Allowed:</span> {petsAllowed ? "Yes" : "No"}</p>
@@ -1062,7 +1080,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                                <div className="md:col-span-8">
+                                <div className="md:col-span-6">
                                     <TextField
                                         label="Description"
                                         fullWidth
@@ -1192,7 +1210,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-2">Room Amenities</label>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2 mb-3">
                                     {[
                                         "Air Conditioning", "TV", "Mini Bar", "Balcony", "Coffee Maker",
                                         "Safe", "Hairdryer", "Iron", "Desk", "Bathtub", "Kitchenette"
@@ -1214,6 +1232,41 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                             {amenity}
                                         </div>
                                     ))}
+                                    {(newRoom.amenities || []).filter(a => ![
+                                        "Air Conditioning", "TV", "Mini Bar", "Balcony", "Coffee Maker",
+                                        "Safe", "Hairdryer", "Iron", "Desk", "Bathtub", "Kitchenette"
+                                    ].includes(a)).map(amenity => (
+                                        <div
+                                            key={amenity}
+                                            className="px-3 py-1 rounded-full text-sm font-medium border select-none transition-colors bg-purple-100 border-purple-200 text-purple-600 flex items-center gap-1"
+                                        >
+                                            {amenity}
+                                            <button onClick={() => setNewRoom(prev => ({ ...prev, amenities: prev.amenities.filter(item => item !== amenity) }))} className="text-purple-400 hover:text-purple-800">
+                                                <MdClose size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <TextField
+                                        size="small"
+                                        placeholder="Add custom amenity..."
+                                        value={roomAmenityInput}
+                                        onChange={(e) => setRoomAmenityInput(e.target.value)}
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" }, flex: 1 }}
+                                    />
+                                    <Button
+                                        onClick={() => {
+                                            if (roomAmenityInput.trim()) {
+                                                setNewRoom(prev => ({ ...prev, amenities: [...(prev.amenities || []), roomAmenityInput.trim()] }));
+                                                setRoomAmenityInput("");
+                                            }
+                                        }}
+                                        variant="contained"
+                                        sx={{ borderRadius: "12px", textTransform: "none" }}
+                                    >
+                                        Add
+                                    </Button>
                                 </div>
                             </div>
 
@@ -1238,6 +1291,27 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                         InputLabelProps={{ shrink: true }}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                     />
+                                    <div className="flex items-center gap-4 p-2 border border-gray-200 rounded-xl h-[56px] relative">
+                                        <span className="text-sm font-bold text-gray-600 pl-2">Extra Bed?</span>
+                                        <input
+                                            type="checkbox"
+                                            checked={newRoom.policies.extraBed === "Available"}
+                                            onChange={(e) => setNewRoom({ ...newRoom, policies: { ...newRoom.policies, extraBed: e.target.checked ? "Available" : "" } })}
+                                            className="w-5 h-5 text-blue-600 rounded absolute right-4"
+                                        />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <TextField
+                                            label="Additional Notes"
+                                            fullWidth
+                                            multiline
+                                            rows={2}
+                                            value={newRoom.policies.notes || ""}
+                                            onChange={(e) => setNewRoom({ ...newRoom, policies: { ...newRoom.policies, notes: e.target.value } })}
+                                            placeholder="Special instructions, pet policy for this room, etc."
+                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

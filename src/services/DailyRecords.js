@@ -8,6 +8,7 @@ import {
   limit,
   startAfter,
   getCountFromServer,
+  getDoc,
 } from "firebase/firestore";
 import {
   carBookingsCollection,
@@ -15,6 +16,7 @@ import {
   selfDriveBookingCollection,
   travelBookingCollection,
 } from "../firebase/firebase.config";
+import { generateInvoiceIds, INVOICE_TYPES } from "../utils/invoiceGenerator";
 
 // Helper to resolve collection based on category
 const getCollectionAndTimestamp = (category, startDate, endDate) => {
@@ -85,18 +87,53 @@ export const todayBooking = async (
 
 export const handleClear = async (category, id) => {
   let col;
+  let serviceType;
+
   if (category === "Taxi Bookings") {
     col = carBookingsCollection;
+    serviceType = INVOICE_TYPES.TAXI;
   } else if (category === "Selfdrive Bookings") {
     col = selfDriveBookingCollection;
+    serviceType = INVOICE_TYPES.SAFE_DRIVE;
   } else if (category === "Room Bookings") {
     col = roomBookingCollection;
+    serviceType = INVOICE_TYPES.ROOM;
   } else {
     col = travelBookingCollection;
+    serviceType = INVOICE_TYPES.SIGHTSEEING;
   }
 
   const OrderRef = doc(col, id);
-  await updateDoc(OrderRef, { isPaymentClear: true });
+  const docSnap = await getDoc(OrderRef);
+
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    let updates = { isPaymentClear: true };
+
+    // Generate Invoice ID if missing
+    if (!data.customerInvoiceId || !data.partnerInvoiceId) {
+      try {
+        const { customerId, partnerId } = await generateInvoiceIds(serviceType);
+        updates = {
+          ...updates,
+          customerInvoiceId: customerId,
+          partnerInvoiceId: partnerId,
+          // Legacy fallback - keeping invoiceId consistent with partnerId if possible, or just don't overwrite if it means something else.
+          // Usually 'id' is doc ID. 'invoiceId' might be expected by some legacy views. 
+          // Let's set it to partnerId to be safe, as Invoices.jsx does.
+          invoiceId: partnerId
+        };
+      } catch (err) {
+        console.error("Failed to generate invoice ID during clean:", err);
+      }
+    }
+
+    await updateDoc(OrderRef, updates);
+  } else {
+    // Fallback if fetch fails (shouldn't happen if ID is valid)
+    await updateDoc(OrderRef, { isPaymentClear: true });
+  }
+
   return true;
 };
 
@@ -188,7 +225,11 @@ export const fetchTodayBooking = async (
           const useStatusFilter = category !== "Room Bookings";
           return await performQuery(field, useStatusFilter);
         } catch (err) {
-          console.warn(`Composite query failed for ${field}, falling back to date-only query.`, err);
+          if (err.code === 'failed-precondition') {
+            console.warn(`Composite query failed for ${field} due to missing index, falling back to date-only query.`);
+          } else {
+            console.warn(`Composite query failed for ${field}, falling back to date-only query.`, err);
+          }
           return await performQuery(field, false);
         }
       };

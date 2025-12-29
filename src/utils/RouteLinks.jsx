@@ -1,5 +1,6 @@
 // import {Shop } from "@mui/icons-material";
 import {
+  AccountBalanceWalletIcon,
   ApartmentIcon,
   BedIcon,
   Shop,
@@ -112,6 +113,11 @@ export const ourPartnerLinks = [
     icon: <RestaurantIcon />,
   },
   { url: "/dashboard/hotels", lable: "Hotels", icon: <ApartmentIcon /> },
+  {
+    url: "/dashboard/partner-commissions",
+    lable: "Commissions",
+    icon: <AccountBalanceWalletIcon />,
+  },
 ];
 
 export const ourServiceLinks = [
@@ -234,8 +240,8 @@ export const localAssislinks = [
     lable: "Customer Chat",
   },
   {
-    url: "/dashboard/local-services",
-    lable: "Local Services",
+    url: "/dashboard/local-partners",
+    lable: "Local Partners",
     icon: <ManageAccountsIcon />,
   },
   {
@@ -278,5 +284,13 @@ export const primelocationslinks = [
     icon: <NightlifeIcon />,
     link: "/dashboard/clubs",
     label: "Clubs",
+  },
+];
+
+export const partnerManagementLinks = [
+  {
+    icon: <ManageAccountsIcon />,
+    link: "/dashboard/manage-partners",
+    label: "Manage Partners",
   },
 ];

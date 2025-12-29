@@ -283,8 +283,8 @@ const AllStatistics = () => {
             title="Total Revenue"
             value={allTotal}
             icon={<AccountBalanceWalletIcon sx={{ fontSize: 32 }} />}
-            color="#FF5722"
-            gradient="linear-gradient(135deg, #FF5722 0%, #E64A19 100%)"
+            color="#FF9E2F"
+            gradient="linear-gradient(135deg, #FF9E2F 0%, #E0851F 100%)"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>

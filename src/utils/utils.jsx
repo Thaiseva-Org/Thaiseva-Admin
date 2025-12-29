@@ -97,6 +97,10 @@ const successNotification = (text) => {
   // });
 };
 
+const errorNotification = (text) => {
+  return alert(text);
+};
+
 const askingForDelete = () => {
   // if (confirm("Are you sure? You won't be able to revert this!")){
   //   return
@@ -352,6 +356,7 @@ export {
   calculateDiscountPrice,
   updateDynamicTimeDisplay,
   successNotification,
+  errorNotification,
   askingForDelete,
   askingForUpdate,
   deleteNotification,

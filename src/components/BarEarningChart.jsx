@@ -71,10 +71,10 @@ const BarEarningChart = ({
       {
         label: "Total Revenue",
         data: statsData.Total,
-        borderColor: "#FF5722",
-        backgroundColor: chartType === "Line" ? alpha("#FF5722", 0.1) : "#FF5722",
+        borderColor: "#FF9E2F",
+        backgroundColor: chartType === "Line" ? alpha("#FF9E2F", 0.1) : "#FF9E2F",
         pointBackgroundColor: "#fff",
-        pointBorderColor: "#FF5722",
+        pointBorderColor: "#FF9E2F",
       },
       // {
       //   label: "Hotel",

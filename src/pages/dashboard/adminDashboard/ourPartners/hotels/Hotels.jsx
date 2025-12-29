@@ -83,7 +83,7 @@ const Hotels = () => {
   const [viewMode, setViewMode] = useState('list');
   const [hotelDetails, setHotelDetails] = useState({ status: "" });
   const [status, setStatus] = useState("Pending");
-  const { hotels, loadingPartnerData, setUid } = useContext(PartnerContext);
+  const { hotels, loadingPartnerData, setUid, roomBookings } = useContext(PartnerContext);
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
   const [matchedHotels, setMatchedHotels] = useState([]);
   const [comission, setComission] = useState(0);
@@ -110,10 +110,55 @@ const Hotels = () => {
             try {
               const roomsRef = collection(db, "HotelDB", hotel.uid, "rooms");
               const snapshot = await getCountFromServer(roomsRef);
-              return { ...hotel, totalRooms: snapshot.data().count };
+              // Use the 'totalRooms' from the hotel document if available
+              const totalRooms = Number(
+                hotel.totalRooms ||
+                hotel.hotel?.totalRooms ||
+                hotel.hotelInformation?.totalRooms ||
+                hotel.hotelDetails?.totalRooms ||
+                0
+              );
+
+              // Calculate occupied rooms for TODAY
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+
+              const occupiedRooms = (roomBookings || []).reduce((acc, booking) => {
+                // Check if booking is for this hotel and is active
+                // Active = Accepted OR Pending (that might be auto-confirmed soon)
+                // We should count active stays
+                if (booking.hotelUid === hotel.uid || booking.hotelId === hotel.uid) {
+                  const status = booking.status || booking.bookingStatus;
+                  const isConfirmed = booking.isBookingConfirmed === true;
+
+                  // Count if Accepted OR Pending+Confirmed OR Pending (potential)
+                  if (status === 'Accepted' || status === 'ACCEPTED' || isConfirmed) {
+                    const checkInRaw = booking.checkInDate || booking.checkIn;
+                    const checkOutRaw = booking.checkOutDate || booking.checkOut;
+
+                    if (checkInRaw && checkOutRaw) {
+                      const checkIn = checkInRaw.seconds ? new Date(checkInRaw.seconds * 1000) : new Date(checkInRaw);
+                      const checkOut = checkOutRaw.seconds ? new Date(checkOutRaw.seconds * 1000) : new Date(checkOutRaw);
+
+                      checkIn.setHours(0, 0, 0, 0);
+                      checkOut.setHours(0, 0, 0, 0);
+
+                      // If today is strictly within [checkIn, checkOut)
+                      if (today >= checkIn && today < checkOut) {
+                        return acc + (Number(booking.rooms || booking.noOfRooms || 0));
+                      }
+                    }
+                  }
+                }
+                return acc;
+              }, 0);
+
+              const available = Math.max(0, totalRooms - occupiedRooms);
+
+              return { ...hotel, roomTypesCount: snapshot.data().count, totalRoomsAvailable: available, totalCapacity: totalRooms };
             } catch (error) {
               console.error("Error fetching room count:", error);
-              return { ...hotel, totalRooms: 0 };
+              return { ...hotel, roomTypesCount: 0, totalRoomsAvailable: 0 };
             }
           }));
 
@@ -133,7 +178,7 @@ const Hotels = () => {
     };
 
     (isAdmin || isSubAdmin) && loadHotels();
-  }, [isAdmin, isSubAdmin]);
+  }, [isAdmin, isSubAdmin, roomBookings]);
 
   // Partners table header
   // const columns = [
@@ -150,7 +195,7 @@ const Hotels = () => {
     { id: "phoneNumber", label: "Phone", width: "15%" },
     { id: "email", label: "Email", width: "15%" },
     { id: "address", label: "Address", width: "25%" },
-    { id: "rooms", label: "Rooms", width: "10%" },
+    { id: "totalRoomsAvailable", label: "Availability", width: "10%" },
     { id: "action", label: "Action", width: "10%" },
   ];
 
@@ -163,7 +208,9 @@ const Hotels = () => {
     uid,
     serviceCategory,
     isBestHotel,
-    rooms,
+    roomTypesCount,
+    totalRoomsAvailable,
+    totalCapacity,
     fullData
   ) {
     return {
@@ -174,7 +221,9 @@ const Hotels = () => {
       uid,
       serviceCategory,
       isBestHotel,
-      rooms,
+      roomTypesCount,
+      totalRoomsAvailable,
+      totalCapacity,
       fullData
     };
   }
@@ -189,7 +238,9 @@ const Hotels = () => {
       hotel.uid,
       hotel.serviceCategory,
       hotel.isBestHotel,
-      hotel.totalRooms || 0,
+      hotel.roomTypesCount || 0,
+      hotel.totalRoomsAvailable || 0,
+      hotel.totalCapacity || 0,
       hotel // Pass full data
     );
   });
@@ -501,10 +552,15 @@ const Hotels = () => {
                                     ? `${value.slice(0, 18)}...`
                                     : value}
                                 </span>
-                              ) : column.id === "rooms" ? (
-                                <span className="inline-flex items-center justify-center w-10 h-10 bg-primary-100 text-primary-700 rounded-full font-semibold">
-                                  {value}
-                                </span>
+                              ) : column.id === "totalRoomsAvailable" ? (
+                                <Tooltip title={`${value} Available out of ${row.totalCapacity} Total`}>
+                                  <span className={`inline-flex items-center justify-center min-w-[3rem] px-2 h-8 border rounded-full font-bold text-sm shadow-sm ${value === 0
+                                    ? "bg-red-50 text-red-700 border-red-200"
+                                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    }`}>
+                                    {value} / {row.totalCapacity}
+                                  </span>
+                                </Tooltip>
                               ) : column.id === "action" ? (
                                 <div className="flex items-center justify-center gap-2">
                                   {/* View */}
@@ -621,9 +677,23 @@ const Hotels = () => {
                               </IconButton>
                             </Tooltip>
                           </Box>
-                          <Typography variant="caption" sx={{ bgcolor: 'secondary.main', color: 'white', px: 1.5, py: 0.5, borderRadius: 4, fontWeight: 'medium' }}>
-                            {row.rooms} Rooms
-                          </Typography>
+                          <div className="flex items-center gap-2">
+                            <Tooltip title={`${row.totalRoomsAvailable} Available out of ${row.totalCapacity} Total`}>
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold border ${row.totalRoomsAvailable === 0
+                                  ? "bg-red-50 text-red-700 border-red-100"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-100"
+                                }`}>
+                                <MdMeetingRoom size={14} />
+                                {row.totalRoomsAvailable} / {row.totalCapacity} Rooms
+                              </span>
+                            </Tooltip>
+                            <Tooltip title="Room Types">
+                              <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-xs font-bold border border-indigo-100">
+                                <span className="text-[10px] uppercase tracking-wider">Type</span>
+                                {row.roomTypesCount}
+                              </span>
+                            </Tooltip>
+                          </div>
                         </div>
                       </Card>
                     </Grid>

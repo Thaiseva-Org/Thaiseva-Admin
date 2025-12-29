@@ -95,6 +95,7 @@ const UserInvoice = ({ invoice, contactInfo }) => (
       <InvoiceNo
         paymentDate={invoice?.paymentDate}
         invoiceDate={invoice?.invoiceDate}
+        invoiceId={invoice?.customerInvoiceId}
       />
       <InvoiceItemsTable paymentTable={invoice?.paymentTable} type="user" />
       <View style={styles.accountInfo}>

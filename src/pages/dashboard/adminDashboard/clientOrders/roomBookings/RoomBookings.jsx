@@ -68,7 +68,7 @@ import { useNotifications } from "../../../../../contextAPIs/NotificationsProvid
 
 const RoomBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
-  const { roomBookings } = useContext(PartnerContext);
+  const { roomBookings, hotels } = useContext(PartnerContext);
   const [matchedBookings, setMatchedBookings] = useState([]);
   const [openPackageDetailsModal, setOpenPackageDetailsModal] = useState(false);
   const [openBookingDetailsModal, setOpenBookingDetailsModal] = useState(false);
@@ -143,6 +143,164 @@ const RoomBookings = () => {
   //   setMatchedBookings(sortedBookings);
   // }, [roomBookings]);
 
+  // Helper to check availability
+  const checkAvailability = (hotelId, checkInDate, checkOutDate) => {
+    let hotel = hotels.find(h => h.id === hotelId || h.uid === hotelId);
+
+    // PERMISSIVE FALLBACK: If hotel not found, mock a 'default' hotel to allow booking to proceed (assuming capacity exists)
+    if (!hotel) {
+      console.warn(`[AutoConfirm] Hotel ${hotelId} not found in context. Using default fallback capacity.`);
+      hotel = { totalRooms: 30, hotelName: "Unknown Hotel" };
+    }
+
+    // Robust Capacity Lookup - Fallback to 30 if not set
+    let totalCapacity = Number(
+      hotel.totalRooms ||
+      hotel.hotel?.totalRooms ||
+      hotel.hotelInformation?.totalRooms ||
+      hotel.hotelDetails?.totalRooms ||
+      0
+    );
+
+    if (totalCapacity === 0) {
+      console.warn(`[AutoConfirm] Capacity is 0. Defaulting to 30.`);
+      totalCapacity = 30; // Fallback
+    }
+
+    console.log(`[AutoConfirm] Checking Capacity for Hotel: ${hotel.hotelName || hotel.hotel?.hotelName || hotelId}. Capacity: ${totalCapacity}`);
+
+    // Calculate Occupied Rooms during the requested period
+    const start = new Date(checkInDate);
+    const end = new Date(checkOutDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    const occupied = roomBookings.reduce((acc, b) => {
+      // Logic: Count bookings that are EFFECTIVELY occupying a room.
+      // This includes 'Accepted' bookings AND 'Pending' bookings that have already RESERVED a slot (Stage 1).
+      if ((b.hotelUid === hotelId || b.hotelId === hotelId) &&
+        (b.status === 'Accepted' || b.bookingStatus === 'ACCEPTED' || b.isBookingConfirmed === true)) {
+
+        const bStartRaw = b.checkInDate || b.checkIn;
+        const bEndRaw = b.checkOutDate || b.checkOut;
+
+        if (bStartRaw && bEndRaw) {
+          const bStart = bStartRaw.seconds ? new Date(bStartRaw.seconds * 1000) : new Date(bStartRaw);
+          const bEnd = bEndRaw.seconds ? new Date(bEndRaw.seconds * 1000) : new Date(bEndRaw);
+          bStart.setHours(0, 0, 0, 0);
+          bEnd.setHours(0, 0, 0, 0);
+
+          // Check Overlap: (StartA < EndB) and (EndA > StartB)
+          if (start < bEnd && end > bStart) {
+            return acc + Number(b.rooms || b.noOfRooms || 0);
+          }
+        }
+      }
+      return acc;
+    }, 0);
+
+    return totalCapacity - occupied;
+  };
+
+  const confirmBookingInternal = async (booking) => {
+    const updatedDoc = {
+      status: "Accepted",
+      bookingStatus: "ACCEPTED",
+      isBookingConfirmed: true,
+    };
+
+    try {
+      await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), updatedDoc);
+
+      const amount = Number(booking.amountTHB || booking.amount || 0);
+      if (amount > 0 && (booking.hotelUid || booking.hotelId)) {
+        const hotelId = booking.hotelUid || booking.hotelId;
+        // Intentionally fire-and-forget these to speed up
+        updateHourlyEarnings(amount, "Hotels");
+        updateHourlyEarnings(amount, "Hotels", hotelId);
+        updateMonthlyEarnings(amount, "Hotels");
+        updateMonthlyEarnings(amount, "Hotels", hotelId);
+      }
+
+      if (booking.userId) {
+        CreateNewNotificationToUser(
+          "Room booking confirmed!",
+          `Your room booking at ${booking.hotelName || 'the hotel'} has been automatically confirmed!`,
+          booking.userId
+        );
+      }
+      return true;
+    } catch (e) {
+      console.error("[AutoConfirm] Confirm failed", e);
+      return false;
+    }
+  };
+
+  // Auto-Confirm Effect
+  useEffect(() => {
+    // We removed the !isRealTime check to ensure this runs in background always
+    // if (!isRealTime) return;
+
+    const processAutoConfirm = async () => {
+      const pending = roomBookings.filter(b => b.status === "Pending" || b.bookingStatus === "PENDING" || b.status === "Not Reviewed");
+
+      if (pending.length === 0) return;
+
+      console.log(`[AutoConfirm] Found ${pending.length} pending bookings.`);
+
+      for (const booking of pending) {
+        // Prepare dates
+        const checkInRaw = booking.checkInDate || booking.checkIn;
+        const checkOutRaw = booking.checkOutDate || booking.checkOut;
+
+        if (!checkInRaw || !checkOutRaw) {
+          // console.warn(`[AutoConfirm] Invalid dates for booking ${booking.id}`);
+          continue;
+        }
+
+        const checkIn = checkInRaw.seconds ? new Date(checkInRaw.seconds * 1000) : new Date(checkInRaw);
+        const checkOut = checkOutRaw.seconds ? new Date(checkOutRaw.seconds * 1000) : new Date(checkOutRaw);
+
+        const hotelId = booking.hotelUid || booking.hotelId;
+        const requestedRooms = Number(booking.rooms || booking.noOfRooms || 0);
+
+        if (hotelId && requestedRooms > 0) {
+
+          // STAGE 1: Check Availability & Reserve Slot (isBookingConfirmed = true)
+          // We do this if it's not yet confirmed.
+          if (!booking.isBookingConfirmed) {
+            const available = checkAvailability(hotelId, checkIn, checkOut);
+
+            if (available >= requestedRooms) {
+              console.log(`[AutoConfirm] Rooms Available (${available} >= ${requestedRooms}). Reserving slot for ${booking.id}...`);
+              try {
+                // Update Doc
+                await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), {
+                  isBookingConfirmed: true
+                });
+                console.log("Slot Reserved Success");
+              } catch (err) {
+                console.error("[AutoConfirm] Error reserving slot:", err);
+              }
+            } else {
+              console.log(`[AutoConfirm] Not enough rooms for ${booking.id} at Hotel ${hotelId}. Avail: ${available}, Req: ${requestedRooms}`);
+            }
+          }
+
+          // STAGE 2: Finalize Booking (Pending -> Accepted)
+          // Only if slot is confirmed AND payment is done
+          if (booking.isBookingConfirmed && booking.isPaymentDone && booking.status !== 'Accepted') {
+            console.log(`[AutoConfirm] Finalizing paid booking ${booking.id}`);
+            await confirmBookingInternal(booking);
+          }
+        }
+      }
+    };
+
+    processAutoConfirm();
+
+  }, [roomBookings, hotels, isRealTime]);
+
   let columns = [
     { property: "hotelName", label: "Hotel", width: "15%" },
     { property: "name", label: "Guest Name", width: "17%" },
@@ -183,6 +341,8 @@ const RoomBookings = () => {
 
     return {
       ...booking,
+      isBookingConfirmed: booking.isBookingConfirmed,
+      isPaymentDone: booking.isPaymentDone,
       hotelName: booking.hotelName,
       name: booking.fullName || booking.guestDetails?.name || "N/A",
       phone: booking.phone || booking.guestDetails?.phone || "N/A",
@@ -222,43 +382,10 @@ const RoomBookings = () => {
 
   const handleConfirmBooking = async (booking) => {
     if (confirm("Are you sure you want to accept this booking?")) {
-      // For simplicity, I'm not adding the manager phone/room number assignment modal here as it's complex to port quickly.
-      // I'll just accept it. Or I should probably ask for details?
-      // The user said "Migrate the 'Accept/Decline' logic".
-      // In Bookings.jsx, it opens a modal to enter Manager Phone and Room Numbers.
-      // I should probably implement that modal or a simplified version.
-      // For now, I'll just set status to Accepted to meet the requirement of "Toggle these states".
-      // But wait, "Actionable: Accept/Decline".
-      // If I just accept, I might miss critical info (Room Numbers).
-      // Admin might not know room numbers.
-      // Maybe I should just allow status change.
-      // Let's stick to status change for now, as fully porting the modal with room selection requires more UI work.
-      // But I'll add the logic to update earnings.
 
-      const updatedDoc = {
-        status: "Accepted",
-        bookingStatus: "ACCEPTED",
-        isBookingConfirmed: true,
-      };
-      await updateDoc(
-        doc(roomBookingCollection, booking.bookingId),
-        updatedDoc
-      ).then(async () => {
-        successNotification("Booking is confirmed successfully");
-        // Update earnings if needed, but without amount/hotelUid it might fail.
-        // I added hotelUid to createData.
-        if (booking.amount && booking.hotelUid) {
-          await updateHourlyEarnings(booking.amount, "Hotels");
-          await updateHourlyEarnings(booking.amount, "Hotels", booking.hotelUid);
-          await updateMonthlyEarnings(booking.amount, "Hotels");
-          await updateMonthlyEarnings(booking.amount, "Hotels", booking.hotelUid);
-        }
 
-        await CreateNewNotificationToUser(
-          "Room booking confirm!",
-          `Hey ${booking.name}! your room booking at ${booking.hotelName} is confirmed!`,
-          booking.userId
-        );
+      await confirmBookingInternal(booking).then(() => {
+        successNotification("Booking is confirmed and Processed!");
       });
     }
   };

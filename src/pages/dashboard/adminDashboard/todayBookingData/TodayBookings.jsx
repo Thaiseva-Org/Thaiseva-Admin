@@ -44,6 +44,7 @@ import {
   fetchTodayBooking,
   handleClear,
 } from "../../../../services/DailyRecords";
+import { ensureInvoiceIdForBooking } from "../../../../services/invoiceService";
 
 import { PartnerContext } from "../../../../contextAPIs/PartnerProvider";
 import { AuthContext } from "../../../../contextAPIs/AuthProvider";
@@ -141,9 +142,14 @@ const TodayBookings = () => {
 
       // Invoice ID
       doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.text("INVOICE NO:", 196, 21, { align: "right" });
+
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`#${row.id || "0000"}`, 196, 25, { align: "right" });
+      doc.text(`#${row.customerInvoiceId || row.id || "0000"}`, 196, 26, { align: "right" });
+
 
 
       // ================= CONTENT AREA =================
@@ -298,7 +304,9 @@ const TodayBookings = () => {
     if (processingInvoiceId) return;
     setProcessingInvoiceId(row.id);
     try {
-      const blob = await generatePdfBlob(row);
+      // Ensure we have an Invoice ID before generating
+      const updatedRow = await ensureInvoiceIdForBooking(queryCategory, row.id, row);
+      const blob = await generatePdfBlob(updatedRow);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -319,7 +327,9 @@ const TodayBookings = () => {
     if (processingInvoiceId) return;
     setProcessingInvoiceId(row.id);
     try {
-      const blob = await generatePdfBlob(row);
+      // Ensure we have an Invoice ID before previewing
+      const updatedRow = await ensureInvoiceIdForBooking(queryCategory, row.id, row);
+      const blob = await generatePdfBlob(updatedRow);
       const url = URL.createObjectURL(blob);
       setPreviewPdfUrl(url);
       setPreviewOpen(true);
@@ -352,7 +362,8 @@ const TodayBookings = () => {
     comission,
     category,
     status,
-    title = ""
+    title = "",
+    customerInvoiceId = null
   ) {
     // Standardize timestamp if it's a Firestore Timestamp or Date object
     let dateObj;
@@ -389,6 +400,7 @@ const TodayBookings = () => {
       userAmount: String(ua),
       category,
       status,
+      customerInvoiceId,
       userInvoce: {
         paymentTo: {
           partnerName: name,
@@ -435,7 +447,7 @@ const TodayBookings = () => {
           item?.Driver?.name || "-", item?.Driver?.phone || "-",
           defaults.guestName, defaults.guestPhone,
           defaults.time, defaults.amount, defaults.commission,
-          category, defaults.status
+          category, defaults.status, "", item?.customerInvoiceId
         );
       }
       if (category === "Selfdrive Bookings") {
@@ -444,7 +456,7 @@ const TodayBookings = () => {
           item?.Provider?.name || "-", item?.Provider?.phone || "-",
           defaults.guestName, defaults.guestPhone,
           defaults.time, defaults.amount, defaults.commission,
-          category, defaults.status
+          category, defaults.status, "", item?.customerInvoiceId
         );
       }
       if (category === "Room Bookings") {
@@ -454,7 +466,7 @@ const TodayBookings = () => {
           item?.hotel?.hotelName || item?.hotelName || "-", item?.hotel?.phoneNumber || item?.managerPhone || "-",
           defaults.guestName, defaults.guestPhone,
           defaults.time, roomPrice, defaults.commission,
-          category, defaults.status
+          category, defaults.status, "", item?.customerInvoiceId
         );
       }
       if (category === "Sightseeing Bookings") {
@@ -475,7 +487,7 @@ const TodayBookings = () => {
           providerName, providerPhone,
           guestName, guestPhone,
           bookingTime, price, defaults.commission,
-          category, defaults.status, titleVal
+          category, defaults.status, titleVal, item?.customerInvoiceId
         );
       }
       return createData("-", "-", "-", "-", "-", "0", "0", "0", category);

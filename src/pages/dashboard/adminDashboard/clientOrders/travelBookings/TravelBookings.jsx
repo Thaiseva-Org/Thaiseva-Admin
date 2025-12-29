@@ -547,6 +547,7 @@ const TravelBookings = () => {
             <Tab label="Pending" />
             <Tab label="Done" />
             <Tab label="Rejected" />
+            <Tab label="Next 7 Days" />
           </Tabs>
         </Box>
       )}
@@ -689,6 +690,30 @@ const TravelBookings = () => {
                         if (tabValue === 0) return ["not reviewed", "pending", "in progress", "reviewed"].includes(lowerStatus);
                         if (tabValue === 1) return ["accepted", "confirmed", "done"].includes(lowerStatus);
                         if (tabValue === 2) return ["canceled", "cancelled", "rejected"].includes(lowerStatus);
+                        if (tabValue === 3) {
+                          // Next 7 Days logic: Active bookings only
+                          if (["canceled", "cancelled", "rejected"].includes(lowerStatus)) return false;
+
+                          const puTime = b.pickUpTime || b.arrivalDate;
+                          if (!puTime) return false;
+
+                          let date;
+                          if (puTime.seconds) {
+                            date = new Date(puTime.seconds * 1000);
+                          } else {
+                            date = new Date(puTime);
+                          }
+
+                          if (isNaN(date.getTime())) return false;
+
+                          const now = new Date();
+                          now.setHours(0, 0, 0, 0);
+                          const next7 = new Date(now);
+                          next7.setDate(now.getDate() + 7);
+                          next7.setHours(23, 59, 59, 999);
+
+                          return date >= now && date <= next7;
+                        }
                         return false;
                       });
 
@@ -699,7 +724,7 @@ const TravelBookings = () => {
                               <div className="flex flex-col items-center justify-center gap-3">
                                 <span className="text-6xl opacity-50">📅</span>
                                 <p className="text-neutral-500 font-medium">
-                                  No {tabValue === 0 ? "Not Reviewed" : tabValue === 1 ? "In Progress" : tabValue === 2 ? "Done" : "Rejected"} Sightseeing Bookings Found
+                                  No {tabValue === 0 ? "Not Reviewed" : tabValue === 1 ? "In Progress" : tabValue === 2 ? "Done" : tabValue === 3 ? "Upcoming (Next 7 Days)" : "Rejected"} Sightseeing Bookings Found
                                 </p>
                                 <p className="text-neutral-400 text-sm">
                                   Bookings will appear here when available

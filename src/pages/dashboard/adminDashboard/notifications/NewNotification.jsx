@@ -30,23 +30,53 @@ import {
 } from "../../../../services/Notification";
 
 const NewNotficationsScreen = () => {
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
   const [notifications, setNotifications] = useState([]);
-  const [img, setImg] = useState(null);
   const [preview, setPreview] = useState(false);
   const [refetch, setRefetch] = useState(true);
   const [error, setError] = useState({ for: "", text: "" });
   const [loading, setLoading] = useState({ for: "", status: false });
-  const [crop, setCrop] = React.useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = React.useState(1);
-  const [rotation, setRotation] = React.useState(0);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
-  const [croppedImage, setCroppedImage] = useState(null);
 
-  // Expiration State
-  const [useExpiry, setUseExpiry] = useState(false);
-  const [expiryDate, setExpiryDate] = useState("");
+  // Consolidated Form State
+  const initialFormState = {
+    title: "",
+    message: "",
+    useExpiry: false,
+    expiryDate: ""
+  };
+  const [formState, setFormState] = useState(initialFormState);
+  const { title, message, useExpiry, expiryDate } = formState;
+
+  // Consolidated Image State
+  const initialImageState = {
+    img: null,
+    crop: { x: 0, y: 0 },
+    zoom: 1,
+    rotation: 0,
+    croppedAreaPixels: null,
+    croppedImage: null
+  };
+  const [imageState, setImageState] = useState(initialImageState);
+  const { img, crop, zoom, rotation, croppedAreaPixels, croppedImage } = imageState;
+
+  // Shim setters for backward compatibility & easy refactoring
+  const updateForm = (field, value) => {
+    setFormState(prev => ({ ...prev, [field]: value }));
+  };
+  const updateImage = (field, value) => {
+    setImageState(prev => ({ ...prev, [field]: value }));
+  };
+
+  const setTitle = (v) => updateForm('title', v);
+  const setMessage = (v) => updateForm('message', v);
+  const setUseExpiry = (v) => updateForm('useExpiry', v);
+  const setExpiryDate = (v) => updateForm('expiryDate', v);
+
+  const setImg = (v) => updateImage('img', v);
+  const setCrop = (v) => updateImage('crop', v);
+  const setZoom = (v) => updateImage('zoom', v);
+  const setRotation = (v) => updateImage('rotation', v);
+  const setCroppedAreaPixels = (v) => updateImage('croppedAreaPixels', v);
+  const setCroppedImage = (v) => updateImage('croppedImage', v);
 
   // Tab State
   const [tabValue, setTabValue] = useState(0);
@@ -155,14 +185,8 @@ const NewNotficationsScreen = () => {
 
     await addNotification(title, message, imageUrl, finalExpiry)
       .then(() => {
-        setTitle("");
-        setMessage("");
-        setImg(null);
-        setCroppedImage(null);
-        setUseExpiry(false);
-        setExpiryDate("");
-        setZoom(1);
-        setRotation(0);
+        setFormState(initialFormState);
+        setImageState(initialImageState);
         setLoading({ for: "", status: false });
         setPreview(false);
         setRefetch((p) => !p);

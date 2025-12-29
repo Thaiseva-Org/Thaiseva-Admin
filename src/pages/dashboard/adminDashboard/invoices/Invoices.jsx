@@ -34,13 +34,14 @@ import {
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import Invoice from "../../../../components/reports/Invoice";
-import { v4 as uuid } from "uuid";
+
 import { deleteDoc, doc, setDoc } from "firebase/firestore";
 import { invoicesCollection } from "../../../../firebase/firebase.config";
 import CloseIcon from "@mui/icons-material/Close";
 import DeleteButton from "../../../../components/DeleteButton";
 import SearchBar from "../../../../components/SearchBar";
 import PartnerInvoice from "../../../../components/reports/PartnerInvoice";
+import { generateInvoiceIds, INVOICE_TYPES } from "../../../../utils/invoiceGenerator";
 
 const Invoices = () => {
   const { invoices, loadingData, contactInfo, setRefetch } =
@@ -53,7 +54,7 @@ const Invoices = () => {
     paymentDate: "",
     invoiceDate: "",
     partnerUid: "",
-    category: "Hotel",
+    category: INVOICE_TYPES.ROOM,
     paymentTable: {
       commission: 0,
       totalCommission: 0,
@@ -126,44 +127,57 @@ const Invoices = () => {
   });
 
   const handleAddInvoice = async () => {
-    const date = new Date();
-    newInvoice.invoiceDate = date;
-    newInvoice.partnerUid = "";
-    newInvoice.paymentTable.totalCommission =
-      newInvoice?.paymentTable?.subTotal *
-      (newInvoice?.paymentTable?.commission / 100);
-    // newInvoice.category = category;
-    const id = uuid();
+    try {
+      const date = new Date();
+      newInvoice.invoiceDate = date;
+      newInvoice.partnerUid = "";
+      newInvoice.paymentTable.totalCommission =
+        newInvoice?.paymentTable?.subTotal *
+        (newInvoice?.paymentTable?.commission / 100);
 
-    await setDoc(doc(invoicesCollection, id), newInvoice).then(() => {
-      successNotification("The invoice is sent successfully");
-      setOpenModal(false);
-      setRefetch((p) => !p);
-      setNewInvoice({
-        paymentDate: "",
-        invoiceDate: "",
-        partnerUid: "",
-        category: "",
-        paymentTable: {
-          commission: 0,
-          totalCommission: 0,
-          description: "",
-          subTotal: 0,
-          total: 0,
-        },
-        paymentTo: {
-          partnerName: "",
-          partnerPhone: "",
-          partnerEmail: "",
-          partnerAddress: "",
-        },
-        bankInfo: {
-          accountNumber: "",
-          address: "",
-          bankName: "",
-        },
+      const category = newInvoice.category || INVOICE_TYPES.ROOM;
+      const { partnerId, customerId } = await generateInvoiceIds(category);
+
+      const invoiceData = {
+        ...newInvoice,
+        invoiceId: partnerId,
+        partnerInvoiceId: partnerId,
+        customerInvoiceId: customerId,
+        category // Ensure category is saved
+      };
+
+      await setDoc(doc(invoicesCollection, partnerId), invoiceData).then(() => {
+        successNotification("The invoice is sent successfully");
+        setOpenModal(false);
+        setRefetch((p) => !p);
+        setNewInvoice({
+          paymentDate: "",
+          invoiceDate: "",
+          partnerUid: "",
+          category: INVOICE_TYPES.ROOM, // Reset to default
+          paymentTable: {
+            commission: 0,
+            totalCommission: 0,
+            description: "",
+            subTotal: 0,
+            total: 0,
+          },
+          paymentTo: {
+            partnerName: "",
+            partnerPhone: "",
+            partnerEmail: "",
+            partnerAddress: "",
+          },
+          bankInfo: {
+            accountNumber: "",
+            address: "",
+            bankName: "",
+          },
+        });
       });
-    });
+    } catch (error) {
+      console.error("Error adding invoice:", error);
+    }
   };
 
   const handleCloseModal = () => {
@@ -515,14 +529,15 @@ const Invoices = () => {
                   <Select
                     labelId="service-category-label"
                     label="Service Category"
-                    defaultValue="Hotel"
+                    defaultValue={INVOICE_TYPES.ROOM}
                     onChange={(e) =>
                       setNewInvoice((p) => ({ ...p, category: e.target.value }))
                     }
                   >
-                    <MenuItem value="Hotel">Hotel</MenuItem>
-                    <MenuItem value="Driving">Driving</MenuItem>
-                    <MenuItem value="Local">Local</MenuItem>
+                    <MenuItem value={INVOICE_TYPES.ROOM}>Room</MenuItem>
+                    <MenuItem value={INVOICE_TYPES.TAXI}>Taxi</MenuItem>
+                    <MenuItem value={INVOICE_TYPES.SIGHTSEEING}>Sightseeing</MenuItem>
+                    <MenuItem value={INVOICE_TYPES.SAFE_DRIVE}>Safe Drive</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

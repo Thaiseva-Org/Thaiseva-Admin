@@ -67,6 +67,7 @@ const invoicesCollection = collection(db, "partner_invoices");
 const notificationsCollection = collection(db, "notifications");
 // const notificationsTemplateCollection = collection(db, "notificationsTemplate");
 const couponsCollection = collection(db, "coupons");
+const managePartnersCollection = collection(db, "manage_partners");
 
 // Use the 'firebase' instance created above to call functions
 const deleteUserFromAuth = httpsCallable(
@@ -111,5 +112,6 @@ export {
   carBookingsCollection,
   invoicesCollection,
   couponsCollection,
+  managePartnersCollection,
   storage,
 };

@@ -74,6 +74,9 @@ const Drivers = lazy(() =>
 const Restaurants = lazy(() =>
   import("./dashboard/adminDashboard/ourPartners/restaurants/Restaurants")
 );
+const ManagePartners = lazy(() =>
+  import("./dashboard/adminDashboard/ourPartners/ManagePartners")
+);
 // ========== Our Partners Pages End ==========
 
 // ========== Primary Admin Pages ==========
@@ -228,6 +231,7 @@ export {
   LocalPartners,
   Drivers,
   Restaurants,
+  ManagePartners,
 
   // Primary Admin export
   SubAdmins,

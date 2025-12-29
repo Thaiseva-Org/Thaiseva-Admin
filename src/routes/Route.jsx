@@ -17,6 +17,7 @@ import {
   Hotels,
   LocalPartners,
   Restaurants,
+  ManagePartners,
   SubAdmins,
   AdminStatistics,
   NewNotficationsScreen,
@@ -323,6 +324,14 @@ export const router = createBrowserRouter([
       //     </AdminRoute>
       //   ),
       // },
+      {
+        path: "/dashboard/manage-partners",
+        element: (
+          <AdminRoute>
+            <ManagePartners />
+          </AdminRoute>
+        ),
+      },
       {
         path: "/dashboard/local-partners",
         element: (

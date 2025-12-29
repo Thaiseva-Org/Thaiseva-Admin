@@ -22,8 +22,14 @@ const styles = StyleSheet.create({
   },
 });
 
-const InvoiceNo = ({ paymentDate, invoiceDate }) => (
+const InvoiceNo = ({ paymentDate, invoiceDate, invoiceId }) => (
   <Fragment>
+    {invoiceId && (
+      <View style={styles.invoiceDateContainer}>
+        <Text style={styles.label}>Invoice No : </Text>
+        <Text>{invoiceId}</Text>
+      </View>
+    )}
     <View style={styles.invoiceDateContainer}>
       <Text style={styles.label}>Booking Date : </Text>
       <Text>{paymentDate}</Text>

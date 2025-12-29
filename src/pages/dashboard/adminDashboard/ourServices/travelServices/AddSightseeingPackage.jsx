@@ -12,6 +12,10 @@ import {
     Checkbox,
     Paper,
     Autocomplete,
+    MenuItem,
+    Select,
+    FormControl,
+    InputLabel,
 } from "@mui/material";
 import {
     AddCircle as AddCircleIcon,
@@ -103,7 +107,10 @@ const AddSightseeingPackage = () => {
         extraAdultPrice: 0,
         transportType: "",
         pickupFromHotel: false,
+        transportType: "",
+        pickupFromHotel: false,
         dropToAirport: false,
+        packageType: "",
     });
 
     const [arrayData, setArrayData] = useState({
@@ -214,6 +221,7 @@ const AddSightseeingPackage = () => {
                     setValue("pricePerChild", existingData?.pricingStructure?.pricePerChild);
                     setValue("extraAdultPrice", existingData?.pricingStructure?.extraAdultPrice);
                     setValue("transportType", existingData?.transportType);
+                    setValue("packageType", existingData?.packageType || "");
 
                     setCoverPhotoURL(existingData.coverPhoto || existingData.thumbnailImage);
 
@@ -434,6 +442,7 @@ const AddSightseeingPackage = () => {
             discount: parseFloat(discount || 0),
             location,
             period: parseFloat(period),
+            packageType: data.packageType || "",
             coverPhoto: coverPhotoURL,
             timestamp,
             images: arrayData?.pictures || [],
@@ -448,6 +457,7 @@ const AddSightseeingPackage = () => {
             packageName: title,
             about: description,
             startingPrice: parseFloat(price),
+            packageType: data.packageType || "",
             currency: "THB",
             duration: {
                 days: parseFloat(period),
@@ -507,7 +517,7 @@ const AddSightseeingPackage = () => {
     };
 
     const textField = (label, name, placeholder, defaultValue) => {
-        const isRequired = !["pricePerChild", "extraAdultPrice", "transportType", "discount"].includes(name);
+        const isRequired = !["pricePerChild", "extraAdultPrice", "transportType", "discount", "packageType"].includes(name);
         return (
             <Grid item xs={12} sm={name === "description" ? 12 : 6}>
                 <TextField
@@ -576,6 +586,28 @@ const AddSightseeingPackage = () => {
                                         {textField("Duration (Days)", "period", "e.g., 5", packageDetails?.period)}
                                         {textField("Location", "location", "e.g., Bangkok", packageDetails?.location)}
                                         {textField("Base Price (Adult)", "price", "0", packageDetails?.price)}
+
+                                        <Grid item xs={12} sm={6}>
+                                            <FormControl fullWidth sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}>
+                                                <InputLabel id="package-type-label">Package Type</InputLabel>
+                                                <Select
+                                                    labelId="package-type-label"
+                                                    label="Package Type"
+                                                    {...register("packageType", { required: false })}
+                                                    value={packageDetails.packageType || ""} // Controlled value
+                                                    onChange={(e) => {
+                                                        const result = e.target.value;
+                                                        setValue("packageType", result);
+                                                        setPackageDetails(prev => ({ ...prev, packageType: result }));
+                                                    }}
+                                                >
+                                                    <MenuItem value="Couple">Couple</MenuItem>
+                                                    <MenuItem value="Family">Family</MenuItem>
+                                                    <MenuItem value="Friends">Friends</MenuItem>
+                                                    <MenuItem value="Solo">Solo</MenuItem>
+                                                </Select>
+                                            </FormControl>
+                                        </Grid>
 
                                         <Grid item xs={12}>
                                             <TextField
