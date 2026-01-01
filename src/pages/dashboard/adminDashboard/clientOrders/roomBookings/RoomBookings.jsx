@@ -288,9 +288,9 @@ const RoomBookings = () => {
           }
 
           // STAGE 2: Finalize Booking (Pending -> Accepted)
-          // Only if slot is confirmed AND payment is done
-          if (booking.isBookingConfirmed && booking.isPaymentDone && booking.status !== 'Accepted') {
-            console.log(`[AutoConfirm] Finalizing paid booking ${booking.id}`);
+          // Only if slot is confirmed (We are ignoring payment check as per new requirement)
+          if (booking.isBookingConfirmed && booking.status !== 'Accepted') {
+            console.log(`[AutoConfirm] Finalizing booking ${booking.id} (Payment Check Skipped)`);
             await confirmBookingInternal(booking);
           }
         }
@@ -366,7 +366,6 @@ const RoomBookings = () => {
       nights: booking.nights,
       roomName: booking.roomName,
       paymentMethod: booking.paymentMethod,
-      isPaymentDone: booking.isPaymentDone,
       currency: booking.currency,
       amountINR: booking.amountINR,
       amountTHB: booking.amountTHB,

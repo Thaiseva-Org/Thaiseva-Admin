@@ -2,17 +2,17 @@ import { useContext, useState } from "react";
 import Messages from "./Messages";
 import { PartnerChatContext } from "../../../../contextAPIs/PartnerChatProvider";
 import PartnerChatInput from "./PartnerChatInput";
-import { AudioRecorder } from "react-audio-voice-recorder";
 import { storage } from "../../../../firebase/firebase.config";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
+import VoiceRecorder from "../../../../components/VoiceRecorder"; // Custom safe recorder
 
 const PartnerChats = () => {
   const { data } = useContext(PartnerChatContext);
   const [audioUrl, setAudioUrl] = useState("");
 
   const addAudioElement = async (blob) => {
+    // Note: path kept as original "first-autio" to avoid breaking existing logic if any
     const fileRef = ref(storage, "first-autio");
-
     const fileTask = await uploadBytesResumable(fileRef, blob);
     const fileURL = await getDownloadURL(fileTask.ref);
     setAudioUrl(fileURL);
@@ -36,14 +36,8 @@ const PartnerChats = () => {
           </div>
         </div>
         <div>
-          <AudioRecorder
-            onRecordingComplete={addAudioElement}
-            audioTrackConstraints={{
-              noiseSuppression: true,
-              echoCancellation: true,
-            }}
-            downloadFileExtension="webm"
-          />
+          {/* Replaced crashing AudioRecorder with custom VoiceRecorder */}
+          <VoiceRecorder onRecordingComplete={addAudioElement} />
         </div>
       </div>
       <Messages />

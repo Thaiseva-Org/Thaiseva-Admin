@@ -1,44 +1,43 @@
-import {onRequest} from "firebase-functions/v2/https";
-import {mapNearbySearchUrl} from "./utils/consts";
-
-import {initializeApp} from "firebase-admin/app";
-import {DocumentData, getFirestore} from "firebase-admin/firestore";
-import {sendEmail} from "./utils/email_sender";
+import { initializeApp } from "firebase-admin/app";
+import { autoAcceptSightseeingBookings } from "./triggers/bookingTriggers";
 
 initializeApp();
 
-exports.sendEmail = onRequest(async (req, res) => {
-  if (!req.body.to || !req.body.subject || !req.body.text) {
-    res
-      .status(400)
-      .json({error: "Missing to, subject, or text in request body"});
-    return;
-  }
-  const result = sendEmail(req.body.to, req.body.subject, req.body.text);
-  res.json({result});
-});
+exports.autoAcceptSightseeingBookingsV2 = autoAcceptSightseeingBookings;
 
-exports.findNearestLocations = onRequest(async (req, res) => {
-  const {lat, lng} = req.query;
-  if (!lat || !lng) {
-    res.status(400).json({error: "Missing lat or lng query parameter"});
-    return;
-  }
-  const placesRes = await fetch(
-    mapNearbySearchUrl({lat: lat as string, lng: lng as string})
-  );
-  const places = await placesRes.json();
-  const placeIds = places.results.map((place: any) => place.place_id);
+// exports.sendEmail = onRequest(async (req, res) => {
+//   if (!req.body.to || !req.body.subject || !req.body.text) {
+//     res
+//       .status(400)
+//       .json({ error: "Missing to, subject, or text in request body" });
+//     return;
+//   }
+//   const result = sendEmail(req.body.to, req.body.subject, req.body.text);
+//   res.json({ result });
+// });
 
-  const snapshot: DocumentData = await getFirestore()
-    .collection("shops")
-    .where("id", "in", placeIds)
-    .get();
+// exports.findNearestLocations = onRequest(async (req, res) => {
+//   const { lat, lng } = req.query;
+//   if (!lat || !lng) {
+//     res.status(400).json({ error: "Missing lat or lng query parameter" });
+//     return;
+//   }
+//   const placesRes = await fetch(
+//     mapNearbySearchUrl({ lat: lat as string, lng: lng as string })
+//   );
+//   const places = await placesRes.json();
+//   const placeIds = places.results.map((place: { place_id: string }) =>
+//     place.place_id
+//   );
 
-  const filteredPlaces = snapshot.docs.filter((doc: any) => {
-    const place = doc.data();
-    return place;
-  });
+//   const snapshot: QuerySnapshot = await getFirestore()
+//     .collection("shops")
+//     .where("id", "in", placeIds)
+//     .get();
 
-  res.json(filteredPlaces);
-});
+//   const filteredPlaces = snapshot.docs.map((doc: QueryDocumentSnapshot) => {
+//     return doc.data();
+//   });
+
+//   res.json(filteredPlaces);
+// });

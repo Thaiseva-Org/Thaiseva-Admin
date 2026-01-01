@@ -149,6 +149,7 @@ const TravelBookings = () => {
     status,
     orderId,
     packageId,
+    isBookingConfirmed,
     fullData
   ) {
     return {
@@ -160,6 +161,7 @@ const TravelBookings = () => {
       status,
       orderId,
       packageId,
+      isBookingConfirmed,
       fullData
     };
   }
@@ -171,7 +173,7 @@ const TravelBookings = () => {
       const guestName = booking?.guestDetails?.name?.replace("not_present", "").trim() || booking?.fullName || "N/A";
       const phone = booking?.guestDetails?.phoneNumber || booking?.phone || "N/A";
       const title = booking?.title || booking?.packageName || "Unknown Package";
-      const orderTime = booking?.orderedAt || booking?.timestamp;
+      const orderTime = booking?.orderedAt || booking?.createdAt || booking?.timestamp;
       const priceVal = booking?.price || booking?.totalAmount || 0;
       // Status might be missing in new data, default to "Not Reviewed"
       const statusVal = booking?.status || "Not Reviewed";
@@ -185,6 +187,7 @@ const TravelBookings = () => {
         statusVal,
         booking.id || booking.orderId,
         booking.dataid || booking.packageId,
+        booking.isBookingConfirmed,
         booking
       );
     });
@@ -291,6 +294,17 @@ const TravelBookings = () => {
     }
   };
 
+  const handleUpdateProvider = async (id) => {
+    if (confirm("Do you want to update provider details?")) {
+      await updateDoc(doc(travelBookingCollection, id), {
+        Provider: bookingDetails.Provider
+      }).then(() => {
+        alert("Provider details updated successfully!");
+        setOpenBookingDetailsModal(false);
+      });
+    }
+  };
+
   const handleAccept = async (id) => {
     // console.log(id);
     setError({ for: "", text: "" });
@@ -300,6 +314,7 @@ const TravelBookings = () => {
       await updateDoc(doc(travelBookingCollection, id), {
         ...bookingDetails,
         status: "Accepted",
+        isBookingConfirmed: true,
       }).then(async () => {
         alert("Booking confirmed successfully!.");
         setOpenBookingDetailsModal(false);
@@ -568,20 +583,25 @@ const TravelBookings = () => {
                 .map((row, i) => (
                   <div key={i} className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start mb-3">
-                      <span className="font-semibold text-neutral-800">{row.tripName}</span>
+                      <span className="font-semibold text-neutral-800">{row.title || row.packageName || "N/A"}</span>
                       <Chip label={row.status || "Pending"} size="small" color="warning" variant="outlined" />
                     </div>
                     <div className="text-sm text-neutral-600 space-y-1 mb-4">
-                      <p>👤 {row.customerName}</p>
-                      <p>📅 {getDateAndTime(row.orderedAt || row.timestamp)}</p>
-                      <p>💰 ฿{row.totalPrice && row.totalPrice.toLocaleString()}</p>
+                      <p>👤 {row.guestDetails?.name?.replace("not_present", "").trim() || row.fullName || "N/A"}</p>
+                      <p>📅 {getDateAndTime(row.orderedAt || row.createdAt || row.timestamp)}</p>
+                      <p>💰 ฿{(row.price || row.totalAmount || 0).toLocaleString()}</p>
+                      {row.isBookingConfirmed && (
+                        <p className="text-success-600 font-semibold text-xs mt-1 flex items-center gap-1">
+                          <span className="bg-success-100 p-0.5 rounded-full">✓</span> Booking Confirmed
+                        </p>
+                      )}
                     </div>
                     <div className="flex gap-2 border-t pt-3 mt-2">
                       <Button
                         size="small"
                         variant="outlined"
                         color="error"
-                        onClick={() => isRealTime && handleDelete(row.orderId)}
+                        onClick={() => isRealTime && handleDelete(row.id, row)}
                         startIcon={<CloseRoundedIcon />}
                         fullWidth
                         sx={{ textTransform: 'none' }}
@@ -592,7 +612,7 @@ const TravelBookings = () => {
                         size="small"
                         variant="contained"
                         color="success"
-                        onClick={() => isRealTime && handleViewBookingDetails(row.orderId)}
+                        onClick={() => isRealTime && handleViewBookingDetails(row.id)}
                         startIcon={<DoneRoundedIcon />}
                         fullWidth
                         sx={{ textTransform: 'none' }}
@@ -619,13 +639,13 @@ const TravelBookings = () => {
                 .map((row, i) => (
                   <div key={i} className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm hover:shadow-md transition-shadow">
                     <div className="flex justify-between items-start mb-3">
-                      <span className="font-semibold text-neutral-800">{row.tripName}</span>
+                      <span className="font-semibold text-neutral-800">{row.title || row.packageName || "N/A"}</span>
                       <Chip label="Accepted" size="small" color="success" />
                     </div>
                     <div className="text-sm text-neutral-600 space-y-1">
-                      <p>👤 {row.customerName}</p>
-                      <p>📅 {getDateAndTime(row.orderedAt || row.timestamp)}</p>
-                      <p>💰 ฿{row.totalPrice}</p>
+                      <p>👤 {row.guestDetails?.name?.replace("not_present", "").trim() || row.fullName || "N/A"}</p>
+                      <p>📅 {getDateAndTime(row.orderedAt || row.createdAt || row.timestamp)}</p>
+                      <p>💰 ฿{(row.price || row.totalAmount || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 ))}
@@ -646,13 +666,13 @@ const TravelBookings = () => {
                 .map((row, i) => (
                   <div key={i} className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm hover:shadow-md transition-shadow opacity-75 hover:opacity-100">
                     <div className="flex justify-between items-start mb-3">
-                      <span className="font-semibold text-neutral-800">{row.tripName}</span>
+                      <span className="font-semibold text-neutral-800">{row.title || row.packageName || "N/A"}</span>
                       <Chip label={row.status} size="small" color="error" variant="outlined" />
                     </div>
                     <div className="text-sm text-neutral-600 space-y-1">
-                      <p>👤 {row.customerName}</p>
-                      <p>📅 {getDateAndTime(row.orderedAt || row.timestamp)}</p>
-                      <p>💰 ฿{row.totalPrice}</p>
+                      <p>👤 {row.guestDetails?.name?.replace("not_present", "").trim() || row.fullName || "N/A"}</p>
+                      <p>📅 {getDateAndTime(row.orderedAt || row.createdAt || row.timestamp)}</p>
+                      <p>💰 ฿{(row.price || row.totalAmount || 0).toLocaleString()}</p>
                     </div>
                   </div>
                 ))}
@@ -736,10 +756,10 @@ const TravelBookings = () => {
                       }
 
                       return rows(filteredBookings)?.map((row, i) => {
-                        const date = (row["orderedAt"] || row["timestamp"])
+                        const date = (row["orderedAt"] || row["createdAt"] || row["timestamp"])
                           ? new Date(
-                            (row["orderedAt"]?.seconds || row["timestamp"]?.seconds || 0) * 1000 +
-                            (row["orderedAt"]?.nanoseconds || row["timestamp"]?.nanoseconds || 0) / 1000000
+                            (row["orderedAt"]?.seconds || row["createdAt"]?.seconds || row["timestamp"]?.seconds || 0) * 1000 +
+                            (row["orderedAt"]?.nanoseconds || row["createdAt"]?.nanoseconds || row["timestamp"]?.nanoseconds || 0) / 1000000
                           )
                           : new Date();
 
@@ -1030,6 +1050,8 @@ const TravelBookings = () => {
                       <span className="text-2xl">📅</span> Schedule & Provider
                     </Typography>
                     <Grid container spacing={3}>
+                      {textField("Package Name", bookingDetails?.title || bookingDetails?.packageName, true)}
+                      {textField("Booking Confirmed", bookingDetails?.isBookingConfirmed ? "True" : "False", true)}
                       {textField("Pick Up Date", (bookingDetails?.pickUpTime || bookingDetails?.arrivalDate) ? new Date(bookingDetails.pickUpTime ? bookingDetails.pickUpTime.seconds * 1000 : bookingDetails.arrivalDate).toLocaleDateString() : "No date", true)}
                       {textField("Pick Up Time", bookingDetails?.pickUpTime ? new Date(bookingDetails.pickUpTime.seconds * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "N/A", true)}
 
@@ -1247,6 +1269,15 @@ const TravelBookings = () => {
                     className="bg-danger-500 hover:bg-danger-600 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-md flex items-center gap-2"
                   >
                     <span>❌</span> Reject
+                  </button>
+                )}
+
+                {isRealTime && bookingDetails?.status === "Accepted" && (
+                  <button
+                    onClick={() => handleUpdateProvider(bookingDetails.id || bookingDetails.orderId)}
+                    className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-md flex items-center gap-2"
+                  >
+                    <span>💾</span> Update Provider Info
                   </button>
                 )}
               </Grid>

@@ -1,6 +1,21 @@
-import { Visibility, VisibilityOff } from "@mui/icons-material";
 import {
-  Alert,
+  AccountCircle,
+  ArrowBack,
+  Business,
+  Email,
+  Lock,
+  Map,
+  Person,
+  Phone,
+  Visibility,
+  VisibilityOff,
+  AccountBalance,
+  CreditCard,
+  LocationCity,
+  Category,
+  ListAlt
+} from "@mui/icons-material";
+import {
   Box,
   Button,
   FormControl,
@@ -9,9 +24,13 @@ import {
   InputAdornment,
   InputLabel,
   MenuItem,
-  Paper,
   Select,
   TextField,
+  Typography,
+  Paper,
+  Container,
+  Avatar,
+  Chip
 } from "@mui/material";
 import {
   GoogleMap,
@@ -28,18 +47,18 @@ import {
 } from "firebase/firestore";
 import { useContext, useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { MdLocationOn } from "react-icons/md";
+import { MdCloudUpload, MdLocationOn } from "react-icons/md";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import { logo } from "../../assets";
-import SubTitle from "../../components/SubTitle";
 import { AuthContext } from "../../contextAPIs/AuthProvider";
 import {
   db,
   serviceCategoriesDoc,
   usersCollection,
+  partnersCollection,
 } from "../../firebase/firebase.config";
 import { formatPhoneNumber, getFileUrl } from "../../utils/utils";
-const partnersCollection = collection(db, "partners");
 
 const center = { lat: 48.8584, lng: 2.2945 };
 
@@ -47,7 +66,6 @@ const PartnerOnboarding = () => {
   const { createUser, updateUserProfile } = useContext(AuthContext);
   const [serviceCategory, setServiceCategory] = useState("Others");
   const [profileURL, setProfileURL] = useState("");
-  // const [vechicleNames, setVechicleNames] = useState([]);
   const [map, setMap] = useState(null);
   const [location, setLocation] = useState(null);
   const [searchBox, setSearchBox] = useState(null);
@@ -57,28 +75,77 @@ const PartnerOnboarding = () => {
   const navigate = useNavigate();
   const inputRef = useRef(null);
 
+  // Dynamic Service Logic
+  const [serviceCategories, setServiceCategories] = useState([]);
+  const [subServices, setSubServices] = useState([]);
+  const [selectedSubServices, setSelectedSubServices] = useState([]);
+
+  // Mock sub-services mapping
+  const serviceOptions = {
+    "Theme Park / Attractions": ["Theme Park", "Water Park", "Zoo", "Museum", "Aquarium", "Adventure Park"],
+    "Transportation": ["Sedan", "Van", "SUV", "Luxury Bus", "Motorbike", "Boat/Yacht"],
+    "Cleaning": ["Home Cleaning", "Deep Cleaning", "Office Cleaning", "Sanitization"],
+    "Guide": ["English Speaking", "Chinese Speaking", "Russian Speaking", "Hindi Speaking", "Historical Expert", "Shopping Guide"],
+    "Restaurant": ["Thai Cuisine", "International", "Seafood", "Halal", "Street Food", "Fine Dining"],
+    "Hotel": ["Resort", "Hostel", "Boutique", "Villa", "homestay"],
+    "Others": [],
+  };
+
   const {
     handleSubmit,
-    // reset,
     register,
     setValue,
     control,
     formState: { errors },
   } = useForm();
 
-  // let vechicleTypes = [];
+  useEffect(() => {
+    // Fill categories from DB + default ones
+    const fetchServiceCategories = async () => {
+      await getDoc(serviceCategoriesDoc).then((snapshot) => {
+        const data = snapshot.data();
+        const fetched = data?.categories?.map((cat) => cat.title) || [];
+        const combined = Array.from(new Set([...fetched, ...Object.keys(serviceOptions)]));
+        setServiceCategories(combined);
+      });
+    };
+    fetchServiceCategories();
+  }, []);
 
-  // if (serviceCategory === "Logistics and Transportation") {
-  //   vechicleTypes = ["Truck", "Van", "Others"];
-  // } else if (serviceCategory === "Order Pick Up") {
-  //   vechicleTypes = ["Toyota", "Honda", "Ford", "Nissan", "Others"];
-  // }
+  useEffect(() => {
+    if (serviceCategory && serviceOptions[serviceCategory]) {
+      setSubServices(serviceOptions[serviceCategory]);
+    } else {
+      setSubServices([]);
+    }
+    setSelectedSubServices([]);
+    setValue("serviceDetails", "");
+  }, [serviceCategory]);
 
-  /* ===============================================================
-                          Handle form submission start
-  ===============================================================*/
-  // Handle form submission
+  const handleSubServiceChange = (event) => {
+    const {
+      target: { value },
+    } = event;
+    const val = typeof value === 'string' ? value.split(',') : value;
+    setSelectedSubServices(val);
+    setValue("serviceDetails", val.join(', '));
+  };
+
+  // Auto-fill logic
+  const extractAreaFromAddress = (address) => {
+    if (!address) return;
+    const parts = address.split(',');
+    if (parts.length >= 2) {
+      // Take parts that are likely city and province
+      const area = parts.slice(Math.max(parts.length - 3, 0), parts.length).join(', ').trim();
+      setValue("serviceArea", area);
+    } else {
+      setValue("serviceArea", address);
+    }
+  };
+
   const onSubmit = async (data) => {
+    console.log("Submitting form data:", data);
     setError("");
     const {
       email,
@@ -87,25 +154,22 @@ const PartnerOnboarding = () => {
       fullName,
       address,
       serviceArea,
-      // educationalBackground,
-      // numberPlate,
       bankName,
       accountNumber,
       phoneNumber,
       bankAddress,
+      serviceDetails
     } = data;
 
-    // validating patner's info
     if (password != confirm) {
       return setError({ for: "password", text: "Password does not match." });
     } else if (!profileURL) {
-      return setError({ for: "profile", text: "Provide a valid profile" });
-    } else if (phoneNumber?.length < 11 || phoneNumber?.length > 11) {
+      return setError({ for: "profile", text: "Provide a valid profile photo" });
+    } else if (phoneNumber?.length < 10) {
       return setError({ for: "phone", text: "Invalid Number" });
     }
 
     const accountInfo = { email, password };
-
     const personalInformation = {
       fullName,
       email,
@@ -114,26 +178,8 @@ const PartnerOnboarding = () => {
       photoURL: profileURL,
       location,
     };
-
-    const serviceInformation = {
-      serviceArea,
-    };
-
+    const serviceInformation = { serviceArea, serviceDetails, subServices: selectedSubServices };
     const paymentInformation = { bankName, accountNumber, bankAddress };
-
-    // modifing service information based on service category
-    // if (
-    //   serviceCategory === "Official Work" ||
-    //   serviceCategory === "Legal Administrative"
-    // ) {
-    //   serviceInformation.educationalBackground = educationalBackground;
-    // } else if (
-    //   serviceCategory === "Logistics and Transportation" ||
-    //   serviceCategory === "Order Pick Up"
-    // ) {
-    //   serviceInformation.numberPlate = numberPlate;
-    //   serviceInformation.vechicleNames = vechicleNames;
-    // }
 
     const partnerInfo = {
       serviceCategory,
@@ -146,126 +192,88 @@ const PartnerOnboarding = () => {
       timestamp: serverTimestamp(),
     };
 
-    // creating the user into Firebase authentication
-    await createUser(email, password)
-      .then(async (res) => {
-        const createdUser = res.user;
+    try {
+      const res = await createUser(email, password);
+      const createdUser = res.user;
 
-        if (createdUser) {
-          // adding partner's data to the partners collection
-          partnerInfo.uid = createdUser.uid;
+      if (createdUser) {
+        partnerInfo.uid = createdUser.uid;
 
-          // adding users data to the useres collection
-          await setDoc(doc(usersCollection, createdUser.uid), {
-            email: email,
-            displayName: fullName,
-            photoURL: profileURL,
-            role: "Partner",
-            status: "Pending",
-            serviceCategory,
-            phoneNo: phoneNumber,
-            createdAt: serverTimestamp(),
-            uid: createdUser.uid,
-          }).catch((error) => {
-            console.log(error);
-          });
+        await setDoc(doc(usersCollection, createdUser.uid), {
+          email: email,
+          displayName: fullName,
+          photoURL: profileURL,
+          role: "Partner",
+          status: "Pending",
+          serviceCategory,
+          phoneNo: phoneNumber,
+          createdAt: serverTimestamp(),
+          uid: createdUser.uid,
+        });
+
+        await updateUserProfile(fullName, profileURL);
+        await setDoc(doc(partnersCollection, createdUser.uid), partnerInfo);
+
+        Swal.fire({
+          title: "Registration Successful!",
+          text: "Your partner request has been submitted successfully. Please wait for admin approval.",
+          icon: "success",
+          confirmButtonColor: "#3b82f6",
+          confirmButtonText: "Go to Dashboard",
+        }).then(() => {
           navigate("/dashboard");
-          // navigate("/partner-onboarding/message");
-          await updateUserProfile(fullName, profileURL); //updating user name and photoURL
-          await setDoc(doc(partnersCollection, createdUser.uid), partnerInfo);
-
-          // const hasRoom = await getDoc(
-          //   doc(chatRoomsCollection, "LocalPartnerSupport")
-          // );
-
-          // if (!hasRoom.exists()) {
-          //   // creating conversation for thaiseva admin
-          //   await setDoc(doc(chatRoomsCollection, "LocalPartnerSupport"), {
-          //     [createdUser.uid + "_LocalPartnerSupport"]: {
-          //       userInfo: {
-          //         uid: createdUser?.uid,
-          //         displayName: createdUser?.displayName,
-          //         photoURL: createdUser?.photoURL,
-          //         phoneNumber,
-          //       },
-          //       isRead: true,
-          //       date: serverTimestamp(),
-          //     },
-          //   });
-          // } else {
-          //   // creating conversation for thaiseva admin
-          //   await updateDoc(doc(chatRoomsCollection, "LocalPartnerSupport"), {
-          //     [createdUser.uid + "_LocalPartnerSupport"]: {
-          //       userInfo: {
-          //         uid: createdUser?.uid,
-          //         displayName: createdUser?.displayName,
-          //         photoURL: createdUser?.photoURL,
-          //         phoneNumber,
-          //       },
-          //       isRead: true,
-          //       date: serverTimestamp(),
-          //     },
-          //   });
-          // }
-
-          // await setDoc(
-          //   doc(chatsCollection, createdUser.uid + "_LocalPartnerSupport"),
-          //   { messages: [] }
-          // );
-        }
-      })
-      .catch((error) => {
-        console.log(error);
-        if (error.code === "auth/email-already-in-use") {
-          setError({
-            for: "email",
-            text: "This email is already in use. Please log in.",
-          });
-        } else if (error.code === "auth/weak-password") {
-          setError({
-            for: "password",
-            text: "Password is too weak.",
-          });
-        } else if (error.code === "auth/network-request-failed") {
-          setError({
-            for: "other",
-            text: "Network error. Please check your internet connection.",
-          });
-        } else {
-          setError({
-            for: "other",
-            text: "An unexpected error occurred. Please try again.",
-          });
-        }
-      });
+        });
+      }
+    } catch (error) {
+      console.log(error);
+      if (error.code === "auth/email-already-in-use") {
+        Swal.fire({
+          title: "Email Already Registered",
+          text: "This email address is already associated with an account. Please log in instead.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonText: "Go to Login",
+          cancelButtonText: "Close",
+          confirmButtonColor: "#3b82f6",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            navigate("/login");
+          }
+        });
+        setError({
+          for: "email",
+          text: "This email is already in use. Please log in.",
+        });
+      } else if (error.code === "auth/weak-password") {
+        setError({
+          for: "password",
+          text: "Password is too weak.",
+        });
+      } else {
+        setError({
+          for: "other",
+          text: "An unexpected error occurred. Please try again.",
+        });
+      }
+    }
   };
-  /* ===============================================================
-                          Handle form submission end
-  ===============================================================*/
 
-  /* ========================================================
-              Google maps functionalities Started
- ======================================================== */
-  const onMapLoad = (map) => {
-    setMap(map);
-  };
+  const onMapLoad = (map) => setMap(map);
 
   const onMapClick = async (e) => {
     const address = await reverseGeocode(e.latLng.lat(), e.latLng.lng());
     setValue("address", address);
+    extractAreaFromAddress(address);
     setLocation({
       lat: e.latLng.lat(),
       lng: e.latLng.lng(),
     });
   };
 
-  const onSearchLoad = (searchBox) => {
-    setSearchBox(searchBox);
-  };
+  const onSearchLoad = (searchBox) => setSearchBox(searchBox);
 
   const onPlacesChanged = async () => {
     const places = searchBox.getPlaces();
-
     if (places.length === 0) return;
 
     const location = places[0].geometry.location;
@@ -275,13 +283,10 @@ const PartnerOnboarding = () => {
       lng: location.lng(),
     });
     setValue("address", address);
+    extractAreaFromAddress(address);
     map.setCenter(location);
   };
-  /* ========================================================
-            Google maps functionalities Ended
-======================================================== */
 
-  // location auto pickup
   const getCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -290,10 +295,9 @@ const PartnerOnboarding = () => {
           const lon = position.coords.longitude;
           const address = await reverseGeocode(lat, lon);
           setValue("address", address);
+          extractAreaFromAddress(address);
         },
-        (error) => {
-          console.error("Error getting location: ", error);
-        }
+        (error) => console.error("Error getting location: ", error)
       );
     } else {
       alert("Geolocation is not supported by this browser.");
@@ -303,8 +307,7 @@ const PartnerOnboarding = () => {
   const reverseGeocode = async (lat, lon) => {
     try {
       const response = await axios.get(
-        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${
-          import.meta.env.VITE_Google_Api_Key
+        `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${import.meta.env.VITE_Google_Api_Key
         }`
       );
       if (response.data.status === "OK") {
@@ -318,7 +321,6 @@ const PartnerOnboarding = () => {
     }
   };
 
-  // uploading profile photo
   const handleUploadProfile = async (e) => {
     const { files } = e.target;
     setError("");
@@ -330,442 +332,516 @@ const PartnerOnboarding = () => {
     }
   };
 
-  // setting selected vechicle into the select input
-  // const handleChangeVechicleNames = (event) => {
-  //   const {
-  //     target: { value },
-  //   } = event;
-  //   setVechicleNames(
-  //     // On autofill we get a stringified value.
-  //     typeof value === "string" ? value.split(",") : value
-  //   );
-  // };
-
-  // handling service category change
   const handleChangeServiceCategory = (e) => {
     setServiceCategory(e.target.value);
-    // setVechicleNames([]);
   };
 
-  const [serviceCategories, setServiceCategories] = useState([]);
-
-  useEffect(() => {
-    const fetchServiceCategories = async () => {
-      await getDoc(serviceCategoriesDoc).then((snapshot) => {
-        const data = snapshot.data();
-        setServiceCategories([
-          ...data.categories.map((cat) => cat.title),
-          "Others",
-        ]);
-      });
-    };
-    fetchServiceCategories();
-  }, []);
-
-  // custom text field for common data
-  const textField = (label, name, placeholder) => {
-    return (
-      <Grid item xs={12} sm={6} md={4}>
-        <TextField
-          label={label}
-          type={
-            name === "phoneNumber" || name === "accountNumber"
-              ? "number"
-              : "text"
-          }
-          placeholder={placeholder}
-          fullWidth
-          {...register(name, { required: true })}
-        />
-        {errors?.for === name && (
-          <span className="text-red-500">{label} is required</span>
-        )}
-        {error?.for === "phone" && name === "phoneNumber" && (
-          <span className="text-red-500">{error.text}</span>
-        )}
-        {error?.for === "email" && name === "email" && (
-          <span className="text-red-500 text-sm">{error.text}</span>
-        )}
-      </Grid>
-    );
-  };
+  const textField = (label, name, placeholder, type = "text", icon = null) => (
+    <Grid item xs={12} sm={6}>
+      <TextField
+        label={label}
+        type={type}
+        placeholder={placeholder}
+        fullWidth
+        variant="filled"
+        {...register(name, { required: true })}
+        InputProps={{
+          startAdornment: icon ? (
+            <InputAdornment position="start" className="text-gray-500">
+              {icon}
+            </InputAdornment>
+          ) : null,
+          disableUnderline: true,
+          style: { borderRadius: "12px" }
+        }}
+        sx={{
+          "& .MuiFilledInput-root": {
+            backgroundColor: "#f9fafb",
+            border: "1px solid #e5e7eb",
+            "&:hover": { backgroundColor: "#f3f4f6" },
+            "&.Mui-focused": {
+              backgroundColor: "#ffffff",
+              border: "1px solid #3b82f6",
+              boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)"
+            },
+            borderRadius: "12px",
+            transition: "all 0.2s ease-in-out"
+          },
+        }}
+      />
+      {errors[name] && (
+        <span className="text-red-500 text-xs mt-1 ml-1 block">*{label} is required</span>
+      )}
+    </Grid>
+  );
 
   return (
-    <div className="w-full min-h-screen flex items-center justify-center md:px-10 p-2 py-12 bg-gradient-to-r from-[var(--main-bg-gradient-color-1)] to-[var(--main-bg-gradient-color-2)]">
-      {/* form container */}
-      <Paper
-        elevation={3}
-        sx={{ p: { xs: 2, sm: 3, md: 4, lg: 5 }, mx: "auto", width: "80%" }}
-      >
-        <div className="flex w-full max-lg:flex-col justify-between items-center mb-8">
-          <img src={logo} alt="Thaiseva" className="w-[200px]" />
-          <h3 className="text-center text-[var(--form-heading-color)] font-extrabold text-2xl">
-            Local Assistance Onboarding Form
-          </h3>
-        </div>
+    <div className="min-h-screen py-12 px-4 bg-[#f8fafc] font-sans">
+      <Container maxWidth="md">
+        <Button
+          startIcon={<ArrowBack />}
+          onClick={() => navigate('/login')}
+          className="mb-8 text-gray-500 hover:text-blue-600 normal-case font-semibold tracking-wide hover:bg-transparent px-0 transition-colors duration-200"
+          disableRipple
+        >
+          Back to Login
+        </Button>
 
-        <Box component="form" onSubmit={handleSubmit(onSubmit)}>
-          {/* Account Information*/}
-          <SubTitle text="Account Information :" />
+        <Paper
+          elevation={0}
+          className="rounded-3xl overflow-hidden border border-gray-100 shadow-xl bg-white"
+        >
+          {/* Header */}
+          <div className="bg-white p-8 md:p-10 border-b border-gray-100 flex flex-col items-center justify-center relative overflow-hidden">
 
-          <Grid container spacing={3} sx={{ py: 1 }}>
-            {/* Email */}
-            {textField("Email", "email", "mymail123@gmail.com")}
+            {/* Decorative Elements */}
+            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600"></div>
 
-            {/* Password */}
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                label="Password"
-                placeholder="********"
-                type={showPassword ? "text" : "password"}
-                defaultValue=""
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => {
-                          setShowPassword(!showPassword);
-                        }}
-                      >
-                        {!showPassword ? <Visibility /> : <VisibilityOff />}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                fullWidth
-                {...register("password", {
-                  required: true,
-                  minLength: 6,
-                  maxLength: 20,
-                  pattern: /(?=.*[A-Z])(?=.*[!@#$&%*])(?=.*[0-9])(?=.*[a-z])/,
-                })}
-              />
-
-              {errors.password?.type === "minLength" && (
-                <p className="text-red-400">
-                  Password must have minimum six characters.
-                </p>
-              )}
-              {errors.password?.type === "maxLength" && (
-                <span className="text-red-400">
-                  Password must be less than 20 characters.
-                </span>
-              )}
-              {errors.password?.type === "pattern" && (
-                // Password must have
-                <p className="text-red-400">
-                  at least one uppercase letter, one special character, and one
-                  number.
-                </p>
-              )}
-              {error?.for === "password" && (
-                <span className="text-red-500 text-sm">{error.text}</span>
-              )}
-            </Grid>
-
-            {/* Confirm Password */}
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                label="Confirm Password"
-                placeholder="********"
-                type={showConfirmPassword ? "text" : "password"}
-                InputProps={{
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => {
-                          setShowConfirmPassword(!showConfirmPassword);
-                        }}
-                      >
-                        {!showConfirmPassword ? (
-                          <Visibility />
-                        ) : (
-                          <VisibilityOff />
-                        )}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-                defaultValue=""
-                fullWidth
-                {...register("confirm", { required: true })}
-              />
-              {error?.for === "password" && (
-                <span className="text-red-500 text-sm">{error.text}</span>
-              )}
-            </Grid>
-          </Grid>
-
-          <Alert severity="warning" sx={{ mt: 1 }}>
-            Please ensure to securely note down these credentials, as they will
-            be required for future login and access purposes.
-          </Alert>
-
-          <div className="h-2"></div>
-
-          {/* Driver Information*/}
-          <SubTitle text="Partner Information :" />
-
-          <Grid container spacing={3} sx={{ py: 1 }}>
-            {/* Full Name */}
-            {textField("Full Name", "fullName", "your full name...")}
-
-            {/* Profile Picture */}
-            <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                label="Select Profile Picture"
-                type="file"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                onChange={handleUploadProfile}
-              />
-              {error?.for === "profile" && (
-                <span className="text-red-500 text-sm">{error.text}</span>
-              )}
-            </Grid>
-
-            {/* Phone */}
-            {/* {textField("Phone Number", "phoneNumber", "+66 XX XXX XXXX")} */}
-            <Grid item xs={12} sm={6} md={4}>
-              <Controller
-                name="phoneNumber"
-                control={control}
-                defaultValue=""
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Phone Number"
-                    type="tel"
-                    placeholder="012 345 6789"
-                    value={field.value}
-                    onChange={(e) => {
-                      const formatted = formatPhoneNumber(e.target.value);
-                      field.onChange(formatted);
-                    }}
-                    fullWidth
-                  />
-                )}
-              />
-            </Grid>
-
-            {/* Address */}
-            <Grid item xs={12} sm={6} md={4}>
-              <Controller
-                name="address"
-                control={control}
-                defaultValue=""
-                render={({ field }) => (
-                  <TextField
-                    {...field} // Spread the field from Controller into TextField
-                    label="Address"
-                    placeholder="your location..."
-                    ref={(e) => {
-                      field.ref(e); // Assign the ref from React Hook Form
-                      inputRef.current = e; // You can also keep a custom ref if needed
-                    }}
-                    type="text"
-                    InputProps={{
-                      endAdornment: (
-                        <button
-                          type="button"
-                          onClick={getCurrentLocation}
-                          className="ml-2 text-white bg-[var(--form-button-bg-color)] hover:bg-[var(--form-button-hover-bg-color)] active:bg-[var(--form-button-active-bg-color)] font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-                          title="Click Here to pick your current location automatically!"
-                        >
-                          <MdLocationOn size={20} />
-                        </button>
-                      ),
-                    }}
-                    fullWidth
-                  />
-                )}
-              />
-              {error?.for === "address" && (
-                <span className="text-red-500">{error.text}</span>
-              )}
-            </Grid>
-          </Grid>
-
-          <div className="w-[80%] h-[350px] my-2 relative m-auto">
-            <div className="absolute top-2 left-1/3 z-10 ">
-              <StandaloneSearchBox
-                onLoad={onSearchLoad}
-                onPlacesChanged={onPlacesChanged}
-              >
-                <input
-                  type="text"
-                  placeholder="Search for a location"
-                  className="location-input border border-blue-500"
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault(); // Prevent form submission
-                      onPlacesChanged(); // Trigger the search logic
-                    }
-                  }}
-                />
-              </StandaloneSearchBox>
+            {/* Logo Section */}
+            <div className="mb-6 relative group cursor-pointer transform hover:scale-105 transition-transform duration-300">
+              <div className="absolute -inset-4 bg-gradient-to-r from-blue-100 to-violet-100 rounded-full blur-xl opacity-0 group-hover:opacity-100 transition duration-500"></div>
+              <div className="relative">
+                <img src={logo} alt="Thaiseva" className="h-20 md:h-24 w-auto object-contain drop-shadow-sm" />
+              </div>
             </div>
-            <GoogleMap
-              id="map"
-              center={center}
-              zoom={15}
-              onLoad={onMapLoad}
-              onClick={onMapClick}
-              mapContainerStyle={{ width: "100%", height: "100%" }}
-            >
-              {location && <MarkerF position={location} />}
-            </GoogleMap>
+
+            <Typography variant="h4" className="font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-700 mb-2 text-center tracking-tight">
+              Partner Registration
+            </Typography>
+            <Typography variant="body1" className="text-gray-500 text-center max-w-md mx-auto leading-relaxed">
+              Join Thaiseva's premium network and scale your business with our trusted platform.
+            </Typography>
           </div>
-          {error?.for === "location" && (
-            <span className="text-red-500">{error?.text}</span>
-          )}
 
-          {/* <div className="h-2"></div> */}
+          <form onSubmit={handleSubmit(onSubmit, (errors) => console.error(errors))} className="p-8 md:p-12 space-y-10">
+            {/* Section 1: Account Credentials */}
+            <section>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-blue-50 p-2.5 rounded-xl text-blue-600">
+                  <Lock fontSize="small" />
+                </div>
+                <Typography variant="h6" className="font-bold text-gray-800">
+                  Account Credentials
+                </Typography>
+              </div>
 
-          {/* Service Information*/}
-          <SubTitle text="Service details that you will provide :" />
+              <Grid container spacing={3}>
+                {textField("Email Address", "email", "example@mail.com", "email", <Email fontSize="small" />)}
 
-          <Grid container spacing={3}>
-            <Grid item xs={12} sm={6} md={4}>
-              <FormControl fullWidth>
-                <InputLabel id="service-category-label">
-                  Service Category
-                </InputLabel>
-                <Select
-                  labelId="service-category-label"
-                  label="Service Category"
-                  defaultValue="Others"
-                  onChange={handleChangeServiceCategory}
-                >
-                  {serviceCategories.map((item) => (
-                    <MenuItem value={item} key={item}>
-                      {item}
-                    </MenuItem>
-                  ))}
-                  {/* <MenuItem value="Official Work">Official Work</MenuItem>
-                  <MenuItem value="Legal Administrative">
-                    Legal Administrative
-                  </MenuItem>
-                  <MenuItem value="Logistics and Transportation">
-                    Logistics and Transportation
-                  </MenuItem>
-                  <MenuItem value="Order Local Sim">Order Local Sim</MenuItem>
-                  <MenuItem value="Home Services">Home Services</MenuItem>
-                  <MenuItem value="Order Pick Up">Order Pick Up</MenuItem>
-                  <MenuItem value="Others">Others</MenuItem> */}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {textField(
-              "Which location will you provide the service?",
-              "serviceArea",
-              "City Name, District Name"
-            )}
-
-            {/* {(serviceCategory === "Logistics and Transportation" ||
-              serviceCategory === "Order Pick Up") &&
-              textField("Number of Vehicles", "numberPlate", "Number Plate")}
-
-            {(serviceCategory === "Logistics and Transportation" ||
-              serviceCategory === "Order Pick Up") && (
-              <Grid item xs={12} sm={6} md={4}>
-                <FormControl fullWidth>
-                  <InputLabel id="vehicle-types-label">
-                    Type of Vehicles
-                  </InputLabel>
-                  <Select
-                    labelId="vehicle-types-label"
-                    multiple
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Password"
+                    type={showPassword ? "text" : "password"}
                     fullWidth
-                    value={vechicleNames}
-                    onChange={handleChangeVechicleNames}
-                    input={
-                      <OutlinedInput
-                        label="Type of Vehicles"
-                        id="vehicle-types"
-                      />
-                    }
-                    renderValue={(selected) => (
-                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
-                        {selected.map((value) => (
-                          <Chip key={value} label={value} />
-                        ))}
-                      </Box>
-                    )}
-                  >
-                    {vechicleTypes.map((name) => (
-                      <MenuItem key={name} value={name}>
-                        {name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                    variant="filled"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start" className="text-gray-500">
+                          <Lock fontSize="small" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                            {!showPassword ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      disableUnderline: true,
+                      style: { borderRadius: "12px" }
+                    }}
+                    sx={{
+                      "& .MuiFilledInput-root": {
+                        backgroundColor: "#f9fafb",
+                        border: "1px solid #e5e7eb",
+                        "&:hover": { backgroundColor: "#f3f4f6" },
+                        "&.Mui-focused": {
+                          backgroundColor: "#ffffff",
+                          border: "1px solid #3b82f6",
+                          boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)"
+                        },
+                        borderRadius: "12px",
+                        transition: "all 0.2s ease-in-out"
+                      },
+                    }}
+                    {...register("password", { required: true, minLength: 6 })}
+                  />
+                  {error?.for === "password" && (
+                    <span className="text-red-500 text-xs mt-1 block">{error.text}</span>
+                  )}
+                  {errors.password && <span className="text-red-500 text-xs mt-1 block">Min 6 chars required</span>}
+
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Confirm Password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    fullWidth
+                    variant="filled"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start" className="text-gray-500">
+                          <Lock fontSize="small" />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end" size="small">
+                            {!showConfirmPassword ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      disableUnderline: true,
+                      style: { borderRadius: "12px" }
+                    }}
+                    sx={{
+                      "& .MuiFilledInput-root": {
+                        backgroundColor: "#f9fafb",
+                        border: "1px solid #e5e7eb",
+                        "&:hover": { backgroundColor: "#f3f4f6" },
+                        "&.Mui-focused": {
+                          backgroundColor: "#ffffff",
+                          border: "1px solid #3b82f6",
+                          boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)"
+                        },
+                        borderRadius: "12px",
+                        transition: "all 0.2s ease-in-out"
+                      },
+                    }}
+                    {...register("confirm", { required: true })}
+                  />
+                  {errors.confirm && <span className="text-red-500 text-xs mt-1 block">*Required</span>}
+                </Grid>
               </Grid>
+
+              <div className="mt-4 p-4 bg-orange-50 rounded-xl border border-orange-100 flex gap-3 text-sm text-orange-800">
+                <div className="min-w-fit mt-0.5">⚠️</div>
+                <p>Securely save these credentials. You will need them to log in to your dashboard later.</p>
+              </div>
+            </section>
+
+            <hr className="border-gray-100" />
+
+            {/* Section 2: Personal Details */}
+            <section>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-green-50 p-2.5 rounded-xl text-green-600">
+                  <Person fontSize="small" />
+                </div>
+                <Typography variant="h6" className="font-bold text-gray-800">
+                  Personal Details
+                </Typography>
+              </div>
+
+              <Grid container spacing={3}>
+                {textField("Full Name", "fullName", "John Doe", "text", <AccountCircle fontSize="small" />)}
+
+                <Grid item xs={12} sm={6}>
+                  <input
+                    type="file"
+                    id="profile-upload"
+                    className="hidden"
+                    onChange={handleUploadProfile}
+                    accept="image/*"
+                  />
+                  <label
+                    htmlFor="profile-upload"
+                    className={`h-[56px] flex items-center justify-between px-4 w-full border rounded-xl cursor-pointer transition-all duration-200 ${profileURL ? 'border-green-500 bg-green-50 text-green-700' : 'border-gray-300 bg-gray-50 hover:bg-white hover:border-blue-500 hover:shadow-sm text-gray-500'}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MdCloudUpload className={profileURL ? 'text-green-600' : 'text-gray-400'} size={20} />
+                      <span className="text-sm font-medium truncate max-w-[150px]">
+                        {profileURL ? "Photo Uploaded" : "Upload Profile Photo"}
+                      </span>
+                    </div>
+                    {profileURL && <span className="text-xs bg-white px-2 py-0.5 rounded-md border border-green-200">Change</span>}
+                  </label>
+                  {error?.for === "profile" && <span className="text-red-500 text-xs mt-1 block">{error.text}</span>}
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <Controller
+                    name="phoneNumber"
+                    control={control}
+                    rules={{ required: true }}
+                    defaultValue=""
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Phone Number"
+                        type="tel"
+                        placeholder="012 345 6789"
+                        fullWidth
+                        variant="filled"
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start" className="text-gray-500">
+                              <Phone fontSize="small" />
+                            </InputAdornment>
+                          ),
+                          disableUnderline: true,
+                          style: { borderRadius: "12px" }
+                        }}
+                        onChange={(e) => {
+                          const formatted = formatPhoneNumber(e.target.value);
+                          field.onChange(formatted);
+                        }}
+                        sx={{
+                          "& .MuiFilledInput-root": {
+                            backgroundColor: "#f9fafb",
+                            border: "1px solid #e5e7eb",
+                            "&:hover": { backgroundColor: "#f3f4f6" },
+                            "&.Mui-focused": {
+                              backgroundColor: "#ffffff",
+                              border: "1px solid #3b82f6",
+                              boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)"
+                            },
+                            borderRadius: "12px",
+                            transition: "all 0.2s ease-in-out"
+                          },
+                        }}
+                      />
+                    )}
+                  />
+                  {errors.phoneNumber && <span className="text-red-500 text-xs mt-1 block">*Required</span>}
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <Controller
+                    name="address"
+                    control={control}
+                    rules={{ required: true }}
+                    defaultValue=""
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        label="Address"
+                        fullWidth
+                        variant="filled"
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start" className="text-gray-500">
+                              <Map fontSize="small" />
+                            </InputAdornment>
+                          ),
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton onClick={getCurrentLocation} title="Use Current Location" size="small">
+                                <MdLocationOn className="text-blue-600" />
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                          disableUnderline: true,
+                          style: { borderRadius: "12px" }
+                        }}
+                        sx={{
+                          "& .MuiFilledInput-root": {
+                            backgroundColor: "#f9fafb",
+                            border: "1px solid #e5e7eb",
+                            "&:hover": { backgroundColor: "#f3f4f6" },
+                            "&.Mui-focused": {
+                              backgroundColor: "#ffffff",
+                              border: "1px solid #3b82f6",
+                              boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)"
+                            },
+                            borderRadius: "12px",
+                            transition: "all 0.2s ease-in-out"
+                          },
+                        }}
+                      />
+                    )}
+                  />
+                  {error?.for === "address" && (
+                    <span className="text-red-500 text-xs mt-1 block">{error.text}</span>
+                  )}
+                  {errors.address && <span className="text-red-500 text-xs mt-1 block">*Required</span>}
+                </Grid>
+              </Grid>
+
+              {/* Map Widget */}
+              <div className="mt-8 rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+                <div className="h-[250px] relative">
+                  <div className="absolute top-4 left-4 right-4 z-10 max-w-sm mx-auto">
+                    <StandaloneSearchBox onLoad={onSearchLoad} onPlacesChanged={onPlacesChanged}>
+                      <div className="bg-white p-1 rounded-xl shadow-lg border border-gray-100 flex items-center">
+                        <div className="pl-3 text-gray-400"><Map fontSize="small" /></div>
+                        <input
+                          type="text"
+                          placeholder="Type to search location..."
+                          className="w-full px-3 py-2 rounded-lg outline-none text-sm text-gray-700 bg-transparent placeholder-gray-400"
+                          onKeyDown={(e) => e.key === "Enter" && e.preventDefault()}
+                        />
+                      </div>
+                    </StandaloneSearchBox>
+                  </div>
+                  <GoogleMap
+                    id="map"
+                    center={center}
+                    zoom={15}
+                    onLoad={onMapLoad}
+                    onClick={onMapClick}
+                    mapContainerStyle={{ width: "100%", height: "100%" }}
+                    options={{
+                      disableDefaultUI: true,
+                      zoomControl: true,
+                    }}
+                  >
+                    {location && <MarkerF position={location} />}
+                  </GoogleMap>
+                </div>
+                <div className="bg-gray-50 px-4 py-2 text-xs text-gray-500 text-center border-t border-gray-200">
+                  Click on the map or use search to set your precise location
+                </div>
+              </div>
+            </section>
+
+            <hr className="border-gray-100" />
+
+            {/* Section 3: Service Details */}
+            <section>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-purple-50 p-2.5 rounded-xl text-purple-600">
+                  <Business fontSize="small" />
+                </div>
+                <Typography variant="h6" className="font-bold text-gray-800">
+                  Service Details
+                </Typography>
+              </div>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth variant="filled">
+                    <InputLabel>Service Category</InputLabel>
+                    <Select
+                      value={serviceCategory}
+                      onChange={handleChangeServiceCategory}
+                      disableUnderline
+                      startAdornment={
+                        <InputAdornment position="start" className="text-gray-500 ml-1">
+                          <Category fontSize="small" />
+                        </InputAdornment>
+                      }
+                      sx={{
+                        backgroundColor: "#f9fafb",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "12px",
+                        "&:hover": { backgroundColor: "#f3f4f6" },
+                        "&.Mui-focused": {
+                          backgroundColor: "#ffffff",
+                          border: "1px solid #3b82f6",
+                          boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)"
+                        },
+                        "& .MuiSelect-select": { paddingLeft: 1 },
+                        transition: "all 0.2s ease-in-out"
+                      }}
+                    >
+                      {serviceCategories.map((item) => (
+                        <MenuItem value={item} key={item}>
+                          {item}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                {subServices.length > 0 ? (
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth variant="filled">
+                      <InputLabel>Specific Services / Types</InputLabel>
+                      <Select
+                        multiple
+                        value={selectedSubServices}
+                        onChange={handleSubServiceChange}
+                        disableUnderline
+                        startAdornment={
+                          <InputAdornment position="start" className="text-gray-500 ml-1">
+                            <ListAlt fontSize="small" />
+                          </InputAdornment>
+                        }
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {selected.map((value) => (
+                              <Chip key={value} label={value} size="small" sx={{ height: 24 }} />
+                            ))}
+                          </Box>
+                        )}
+                        sx={{
+                          backgroundColor: "#f9fafb",
+                          border: "1px solid #e5e7eb",
+                          borderRadius: "12px",
+                          "&:hover": { backgroundColor: "#f3f4f6" },
+                          "&.Mui-focused": {
+                            backgroundColor: "#ffffff",
+                            border: "1px solid #3b82f6",
+                            boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)"
+                          },
+                          transition: "all 0.2s ease-in-out"
+                        }}
+                      >
+                        {subServices.map((sub) => (
+                          <MenuItem key={sub} value={sub}>
+                            {sub}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    {/* Hidden input to register with form */}
+                    <input type="hidden" {...register("serviceDetails")} />
+                  </Grid>
+                ) : (
+                  textField("Service Description / Details", "serviceDetails", "e.g. specialized in luxury tours", "text", <ListAlt fontSize="small" />)
+                )}
+
+                {textField("Service Area (Auto-filled from map)", "serviceArea", "e.g. Bangkok, Sukhumvit", "text", <LocationCity fontSize="small" />)}
+              </Grid>
+            </section>
+
+            <hr className="border-gray-100" />
+
+            {/* Section 4: Payment Information */}
+            <section>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="bg-teal-50 p-2.5 rounded-xl text-teal-600">
+                  <CreditCard fontSize="small" />
+                </div>
+                <Typography variant="h6" className="font-bold text-gray-800">
+                  Payment Information
+                </Typography>
+              </div>
+
+              <Grid container spacing={3}>
+                {textField("Bank Name", "bankName", "e.g. Kasikorn Bank", "text", <AccountBalance fontSize="small" />)}
+                {textField("Account Number", "accountNumber", "xxxxxxxxxx", "number", <CreditCard fontSize="small" />)}
+                {textField("Bank Branch", "bankAddress", "e.g. Siam Paragon", "text", <LocationCity fontSize="small" />)}
+              </Grid>
+            </section>
+
+            {error?.for === "other" && (
+              <div className="p-4 bg-red-50 text-red-600 rounded-xl text-center border border-red-100 font-medium">
+                {error.text}
+              </div>
             )}
 
-            {(serviceCategory === "Legal Administrative" ||
-              serviceCategory === "Official Work") &&
-              textField(
-                "Institution Name",
-                "educationalBackground",
-                "Where did you complete graduation?"
-              )} */}
-          </Grid>
-
-          <div className="h-2"></div>
-
-          {/* Payment Information*/}
-          <SubTitle text="Payment Information :" />
-
-          <Grid container spacing={3}>
-            {/* Bank Name */}
-            {textField(
-              "Bank Name",
-              "bankName",
-              "you will get paid in this bank"
-            )}
-
-            {/* Account Number */}
-            {textField(
-              "Account Number",
-              "accountNumber",
-              "Type the number carefully"
-            )}
-
-            {/* Bank Address */}
-            {textField(
-              "Bank Address",
-              "bankAddress",
-              "Where is branch located?"
-            )}
-          </Grid>
-
-          <Box
-            textAlign="center"
-            sx={{ my: 2 }}
-            className="pt-5 flex flex-col justify-center items-center"
-          >
-            {errors?.for === "other" && (
-              <span className="text-red-500 mt-2">{error.text}</span>
-            )}
-            <Button
-              type="submit"
-              variant="contained"
-              sx={{
-                backgroundColor: "var(--form-button-bg-color)",
-                color: "white",
-                transition: "opacity 0.3s ease",
-                "&:hover": {
-                  backgroundColor: "var(--form-button-hover-bg-color)",
-                },
-              }}
-            >
-              Submit
-            </Button>
-          </Box>
-        </Box>
-      </Paper>
+            <div className="pt-4">
+              <Button
+                type="submit"
+                variant="contained"
+                fullWidth
+                size="large"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-xl hover:shadow-2xl transition-all duration-300 py-4 text-lg font-bold rounded-2xl normal-case"
+              >
+                Submit Application
+              </Button>
+              <p className="text-center text-gray-400 text-sm mt-4">
+                By clicking Submit, you agree to our Terms & Conditions
+              </p>
+            </div>
+          </form>
+        </Paper>
+        <div className="text-center mt-8 text-gray-400 text-xs pb-4">
+          © {new Date().getFullYear()} Thaiseva. All rights reserved.
+        </div>
+      </Container>
     </div>
   );
 };

@@ -36,7 +36,7 @@ import {
     collection,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { db, storage, travelServicesCollection } from "../../../../../firebase/firebase.config";
+import { db, storage, travelServicesCollection, generalPartnersCollection } from "../../../../../firebase/firebase.config";
 import { successNotification } from "../../../../../utils/utils";
 import { getEmptySightseeingPackage } from "../../../../../utils/sightseeingTransformation";
 import PageHeading from "../../../../../components/PageHeading";
@@ -107,10 +107,9 @@ const AddSightseeingPackage = () => {
         extraAdultPrice: 0,
         transportType: "",
         pickupFromHotel: false,
-        transportType: "",
-        pickupFromHotel: false,
         dropToAirport: false,
         packageType: "",
+        maxBookingsPerWeek: 200,
     });
 
     const [arrayData, setArrayData] = useState({
@@ -130,6 +129,50 @@ const AddSightseeingPackage = () => {
 
     const [availableHotels, setAvailableHotels] = useState([]);
     const [hotelRoomsMap, setHotelRoomsMap] = useState({});
+
+    // Partner Authorization State
+    const [availablePartners, setAvailablePartners] = useState([]);
+    const [authorizedPartners, setAuthorizedPartners] = useState([]);
+    const [partnerConfig, setPartnerConfig] = useState({
+        partnerId: null,
+        partnerName: "",
+        commissionType: "Percentage",
+        commissionRate: "",
+        maxBookingsPerWeek: "",
+    });
+
+    useEffect(() => {
+        const fetchPartners = async () => {
+            try {
+                const snapshot = await getDocs(generalPartnersCollection);
+                const list = snapshot.docs.map(doc => {
+                    const data = doc.data();
+                    const categories = Array.isArray(data.serviceCategory)
+                        ? data.serviceCategory
+                        : (data.serviceCategory ? [data.serviceCategory] : []);
+
+                    if (categories.some(cat => cat === "Sightseeing Packages")) {
+                        // Extract commission for Sightseeing Packages
+                        const commissionData = data.commissions?.["Sightseeing Packages"] || {};
+                        return {
+                            id: doc.id,
+                            name: data.personalInformation?.fullName || "Unknown Partner",
+                            defaultCommission: {
+                                type: commissionData.type || "Percentage",
+                                rate: commissionData.rate || ""
+                            }
+                        };
+                    }
+                    return null;
+                }).filter(p => p !== null);
+
+                setAvailablePartners(list);
+            } catch (err) {
+                console.error("Failed to fetch partners", err);
+            }
+        };
+        fetchPartners();
+    }, []);
 
     useEffect(() => {
         const fetchAllHotels = async () => {
@@ -209,6 +252,7 @@ const AddSightseeingPackage = () => {
                         transportType: existingData?.transportType || "",
                         pickupFromHotel: existingData?.pickupDropDetails?.pickupFromHotel || false,
                         dropToAirport: existingData?.pickupDropDetails?.dropToAirport || false,
+                        maxBookingsPerWeek: existingData?.maxBookingsPerWeek || 200,
                     });
 
                     // Set form values for react-hook-form
@@ -222,6 +266,7 @@ const AddSightseeingPackage = () => {
                     setValue("extraAdultPrice", existingData?.pricingStructure?.extraAdultPrice);
                     setValue("transportType", existingData?.transportType);
                     setValue("packageType", existingData?.packageType || "");
+                    setValue("maxBookingsPerWeek", existingData?.maxBookingsPerWeek || 200);
 
                     setCoverPhotoURL(existingData.coverPhoto || existingData.thumbnailImage);
 
@@ -239,8 +284,14 @@ const AddSightseeingPackage = () => {
                     setSights(existingData.sights || []);
                     setSpecialRates(existingData.specialRates || {
                         seasonalPricing: { enabled: false, note: "" },
+                        seasonalPricing: { enabled: false, note: "" },
                         earlyBirdDiscount: { enabled: false, discountPercent: 0, description: "" }
                     });
+
+                    // Load authorized partners if they exist
+                    if (existingData.authorizedPartners) {
+                        setAuthorizedPartners(existingData.authorizedPartners);
+                    }
                 }
             } catch (error) {
                 console.error("Error fetching package details:", error);
@@ -348,6 +399,7 @@ const AddSightseeingPackage = () => {
         setValue("pricePerChild", randomPackage.pricingStructure.pricePerChild);
         setValue("extraAdultPrice", randomPackage.pricingStructure.extraAdultPrice);
         setValue("transportType", randomPackage.transportType);
+        setValue("maxBookingsPerWeek", 200);
 
         setPackageDetails({
             id: "",
@@ -362,6 +414,7 @@ const AddSightseeingPackage = () => {
             transportType: randomPackage.transportType,
             pickupFromHotel: randomPackage.pickupDropDetails.pickupFromHotel,
             dropToAirport: randomPackage.pickupDropDetails.dropToAirport,
+            maxBookingsPerWeek: 200,
         });
 
         setCoverPhotoURL(randomPackage.thumbnailImage);
@@ -381,6 +434,32 @@ const AddSightseeingPackage = () => {
         setSpecialRates(randomPackage.specialRates);
 
         toast.success("Form autofilled with dummy data!");
+    };
+
+    const handleAddPartner = () => {
+        if (!partnerConfig.partnerId || !partnerConfig.commissionRate || !partnerConfig.maxBookingsPerWeek) {
+            return toast.error("Please fill all partner fields");
+        }
+
+        const newPartner = {
+            ...partnerConfig,
+            assignedAt: new Date().toISOString()
+        };
+
+        setAuthorizedPartners([...authorizedPartners, newPartner]);
+        setPartnerConfig({
+            partnerId: null,
+            partnerName: "",
+            commissionType: "Percentage",
+            commissionRate: "",
+            maxBookingsPerWeek: "",
+        });
+    };
+
+    const handleRemovePartner = (index) => {
+        const newList = [...authorizedPartners];
+        newList.splice(index, 1);
+        setAuthorizedPartners(newList);
     };
 
     const handleUploadCoverPhoto = async (e) => {
@@ -443,9 +522,12 @@ const AddSightseeingPackage = () => {
             location,
             period: parseFloat(period),
             packageType: data.packageType || "",
+            maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
             coverPhoto: coverPhotoURL,
             timestamp,
             images: arrayData?.pictures || [],
+            hasAuthorizedPartners: authorizedPartners.length > 0,
+            maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
         };
 
         const baseStruct = getEmptySightseeingPackage();
@@ -501,7 +583,11 @@ const AddSightseeingPackage = () => {
                 availableDropTimes: []
             },
 
+            maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
+
             rating: { average: 5, totalReviews: 0 },
+
+            authorizedPartners: authorizedPartners || [],
         };
 
         try {
@@ -852,6 +938,23 @@ const AddSightseeingPackage = () => {
 
                                     {/* Advanced Pricing */}
                                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+                                        <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">⚙️ Booking Configuration</Typography>
+                                        <Grid container spacing={4}>
+                                            <Grid item xs={12} md={6}>
+                                                <TextField
+                                                    label="General (Non-Partner) Weekly Capacity"
+                                                    type="number"
+                                                    fullWidth
+                                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                                    {...register("maxBookingsPerWeek", { required: true, min: 1 })}
+                                                    defaultValue={packageDetails.maxBookingsPerWeek}
+                                                    helperText="Auto-booking limit for direct bookings not assigned to specific partners"
+                                                />
+                                            </Grid>
+                                        </Grid>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                                         <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">💰 Pricing & Discounts</Typography>
                                         <Grid container spacing={4}>
                                             {textField("Child Price", "pricePerChild", "Cost per child", packageDetails?.pricePerChild)}
@@ -966,6 +1069,124 @@ const AddSightseeingPackage = () => {
                                                 </div>
                                             ))}
                                         </div>
+                                    </div>
+
+                                    {/* Partner Authorization Section */}
+                                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm mt-6">
+                                        <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">🤝 Authorized Partners</Typography>
+                                        <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 mb-6">
+                                            <Typography variant="subtitle2" className="text-blue-800 font-bold mb-3">Add Partner Authorization</Typography>
+                                            <Grid container spacing={2} alignItems="flex-end">
+                                                <Grid item xs={12} md={4}>
+                                                    <Autocomplete
+                                                        options={availablePartners.filter(p => !authorizedPartners.find(ap => ap.partnerId === p.id))}
+                                                        getOptionLabel={(option) => option.name}
+                                                        value={availablePartners.find(p => p.id === partnerConfig.partnerId) || null}
+                                                        onChange={(e, val) => {
+                                                            if (val) {
+                                                                setPartnerConfig(prev => ({
+                                                                    ...prev,
+                                                                    partnerId: val.id,
+                                                                    partnerName: val.name,
+                                                                    commissionType: val.defaultCommission.type,
+                                                                    commissionRate: val.defaultCommission.rate
+                                                                }));
+                                                            } else {
+                                                                setPartnerConfig(prev => ({
+                                                                    ...prev,
+                                                                    partnerId: null,
+                                                                    partnerName: "",
+                                                                    commissionType: "Percentage",
+                                                                    commissionRate: ""
+                                                                }));
+                                                            }
+                                                        }}
+                                                        renderInput={(params) => <TextField {...params} label="Select Partner" variant="outlined" size="small" />}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={6} md={2}>
+                                                    <FormControl fullWidth size="small">
+                                                        <InputLabel>Type</InputLabel>
+                                                        <Select
+                                                            value={partnerConfig.commissionType}
+                                                            label="Type"
+                                                            onChange={(e) => setPartnerConfig(prev => ({ ...prev, commissionType: e.target.value }))}
+                                                        >
+                                                            <MenuItem value="Percentage">%</MenuItem>
+                                                            <MenuItem value="Fixed">$</MenuItem>
+                                                        </Select>
+                                                    </FormControl>
+                                                </Grid>
+                                                <Grid item xs={6} md={2}>
+                                                    <TextField
+                                                        label="Commission"
+                                                        type="number"
+                                                        size="small"
+                                                        fullWidth
+                                                        value={partnerConfig.commissionRate}
+                                                        onChange={(e) => setPartnerConfig(prev => ({ ...prev, commissionRate: e.target.value }))}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={6} md={2}>
+                                                    <TextField
+                                                        label="Max/Week"
+                                                        type="number"
+                                                        size="small"
+                                                        fullWidth
+                                                        value={partnerConfig.maxBookingsPerWeek}
+                                                        onChange={(e) => setPartnerConfig(prev => ({ ...prev, maxBookingsPerWeek: e.target.value }))}
+                                                    />
+                                                </Grid>
+                                                <Grid item xs={6} md={2}>
+                                                </Grid>
+                                                <Grid item xs={6} md={2}>
+                                                    <Button
+                                                        variant="contained"
+                                                        onClick={handleAddPartner}
+                                                        fullWidth
+                                                        sx={{ height: '40px', borderRadius: '8px', textTransform: 'none' }}
+                                                    >
+                                                        Add
+                                                    </Button>
+                                                </Grid>
+                                            </Grid>
+                                        </div>
+
+                                        {/* List of Authorized Partners */}
+                                        {authorizedPartners.length > 0 ? (
+                                            <div className="border rounded-xl overflow-hidden">
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="bg-gray-50 text-gray-700 font-semibold border-b">
+                                                        <tr>
+                                                            <th className="px-4 py-3">Partner Name</th>
+                                                            <th className="px-4 py-3">Commission</th>
+                                                            <th className="px-4 py-3">Max/Week</th>
+                                                            <th className="px-4 py-3 text-right">Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y">
+                                                        {authorizedPartners.map((partner, idx) => (
+                                                            <tr key={idx} className="hover:bg-gray-50">
+                                                                <td className="px-4 py-3 font-medium text-gray-900">{partner.partnerName}</td>
+                                                                <td className="px-4 py-3">
+                                                                    <Chip label={`${partner.commissionRate}${partner.commissionType === "Percentage" ? "%" : "$"}`} size="small" color="success" variant="outlined" />
+                                                                </td>
+                                                                <td className="px-4 py-3">{partner.maxBookingsPerWeek}</td>
+                                                                <td className="px-4 py-3 text-right">
+                                                                    <IconButton size="small" onClick={() => handleRemovePartner(idx)} color="error">
+                                                                        <CloseIcon fontSize="small" />
+                                                                    </IconButton>
+                                                                </td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        ) : (
+                                            <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-400">
+                                                No specific partners authorized yet. All partners may see standard rates (if applicable).
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             )}

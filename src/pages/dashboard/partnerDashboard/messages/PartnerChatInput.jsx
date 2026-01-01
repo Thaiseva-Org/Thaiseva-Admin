@@ -38,6 +38,7 @@ const PartnerChatInput = ({ audioUrl, setAudioUrl }) => {
         text: "",
         senderId: user.uid,
         date: Timestamp.now(),
+        isRead: false,
       };
 
       await updateDoc(doc(chatsCollection, data.chatId), {
@@ -70,6 +71,7 @@ const PartnerChatInput = ({ audioUrl, setAudioUrl }) => {
       senderId: user.uid,
       date: Timestamp.now(),
       imageUrl: "",
+      isRead: false,
     };
 
     if (text.length > 0) {
@@ -161,6 +163,7 @@ const PartnerChatInput = ({ audioUrl, setAudioUrl }) => {
               fileUrl: fileURL,
               fileType,
               fileName: file.name,
+              isRead: false,
             }),
           });
         }

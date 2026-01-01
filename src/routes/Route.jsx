@@ -476,20 +476,20 @@ export const router = createBrowserRouter([
   /* =================================================
                      Onboarding Forms
     =================================================*/
-  // {
-  //   path: "/partner-onboarding",
-  //   element: (
-  //     <Suspense
-  //       fallback={
-  //         <div className="h-screen flex items-center">
-  //           <Loading />
-  //         </div>
-  //       }
-  //     >
-  //       <PartnerOnboarding />
-  //     </Suspense>
-  //   ),
-  // },
+  {
+    path: "/partner-onboarding",
+    element: (
+      <Suspense
+        fallback={
+          <div className="h-screen flex items-center">
+            <Loading />
+          </div>
+        }
+      >
+        <PartnerOnboarding />
+      </Suspense>
+    ),
+  },
   // {
   //   path: "/driver-onboarding",
   //   element: (

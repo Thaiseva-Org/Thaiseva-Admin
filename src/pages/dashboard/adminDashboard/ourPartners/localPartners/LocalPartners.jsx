@@ -34,6 +34,30 @@ import {
   localPartnersTotalPages,
 } from "../../../../../services/LocalRelated";
 
+const DetailRow = ({ label, value, isFullWidth }) => (
+  <Grid item xs={12} sm={isFullWidth ? 12 : 6}>
+    <div className="flex flex-col">
+      <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">
+        {label}
+      </span>
+      <span className="text-neutral-800 font-medium break-words">
+        {label.includes("Price") && "$"}
+        {value || "N/A"}
+        {label === "Discount" && "%"}
+      </span>
+    </div>
+  </Grid>
+);
+
+const SectionHeader = ({ label }) => (
+  <Grid item xs={12}>
+    <div className="flex items-center gap-4 py-3 mb-2">
+      <h2 className="text-lg font-bold text-primary-700 m-0">{label}</h2>
+      <div className="h-px bg-neutral-200 flex-grow"></div>
+    </div>
+  </Grid>
+);
+
 const LocalPartners = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
   const [page, setPage] = useState(0);
@@ -59,9 +83,11 @@ const LocalPartners = () => {
   const [partners, setPartners] = useState([]);
   const [matchedPartners, setMatchedPartners] = useState([]);
 
-  // useEffect(() => {
-  //   setMatchedPartners(partners);
-  // }, [partners]);
+  useEffect(() => {
+    if (partners.length > 0) {
+      setMatchedPartners(partners);
+    }
+  }, [partners]);
 
   useEffect(() => {
     if (isAdmin || isSubAdmin) {
@@ -184,28 +210,8 @@ const LocalPartners = () => {
     setRefetch((p) => !p);
   };
 
-  /* =============================================================
-              serach functionalities start
-  =============================================================*/
-  // const handleSearchByName = (text) => {
-  //   const matchingObjects = partners.filter((item) =>
-  //     item.personalInformation.fullName
-  //       .toLowerCase()
-  //       .includes(text.toLowerCase())
-  //   );
 
-  //   setMatchedPartners(matchingObjects);
-  // };
 
-  // const handleSearchByServiceArea = (text) => {
-  //   const matchingObjects = partners.filter((item) =>
-  //     item.serviceInformation.serviceArea
-  //       .toLowerCase()
-  //       .includes(text.toLowerCase())
-  //   );
-
-  //   setMatchedPartners(matchingObjects);
-  // };
 
   const handleSearch = (text) => {
     const matchingObjects = partners.filter(
@@ -220,58 +226,6 @@ const LocalPartners = () => {
     );
 
     setMatchedPartners(matchingObjects);
-  };
-  /* =============================================================
-              serach functionalities end
-  =============================================================*/
-
-  // const serviceCategories = [
-  //   "All",
-  //   "Official Work",
-  //   "Legal Administrative",
-  //   "Logistics and Transportation",
-  //   "Order Local Sim",
-  //   "Home Services",
-  //   "Order Pick Up",
-  //   "Others",
-  // ];
-
-  // useEffect(() => {
-  //   const fetchServiceCategories = async () => {
-  //     await getDoc(serviceCategoriesDoc).then((snapshot) => {
-  //       const data = snapshot.data();
-  //       setServiceCategories([
-  //         "All",
-  //         ...data.categories.map((cat) => cat.title),
-  //       ]);
-  //     });
-  //   };
-  //   fetchServiceCategories();
-  // }, []);
-
-  const textField = (label, value, is12) => {
-    return (
-      <Grid item xs={12} sm={label === "Description" || is12 ? 12 : 6}>
-        <div className="flex gap-2">
-          <p>
-            <span className="font-bold">{label}: </span>
-            {label.includes("Price") && "$"}
-            {value}
-            {label === "Discount" && "%"}
-          </p>
-        </div>
-      </Grid>
-    );
-  };
-
-  const headingTextField = (label) => {
-    return (
-      <Grid item xs={12} sm={12}>
-        <div className="flex justify-center mb-2">
-          <h2 className="font-bold text-center text-xl">{label}</h2>
-        </div>
-      </Grid>
-    );
   };
 
   return (
@@ -350,68 +304,7 @@ const LocalPartners = () => {
         to="/partner-onboarding"
         btnTitle="Add New Partner"
       />
-      {/* <Grid container spacing={0.5} sx={{ mb: 2, mt: 0.5 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth>
-            <InputLabel id="service-category-label">
-              Service Category
-            </InputLabel>
-            <Select
-              labelId="service-category-label"
-              label="Service Category"
-              defaultValue="Others"
-              onChange={(e) => setQueryCategory(e.target.value)}
-            >
-              <MenuItem value="Official Work">Official Work</MenuItem>
-              <MenuItem value="Legal Administrative">
-                Legal Administrative
-              </MenuItem>
-              <MenuItem value="Logistics and Transportation">
-                Logistics and Transportation
-              </MenuItem>
-              <MenuItem value="Order Local Sim">Order Local Sim</MenuItem>
-              <MenuItem value="Home Services">Home Services</MenuItem>
-              <MenuItem value="Order Pick Up">Order Pick Up</MenuItem>
-              <MenuItem value="Others">Others</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField
-            label="Search By Partner's Name"
-            type="search"
-            placeholder="Partner's Name"
-            fullWidth
-            onChange={(e) => handleSearchByName(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <TextField
-            label="Search By Service Area"
-            type="search"
-            placeholder="Type Location"
-            fullWidth
-            onChange={(e) => handleSearchByServiceArea(e.target.value)}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <div className="flex items-center h-full justify-end">
-            <Link
-              to="/partner-onboarding"
-              className="py-1 px-2 rounded bg-[var(--primary-bg)] text-white"
-              target="_blank"
-            >
-              Add new Partner
-            </Link>
-          </div>
-        </Grid>
-      </Grid> */}
 
-      {/* <p className="my-2 font-bold">
-        {matchedPartners.length + " " + queryText} partners available at{" "}
-        <span className="text-[var(--primary-bg)]"> {queryCategory} </span>
-        category
-      </p> */}
       {/* Partners Table */}
       <div className="bg-white rounded-xl shadow-md border border-neutral-200 overflow-hidden">
         {loading ? (
@@ -463,16 +356,15 @@ const LocalPartners = () => {
                                 className="px-4 py-4 text-center text-sm"
                               >
                                 {value === "Pending" ||
-                                value === "Verified" ||
-                                value === "Denied" ? (
+                                  value === "Verified" ||
+                                  value === "Denied" ? (
                                   <span
-                                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                                      value === "Pending"
-                                        ? "bg-warning-100 text-warning-700"
-                                        : value === "Verified"
+                                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${value === "Pending"
+                                      ? "bg-warning-100 text-warning-700"
+                                      : value === "Verified"
                                         ? "bg-success-100 text-success-700"
                                         : "bg-danger-100 text-danger-700"
-                                    }`}
+                                      }`}
                                   >
                                     {value === "Pending" && "⏳ "}
                                     {value === "Verified" && "✓ "}
@@ -531,10 +423,10 @@ const LocalPartners = () => {
                     padding: "12px 16px",
                   },
                   "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                    {
-                      color: "#6B7280",
-                      fontWeight: 500,
-                    },
+                  {
+                    color: "#6B7280",
+                    fontWeight: 500,
+                  },
                   "& .MuiTablePagination-select": {
                     borderRadius: "8px",
                     padding: "4px 8px",
@@ -562,173 +454,205 @@ const LocalPartners = () => {
         open={viewDetailsModal}
         onClose={handleClose}
         aria-labelledby="responsive-dialog-title"
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: "16px" },
+        }}
       >
-        <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">
-          Name: {partnerDetails?.personalInformation?.fullName}
-        </DialogTitle>
-        <IconButton
-          aria-label="close"
-          onClick={handleClose}
-          sx={{
-            position: "absolute",
-            right: 0,
-            top: 0,
-            color: "gray",
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
+        <div className="bg-primary-50 p-4 flex justify-between items-center border-b border-primary-100">
+          <DialogTitle
+            sx={{ m: 0, p: 0, fontSize: "1.25rem", fontWeight: "bold" }}
+            id="customized-dialog-title"
+            className="text-primary-800"
+          >
+            Partner Profile
+          </DialogTitle>
+          <IconButton
+            aria-label="close"
+            onClick={handleClose}
+            sx={{
+              color: "var(--primary-color)",
+              "&:hover": { backgroundColor: "rgba(0,0,0,0.05)" },
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </div>
 
-        {/* modal body */}
-        <DialogContent dividers sx={{ p: { xs: 2, md: 4 } }}>
-          {/* {headingTextField("Personal Information")} */}
-          <div className="flex sm:flex-row flex-col gap-2 justify-between my-4">
-            <ServiceCategoryBtn value={partnerDetails.serviceCategory} />
-
-            <img
-              src={partnerDetails?.personalInformation?.photoURL}
-              alt=""
-              className="w-36 h-36 border-2 border-[var(--primary-bg)] rounded-lg"
-            />
+        <DialogContent sx={{ p: { xs: 3, md: 4 } }}>
+          <div className="flex flex-col md:flex-row gap-6 mb-8 items-start">
+            <div className="flex-shrink-0 mx-auto md:mx-0">
+              <img
+                src={
+                  partnerDetails?.personalInformation?.photoURL ||
+                  "https://via.placeholder.com/150"
+                }
+                alt={partnerDetails?.personalInformation?.fullName}
+                className="w-32 h-32 object-cover rounded-2xl shadow-lg border-4 border-white"
+              />
+            </div>
+            <div className="flex-grow text-center md:text-left">
+              <h2 className="text-2xl font-bold text-neutral-800 mb-2">
+                {partnerDetails?.personalInformation?.fullName || "No Name"}
+              </h2>
+              <div className="flex flex-wrap gap-2 justify-center md:justify-start mb-3">
+                <ServiceCategoryBtn value={partnerDetails.serviceCategory} />
+                <span
+                  className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide text-white ${partnerDetails?.status === "Verified"
+                    ? "bg-success-500"
+                    : partnerDetails?.status === "Denied"
+                      ? "bg-danger-500"
+                      : "bg-warning-500"
+                    }`}
+                >
+                  {partnerDetails?.status || "Unknown"}
+                </span>
+              </div>
+              <p className="text-neutral-500 text-sm">
+                UID: {partnerDetails.uid}
+              </p>
+            </div>
           </div>
 
-          {/* Personal Information */}
-          {/* <SubTitle text="Personal Information" /> */}
-          {headingTextField("Personal Information")}
+          <Grid container spacing={3}>
+            {/* Personal Information */}
+            <SectionHeader label="Personal Information" />
+            <DetailRow
+              label="Full Name"
+              value={partnerDetails?.personalInformation?.fullName}
+            />
+            <DetailRow
+              label="Email Address"
+              value={partnerDetails?.personalInformation?.email}
+            />
+            <DetailRow
+              label="Phone Number"
+              value={partnerDetails?.personalInformation?.phoneNumber}
+            />
+            <DetailRow
+              label="Full Address"
+              value={partnerDetails?.personalInformation?.address}
+            />
 
-          {/* <Divider /> */}
-          <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
-            {textField("Name", partnerDetails?.personalInformation?.fullName)}
-            {textField("Email", partnerDetails?.personalInformation?.email)}
-            {textField(
-              "Phone Number",
-              partnerDetails?.personalInformation?.phoneNumber
-            )}
-            {textField("Address", partnerDetails?.personalInformation?.address)}
-            {/* {textField("Name", partnerDetails?.personalInformation?.fullName)}
-            {textField("Email", partnerDetails?.personalInformation?.email)}
-            {textField(
-              "Phone Number",
-              partnerDetails?.personalInformation?.phoneNumber
-            )}
-            {textField("Address", partnerDetails?.personalInformation?.address)} */}
-          </Grid>
-
-          {/* Service Information */}
-          {/* <SubTitle text="Service Information" /> */}
-          {headingTextField("Service Information")}
-
-          {/* <Divider /> */}
-          <Grid container spacing={0.5} sx={{ mb: 2, mt: 0.5 }}>
-            {textField(
-              "Service Area",
-              partnerDetails?.serviceInformation?.serviceArea
-            )}
+            {/* Service Information */}
+            <SectionHeader label="Service Information" />
+            <DetailRow
+              label="Service Area"
+              value={partnerDetails?.serviceInformation?.serviceArea}
+            />
 
             {(partnerDetails.serviceCategory === "Legal Administrative" ||
-              partnerDetails.serviceCategory === "Official Work") &&
-              textField(
-                "Education",
-                partnerDetails?.serviceInformation?.educationalBackground
+              partnerDetails.serviceCategory === "Official Work") && (
+                <DetailRow
+                  label="Education"
+                  value={partnerDetails?.serviceInformation?.educationalBackground}
+                />
               )}
 
-            {(partnerDetails.serviceCategory ===
-              "Logistics and Transportation" ||
+            {(partnerDetails.serviceCategory === "Logistics and Transportation" ||
               partnerDetails.serviceCategory === "Order Pick Up") && (
-              <>
-                {textField(
-                  "Number of Vehicles",
-                  partnerDetails?.serviceInformation?.numberPlate
-                )}
+                <>
+                  <DetailRow
+                    label="Number of Vehicles"
+                    value={partnerDetails?.serviceInformation?.numberPlate}
+                  />
+                  <Grid item xs={12} sm={6}>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-1">
+                        Vehicles List
+                      </span>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {partnerDetails?.serviceInformation?.vechicleNames?.length >
+                          0 ? (
+                          partnerDetails?.serviceInformation?.vechicleNames?.map(
+                            (item, idx) => (
+                              <span
+                                key={idx}
+                                className="bg-neutral-100 text-neutral-700 py-1 px-3 rounded-md text-sm border border-neutral-200"
+                              >
+                                {item}
+                              </span>
+                            )
+                          )
+                        ) : (
+                          <span className="text-neutral-400 italic">
+                            No vehicles listed
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </Grid>
+                </>
+              )}
 
-                <Grid item xs={12} sm={6}>
-                  <h4 className="font-bold">Name of Vehicles: </h4>
-                  <div className="flex flex-wrap gap-1">
-                    {partnerDetails?.serviceInformation?.vechicleNames?.map(
-                      (item) => (
-                        <span
-                          key={item}
-                          className="bg-white py-1 px-2 rounded border border-[var(--primary-bg)]"
-                        >
-                          {item}
-                        </span>
-                      )
-                    )}
+            {/* Payment Information */}
+            <SectionHeader label="Payment Information" />
+            <DetailRow
+              label="Bank Name"
+              value={partnerDetails?.paymentInformation?.bankName}
+            />
+            <DetailRow
+              label="Account Number"
+              value={partnerDetails?.paymentInformation?.accountNumber}
+            />
+            <DetailRow
+              label="Bank Branch/Location"
+              value={partnerDetails?.paymentInformation?.bankAddress}
+            />
+
+            {/* Admin Actions */}
+            <SectionHeader label="Administrative Actions" />
+            <Grid item xs={12}>
+              <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-neutral-700">
+                      Change Partnership Status:
+                    </span>
                   </div>
-                </Grid>
-              </>
-            )}
-          </Grid>
-
-          {/* Payment Information */}
-          {/* <SubTitle text="Payment Information" /> */}
-          {headingTextField("Payment Information")}
-
-          <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
-            {textField(
-              "Bank Name",
-              partnerDetails?.paymentInformation?.bankName
-            )}
-            {textField(
-              "Account Number",
-              partnerDetails?.paymentInformation?.accountNumber
-            )}
-            {textField(
-              "Bank Location",
-              partnerDetails?.paymentInformation?.bankAddress
-            )}
-          </Grid>
-
-          {/* Permission */}
-          {/* <SubTitle text="Permission" /> */}
-          {headingTextField("Permission")}
-
-          <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
-            <Grid item xs={12} sm={6} md={6}>
-              <span className="font-bold ">Current Status : </span>{" "}
-              <span
-                className={`${
-                  (partnerDetails?.status === "Pending" &&
-                    "bg-orange-300 text-black") ||
-                  (partnerDetails?.status === "Verified" && "bg-green-500") ||
-                  (partnerDetails?.status === "Denied" && "bg-red-600")
-                } text-white  py-1 px-2 rounded`}
-              >
-                {partnerDetails?.status}
-              </span>
-            </Grid>
-            <Grid item xs={12} sm={6} md={6}>
-              <FormControl fullWidth>
-                <InputLabel id="status-label ">Change Status</InputLabel>
-                <Select
-                  labelId="status-label"
-                  label="Change Status"
-                  defaultValue={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <MenuItem value="Pending">Pending</MenuItem>
-                  <MenuItem value="Verified">Verified</MenuItem>
-                  <MenuItem value="Denied">Denied</MenuItem>
-                </Select>
-              </FormControl>
+                  <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <FormControl
+                      size="small"
+                      sx={{ minWidth: 200, backgroundColor: "white" }}
+                    >
+                      <InputLabel id="status-label">Select Status</InputLabel>
+                      <Select
+                        labelId="status-label"
+                        label="Select Status"
+                        value={status || "Pending"}
+                        onChange={(e) => setStatus(e.target.value)}
+                      >
+                        <MenuItem value="Pending">Pending</MenuItem>
+                        <MenuItem value="Verified">Verified</MenuItem>
+                        <MenuItem value="Denied">Denied</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <Button
+                      variant="contained"
+                      onClick={() => handleChangeStatus(partnerDetails.uid)}
+                      sx={{
+                        background: "linear-gradient(to right, #3b82f6, #2563eb)",
+                        textTransform: "none",
+                        fontWeight: "bold",
+                        px: 4,
+                        py: 1,
+                        color: "white",
+                        boxShadow: "0 4px 6px -1px rgba(59, 130, 246, 0.5)",
+                        "&:hover": {
+                          background: "linear-gradient(to right, #2563eb, #1d4ed8)",
+                          boxShadow: "0 10px 15px -3px rgba(59, 130, 246, 0.6)",
+                        },
+                      }}
+                    >
+                      Update Status
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions>
-          <Button
-            variant="contained"
-            autoFocus
-            sx={{
-              bgcolor: "var(--button-bg-color)",
-              color: "white",
-              hover: "none",
-            }}
-            className="add-new-btn"
-            onClick={() => handleChangeStatus(partnerDetails.uid)}
-          >
-            Save
-          </Button>
-        </DialogActions>
       </Dialog>
     </div>
   );

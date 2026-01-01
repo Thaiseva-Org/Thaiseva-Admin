@@ -494,11 +494,11 @@ const PartnerProvider = ({ children }) => {
                 ...data,
               };
             });
-            // Sort client-side
+            // Sort client-side (latest first)
             list.sort((a, b) => {
-              const timeA = a.orderedAt?.seconds || a.timestamp?.seconds || 0;
-              const timeB = b.orderedAt?.seconds || b.timestamp?.seconds || 0;
-              return timeB - timeA;
+              const timeA = a.orderedAt?.seconds || a.createdAt?.seconds || a.timestamp?.seconds || 0;
+              const timeB = b.orderedAt?.seconds || b.createdAt?.seconds || b.timestamp?.seconds || 0;
+              return timeB - timeA; // Descending order (newest first)
             });
             setTravelBookings(list);
             setLoadingData(false);

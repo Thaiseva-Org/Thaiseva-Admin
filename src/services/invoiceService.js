@@ -1,4 +1,4 @@
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+ import { doc, getDoc, updateDoc } from "firebase/firestore";
 import {
     carBookingsCollection,
     roomBookingCollection,
@@ -51,6 +51,6 @@ export const ensureInvoiceIdForBooking = async (category, id, currentData) => {
         };
     } catch (error) {
         console.error("Error ensuring invoice ID:", error);
-        return currentData; // Return original on error to at least show something
+        return currentData;
     }
 };

@@ -20,12 +20,14 @@ import {
     Checkbox,
     Tooltip
 } from "@mui/material";
+import { Autocomplete } from "@react-google-maps/api";
 import { useEffect, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
-import { MdEdit, MdDelete, MdSearch } from "react-icons/md";
+import { MdEdit, MdDelete, MdSearch, MdCheckCircle, MdCancel, MdPending, MdLocalOffer, MdAccountBalance } from "react-icons/md";
+import PartnerPackagesModal from "./PartnerPackagesModal";
 import PageHeading from "../../../../components/PageHeading";
 import { getDocs, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore";
-import { managePartnersCollection } from "../../../../firebase/firebase.config";
+import { generalPartnersCollection } from "../../../../firebase/firebase.config";
 import LoadingContent from "../../../../components/LoadingContent";
 import { successNotification, errorNotification, askingForDelete } from "../../../../utils/utils";
 
@@ -36,11 +38,17 @@ const ManagePartners = () => {
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [filteredPartners, setFilteredPartners] = useState([]);
 
+
     // Modal State
     const [openDialog, setOpenDialog] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
 
+    // Package Modal State
+    const [packageModalOpen, setPackageModalOpen] = useState(false);
+    const [selectedPartnerForPackage, setSelectedPartnerForPackage] = useState(null);
+
     // Form State
+
     const initialFormState = {
         fullName: "",
         email: "",
@@ -48,10 +56,18 @@ const ManagePartners = () => {
         address: "",
         serviceCategories: [],
         serviceArea: "",
+        serviceLocation: null,
+        bankDetails: {
+            bankName: "",
+            accountNumber: "",
+            accountName: "",
+            branchDetails: ""
+        },
         commissions: {}, // Map: { "CategoryName": { type: "Percentage", rate: 0 } }
         status: "Pending"
     };
     const [formData, setFormData] = useState(initialFormState);
+    const [searchBox, setSearchBox] = useState(null);
     const [selectedPartnerId, setSelectedPartnerId] = useState(null);
 
     useEffect(() => {
@@ -61,7 +77,7 @@ const ManagePartners = () => {
     const fetchPartners = async () => {
         setLoading(true);
         try {
-            const snapshot = await getDocs(managePartnersCollection);
+            const snapshot = await getDocs(generalPartnersCollection);
             const list = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -125,6 +141,8 @@ const ManagePartners = () => {
                 address: partner.personalInformation?.address || "",
                 serviceCategories: categories,
                 serviceArea: partner.serviceInformation?.serviceArea || "",
+                serviceLocation: partner.serviceInformation?.location || null,
+                bankDetails: partner.bankDetails || { bankName: "", accountNumber: "", accountName: "", branchDetails: "" },
                 commissions: loadedCommissions,
                 status: partner.status || "Pending"
             });
@@ -139,6 +157,11 @@ const ManagePartners = () => {
     const handleCloseDialog = () => {
         setOpenDialog(false);
         setFormData(initialFormState);
+    };
+
+    const handleManagePackages = (partner) => {
+        setSelectedPartnerForPackage(partner);
+        setPackageModalOpen(true);
     };
 
     const handleInputChange = (e) => {
@@ -185,6 +208,39 @@ const ManagePartners = () => {
         }));
     };
 
+    const handleBankChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({
+            ...prev,
+            bankDetails: {
+                ...prev.bankDetails,
+                [name]: value
+            }
+        }));
+    };
+
+    const onPlaceLoad = (ref) => {
+        setSearchBox(ref);
+    };
+
+    const onPlaceChanged = () => {
+        if (searchBox) {
+            const place = searchBox.getPlace();
+            if (place.geometry) {
+                const location = {
+                    lat: place.geometry.location.lat(),
+                    lng: place.geometry.location.lng(),
+                };
+                const address = place.formatted_address;
+                setFormData(prev => ({
+                    ...prev,
+                    serviceArea: address,
+                    serviceLocation: location
+                }));
+            }
+        }
+    };
+
     const handleSubmit = async () => {
         if (!formData.fullName || !formData.email) {
             alert("Name and Email are required");
@@ -203,7 +259,9 @@ const ManagePartners = () => {
                 },
                 serviceInformation: {
                     serviceArea: formData.serviceArea,
+                    location: formData.serviceLocation
                 },
+                bankDetails: formData.bankDetails,
                 serviceCategory: formData.serviceCategories,
                 commissions: formData.commissions, // Save the detailed map
                 status: formData.status,
@@ -211,8 +269,18 @@ const ManagePartners = () => {
             };
 
             if (isEditMode && selectedPartnerId) {
-                const partnerRef = doc(managePartnersCollection, selectedPartnerId);
+                const partnerRef = doc(generalPartnersCollection, selectedPartnerId);
                 await updateDoc(partnerRef, partnerData);
+
+                // Sync status to Users collection
+                try {
+                    const { usersCollection } = await import("../../../../firebase/firebase.config");
+                    const userRef = doc(usersCollection, selectedPartnerId);
+                    await updateDoc(userRef, { status: formData.status });
+                } catch (syncError) {
+                    console.warn("Failed to sync status to users collection:", syncError);
+                }
+
                 successNotification("Partner updated successfully");
             } else {
                 const newDocPayload = {
@@ -220,7 +288,7 @@ const ManagePartners = () => {
                     createdAt: serverTimestamp(),
                     uid: ""
                 };
-                const docRef = await addDoc(managePartnersCollection, newDocPayload);
+                const docRef = await addDoc(generalPartnersCollection, newDocPayload);
                 await updateDoc(docRef, { uid: docRef.id });
                 successNotification("New partner added successfully");
             }
@@ -239,7 +307,7 @@ const ManagePartners = () => {
         askingForDelete().then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    await deleteDoc(doc(managePartnersCollection, id));
+                    await deleteDoc(doc(generalPartnersCollection, id));
                     setPartners(prev => prev.filter(p => p.id !== id));
                     setFilteredPartners(prev => prev.filter(p => p.id !== id));
                     successNotification("Partner deleted successfully");
@@ -260,23 +328,36 @@ const ManagePartners = () => {
         setPage(0);
     };
 
+    const getStatusChip = (status) => {
+        switch (status) {
+            case "Approved":
+            case "Verified":
+                return <Chip icon={<MdCheckCircle />} label="Approved" color="success" size="small" variant="outlined" />;
+            case "Rejected":
+            case "Denied":
+                return <Chip icon={<MdCancel />} label="Rejected" color="error" size="small" variant="outlined" />;
+            default:
+                return <Chip icon={<MdPending />} label="Pending" color="warning" size="small" variant="outlined" />;
+        }
+    };
+
     const ServiceCategories = [
-        "Hotel", "Restaurant", "Driver", "Official Work", "Legal Administrative",
-        "Logistics and Transportation", "Order Local Sim", "Home Services", "Order Pick Up", "Others"
+        "Hotel", "Sightseeing Packages"
     ];
 
     const columns = [
-        { id: "partner", label: "Partner", width: "30%" },
+        { id: "partner", label: "Partner", width: "25%" },
         { id: "category", label: "Category", width: "20%" },
+        { id: "status", label: "Status", width: "15%" },
         { id: "commission", label: "Commission", width: "20%" },
-        { id: "contact", label: "Contact", width: "20%" },
-        { id: "actions", label: "Actions", width: "10%" },
+        { id: "contact", label: "Contact", width: "15%" },
+        { id: "actions", label: "Actions", width: "5%" },
     ];
 
     return (
         <div className="animate-fade-in pb-12">
             <PageHeading
-                text="Manage Partners"
+                text="General Partners"
                 subtitle="Create, edit, and manage all partner details"
                 icon="👥"
             />
@@ -372,7 +453,7 @@ const ManagePartners = () => {
                                 <tbody className="divide-y divide-neutral-200">
                                     {filteredPartners.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                                            <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                                                 <div className="flex flex-col items-center justify-center text-neutral-400">
                                                     <span className="text-6xl mb-4">👥</span>
                                                     <p className="text-lg font-medium text-neutral-500">
@@ -423,6 +504,9 @@ const ManagePartners = () => {
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                    {getStatusChip(partner.status)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-center">
                                                     <div className="flex flex-col gap-1 items-center">
                                                         {partner.commissions ? (
                                                             Object.entries(partner.commissions).slice(0, 2).map(([cat, rule], idx) => (
@@ -454,6 +538,22 @@ const ManagePartners = () => {
 
                                                 <td className="px-6 py-4 whitespace-nowrap text-center">
                                                     <div className="flex items-center justify-center gap-3">
+                                                        <Tooltip title="Manage Packages" arrow>
+                                                            <IconButton
+                                                                onClick={() => handleManagePackages(partner)}
+                                                                sx={{
+                                                                    color: '#3b82f6',
+                                                                    border: '1px solid #93c5fd',
+                                                                    bgcolor: '#eff6ff',
+                                                                    '&:hover': { bgcolor: '#dbeafe', borderColor: '#3b82f6' },
+                                                                    transition: 'all 0.2s',
+                                                                    width: 36,
+                                                                    height: 36
+                                                                }}
+                                                            >
+                                                                <MdLocalOffer size={18} />
+                                                            </IconButton>
+                                                        </Tooltip>
                                                         <Tooltip title="Edit Partner" arrow>
                                                             <IconButton
                                                                 onClick={() => handleOpenDialog(partner)}
@@ -615,6 +715,8 @@ const ManagePartners = () => {
                             />
                         </Grid>
 
+
+
                         <Grid item xs={12}>
                             <h3 className="font-bold text-gray-700 text-sm uppercase mb-2 mt-2">Service Details</h3>
                         </Grid>
@@ -645,13 +747,63 @@ const ManagePartners = () => {
                             </FormControl>
                         </Grid>
                         <Grid item xs={12} sm={6}>
+                            <Autocomplete onLoad={onPlaceLoad} onPlaceChanged={onPlaceChanged}>
+                                <TextField
+                                    label="Service Area"
+                                    name="serviceArea"
+                                    fullWidth
+                                    value={formData.serviceArea}
+                                    onChange={handleInputChange}
+                                    size="small"
+                                    placeholder="Search location on Google Maps"
+                                />
+                            </Autocomplete>
+                        </Grid>
+
+                        <Grid item xs={12}>
+                            <h3 className="font-bold text-gray-700 text-sm uppercase mb-2 mt-2">Bank Account Details</h3>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
                             <TextField
-                                label="Service Area"
-                                name="serviceArea"
+                                label="Bank Name"
+                                name="bankName"
                                 fullWidth
-                                value={formData.serviceArea}
-                                onChange={handleInputChange}
                                 size="small"
+                                value={formData.bankDetails?.bankName || ""}
+                                onChange={handleBankChange}
+                                InputProps={{
+                                    startAdornment: <InputAdornment position="start"><MdAccountBalance className="text-gray-400" /></InputAdornment>
+                                }}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                            <TextField
+                                label="Account Number"
+                                name="accountNumber"
+                                fullWidth
+                                size="small"
+                                value={formData.bankDetails?.accountNumber || ""}
+                                onChange={handleBankChange}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                            <TextField
+                                label="Account Holder Name"
+                                name="accountName"
+                                fullWidth
+                                size="small"
+                                value={formData.bankDetails?.accountName || ""}
+                                onChange={handleBankChange}
+                            />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                            <TextField
+                                label="Branch / Swift Code"
+                                name="branchDetails"
+                                fullWidth
+                                size="small"
+                                value={formData.bankDetails?.branchDetails || ""}
+                                onChange={handleBankChange}
                             />
                         </Grid>
 
@@ -720,6 +872,13 @@ const ManagePartners = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            <PartnerPackagesModal
+                open={packageModalOpen}
+                onClose={() => setPackageModalOpen(false)}
+                partnerId={selectedPartnerForPackage?.id}
+                partnerName={selectedPartnerForPackage?.personalInformation?.fullName}
+            />
         </div>
     );
 };

@@ -29,6 +29,7 @@ const fetchBookingsTotalPages = async (
 
   let collectionRef;
   let timestampField;
+  let isSightseeingBooking = false;
 
   switch (category) {
     case "Taxi Bookings":
@@ -46,17 +47,40 @@ const fetchBookingsTotalPages = async (
     default:
       collectionRef = travelBookingCollection;
       timestampField = "orderedAt";
+      isSightseeingBooking = true;
   }
 
-  let queryToUse = query(
-    collectionRef,
-    where(timestampField, ">=", todayStart),
-    where(timestampField, "<=", todayEnd),
-    orderBy(timestampField, "desc")
-  );
+  // For sightseeing bookings, fetch all and count client-side
+  if (isSightseeingBooking) {
+    const queryToUse = query(collectionRef);
+    const result = await getDocs(queryToUse);
 
-  const pages = await getCountFromServer(queryToUse);
-  setTotalPages(Math.ceil(pages.data().count));
+    // Filter by date range client-side
+    const filteredCount = result.docs.filter((doc) => {
+      const data = doc.data();
+      const timestamp = data.orderedAt || data.createdAt || data.timestamp;
+      if (!timestamp) return false;
+
+      const bookingDate = timestamp.seconds
+        ? new Date(timestamp.seconds * 1000)
+        : new Date(timestamp);
+
+      return bookingDate >= todayStart && bookingDate <= todayEnd;
+    }).length;
+
+    setTotalPages(filteredCount);
+  } else {
+    // Other booking types can use server-side counting
+    let queryToUse = query(
+      collectionRef,
+      where(timestampField, ">=", todayStart),
+      where(timestampField, "<=", todayEnd),
+      orderBy(timestampField, "desc")
+    );
+
+    const pages = await getCountFromServer(queryToUse);
+    setTotalPages(Math.ceil(pages.data().count));
+  }
 };
 
 const fetchBookings = async (
@@ -81,6 +105,7 @@ const fetchBookings = async (
 
   let collectionRef;
   let timestampField;
+  let isSightseeingBooking = false;
 
   switch (category) {
     case "Taxi Bookings":
@@ -97,43 +122,83 @@ const fetchBookings = async (
       break;
     default:
       collectionRef = travelBookingCollection;
-      timestampField = "orderedAt";
+      timestampField = "orderedAt"; // Primary field for old bookings
+      isSightseeingBooking = true;
   }
 
-  let queryToUse = query(
-    collectionRef,
-    where(timestampField, ">=", todayStart),
-    where(timestampField, "<=", todayEnd),
-    orderBy(timestampField, "desc")
-  );
+  // For sightseeing bookings, we need to fetch all and filter/sort client-side
+  // because they use different timestamp fields (orderedAt vs createdAt)
+  let queryToUse;
 
-  if (pageSize) {
+  if (isSightseeingBooking) {
+    // Fetch all sightseeing bookings without date filter (will filter client-side)
+    queryToUse = query(collectionRef);
+  } else {
+    // Other booking types can use server-side filtering and sorting
     queryToUse = query(
       collectionRef,
       where(timestampField, ">=", todayStart),
       where(timestampField, "<=", todayEnd),
-      orderBy(timestampField, "desc"),
-      limit(pageSize)
+      orderBy(timestampField, "desc")
     );
-  }
 
-  if (page > 0 && lastDoc[page - 1]) {
-    queryToUse = query(
-      collectionRef,
-      where(timestampField, ">=", todayStart),
-      where(timestampField, "<=", todayEnd),
-      orderBy(timestampField, "desc"),
-      startAfter(lastDoc[page - 1]),
-      limit(pageSize)
-    );
+    if (pageSize) {
+      queryToUse = query(
+        collectionRef,
+        where(timestampField, ">=", todayStart),
+        where(timestampField, "<=", todayEnd),
+        orderBy(timestampField, "desc"),
+        limit(pageSize)
+      );
+    }
+
+    if (page > 0 && lastDoc[page - 1]) {
+      queryToUse = query(
+        collectionRef,
+        where(timestampField, ">=", todayStart),
+        where(timestampField, "<=", todayEnd),
+        orderBy(timestampField, "desc"),
+        startAfter(lastDoc[page - 1]),
+        limit(pageSize)
+      );
+    }
   }
 
   try {
     const result = await getDocs(queryToUse);
-    const list = result.docs.map((doc) => ({
+    let list = result.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
+
+    // Client-side filtering and sorting for sightseeing bookings
+    if (isSightseeingBooking) {
+      // Filter by date range
+      list = list.filter((booking) => {
+        const timestamp = booking.orderedAt || booking.createdAt || booking.timestamp;
+        if (!timestamp) return false;
+
+        const bookingDate = timestamp.seconds
+          ? new Date(timestamp.seconds * 1000)
+          : new Date(timestamp);
+
+        return bookingDate >= todayStart && bookingDate <= todayEnd;
+      });
+
+      // Sort by timestamp (latest first)
+      list.sort((a, b) => {
+        const timeA = a.orderedAt?.seconds || a.createdAt?.seconds || a.timestamp?.seconds || 0;
+        const timeB = b.orderedAt?.seconds || b.createdAt?.seconds || b.timestamp?.seconds || 0;
+        return timeB - timeA; // Descending order (newest first)
+      });
+
+      // Apply pagination client-side
+      if (pageSize) {
+        const startIndex = page * pageSize;
+        const endIndex = startIndex + pageSize;
+        list = list.slice(startIndex, endIndex);
+      }
+    }
 
     const lastDoc =
       result.docs.length > 0 ? result.docs[result.docs.length - 1] : null;

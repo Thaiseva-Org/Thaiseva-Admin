@@ -291,6 +291,6 @@ export const partnerManagementLinks = [
   {
     icon: <ManageAccountsIcon />,
     link: "/dashboard/manage-partners",
-    label: "Manage Partners",
+    label: "General Partners",
   },
 ];

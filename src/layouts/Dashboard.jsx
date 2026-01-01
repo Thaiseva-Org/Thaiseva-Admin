@@ -705,7 +705,7 @@ function Dashboard(props) {
             )} */}
 
             <div className="text-[var(--drawer-heading-color)] border-b-2 mt-4 mb-2 border-[var(--drawer-heading-color)] pl-2 text-lg font-bold  py-1 z-10 overflow-hidden">
-              Partner Management
+              General Partners
             </div>
             {partnerManagementLinks?.map((item) => (
               <Link to={item?.link} key={item?.link}>
