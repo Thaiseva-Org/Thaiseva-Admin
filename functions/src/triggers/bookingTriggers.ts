@@ -43,8 +43,12 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
     }
 
     const packageData = packageDocSnapshot.data();
-    const defaultLimit = parseInt(packageData?.maxBookingsPerWeek) || 200;
-    let limit = defaultLimit;
+
+    // FETCH GLOBAL SETTINGS
+    const settingsDoc = await db.collection("settings").doc("sightseeingConfig").get();
+    const globalLimit = settingsDoc.exists ? (parseInt(settingsDoc.data()?.globalWeeklyLimit) || 200) : 200;
+
+    let limit = globalLimit;
 
     // Logic for Partner vs Own
     if (partnerId && packageData?.authorizedPartners && Array.isArray(packageData.authorizedPartners)) {
@@ -55,10 +59,10 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
         limit = parseInt(authorizedPartner.maxBookingsPerWeek);
         logger.info(`Using Partner Limit for ${partnerId}: ${limit}`);
       } else {
-        logger.info(`Partner ${partnerId} has no specific limit, using default: ${limit}`);
+        logger.info(`Partner ${partnerId} has no specific limit, using Global Limit: ${limit}`);
       }
     } else {
-      logger.info(`Own Booking, using default limit: ${limit}`);
+      logger.info(`Own Booking, using Global Limit: ${limit}`);
     }
 
     // 2. Count existing bookings for this week

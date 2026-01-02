@@ -284,7 +284,6 @@ const AddSightseeingPackage = () => {
                     setSights(existingData.sights || []);
                     setSpecialRates(existingData.specialRates || {
                         seasonalPricing: { enabled: false, note: "" },
-                        seasonalPricing: { enabled: false, note: "" },
                         earlyBirdDiscount: { enabled: false, discountPercent: 0, description: "" }
                     });
 
@@ -526,8 +525,7 @@ const AddSightseeingPackage = () => {
             coverPhoto: coverPhotoURL,
             timestamp,
             images: arrayData?.pictures || [],
-            hasAuthorizedPartners: authorizedPartners.length > 0,
-            maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
+            hasAuthorizedPartners: authorizedPartners.length > 0
         };
 
         const baseStruct = getEmptySightseeingPackage();
@@ -940,16 +938,16 @@ const AddSightseeingPackage = () => {
                                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                                         <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">⚙️ Booking Configuration</Typography>
                                         <Grid container spacing={4}>
-                                            <Grid item xs={12} md={6}>
-                                                <TextField
-                                                    label="General (Non-Partner) Weekly Capacity"
-                                                    type="number"
-                                                    fullWidth
-                                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                                    {...register("maxBookingsPerWeek", { required: true, min: 1 })}
-                                                    defaultValue={packageDetails.maxBookingsPerWeek}
-                                                    helperText="Auto-booking limit for direct bookings not assigned to specific partners"
-                                                />
+                                            <Grid item xs={12}>
+                                                <div className="p-4 bg-blue-50 text-blue-800 rounded-xl border border-blue-100 flex items-center gap-3">
+                                                    <span className="text-2xl">ℹ️</span>
+                                                    <div>
+                                                        <Typography variant="subtitle1" fontWeight="bold">Global Weekly Limit Applied</Typography>
+                                                        <Typography variant="body2">
+                                                            All packages currently use the global weekly booking limit configured in the "Sightseeing Packages" main page settings.
+                                                        </Typography>
+                                                    </div>
+                                                </div>
                                             </Grid>
                                         </Grid>
                                     </div>

@@ -13,7 +13,9 @@ import {
   Box,
   InputAdornment,
   TextField,
-  Button
+  Button,
+  Tabs,
+  Tab
 } from "@mui/material";
 import {
   collection,
@@ -44,6 +46,8 @@ import {
   deleteNotification,
 } from "../../../../../utils/utils";
 import AddSightseeingSelectionModal from "./AddSightseeingSelectionModal";
+import SightseeingSettingsModal from "./SightseeingSettingsModal";
+import { MdSettings } from "react-icons/md";
 
 const TravelServices = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
@@ -57,7 +61,14 @@ const TravelServices = () => {
   const [lastDocs, setLastDocs] = useState([]);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openSelectionModal, setOpenSelectionModal] = useState(false);
+  const [openSettingsModal, setOpenSettingsModal] = useState(false);
+
   const [viewMode, setViewMode] = useState('list');
+  const [tabValue, setTabValue] = useState(0);
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
+  };
 
   // fetching all services
   const fetchTotalPages = async () => {
@@ -121,6 +132,11 @@ const TravelServices = () => {
       width: "10%",
     },
     {
+      id: "maxBookingsPerWeek",
+      label: "Capacity/Week",
+      width: "10%",
+    },
+    {
       id: "price",
       label: "Price",
       width: "10%",
@@ -148,7 +164,8 @@ const TravelServices = () => {
     rating,
     id,
     coverPhoto,
-    hasAuthorizedPartners
+    hasAuthorizedPartners,
+    maxBookingsPerWeek
   ) {
     return {
       title,
@@ -160,7 +177,8 @@ const TravelServices = () => {
       rating,
       id,
       coverPhoto,
-      hasAuthorizedPartners
+      hasAuthorizedPartners,
+      maxBookingsPerWeek
     };
   }
 
@@ -176,7 +194,8 @@ const TravelServices = () => {
       service.rating,
       service.id,
       service.coverPhoto || service.images?.[0] || 'https://via.placeholder.com/300x200?text=No+Image',
-      service.hasAuthorizedPartners || false
+      service.hasAuthorizedPartners || false,
+      service.maxBookingsPerWeek || 200
     );
   });
 
@@ -543,6 +562,15 @@ const TravelServices = () => {
             onChange={(e) => handleSearch(e.target.value)}
           />
 
+          <Tooltip title="Global Settings">
+            <button
+              className="p-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center"
+              onClick={() => setOpenSettingsModal(true)}
+            >
+              <MdSettings size={24} />
+            </button>
+          </Tooltip>
+
           <button
             className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap"
             onClick={handleAddNewPackage}
@@ -552,21 +580,32 @@ const TravelServices = () => {
         </div>
       </div>
 
+      {/* Tabs for Separation */}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+        <Tabs value={tabValue} onChange={handleTabChange} aria-label="package-tabs">
+          <Tab label={`Our Packages (${ourRows.length})`} />
+          <Tab label={`Partner Packages (${partnerRows.length})`} />
+        </Tabs>
+      </Box>
+
       {/* Modern Table Container - Replaced with Sections */}
       <div>
         {loadingServices ? (
           loadingContent
         ) : (
           <>
-            {ourRows.length === 0 && partnerRows.length === 0 && (
+            {ourRows.length === 0 && partnerRows.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-neutral-400 py-12 bg-white rounded-2xl border border-neutral-200">
                 <span className="text-6xl mb-4">🗺️</span>
                 <p className="text-lg font-medium text-neutral-500">No Packages Found</p>
                 <p className="text-sm text-neutral-400 mt-2">Create your first sightseeing package.</p>
               </div>
+            ) : (
+              <>
+                {tabValue === 0 && renderPackageList(ourRows, "🏢 Our Packages")}
+                {tabValue === 1 && renderPackageList(partnerRows, "🤝 Partner Packages")}
+              </>
             )}
-            {renderPackageList(ourRows, "🏢 Our Packages")}
-            {renderPackageList(partnerRows, "🤝 Partner Packages")}
           </>
         )}
       </div>    {/* Modern Pagination */}
@@ -604,6 +643,10 @@ const TravelServices = () => {
         />
       </div>
 
+      <SightseeingSettingsModal
+        open={openSettingsModal}
+        onClose={() => setOpenSettingsModal(false)}
+      />
       <AddSightseeingSelectionModal
         open={openSelectionModal}
         onClose={() => setOpenSelectionModal(false)}

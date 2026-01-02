@@ -55,6 +55,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         address: "",
         ratings: "",
         numberOfReviews: "",
+        totalRooms: "",
     });
     const [arrayData, setArrayData] = useState({
         amenities: [],
@@ -129,6 +130,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             address: "",
             ratings: "",
             numberOfReviews: "",
+            totalRooms: "",
         });
         setCoverPhotoURL("");
         setArrayData({
@@ -149,6 +151,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             period,
             numberOfGuests,
             address,
+            totalRooms
         } = data;
 
         let id;
@@ -177,7 +180,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         const packageDetails = {
             ...packageInfo,
             description,
-            numberOfGuests,
+            numberOfGuests: parseInt(numberOfGuests),
+            totalRooms: parseInt(totalRooms) || 5,
             amenities: arrayData?.amenities,
             pictures: arrayData?.pictures,
             location: hotelLocation,
@@ -216,6 +220,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             numberOfGuests: room.numberOfGuests,
             ratings: room.ratings,
             numberOfReviews: room.numberOfReviews,
+            totalRooms: room.totalRooms,
         });
         setCoverPhotoURL(room.coverPhoto);
         setArrayData({
@@ -231,6 +236,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             discount: room.discount,
             period: room.period,
             numberOfGuests: room.numberOfGuests,
+            totalRooms: room.totalRooms,
         });
 
         setPricingOverrides(room.pricingOverrides || []);
@@ -503,6 +509,13 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                                 "numberOfGuests",
                                 "Number Of Guests",
                                 roomDetails?.numberOfGuests
+                            )}
+
+                            {textField(
+                                "Total Rooms Available",
+                                "totalRooms",
+                                "Total inventory count",
+                                roomDetails?.totalRooms
                             )}
 
                             <Grid item xs={12}>
