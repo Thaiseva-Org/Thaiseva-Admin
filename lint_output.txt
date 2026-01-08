@@ -1,0 +1,462 @@
+﻿
+> thaiseva@0.0.0 lint
+> eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0
+
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\functions\.eslintrc.js
+  0:0  error  Parsing error: Cannot read file 'd:\projects\thaiseva-admin-portal-web-app\tsconfig.json'
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\AddBannerForm.jsx
+  2:3  error  'Box' is defined but never used          no-unused-vars
+  8:3  error  'FormControl' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\BarEarningChart.jsx
+  65:6  warning  React Hook useEffect has a missing dependency: 'getWindowSize'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\CategoriesAndLogo.jsx
+   2:3   error  'Box' is defined but never used                       no-unused-vars
+  15:41  error  'useEffect' is defined but never used                 no-unused-vars
+  52:10  error  'croppedImage' is assigned a value but never used     no-unused-vars
+  52:24  error  'setCroppedImage' is assigned a value but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\GlobalError.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\ImageButtons.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\LocalAssistance.jsx
+  47:19  error  'setBanners' is assigned a value but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\Map.jsx
+   1:21  error  'Marker' is defined but never used                   no-unused-vars
+   4:10  error  'useEffect' is defined but never used                no-unused-vars
+   6:7   error  'containerStyle' is assigned a value but never used  no-unused-vars
+  11:16  error  'locationURL' is defined but never used              no-unused-vars
+  12:18  error  'setCenter' is assigned a value but never used       no-unused-vars
+  16:20  error  'setIsLoaded' is assigned a value but never used     no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\NewOffersBanner.jsx
+  35:19  error  'setBanners' is assigned a value but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\NotificationButton.jsx
+  1:8  error  'React' is defined but never used            no-unused-vars
+  4:8  error  'ViewDetailsIcon' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\NotificationOffers.jsx
+  45:19  error  'setBanners' is assigned a value but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\PlacesSearchBox.jsx
+  34:5   error  Unused eslint-disable directive (no problems were reported from 'no-undef')
+  39:7   error  Unused eslint-disable directive (no problems were reported from 'no-undef')
+  47:12  error  'clearRoute' is defined but never used                                       no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\SightSeeingForm.jsx
+  76:29  error  'data' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\SpecialOffers.jsx
+  51:6  warning  React Hook useEffect has missing dependencies: 'banners' and 'type'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\StaticMap.jsx
+  4:8  error  'Loading' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\reports\AccountInfo.jsx
+   1:22  error  'Text' is defined but never used      no-unused-vars
+  18:24  error  'bankInfo' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\reports\InvoiceNo.jsx
+  3:10  error  'dateCalculator' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\components\reports\InvoiceTableBlankSpace.jsx
+  35:35  error  'rowsCount' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\contextAPIs\PartnerProvider.jsx
+   46:19  error    'setDrivers' is assigned a value but never used                                                                 no-unused-vars
+   47:25  error    'setDriverRequest' is assigned a value but never used                                                           no-unused-vars
+   60:22  error    'setCategories' is assigned a value but never used                                                              no-unused-vars
+   76:20  error    'setInvoices' is assigned a value but never used                                                                no-unused-vars
+  367:6   warning  React Hook useEffect has a missing dependency: 'last24Hours'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  400:6   warning  React Hook useEffect has a missing dependency: 'last24Hours'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  437:6   warning  React Hook useEffect has a missing dependency: 'last24Hours'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  475:6   warning  React Hook useEffect has a missing dependency: 'last24Hours'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\contextAPIs\RequirementsProvider.jsx
+   16:10  error    'refetchRequirement' is assigned a value but never used                                                          no-unused-vars
+   65:6   warning  React Hook useEffect has a missing dependency: 'threeDaysAgo'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  101:6   warning  React Hook useEffect has a missing dependency: 'threeDaysAgo'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\contextAPIs\StatisticsProvider.jsx
+  1:10  error  'doc' is defined but never used                   no-unused-vars
+  1:15  error  'getDoc' is defined but never used                no-unused-vars
+  3:10  error  'statisticsCollection' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\layouts\Dashboard.jsx
+     1:10  error  'ExpandLess' is defined but never used                                                                                                                                                             no-unused-vars
+     1:22  error  'ExpandMore' is defined but never used                                                                                                                                                             no-unused-vars
+     5:3   error  'Avatar' is defined but never used                                                                                                                                                                 no-unused-vars
+     8:3   error  'Collapse' is defined but never used                                                                                                                                                               no-unused-vars
+    15:3   error  'ListItemButton' is defined but never used                                                                                                                                                         no-unused-vars
+    16:3   error  'ListItemText' is defined but never used                                                                                                                                                           no-unused-vars
+    37:3   error  'AdminPanelSettingsIcon' is defined but never used                                                                                                                                                 no-unused-vars
+    41:3   error  'HandshakeIcon' is defined but never used                                                                                                                                                          no-unused-vars
+    53:3   error  'partnerStatus' is defined but never used                                                                                                                                                          no-unused-vars
+    73:5   error  'totalRequest' is assigned a value but never used                                                                                                                                                  no-unused-vars
+    84:10  error  'activeStatus' is assigned a value but never used                                                                                                                                                  no-unused-vars
+    95:9   error  'handleChangeQueryText' is assigned a value but never used                                                                                                                                         no-unused-vars
+   189:3   error  React Hook "React.useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render. Did you accidentally call a React Hook after an early return?  react-hooks/rules-of-hooks
+   999:9   error  'avaterMenu' is assigned a value but never used                                                                                                                                                    no-unused-vars
+  1007:9   error  'handleClick' is assigned a value but never used                                                                                                                                                   no-unused-vars
+  1010:9   error  'handleClose' is assigned a value but never used                                                                                                                                                   no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\layouts\Main.jsx
+  2:20  error  'Outlet' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\Clubs.jsx
+   89:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  237:21  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                               react/no-unescaped-entities
+  237:34  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                               react/no-unescaped-entities
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\LocalRequirementCategoryAdd.jsx
+  1:8  error  'React' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\ShoppingMalls.jsx
+   89:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  237:21  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                               react/no-unescaped-entities
+  237:34  error    `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`                                               react/no-unescaped-entities
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\clientOrders\carBookings\CarBookings.jsx
+  101:6  warning  React Hook useEffect has missing dependencies: 'endDate', 'lastDocs', and 'startDate'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\clientOrders\carBookings\SelfDriveBookings.jsx
+  101:6   warning  React Hook useEffect has missing dependencies: 'endDate', 'lastDocs', and 'startDate'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  606:43  error    'w' is not defined                                                                                                                         no-undef
+  607:43  error    'w' is not defined                                                                                                                         no-undef
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\clientOrders\roomBookings\RoomBookings.jsx
+   20:8  error    'CheckBoxIcon' is defined but never used                                                                                                             no-unused-vars
+   24:8  error    'CheckIcon' is defined but never used                                                                                                                no-unused-vars
+   25:8  error    'ClearIcon' is defined but never used                                                                                                                no-unused-vars
+   50:8  error    'ViewDetailsIcon' is defined but never used                                                                                                          no-unused-vars
+  130:6  warning  React Hook useEffect has missing dependencies: 'endDate', 'lastDocs', and 'startDate'. Either include them or remove the dependency array            react-hooks/exhaustive-deps
+  302:6  warning  React Hook useEffect has missing dependencies: 'checkAvailability' and 'confirmBookingInternal'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  455:9  error    'textField' is assigned a value but never used                                                                                                       no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\clientOrders\travelBookings\TravelBookings.jsx
+   19:3   error    'Divider' is defined but never used                                                                                                        no-unused-vars
+   27:3   error    'ToggleButton' is defined but never used                                                                                                   no-unused-vars
+   28:3   error    'ToggleButtonGroup' is defined but never used                                                                                              no-unused-vars
+   30:10  error    'MdEdit' is defined but never used                                                                                                         no-unused-vars
+   31:10  error    'ViewList' is defined but never used                                                                                                       no-unused-vars
+   31:20  error    'ViewModule' is defined but never used                                                                                                     no-unused-vars
+   62:10  error    'error' is assigned a value but never used                                                                                                 no-unused-vars
+   77:20  error    'setViewMode' is assigned a value but never used                                                                                           no-unused-vars
+  122:6   warning  React Hook useEffect has missing dependencies: 'endDate', 'lastDocs', and 'startDate'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  276:9   error    'handleReview' is assigned a value but never used                                                                                          no-unused-vars
+  387:9   error    'headingTextField' is assigned a value but never used                                                                                      no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\clientOrders\vanBookings\AddVanBookingModal.jsx
+   1:8   error  'React' is defined but never used                      no-unused-vars
+  24:12  error  'loadingCompanies' is assigned a value but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\clientOrders\vanBookings\VanBookings.jsx
+   7:5   error    'Dialog' is defined but never used                                                                                 no-unused-vars
+   8:5   error    'ToggleButton' is defined but never used                                                                           no-unused-vars
+   9:5   error    'ToggleButtonGroup' is defined but never used                                                                      no-unused-vars
+  14:5   error    'Button' is defined but never used                                                                                 no-unused-vars
+  17:5   error    'collection' is defined but never used                                                                             no-unused-vars
+  23:5   error    'where' is defined but never used                                                                                  no-unused-vars
+  26:10  error    'MdAdd' is defined but never used                                                                                  no-unused-vars
+  26:35  error    'MdVisibility' is defined but never used                                                                           no-unused-vars
+  27:18  error    'ViewList' is defined but never used                                                                               no-unused-vars
+  27:28  error    'GridView' is defined but never used                                                                               no-unused-vars
+  46:12  error    'viewMode' is assigned a value but never used                                                                      no-unused-vars
+  46:22  error    'setViewMode' is assigned a value but never used                                                                   no-unused-vars
+  49:12  error    'isEdit' is assigned a value but never used                                                                        no-unused-vars
+  97:8   warning  React Hook useEffect has a missing dependency: 'filterBookings'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\invoices\Invoices.jsx
+  36:8  error  'Invoice' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\notifications\NewNotification.jsx
+   23:8  error    'React' is defined but never used                                                                                          no-unused-vars
+  128:6  warning  React Hook useCallback has a missing dependency: 'setCroppedAreaPixels'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourPartners\PartnerPackagesModal.jsx
+   1:8   error    'React' is defined but never used                                                                                                                          no-unused-vars
+  16:5   error    'Box' is defined but never used                                                                                                                            no-unused-vars
+  36:5   error    'query' is defined but never used                                                                                                                          no-unused-vars
+  37:5   error    'where' is defined but never used                                                                                                                          no-unused-vars
+  40:14  error    'generalPartnersCollection' is defined but never used                                                                                                      no-unused-vars
+  75:8   warning  React Hook useEffect has missing dependencies: 'fetchAssignedPackages' and 'fetchSightseeingPackages'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourPartners\hotels\AddHotelForm.jsx
+    1:8    error  'React' is defined but never used                           no-unused-vars
+    1:27   error  'useRef' is defined but never used                          no-unused-vars
+    1:35   error  'useContext' is defined but never used                      no-unused-vars
+    6:5    error  'Grid' is defined but never used                            no-unused-vars
+   11:5    error  'Paper' is defined but never used                           no-unused-vars
+   13:5    error  'Avatar' is defined but never used                          no-unused-vars
+   25:128  error  'MdArrowForward' is defined but never used                  no-unused-vars
+   25:144  error  'MdArrowBack' is defined but never used                     no-unused-vars
+   25:172  error  'MdAttachMoney' is defined but never used                   no-unused-vars
+   25:187  error  'MdPeople' is defined but never used                        no-unused-vars
+   25:197  error  'MdEmail' is defined but never used                         no-unused-vars
+   25:206  error  'MdPhone' is defined but never used                         no-unused-vars
+   29:10   error  'AuthContext' is defined but never used                     no-unused-vars
+   32:5    error  'usersCollection' is defined but never used                 no-unused-vars
+   33:5    error  'firebaseConfig' is defined but never used                  no-unused-vars
+   35:10   error  'initializeApp' is defined but never used                   no-unused-vars
+   35:25   error  'deleteApp' is defined but never used                       no-unused-vars
+   36:10   error  'getAuth' is defined but never used                         no-unused-vars
+   36:19   error  'createUserWithEmailAndPassword' is defined but never used  no-unused-vars
+   36:51   error  'signOut' is defined but never used                         no-unused-vars
+   36:60   error  'updateProfile' is defined but never used                   no-unused-vars
+   37:40   error  'addDoc' is defined but never used                          no-unused-vars
+   40:8    error  'axios' is defined but never used                           no-unused-vars
+  127:57   error  'register' is assigned a value but never used               no-unused-vars
+  146:12   error  'locationError' is assigned a value but never used          no-unused-vars
+  147:12   error  'submissionError' is assigned a value but never used        no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourPartners\hotels\AddHotelSelectionModal.jsx
+  17:7   error  'Transition' is assigned a value but never used  no-unused-vars
+  18:13  error  'Slide' is not defined                           react/jsx-no-undef
+  22:11  error  'theme' is assigned a value but never used       no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourPartners\hotels\ExcelUploadPage.jsx
+    1:8   error  'React' is defined but never used                                no-unused-vars
+   29:8   error  'UploadFileIcon' is defined but never used                       no-unused-vars
+   43:15  error  'serverTimestamp' is defined but never used                      no-unused-vars
+   43:52  error  'query' is defined but never used                                no-unused-vars
+   43:59  error  'where' is defined but never used                                no-unused-vars
+   46:5   error  'hotelsCollection' is defined but never used                     no-unused-vars
+   50:10  error  'successNotification' is defined but never used                  no-unused-vars
+   56:12  error  'successCount' is assigned a value but never used                no-unused-vars
+  290:56  error  'collection' is assigned a value but never used                  no-unused-vars
+  472:86  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  472:97  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourPartners\hotels\Hotels.jsx
+    2:10  error  'MdVisibility' is defined but never used                      no-unused-vars
+    2:57  error  'MdAdd' is defined but never used                             no-unused-vars
+   11:3   error  'Divider' is defined but never used                           no-unused-vars
+   12:3   error  'FormControl' is defined but never used                       no-unused-vars
+   15:3   error  'InputLabel' is defined but never used                        no-unused-vars
+   16:3   error  'MenuItem' is defined but never used                          no-unused-vars
+   17:3   error  'Select' is defined but never used                            no-unused-vars
+   26:3   error  'CardActions' is defined but never used                       no-unused-vars
+   43:42  error  'Star' is defined but never used                              no-unused-vars
+   45:8   error  'DeleteButton' is defined but never used                      no-unused-vars
+   48:8   error  'SearchBar' is defined but never used                         no-unused-vars
+   50:8   error  'SubTitle' is defined but never used                          no-unused-vars
+   61:3   error  'item' is defined but never used                              no-unused-vars
+   67:8   error  'MeetingRoomIcon' is defined but never used                   no-unused-vars
+   74:10  error  'totalPages' is assigned a value but never used               no-unused-vars
+   76:10  error  'lastDocs' is assigned a value but never used                 no-unused-vars
+   76:20  error  'setLastDocs' is assigned a value but never used              no-unused-vars
+   77:10  error  'loading' is assigned a value but never used                  no-unused-vars
+   81:32  error  'setSelectedHotelForEdit' is assigned a value but never used  no-unused-vars
+   85:10  error  'status' is assigned a value but never used                   no-unused-vars
+   86:39  error  'setUid' is assigned a value but never used                   no-unused-vars
+  267:9   error  'handleViewDetails' is assigned a value but never used        no-unused-vars
+  340:9   error  'handleInputChange' is assigned a value but never used        no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourPartners\localPartners\LocalPartners.jsx
+    8:3  error    'DialogActions' is defined but never used                                                                    no-unused-vars
+  106:6  warning  React Hook useEffect has a missing dependency: 'lastDocs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourPartners\restaurants\Restaurants.jsx
+  19:3  error  'Paper' is defined but never used     no-unused-vars
+  31:8  error  'SubTitle' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourPartners\vans\AddVanCompanyModal.jsx
+   1:8   error  'React' is defined but never used   no-unused-vars
+  21:15  error  'setDoc' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourPartners\vans\Vans.jsx
+    4:5   error  'Tooltip' is defined but never used                    no-unused-vars
+    6:5   error  'CardMedia' is defined but never used                  no-unused-vars
+   11:5   error  'Grid' is defined but never used                       no-unused-vars
+   13:5   error  'Box' is defined but never used                        no-unused-vars
+   16:5   error  'Dialog' is defined but never used                     no-unused-vars
+   17:5   error  'DialogTitle' is defined but never used                no-unused-vars
+   18:5   error  'DialogContent' is defined but never used              no-unused-vars
+   19:5   error  'Tabs' is defined but never used                       no-unused-vars
+   20:5   error  'Tab' is defined but never used                        no-unused-vars
+   23:5   error  'collection' is defined but never used                 no-unused-vars
+   26:5   error  'getCountFromServer' is defined but never used         no-unused-vars
+   28:5   error  'query' is defined but never used                      no-unused-vars
+   30:28  error  'MdMeetingRoom' is defined but never used              no-unused-vars
+   31:30  error  'LocationOn' is defined but never used                 no-unused-vars
+   31:50  error  'DirectionsBus' is defined but never used              no-unused-vars
+   37:5   error  'db' is defined but never used                         no-unused-vars
+   44:8   error  'CloseIcon' is defined but never used                  no-unused-vars
+   59:12  error  'viewDetailsModal' is assigned a value but never used  no-unused-vars
+   60:12  error  'companyDetails' is assigned a value but never used    no-unused-vars
+   61:12  error  'tabValue' is assigned a value but never used          no-unused-vars
+   61:22  error  'setTabValue' is assigned a value but never used       no-unused-vars
+   63:13  error  'isAdmin' is assigned a value but never used           no-unused-vars
+   63:22  error  'isSubAdmin' is assigned a value but never used        no-unused-vars
+  107:11  error  'handleView' is assigned a value but never used        no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourServices\localServices\LocalServices.jsx
+  123:6  warning  React Hook useEffect has a missing dependency: 'lastDocs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourServices\travelServices\AddSightseeingPackage.jsx
+    1:8    error  'React' is defined but never used                                no-unused-vars
+   25:20   error  'AutoFixHighIcon' is defined but never used                      no-unused-vars
+   45:7    error  'FadeIn' is assigned a value but never used                      no-unused-vars
+  125:11   error  'hotelsRef' is assigned a value but never used                   no-unused-vars
+  225:9    error  'reset' is assigned a value but never used                       no-unused-vars
+  337:11   error  'handleAddPlace' is assigned a value but never used              no-unused-vars
+  345:11   error  'handleRemovePlace' is assigned a value but never used           no-unused-vars
+  389:11   error  'handleAutofill' is assigned a value but never used              no-unused-vars
+  625:48   error  Redundant double negation                                        no-extra-boolean-cast
+  704:76   error  Redundant double negation                                        no-extra-boolean-cast
+  947:138  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  947:159  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourServices\travelServices\AddSightseeingSelectionModal.jsx
+  23:11  error  'theme' is assigned a value but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourServices\travelServices\SightseeingExcelUploadPage.jsx
+    1:8   error  'React' is defined but never used                  no-unused-vars
+   28:8   error  'EditIcon' is defined but never used               no-unused-vars
+   29:8   error  'UploadFileIcon' is defined but never used         no-unused-vars
+   38:8   error  'DeleteIcon' is defined but never used             no-unused-vars
+   48:10  error  'successNotification' is defined but never used    no-unused-vars
+   55:12  error  'successCount' is assigned a value but never used  no-unused-vars
+  401:54  error  'Chip' is not defined                              react/jsx-no-undef
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\ourServices\travelServices\TravelServices.jsx
+    8:3   error    'CardActions' is defined but never used                                                                       no-unused-vars
+   16:3   error    'Button' is defined but never used                                                                            no-unused-vars
+   21:3   error    'collection' is defined but never used                                                                        no-unused-vars
+   31:28  error    'MdInfo' is defined but never used                                                                            no-unused-vars
+   32:30  error    'AccessTime' is defined but never used                                                                        no-unused-vars
+   32:54  error    'MonetizationOn' is defined but never used                                                                    no-unused-vars
+   37:8   error    'SearchBar' is defined but never used                                                                         no-unused-vars
+   40:3   error    'db' is defined but never used                                                                                no-unused-vars
+   45:3   error    'askingForDelete' is defined but never used                                                                   no-unused-vars
+   50:10  error    'MdSettings' is defined but never used                                                                        no-unused-vars
+  119:6   warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\requirements\LocalRequirements.jsx
+  150:6  warning  React Hook useEffect has missing dependencies: 'endDate', 'lastDocs', and 'startDate'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\subAdmins\SubAdmins.jsx
+  112:6  warning  React Hook useEffect has a missing dependency: 'lastDocs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\todayBookingData\TodayBookings.jsx
+   22:3   error    'DialogTitle' is defined but never used                                                                      no-unused-vars
+   24:3   error    'DialogActions' is defined but never used                                                                    no-unused-vars
+   34:3   error    'MonetizationOn' is defined but never used                                                                   no-unused-vars
+   53:16  error    'newlogo1' is defined but never used                                                                         no-unused-vars
+   57:11  error    'contactInfo' is assigned a value but never used                                                             no-unused-vars
+  252:33  error    'data' is defined but never used                                                                             no-unused-vars
+  555:6   warning  React Hook useEffect has a missing dependency: 'lastDocs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\adminDashboard\userData\UserData.jsx
+   18:3  error    'IconButton' is defined but never used                                                                        no-unused-vars
+   19:3  error    'Tooltip' is defined but never used                                                                           no-unused-vars
+  104:6  warning  React Hook useEffect has a missing dependency: 'fetchData'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\communication\Chats.jsx
+   7:14  error    'usersCollection' is defined but never used                                                                       no-unused-vars
+  90:6   warning  React Hook useEffect has a missing dependency: 'userDataCache'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\communication\Input.jsx
+  255:6  warning  React Hook useEffect has missing dependencies: 'data.chatId', 'lastMessage?.serviceType', and 'setAudioUrl'. Either include them or remove the dependency array. If 'setAudioUrl' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+  301:9  error    'handleSendImage' is assigned a value but never used                                                                                                                                                                                                                                    no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\partnerDashboard\hotel\addedRooms\CreateRoom.jsx
+  35:20  error  'setCurrency' is assigned a value but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\partnerDashboard\hotel\bookings\Bookings.jsx
+  110:6  warning  React Hook useEffect has missing dependencies: 'endDate', 'lastDocs', 'myRoomBookings', and 'startDate'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\partnerDashboard\messages\PartnerChatInput.jsx
+  65:6  warning  React Hook useEffect has missing dependencies: 'chatRoom', 'data.chatId', 'setAudioUrl', 'user.uid', 'userData?.displayName', 'userData?.phoneNo', 'userData?.photoURL', and 'userData?.uid'. Either include them or remove the dependency array. If 'setAudioUrl' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\partnerDashboard\myRequirements\MyLocalRequirements.jsx
+  74:3  error    React Hook "useEffect" is called conditionally. React Hooks must be called in the exact same order in every component render               react-hooks/rules-of-hooks
+  94:6  warning  React Hook useEffect has missing dependencies: 'endDate', 'lastDocs', and 'startDate'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\partnerDashboard\myServices\MyServices.jsx
+  113:6  warning  React Hook useEffect has a missing dependency: 'lastDocs'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\dashboard\partnerDashboard\restaurants\addedMenu\AddedMenu.jsx
+  33:3  error  'calculateDiscountPrice' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\forms\HotelOnboarding.jsx
+  54:22  error  'msg' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\forms\MessageToAgent.jsx
+  2:8  error  'React' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\forms\PartnerOnboarding.jsx
+   32:3   error    'Avatar' is defined but never used                                                                                                  no-unused-vars
+   42:3   error    'collection' is defined but never used                                                                                              no-unused-vars
+   56:3   error    'db' is defined but never used                                                                                                      no-unused-vars
+   76:9   error    'inputRef' is assigned a value but never used                                                                                       no-unused-vars
+  113:6   warning  React Hook useEffect has a missing dependency: 'serviceOptions'. Either include it or remove the dependency array                   react-hooks/exhaustive-deps
+  123:6   warning  React Hook useEffect has missing dependencies: 'serviceOptions' and 'setValue'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  412:28  error    `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`                                                                     react/no-unescaped-entities
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\pages\login\Login.jsx
+  107:6  warning  React Hook useEffect has a missing dependency: 'navigate'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\routes\Route.jsx
+  34:3  error  'HotelOnboarding' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\services\DataEncrypter.js
+  9:7  error  'generateKey' is assigned a value but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\services\invoiceService.js
+  1:16  error  'getDoc' is defined but never used  no-unused-vars
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\utils\RouteLinks.jsx
+   16:3   error    'LocalHotelIcon' is defined but never used                                                                                      no-unused-vars
+   33:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   63:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   81:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   99:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  110:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  124:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  152:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  177:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  247:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  270:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  288:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  301:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\src\utils\utils.jsx
+  355:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  356:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  357:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  358:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  359:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  360:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  361:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  362:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  364:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  365:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  366:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  367:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  368:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  369:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  370:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  371:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  372:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  373:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  374:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  375:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+D:\projects\Thaiseva-Admin-Portal-Web-App\test.js
+   17:3   error  'Divider' is defined but never used                          no-unused-vars
+   42:10  error  'showDeleteModal' is assigned a value but never used         no-unused-vars
+   48:10  error  'acceptedRes' is assigned a value but never used             no-unused-vars
+  166:9   error  'handleDeleteRestaurant' is assigned a value but never used  no-unused-vars
+
+Ô£û 314 problems (248 errors, 66 warnings)
+  4 errors and 0 warnings potentially fixable with the `--fix` option.
+

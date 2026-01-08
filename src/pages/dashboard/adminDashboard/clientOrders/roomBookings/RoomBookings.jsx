@@ -610,6 +610,7 @@ const RoomBookings = () => {
           <Tab label="Pending" />
           <Tab label="Accepted" />
           <Tab label="Declined" />
+          <Tab label="Next 7 Days" />
         </Tabs>
       </Box>
 
@@ -639,6 +640,21 @@ const RoomBookings = () => {
                     if (tabValue === 0) return row.status === "Pending";
                     if (tabValue === 1) return row.status === "Accepted";
                     if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
+                    if (tabValue === 3) {
+                      const rawDate = row.checkInDate || row.checkIn;
+                      if (!rawDate) return false;
+                      let dateObj;
+                      if (rawDate.seconds) dateObj = new Date(rawDate.seconds * 1000);
+                      else dateObj = new Date(rawDate);
+
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const next7 = new Date(today);
+                      next7.setDate(today.getDate() + 7);
+                      next7.setHours(23, 59, 59, 999);
+
+                      return dateObj >= today && dateObj <= next7 && row.status !== 'Canceled' && row.status !== 'Denied';
+                    }
                     return true;
                   })
                   .map(

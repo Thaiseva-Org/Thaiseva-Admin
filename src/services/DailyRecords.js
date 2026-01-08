@@ -15,9 +15,11 @@ import {
   roomBookingCollection,
   selfDriveBookingCollection,
   travelBookingCollection,
+  vanBookingsCollection,
 } from "../firebase/firebase.config";
 import { generateInvoiceIds, INVOICE_TYPES } from "../utils/invoiceGenerator";
 
+// Helper to resolve collection based on category
 // Helper to resolve collection based on category
 const getCollectionAndTimestamp = (category, startDate, endDate) => {
   const todayStart = new Date(startDate);
@@ -30,22 +32,35 @@ const getCollectionAndTimestamp = (category, startDate, endDate) => {
   let collectionRef;
   let timestampField;
 
-  switch (category) {
-    case "Taxi Bookings":
-      collectionRef = carBookingsCollection;
-      timestampField = "timestamp";
-      break;
-    case "Selfdrive Bookings":
-      collectionRef = selfDriveBookingCollection;
-      timestampField = "time";
-      break;
-    case "Room Bookings":
-      collectionRef = roomBookingCollection;
-      timestampField = "createdAt";
-      break;
-    default:
-      collectionRef = travelBookingCollection;
-      timestampField = "orderedAt";
+  // Trim category to avoid matching issues
+  const cat = category ? String(category).trim() : "";
+  console.log("DailyRecords: Resolving collection for category:", cat);
+
+  if (cat === "Taxi Bookings") {
+    collectionRef = carBookingsCollection;
+    timestampField = "timestamp";
+  } else if (cat === "Selfdrive Bookings") {
+    collectionRef = selfDriveBookingCollection;
+    timestampField = "time";
+  } else if (cat === "Room Bookings") {
+    collectionRef = roomBookingCollection;
+    timestampField = "createdAt";
+  } else if (cat === "Van Bookings") {
+    console.log("DailyRecords: Matched Van Bookings - Using vanBookingsCollection");
+    collectionRef = vanBookingsCollection;
+    timestampField = "bookingDate";
+    // For Van Bookings, we store date as string "YYYY-MM-DDTHH:mm"
+    return {
+      collectionRef,
+      timestampField,
+      todayStart: `${startDate}T00:00`,
+      todayEnd: `${endDate}T23:59`
+    };
+  } else {
+    console.log("DailyRecords: Defaulting to Sightseeing for category:", cat);
+    // Default to Sightseeing
+    collectionRef = travelBookingCollection;
+    timestampField = "orderedAt";
   }
 
   return { collectionRef, timestampField, todayStart, todayEnd };
@@ -61,9 +76,15 @@ export const todayBooking = async (
   setLoading(true);
   const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
 
+  let statuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
+  if (category?.trim() === "Van Bookings") {
+    statuses.push("Pending");
+    statuses.push("pending");
+  }
+
   const queryToUse = query(
     collectionRef,
-    where("status", "in", ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"]),
+    where("status", "in", statuses),
     where(timestampField, ">=", todayStart),
     where(timestampField, "<=", todayEnd),
     orderBy(timestampField, "desc")
@@ -88,16 +109,20 @@ export const todayBooking = async (
 export const handleClear = async (category, id) => {
   let col;
   let serviceType;
+  const cat = category?.trim();
 
-  if (category === "Taxi Bookings") {
+  if (cat === "Taxi Bookings") {
     col = carBookingsCollection;
     serviceType = INVOICE_TYPES.TAXI;
-  } else if (category === "Selfdrive Bookings") {
+  } else if (cat === "Selfdrive Bookings") {
     col = selfDriveBookingCollection;
     serviceType = INVOICE_TYPES.SAFE_DRIVE;
-  } else if (category === "Room Bookings") {
+  } else if (cat === "Room Bookings") {
     col = roomBookingCollection;
     serviceType = INVOICE_TYPES.ROOM;
+  } else if (cat === "Van Bookings") {
+    col = vanBookingsCollection;
+    serviceType = INVOICE_TYPES.VAN;
   } else {
     col = travelBookingCollection;
     serviceType = INVOICE_TYPES.SIGHTSEEING;
@@ -145,9 +170,15 @@ export const fetchBookingsTotalPages = async (
 ) => {
   const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
 
+  let statuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
+  if (category?.trim() === "Van Bookings") {
+    statuses.push("Pending");
+    statuses.push("pending");
+  }
+
   const queryToUse = query(
     collectionRef,
-    where("status", "in", ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"]),
+    where("status", "in", statuses),
     where(timestampField, ">=", todayStart),
     where(timestampField, "<=", todayEnd),
     orderBy(timestampField, "desc")
@@ -177,6 +208,10 @@ export const fetchTodayBooking = async (
   const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
 
   const validStatuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
+
+  if (category?.trim()?.includes("Van")) {
+    validStatuses.push("Pending");
+  }
 
   const performQuery = async (field, includeStatus = true) => {
     let constraints = [];
@@ -286,8 +321,14 @@ export const fetchTodayBooking = async (
 
     } else {
       // Standard single query for other categories (Taxi, etc.)
+      let statuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
+      if (category?.trim() === "Van Bookings") {
+        statuses.push("Pending");
+        statuses.push("pending");
+      }
+
       const cons = [
-        where("status", "in", ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"]),
+        where("status", "in", statuses),
         where(timestampField, ">=", todayStart),
         where(timestampField, "<=", todayEnd),
         orderBy(timestampField, "desc"),
@@ -351,6 +392,7 @@ export const exportAllBooking = async (selDate) => {
     "Sightseeing Bookings",
     "Taxi Bookings",
     "Selfdrive Bookings",
+    "Van Bookings",
   ];
 
   const promises = categories.map((item) =>

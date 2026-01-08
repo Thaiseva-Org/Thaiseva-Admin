@@ -23,7 +23,8 @@ import {
     CardContent,
     Stack,
     Tooltip,
-    Zoom
+    Zoom,
+    Chip
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import UploadFileIcon from '@mui/icons-material/UploadFile';

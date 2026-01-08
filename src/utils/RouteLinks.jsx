@@ -7,6 +7,7 @@ import {
   NotificationsRounded,
   BeenhereIcon,
   Diversity1Icon,
+  DirectionsBusIcon,
   DriveEtaIcon,
   FastfoodIcon,
   ForumIcon,
@@ -209,6 +210,16 @@ export const Travellinks = [
     url: "/dashboard/travel-bookings",
     lable: "Sightseeing Bookings",
     icon: <TravelExploreIcon />,
+  },
+  {
+    url: "/dashboard/vans",
+    lable: "Van Management",
+    icon: <DirectionsBusIcon />,
+  },
+  {
+    url: "/dashboard/van-bookings",
+    lable: "Van Bookings",
+    icon: <DirectionsBusIcon />,
   },
 
   {

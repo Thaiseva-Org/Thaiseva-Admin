@@ -196,7 +196,7 @@ const PartnerProvider = ({ children }) => {
   // loading all hotels
   useEffect(() => {
     const loadHotels = async () => {
-      setLoadingPartnerData();
+      setLoadingPartnerData(true);
       const unSub = onSnapshot(hotelsCollection, (result) => {
         if (result) {
           const list = result.docs.map((doc) => doc.data());

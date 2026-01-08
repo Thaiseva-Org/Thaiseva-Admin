@@ -6,6 +6,7 @@ export const INVOICE_TYPES = {
     ROOM: "Room",
     TAXI: "Taxi",
     SAFE_DRIVE: "Safe Drive",
+    VAN: "Van",
 };
 
 const PREFIX_MAP = {
@@ -13,6 +14,7 @@ const PREFIX_MAP = {
     [INVOICE_TYPES.ROOM]: "RB",
     [INVOICE_TYPES.TAXI]: "TB",
     [INVOICE_TYPES.SAFE_DRIVE]: "SDB",
+    [INVOICE_TYPES.VAN]: "VB",
 };
 
 /**

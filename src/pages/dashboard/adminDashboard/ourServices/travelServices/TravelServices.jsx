@@ -562,14 +562,7 @@ const TravelServices = () => {
             onChange={(e) => handleSearch(e.target.value)}
           />
 
-          <Tooltip title="Global Settings">
-            <button
-              className="p-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center"
-              onClick={() => setOpenSettingsModal(true)}
-            >
-              <MdSettings size={24} />
-            </button>
-          </Tooltip>
+
 
           <button
             className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap"

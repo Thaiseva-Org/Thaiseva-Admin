@@ -20,15 +20,15 @@ async function updateHourlyEarnings(orderAmount, type = "", id = "") {
     const dailyDocRef =
       id === ""
         ? doc(
-            db,
-            `MasterEarnings/Admin/${type}/Earnings/dailyEarnings`,
-            currentDate
-          )
+          db,
+          `MasterEarnings/Admin/${type}/Earnings/dailyEarnings`,
+          currentDate
+        )
         : doc(
-            db,
-            `MasterEarnings/${type}/${id}/Earnings/dailyEarnings`,
-            currentDate
-          );
+          db,
+          `MasterEarnings/${type}/${id}/Earnings/dailyEarnings`,
+          currentDate
+        );
 
     const dailyDocSnapshot = await getDoc(dailyDocRef);
 
@@ -85,15 +85,15 @@ async function updateMonthlyEarnings(orderAmount, type, id = "") {
     const monthlyDocRef =
       id === ""
         ? doc(
-            db,
-            `MasterEarnings/Admin/${type}/Earnings/monthlyEarnings`,
-            currentYearMonth
-          )
+          db,
+          `MasterEarnings/Admin/${type}/Earnings/monthlyEarnings`,
+          currentYearMonth
+        )
         : doc(
-            db,
-            `MasterEarnings/${type}/${id}/Earnings/monthlyEarnings`,
-            currentYearMonth
-          );
+          db,
+          `MasterEarnings/${type}/${id}/Earnings/monthlyEarnings`,
+          currentYearMonth
+        );
 
     const monthlyDocSnapshot = await getDoc(monthlyDocRef);
 
@@ -150,26 +150,40 @@ function getSelectedMonthDays(month, year) {
     "Dec",
   ];
   const monthIndex = months.indexOf(month);
-  const start = new Date(year, monthIndex, 2);
-  const end = new Date(year, monthIndex + 1, 1);
-  while (start <= end) {
-    dates.push(start.toISOString().slice(0, 10));
-    start.setDate(start.getDate() + 1);
+
+  // Start from Day 1 of the month
+  const date = new Date(year, monthIndex, 1);
+
+  // Loop until month changes
+  while (date.getMonth() === monthIndex) {
+    // Add date string
+    const dateString = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split('T')[0];
+    dates.push(dateString);
+    date.setDate(date.getDate() + 1);
   }
   return dates;
 }
 
-async function getAllWeeklyEarnings(type, month = "", year = "") {
+// Renamed for clarity, fetching daily earnings for a range of dates
+async function getDailyEarningsInRange(type, month = "", year = "") {
   try {
     const last30Days =
       month === "" && year === ""
         ? getLast30Days()
         : getSelectedMonthDays(month, year);
 
+    if (last30Days.length === 0) return [];
+
     const earningsRef = collection(
       db,
       `MasterEarnings/Admin/${type}/Earnings/dailyEarnings`
     );
+
+    // Fetch in chunks or optimizing query. 
+    // Firestore 'in' query supports up to 10-30 depending on implementation but here we use range.
+    // Range query is efficient on 'date' string field.
     const earningsQuery = query(
       earningsRef,
       where("date", ">=", last30Days[0]),
@@ -178,29 +192,28 @@ async function getAllWeeklyEarnings(type, month = "", year = "") {
 
     const querySnapshot = await getDocs(earningsQuery);
 
-    // Create a map of fetched earnings
     const earningsMap = new Map(
       querySnapshot.docs.map((doc) => [doc.id, doc.data().totalAmount || 0])
     );
 
-    // Map all 7 dates, filling zeros where necessary
-    const weeklyEarnings = last30Days.map((date) => earningsMap.get(date) || 0);
-    return weeklyEarnings;
+    const dailyEarnings = last30Days.map((date) => earningsMap.get(date) || 0);
+    return dailyEarnings;
   } catch (error) {
-    console.error("Error fetching monthly earnings:", error);
+    console.error("Error fetching daily earnings:", error);
+    return [];
   }
 }
 
 async function createStatData(view = "Days", month = "", year = "") {
   try {
-    const last30Days =
+    const dateRange =
       month === "" && year === ""
         ? getLast30Days()
         : getSelectedMonthDays(month, year);
     const lastMonths = getLast12Months();
     const types = ["Cars", "SelfDrive", "Sightseeing", "Hotels"];
     const data = {
-      date: view === "Days" ? last30Days : lastMonths,
+      date: view === "Days" ? dateRange : lastMonths,
       Cars: [],
       SelfDrive: [],
       Sightseeing: [],
@@ -208,29 +221,41 @@ async function createStatData(view = "Days", month = "", year = "") {
       Total: [],
     };
     for (let item of types) {
-      view === "Days"
-        ? (data[item] = await getAllWeeklyEarnings(item, month, year))
-        : (data[item] = await getAllMonthlyEarnings(item));
+      if (view === "Days") {
+        data[item] = await getDailyEarningsInRange(item, month, year);
+      } else {
+        data[item] = await getAllMonthlyEarnings(item);
+      }
     }
 
-    view === "Days"
-      ? (data.Total = last30Days.map(
-          (date, index) =>
-            data.Hotels[index] +
-            data.Sightseeing[index] +
-            data.Cars[index] +
-            data.SelfDrive[index]
-        ))
-      : (data.Total = lastMonths.map(
-          (date, index) =>
-            data.Hotels[index] +
-            data.Sightseeing[index] +
-            data.Cars[index] +
-            data.SelfDrive[index]
-        ));
+    if (view === "Days") {
+      data.Total = dateRange.map(
+        (date, index) =>
+          (data.Hotels[index] || 0) +
+          (data.Sightseeing[index] || 0) +
+          (data.Cars[index] || 0) +
+          (data.SelfDrive[index] || 0)
+      );
+    } else {
+      data.Total = lastMonths.map(
+        (date, index) =>
+          (data.Hotels[index] || 0) +
+          (data.Sightseeing[index] || 0) +
+          (data.Cars[index] || 0) +
+          (data.SelfDrive[index] || 0)
+      );
+    }
     return data;
   } catch (error) {
     console.error("Error fetching earnings data:", error);
+    return {
+      date: [],
+      Cars: [],
+      SelfDrive: [],
+      Sightseeing: [],
+      Hotels: [],
+      Total: [],
+    };
   }
 }
 
@@ -315,6 +340,6 @@ export {
   updateHourlyEarnings,
   updateMonthlyEarnings,
   createStatData,
-  getAllWeeklyEarnings,
+  getDailyEarningsInRange,
   getAllMonthlyEarnings,
 };

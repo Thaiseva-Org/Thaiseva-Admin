@@ -239,8 +239,8 @@ const SelfDriveBookings = () => {
       setError({ for: "pickLocation", text: "Drop Location is required." });
       return;
     }
-    if (bookingDetails.comission.trim().length < 1) {
-      setError({ for: "comission", text: "comission is required." });
+    if (bookingDetails.comission.toString().trim().length < 1) {
+      setError({ for: "comission", text: "Commission is required." });
       return;
     }
 
@@ -458,6 +458,25 @@ const SelfDriveBookings = () => {
 
             <button
               type="button"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 active:scale-95"
+              onClick={() => {
+                const today = new Date();
+                const next7 = new Date(today);
+                next7.setDate(today.getDate() + 7);
+                setStartDate(today.toISOString().split('T')[0]);
+                setEndDate(next7.toISOString().split('T')[0]);
+                setPage(0);
+                setLastDocs([]);
+                setRefetch((p) => !p);
+                setIsRealTime(false);
+              }}
+            >
+              <CalendarMonthIcon sx={{ fontSize: 18 }} />
+              Next 7 Days
+            </button>
+
+            <button
+              type="button"
               className="bg-gradient-to-r from-neutral-100 to-neutral-200 hover:from-neutral-200 hover:to-neutral-300 text-neutral-700 px-5 py-2.5 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 border border-neutral-300 active:scale-95"
               onClick={() => {
                 setIsRealTime(true), setStartDate(""), setEndDate("");
@@ -584,8 +603,8 @@ const SelfDriveBookings = () => {
                                           row["status"] === "Accepted"
                                         }
                                         className={`p-2 rounded-full transition-all duration-200 ${!isRealTime ||
-                                          w["status"] === "Canceled" ||
-                                          w["status"] === "Accepted"
+                                          row["status"] === "Canceled" ||
+                                          row["status"] === "Accepted"
                                           ? "bg-neutral-200 text-neutral-400 cursor-not-allowed"
                                           : "bg-danger-500 text-white hover:bg-danger-600 hover:scale-110"
                                           }`}

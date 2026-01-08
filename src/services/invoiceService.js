@@ -1,9 +1,10 @@
- import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import {
     carBookingsCollection,
     roomBookingCollection,
     selfDriveBookingCollection,
     travelBookingCollection,
+    vanBookingsCollection,
 } from "../firebase/firebase.config";
 import { generateInvoiceIds, INVOICE_TYPES } from "../utils/invoiceGenerator";
 
@@ -26,6 +27,9 @@ export const ensureInvoiceIdForBooking = async (category, id, currentData) => {
     } else if (category === "Room Bookings") {
         col = roomBookingCollection;
         serviceType = INVOICE_TYPES.ROOM;
+    } else if (category === "Van Bookings") {
+        col = vanBookingsCollection;
+        serviceType = INVOICE_TYPES.VAN;
     } else {
         col = travelBookingCollection;
         serviceType = INVOICE_TYPES.SIGHTSEEING;

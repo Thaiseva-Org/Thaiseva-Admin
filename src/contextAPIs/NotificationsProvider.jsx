@@ -106,56 +106,64 @@ export const NotificationsProvider = ({ children }) => {
   useEffect(() => {
     let pendingItems = [];
 
-    // 1. Room Bookings
+    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    // 1. Room Bookings (Already filtered by PartnerProvider to last 24h)
     roomBookings?.forEach(b => {
-      if (b.status === 'Pending' || b.bookingStatus === 'PENDING') {
-        pendingItems.push({
-          id: `room-${b.id}`,
-          message: `New Room Booking: ${b.hotelName || 'Hotel'} (${b.rooms} Rooms) by ${b.name || 'Guest'}`,
-          timestamp: b.createdAt || b.checkInDate, // Fallback
-          imageUrl: NewOrderImage1,
-          type: 'room'
-        });
-      }
+      // Show all statuses (Pending, Accepted, Canceled, etc.)
+      const status = b.status || b.bookingStatus || 'Unknown';
+      pendingItems.push({
+        id: `room-${b.id}`,
+        message: `Room Booking: ${b.hotelName || 'Hotel'} (${status})`,
+        timestamp: b.createdAt || b.checkInDate,
+        imageUrl: NewOrderImage1,
+        type: 'room'
+      });
     });
 
-    // 2. Travel Bookings
+    // 2. Travel Bookings (Contains ALL history, so we must filter by time)
     travelBookings?.forEach(b => {
-      if (b.status === 'Pending' || b.bookingStatus === 'PENDING' || b.status === "Not Reviewed") {
+      const ts = b.orderedAt || b.timestamp || b.createdAt;
+      let dateObj = null;
+      if (ts) {
+        if (ts.seconds) dateObj = new Date(ts.seconds * 1000);
+        else dateObj = new Date(ts);
+      }
+
+      if (dateObj && dateObj >= cutoffTime) {
+        const status = b.status || 'Pending';
         pendingItems.push({
           id: `travel-${b.id}`,
-          message: `New Sightseeing Booking: ${b.packageDetails?.packageName || 'Package'} by ${b.name || 'Guest'}`,
-          timestamp: b.orderedAt || b.timestamp,
+          message: `Sightseeing: ${b.packageDetails?.packageName || 'Package'} (${status})`,
+          timestamp: ts,
           imageUrl: NewOrderImage2,
           type: 'travel'
         });
       }
     });
 
-    // 3. Car Bookings
+    // 3. Car Bookings (Filtered to 24h by Provider)
     carBookings?.forEach(b => {
-      if (b.status === 'pending') {
-        pendingItems.push({
-          id: `car-${b.id}`,
-          message: `New Taxi Booking: ${b.pickupLocation} -> ${b.dropoffLocation}`,
-          timestamp: b.timestamp,
-          imageUrl: NewOrderImage3,
-          type: 'taxi'
-        });
-      }
+      const status = b.status || 'Pending';
+      pendingItems.push({
+        id: `car-${b.id}`,
+        message: `Taxi: ${b.pickup || "Unknown"} -> ${b.drop || "Unknown"} (${status})`,
+        timestamp: b.timestamp,
+        imageUrl: NewOrderImage3,
+        type: 'taxi'
+      });
     });
 
-    // 4. Self Drive
+    // 4. Self Drive (Filtered to 24h by Provider)
     selfDriveBookings?.forEach(b => {
-      if (b.status === 'pending') {
-        pendingItems.push({
-          id: `drive-${b.id}`,
-          message: `New Self-Drive Request: ${b.carName} by ${b.name}`,
-          timestamp: b.time,
-          imageUrl: NewOrderImage1,
-          type: 'drive'
-        });
-      }
+      const status = b.status || 'Pending';
+      pendingItems.push({
+        id: `drive-${b.id}`,
+        message: `Self-Drive: ${b.carName} (${status})`,
+        timestamp: b.time,
+        imageUrl: NewOrderImage1,
+        type: 'drive'
+      });
     });
 
     // Merge and Sort

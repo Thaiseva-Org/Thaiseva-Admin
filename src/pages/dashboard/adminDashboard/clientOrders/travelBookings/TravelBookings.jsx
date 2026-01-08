@@ -75,6 +75,8 @@ const TravelBookings = () => {
   const [isRealTime, setIsRealTime] = useState(true);
   const [tabValue, setTabValue] = useState(0);
   const [viewMode, setViewMode] = useState('list');
+  const [openCapacityModal, setOpenCapacityModal] = useState(false);
+  const [dailyLimit, setDailyLimit] = useState(20);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -551,9 +553,176 @@ const TravelBookings = () => {
               <RefreshIcon sx={{ fontSize: 18 }} />
               Show Realtime
             </button>
+
+            <button
+              type="button"
+              className="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 active:scale-95"
+              onClick={() => setOpenCapacityModal(true)}
+            >
+              📊 Daily Capacity
+            </button>
           </form>
         </div>
       </div>
+
+      <Dialog
+        open={openCapacityModal}
+        onClose={() => setOpenCapacityModal(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '16px',
+            backgroundImage: 'none',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          borderBottom: '1px solid #e5e7eb',
+          pb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          bgcolor: '#f9fafb'
+        }}>
+          <span className="font-bold text-xl text-gray-800 flex items-center gap-2">
+            📊 Daily Booking Capacity
+          </span>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm">
+              <span className="text-sm font-medium text-gray-600">Daily Limit:</span>
+              <input
+                type="number"
+                min="1"
+                value={dailyLimit}
+                onChange={(e) => setDailyLimit(Number(e.target.value))}
+                className="w-16 text-center text-sm font-bold border-b-2 border-primary-500 focus:outline-none"
+              />
+            </div>
+            <IconButton onClick={() => setOpenCapacityModal(false)} size="small" className="hover:bg-gray-200 transition-colors">
+              <CloseRoundedIcon />
+            </IconButton>
+          </div>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <div className="overflow-x-auto max-h-[60vh]">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                <tr>
+                  <th className="p-4 font-semibold text-gray-600 border-b">Date</th>
+                  <th className="p-4 font-semibold text-gray-600 border-b text-center">Total Bookings</th>
+                  <th className="p-4 font-semibold text-gray-600 border-b text-center">Confirmed</th>
+                  <th className="p-4 font-semibold text-gray-600 border-b text-center">Pending</th>
+                  <th className="p-4 font-semibold text-gray-600 border-b text-center">Load</th>
+                  <th className="p-4 font-semibold text-gray-600 border-b text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {(() => {
+                  // aggregation logic
+                  const dailyCounts = {};
+                  const allBookings = isRealTime ? travelBookings : matchedBookings;
+
+                  allBookings.forEach(b => {
+                    // Get Service Date
+                    const puTime = b.pickUpTime || b.arrivalDate || b.timestamp || b.orderedAt;
+                    // Fallback to timestamp if pickup not set, though pickup is accurate for capacity
+                    if (!puTime) return;
+
+                    let dateObj;
+                    if (puTime.seconds) dateObj = new Date(puTime.seconds * 1000);
+                    else dateObj = new Date(puTime);
+
+                    if (isNaN(dateObj.getTime())) return;
+
+                    const dateKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+
+                    if (!dailyCounts[dateKey]) {
+                      dailyCounts[dateKey] = { total: 0, confirmed: 0, pending: 0 };
+                    }
+
+                    // Count statuses
+                    const status = (b.status || "not reviewed").toLowerCase();
+                    if (["canceled", "cancelled", "rejected"].includes(status)) return; // Exclude rejected
+
+                    dailyCounts[dateKey].total++;
+
+                    if (["accepted", "confirmed", "done"].includes(status)) {
+                      dailyCounts[dateKey].confirmed++;
+                    } else {
+                      dailyCounts[dateKey].pending++;
+                    }
+                  });
+
+                  // Convert to array and sort
+                  const sortedDays = Object.keys(dailyCounts).sort().map(date => {
+                    const today = new Date().toISOString().split('T')[0];
+                    if (date < today) return null; // Optional: Hide past days
+                    return { date, ...dailyCounts[date] };
+                  }).filter(Boolean);
+
+                  if (sortedDays.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={5} className="p-8 text-center text-gray-400">
+                          No upcoming bookings found.
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return sortedDays.map((day, idx) => {
+                    const limit = dailyLimit;
+                    const usagePercent = (day.total / limit) * 100;
+
+                    let statusColor = "bg-green-100 text-green-700 border-green-200";
+                    let statusText = "Open";
+
+                    if (day.total >= limit) {
+                      statusColor = "bg-red-100 text-red-700 border-red-200";
+                      statusText = "Auto-Stop";
+                    } else if (day.total >= limit * 0.8) {
+                      statusColor = "bg-orange-100 text-orange-800 border-orange-200";
+                      statusText = "Busy";
+                    }
+
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                        <td className="p-4 font-medium text-gray-800">
+                          {new Date(day.date).toDateString()}
+                        </td>
+                        <td className="p-4 text-center font-bold text-gray-700">{day.total}</td>
+                        <td className="p-4 text-center text-green-600 bg-green-50/50">{day.confirmed}</td>
+                        <td className="p-4 text-center text-orange-600 bg-orange-50/50">{day.pending}</td>
+                        <td className="p-4 text-center">
+                          <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${day.total >= limit ? 'bg-red-500' : usagePercent > 70 ? 'bg-orange-400' : 'bg-green-500'}`}
+                              style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-xs text-gray-500 font-medium">{Math.min(Math.round(usagePercent), 100)}%</span>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${statusColor}`}>
+                            {statusText}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid #e5e7eb', p: 2, bgcolor: '#f9fafb' }}>
+          <Button onClick={() => setOpenCapacityModal(false)} variant="contained" sx={{ textTransform: 'none', borderRadius: '8px' }}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Tabs */}
       {viewMode === 'list' && (

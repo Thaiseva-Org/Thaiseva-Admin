@@ -12,6 +12,9 @@ const RoomBookings = lazy(() =>
 const CarBookings = lazy(() =>
   import("./dashboard/adminDashboard/clientOrders/carBookings/CarBookings")
 );
+const VanBookings = lazy(() =>
+  import("./dashboard/adminDashboard/clientOrders/vanBookings/VanBookings")
+);
 const SelfDriveBookings = lazy(() =>
   import(
     "./dashboard/adminDashboard/clientOrders/carBookings/SelfDriveBookings"
@@ -63,6 +66,9 @@ const ExcelUploadPage = lazy(() =>
   import(
     "./dashboard/adminDashboard/ourPartners/hotels/ExcelUploadPage"
   )
+);
+const Vans = lazy(() =>
+  import("./dashboard/adminDashboard/ourPartners/vans/Vans")
 );
 const LocalPartners = lazy(() =>
   import("./dashboard/adminDashboard/ourPartners/localPartners/LocalPartners")
@@ -285,4 +291,6 @@ export {
   PartnerDashboard,
   NotFound,
   HotelRoomsPage,
+  Vans,
+  VanBookings,
 };

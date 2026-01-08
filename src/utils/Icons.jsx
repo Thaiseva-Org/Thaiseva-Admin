@@ -15,6 +15,7 @@ import BedIcon from "@mui/icons-material/Bed";
 import BeenhereIcon from "@mui/icons-material/Beenhere";
 import ChatBubbleRoundedIcon from "@mui/icons-material/ChatBubbleRounded";
 import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import DirectionsBusIcon from "@mui/icons-material/DirectionsBus";
 import Diversity1Icon from "@mui/icons-material/Diversity1";
 import DriveEtaIcon from "@mui/icons-material/DriveEta";
 import FastfoodIcon from "@mui/icons-material/Fastfood";
@@ -44,7 +45,7 @@ import TravelExploreIcon from "@mui/icons-material/TravelExplore";
 
 export {
   AccountBalanceWalletIcon, AdminPanelSettingsIcon, ApartmentIcon, ArrowBackIosNewRoundedIcon,
-  ArrowForwardIosRoundedIcon, BedIcon, BeenhereIcon, ChatBubbleRoundedIcon, DirectionsCarIcon, Diversity1Icon,
+  ArrowForwardIosRoundedIcon, BedIcon, BeenhereIcon, ChatBubbleRoundedIcon, DirectionsCarIcon, DirectionsBusIcon, Diversity1Icon,
   DriveEtaIcon, FastfoodIcon, ForumIcon, GroupRoundedIcon, HailIcon, HandshakeIcon, HomeIcon, HowToRegIcon, LocalHotelIcon, LocalTaxiIcon, LocalTaxiRoundedIcon, LuggageIcon,
   ManageAccountsIcon, MenuIcon, NightlifeIcon, NoCrashIcon, NotificationsRounded, PersonAddAlt1Icon,
   PersonAddDisabledIcon, PersonIcon, ReceiptIcon, ReceiptLongRoundedIcon, RestaurantIcon, Shop, SignalCellularAltIcon, SupportAgentIcon, TaskAltIcon, TaskIcon, TravelExploreIcon

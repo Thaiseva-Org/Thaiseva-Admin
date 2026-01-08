@@ -45,6 +45,8 @@ import {
   AddHotelForm,
   ExcelUploadPage,
   SightseeingExcelUploadPage,
+  Vans,
+  VanBookings,
 } from "../pages";
 import StatisticsProvider from "../contextAPIs/StatisticsProvider";
 import { Suspense } from "react";
@@ -173,6 +175,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "/dashboard/van-bookings",
+        element: (
+          <AdminRoute>
+            <VanBookings />
+          </AdminRoute>
+        ),
+      },
+      {
         path: "/dashboard/self-drive-bookings",
         element: (
           <AdminRoute>
@@ -281,6 +291,14 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <Hotels />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/vans",
+        element: (
+          <AdminRoute>
+            <Vans />
           </AdminRoute>
         ),
       },

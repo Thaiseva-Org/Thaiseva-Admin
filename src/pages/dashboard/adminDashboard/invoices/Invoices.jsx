@@ -538,6 +538,7 @@ const Invoices = () => {
                     <MenuItem value={INVOICE_TYPES.TAXI}>Taxi</MenuItem>
                     <MenuItem value={INVOICE_TYPES.SIGHTSEEING}>Sightseeing</MenuItem>
                     <MenuItem value={INVOICE_TYPES.SAFE_DRIVE}>Safe Drive</MenuItem>
+                    <MenuItem value={INVOICE_TYPES.VAN}>Van</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

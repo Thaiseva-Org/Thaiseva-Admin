@@ -6,27 +6,15 @@ import "firebase/functions"; // For Firebase Cloud Functions
 // import { firebase } from "firebase/app";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
-// // Your web app's Firebase configuration
-// const firebaseConfig = {
-//   apiKey: import.meta.env.VITE_apiKey,
-//   authDomain: import.meta.env.VITE_authDomain,
-//   projectId: import.meta.env.VITE_projectId,
-//   storageBucket: import.meta.env.VITE_storageBucket,
-//   messagingSenderId: import.meta.env.VITE_messagingSenderId,
-//   appId: import.meta.env.VITE_appId,
-//   measurementId: import.meta.env.VITE_measurementId,
-// };
-
+// Your web app's Firebase configuration
 export const firebaseConfig = {
-  apiKey: "AIzaSyDvHdzKSxIRgfcFbr-B2mvqo5eh6mosd7g",
-  authDomain: "thaiseva-85cda.firebaseapp.com",
-  databaseURL:
-    "https://thaiseva-85cda-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "thaiseva-85cda",
-  storageBucket: "thaiseva-85cda.appspot.com",
-  messagingSenderId: "113396010755",
-  appId: "1:113396010755:web:0d67f7c8a63fdc83572336",
-  measurementId: "G-KPT7PCS3Q9",
+  apiKey: import.meta.env.VITE_apiKey,
+  authDomain: import.meta.env.VITE_authDomain,
+  projectId: import.meta.env.VITE_projectId,
+  storageBucket: import.meta.env.VITE_storageBucket,
+  messagingSenderId: import.meta.env.VITE_messagingSenderId,
+  appId: import.meta.env.VITE_appId,
+  measurementId: import.meta.env.VITE_measurementId,
 };
 
 // Initialize Firebase
@@ -69,6 +57,8 @@ const notificationsCollection = collection(db, "notifications");
 const couponsCollection = collection(db, "coupons");
 const managePartnersCollection = collection(db, "manage_partners");
 const generalPartnersCollection = collection(db, "general_partners");
+const vanCompaniesCollection = collection(db, "vanCompanies");
+const vanBookingsCollection = collection(db, "vanBookings");
 
 // Use the 'firebase' instance created above to call functions
 const deleteUserFromAuth = httpsCallable(
@@ -115,5 +105,7 @@ export {
   couponsCollection,
   managePartnersCollection,
   generalPartnersCollection,
+  vanCompaniesCollection,
+  vanBookingsCollection,
   storage,
 };

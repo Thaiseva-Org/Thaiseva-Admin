@@ -223,8 +223,8 @@ const CarBookings = () => {
       setError({ for: "amount", text: "Amount is required." });
       return;
     }
-    if (bookingDetails.comission.trim().length < 1) {
-      setError({ for: "comission", text: "comission is required." });
+    if (bookingDetails.comission.toString().trim().length < 1) {
+      setError({ for: "comission", text: "Commission is required." });
       return;
     }
 
@@ -411,6 +411,25 @@ const CarBookings = () => {
             >
               <FilterListIcon sx={{ fontSize: 18 }} />
               Apply Filter
+            </button>
+
+            <button
+              type="button"
+              className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-5 py-2.5 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 active:scale-95"
+              onClick={() => {
+                const today = new Date();
+                const next7 = new Date(today);
+                next7.setDate(today.getDate() + 7);
+                setStartDate(today.toISOString().split('T')[0]);
+                setEndDate(next7.toISOString().split('T')[0]);
+                setPage(0);
+                setLastDocs([]);
+                setRefetch((p) => !p);
+                setIsRealTime(false);
+              }}
+            >
+              <CalendarMonthIcon sx={{ fontSize: 18 }} />
+              Next 7 Days
             </button>
 
             <button
@@ -844,7 +863,7 @@ const CarBookings = () => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Comission"
+                  label="Commission"
                   type="number"
                   onWheel={(e) => e.target.blur()}
                   onKeyDown={(e) => {
