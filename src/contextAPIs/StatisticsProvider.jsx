@@ -12,6 +12,7 @@ const StatisticsProvider = ({ children }) => {
     SelfDrive: [],
     Sightseeing: [],
     Hotels: [],
+    Vans: [],
     Total: [],
   });
   const [selectedView, setSelectedView] = useState("Days");

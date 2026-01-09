@@ -108,6 +108,14 @@ const BarEarningChart = ({
         pointBackgroundColor: "#fff",
         pointBorderColor: "#ee1e3a",
       },
+      {
+        label: "Vans",
+        data: statsData.Vans,
+        borderColor: "#8b5cf6",
+        backgroundColor: chartType === "Line" ? alpha("#8b5cf6", 0.1) : "#8b5cf6",
+        pointBackgroundColor: "#fff",
+        pointBorderColor: "#8b5cf6",
+      },
     ];
 
     setData({

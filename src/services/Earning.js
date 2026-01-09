@@ -211,13 +211,14 @@ async function createStatData(view = "Days", month = "", year = "") {
         ? getLast30Days()
         : getSelectedMonthDays(month, year);
     const lastMonths = getLast12Months();
-    const types = ["Cars", "SelfDrive", "Sightseeing", "Hotels"];
+    const types = ["Cars", "SelfDrive", "Sightseeing", "Hotels", "Vans"];
     const data = {
       date: view === "Days" ? dateRange : lastMonths,
       Cars: [],
       SelfDrive: [],
       Sightseeing: [],
       Hotels: [],
+      Vans: [],
       Total: [],
     };
     for (let item of types) {
@@ -234,7 +235,8 @@ async function createStatData(view = "Days", month = "", year = "") {
           (data.Hotels[index] || 0) +
           (data.Sightseeing[index] || 0) +
           (data.Cars[index] || 0) +
-          (data.SelfDrive[index] || 0)
+          (data.SelfDrive[index] || 0) +
+          (data.Vans[index] || 0)
       );
     } else {
       data.Total = lastMonths.map(
@@ -242,7 +244,8 @@ async function createStatData(view = "Days", month = "", year = "") {
           (data.Hotels[index] || 0) +
           (data.Sightseeing[index] || 0) +
           (data.Cars[index] || 0) +
-          (data.SelfDrive[index] || 0)
+          (data.SelfDrive[index] || 0) +
+          (data.Vans[index] || 0)
       );
     }
     return data;
@@ -254,6 +257,7 @@ async function createStatData(view = "Days", month = "", year = "") {
       SelfDrive: [],
       Sightseeing: [],
       Hotels: [],
+      Vans: [],
       Total: [],
     };
   }

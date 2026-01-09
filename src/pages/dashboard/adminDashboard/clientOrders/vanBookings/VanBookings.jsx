@@ -29,12 +29,14 @@ import { useEffect, useState } from "react";
 import LoadingContent from "../../../../../components/LoadingContent";
 import PageHeading from "../../../../../components/PageHeading";
 import { vanBookingsCollection, carBookingsCollection } from "../../../../../firebase/firebase.config";
+
 import {
     askingForDelete,
     deleteNotification,
     successNotification,
     getDateAndTime
 } from "../../../../../utils/utils";
+import { updateHourlyEarnings, updateMonthlyEarnings } from "../../../../../services/Earning";
 import AddVanBookingModal from "./AddVanBookingModal";
 
 const VanBookings = () => {
@@ -183,6 +185,12 @@ const VanBookings = () => {
         try {
             const collectionRef = row.source === 'mobile' ? carBookingsCollection : vanBookingsCollection;
             await updateDoc(doc(collectionRef, row.id), { status: newStatus });
+
+            if (newStatus === "Confirmed") {
+                await updateHourlyEarnings(row.price || 0, "Vans");
+                await updateMonthlyEarnings(row.price || 0, "Vans");
+            }
+
             successNotification(`Booking marked as ${newStatus}`);
         } catch (err) {
             console.error(err);

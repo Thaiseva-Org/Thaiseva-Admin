@@ -543,446 +543,445 @@ const TodayBookings = () => {
           ), rawData: item
         };
       }
-    }
       if (category === "Room Bookings") {
-      const roomPrice = item?.totalPrice || item?.totalAmount || item?.amount || defaults.amount;
-      return {
-        ...createData(
-          defaults.id, defaults.paymentClear,
-          item?.hotel?.hotelName || item?.hotelName || "-", item?.hotel?.phoneNumber || item?.managerPhone || "-",
-          defaults.guestName, defaults.guestPhone,
-          defaults.time, roomPrice, defaults.commission,
-          category, defaults.status, "", item?.customerInvoiceId
-        ), rawData: item
-      };
-    }
-    if (category === "Sightseeing Bookings") {
-      const guestName = item?.guestDetails?.name?.replace("not_present", "")?.trim() || item?.fullName || defaults.guestName;
-      const guestPhone = item?.guestDetails?.phoneNumber || item?.phone || defaults.guestPhone;
-      const price = item?.totalAmount || item?.price || defaults.amount;
-      const titleVal = item?.title || item?.packageName || "-";
+        const roomPrice = item?.totalPrice || item?.totalAmount || item?.amount || defaults.amount;
+        return {
+          ...createData(
+            defaults.id, defaults.paymentClear,
+            item?.hotel?.hotelName || item?.hotelName || "-", item?.hotel?.phoneNumber || item?.managerPhone || "-",
+            defaults.guestName, defaults.guestPhone,
+            defaults.time, roomPrice, defaults.commission,
+            category, defaults.status, "", item?.customerInvoiceId
+          ), rawData: item
+        };
+      }
+      if (category === "Sightseeing Bookings") {
+        const guestName = item?.guestDetails?.name?.replace("not_present", "")?.trim() || item?.fullName || defaults.guestName;
+        const guestPhone = item?.guestDetails?.phoneNumber || item?.phone || defaults.guestPhone;
+        const price = item?.totalAmount || item?.price || defaults.amount;
+        const titleVal = item?.title || item?.packageName || "-";
 
-      const bookingTime = item?.timestamp ? new Date(item.timestamp.seconds * 1000).getTime() :
-        (item?.orderedAt ? new Date(item.orderedAt.seconds * 1000).getTime() : defaults.time);
+        const bookingTime = item?.timestamp ? new Date(item.timestamp.seconds * 1000).getTime() :
+          (item?.orderedAt ? new Date(item.orderedAt.seconds * 1000).getTime() : defaults.time);
 
-      // Ensure provider has a value to prevent PDF errors
-      const providerName = item?.Provider?.name || "Thaiseva";
-      const providerPhone = item?.Provider?.phone || "-";
+        // Ensure provider has a value to prevent PDF errors
+        const providerName = item?.Provider?.name || "Thaiseva";
+        const providerPhone = item?.Provider?.phone || "-";
 
-      return {
-        ...createData(
-          item?.orderId || defaults.id, defaults.paymentClear,
-          providerName, providerPhone,
-          guestName, guestPhone,
-          bookingTime, price, defaults.commission,
-          category, defaults.status, titleVal, item?.customerInvoiceId
-        ), rawData: item
-      };
-    }
-    return createData("-", "-", "-", "-", "-", "0", "0", "0", category);
-  });
-};
-
-// Derive Rows from Optimistic State
-const rows = setupDataProperly(optimisticRequirements, queryCategory);
-
-// --- Actions ---
-
-const handleClearAction = (id) => {
-  if (window.confirm("Are you sure to clear this entry?")) {
-    startTransition(async () => {
-      // 1. Optimistic Update (Immediate UI feedback)
-      setOptimisticRequirements(id);
-
-      // 2. Server Update
-      await handleClear(queryCategory, id);
-
-      // 3. Sync
-      setRefetch((p) => !p);
+        return {
+          ...createData(
+            item?.orderId || defaults.id, defaults.paymentClear,
+            providerName, providerPhone,
+            guestName, guestPhone,
+            bookingTime, price, defaults.commission,
+            category, defaults.status, titleVal, item?.customerInvoiceId
+          ), rawData: item
+        };
+      }
+      return createData("-", "-", "-", "-", "-", "0", "0", "0", category);
     });
-  }
-};
+  };
 
-const handleChangePage = (_, newPage) => {
-  setPage(newPage);
-};
+  // Derive Rows from Optimistic State
+  const rows = setupDataProperly(optimisticRequirements, queryCategory);
 
-const handleChangeRowsPerPage = (event) => {
-  setRowsPerPage(parseInt(event.target.value, 10));
-  setPage(0);
-};
+  // --- Actions ---
 
-// --- Effects ---
-useEffect(() => {
-  let mounted = true;
-  if (isAdmin || isSubAdmin) {
-    fetchBookingsTotalPages(setTotalPages, startDate, endDate, queryCategory);
-    fetchTodayBooking(
-      (data) => { if (mounted) setMatchedRequirements(data); },
-      (loading) => { if (mounted) setLoadingReq(loading); },
-      queryCategory,
-      startDate,
-      endDate,
-      lastDocs,
-      setLastDocs,
-      rowsPerPage,
-      page
-    );
-  }
-  return () => { mounted = false; };
-}, [queryCategory, refetch, page, rowsPerPage, isAdmin, isSubAdmin, startDate, endDate, setLastDocs]);
+  const handleClearAction = (id) => {
+    if (window.confirm("Are you sure to clear this entry?")) {
+      startTransition(async () => {
+        // 1. Optimistic Update (Immediate UI feedback)
+        setOptimisticRequirements(id);
 
-// --- CSV Export Logic ---
-const headers = [
-  { label: "Provider Name", key: "provider" },
-  { label: "Provider Contact", key: "providerContact" },
-  { label: "User Name", key: "name" },
-  { label: "User Contact", key: "phone" },
-  { label: "Booking At", key: "timestamp" },
-  { label: "Booking Amount", key: "userAmount" },
-  { label: "Booking Category", key: "category" },
-];
+        // 2. Server Update
+        await handleClear(queryCategory, id);
+
+        // 3. Sync
+        setRefetch((p) => !p);
+      });
+    }
+  };
+
+  const handleChangePage = (_, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // --- Effects ---
+  useEffect(() => {
+    let mounted = true;
+    if (isAdmin || isSubAdmin) {
+      fetchBookingsTotalPages(setTotalPages, startDate, endDate, queryCategory);
+      fetchTodayBooking(
+        (data) => { if (mounted) setMatchedRequirements(data); },
+        (loading) => { if (mounted) setLoadingReq(loading); },
+        queryCategory,
+        startDate,
+        endDate,
+        lastDocs,
+        setLastDocs,
+        rowsPerPage,
+        page
+      );
+    }
+    return () => { mounted = false; };
+  }, [queryCategory, refetch, page, rowsPerPage, isAdmin, isSubAdmin, startDate, endDate, setLastDocs]);
+
+  // --- CSV Export Logic ---
+  const headers = [
+    { label: "Provider Name", key: "provider" },
+    { label: "Provider Contact", key: "providerContact" },
+    { label: "User Name", key: "name" },
+    { label: "User Contact", key: "phone" },
+    { label: "Booking At", key: "timestamp" },
+    { label: "Booking Amount", key: "userAmount" },
+    { label: "Booking Category", key: "category" },
+  ];
 
 
 
-const downloadCSV = async () => {
-  setIsDownloading(true);
-  const categories = ["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Selfdrive Bookings", "Van Bookings"];
+  const downloadCSV = async () => {
+    setIsDownloading(true);
+    const categories = ["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Selfdrive Bookings", "Van Bookings"];
 
-  let allData = [];
+    let allData = [];
 
-  // Fetch all categories
-  await Promise.all(categories.map(async (cat) => {
-    const raw = await fetchTodayBooking(() => { }, () => { }, cat, startDate, endDate);
-    const normalized = setupDataProperly(raw, cat);
-    allData = [...allData, ...normalized];
-  }));
+    // Fetch all categories
+    await Promise.all(categories.map(async (cat) => {
+      const raw = await fetchTodayBooking(() => { }, () => { }, cat, startDate, endDate);
+      const normalized = setupDataProperly(raw, cat);
+      allData = [...allData, ...normalized];
+    }));
 
-  // Generate CSV Content
-  const csvHeader = headers.map(h => `"${h.label}"`).join(",");
-  const csvRows = allData.map(row => {
-    return headers.map(h => {
-      const val = row[h.key] ? String(row[h.key]).replace(/"/g, '""') : "";
-      return `"${val}"`;
-    }).join(",");
-  }).join("\n");
+    // Generate CSV Content
+    const csvHeader = headers.map(h => `"${h.label}"`).join(",");
+    const csvRows = allData.map(row => {
+      return headers.map(h => {
+        const val = row[h.key] ? String(row[h.key]).replace(/"/g, '""') : "";
+        return `"${val}"`;
+      }).join(",");
+    }).join("\n");
 
-  const csvContent = `${csvHeader}\n${csvRows}`;
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
+    const csvContent = `${csvHeader}\n${csvRows}`;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
 
-  const link = document.createElement("a");
-  link.href = url;
-  link.setAttribute("download", `Bookings_from_${startDate}_to_${endDate}.csv`);
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Bookings_from_${startDate}_to_${endDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
-  setIsDownloading(false);
-};
+    setIsDownloading(false);
+  };
 
-const columns = [
-  { id: "provider", label: "Provider", width: "15%" },
-  { id: "phone", label: "User Contact", width: "10%" },
-  { id: "name", label: "Guest Name", width: "12%" },
-  { id: "timestamp", label: "Booking Time", width: "13%" },
-  { id: "userAmount", label: "Booking Amount", width: "10%" },
-  { id: "userInvoice", label: "Invoice", width: "15%" },
-  { id: "action", label: "Action", width: "10%" },
-];
+  const columns = [
+    { id: "provider", label: "Provider", width: "15%" },
+    { id: "phone", label: "User Contact", width: "10%" },
+    { id: "name", label: "Guest Name", width: "12%" },
+    { id: "timestamp", label: "Booking Time", width: "13%" },
+    { id: "userAmount", label: "Booking Amount", width: "10%" },
+    { id: "userInvoice", label: "Invoice", width: "15%" },
+    { id: "action", label: "Action", width: "10%" },
+  ];
 
-return (
-  <div className="animate-fade-in pb-8">
-    {/* Controls Card */}
-    <Card sx={{ borderRadius: 4, mb: 4, boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
-      <CardContent>
-        <Grid container spacing={3} alignItems="flex-end">
-          <Grid item xs={12} md={5}>
-            <Box component="form" onSubmit={(e) => { e.preventDefault(); setRefetch(p => !p); }} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <TextField
-                label="Booking Date From"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-                fullWidth
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-              />
-              <Typography color="text.secondary">to</Typography>
-              <TextField
-                label="End Date"
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  if (startDate === "") {
-                    alert("Please Select Start Date First!!");
-                    return;
-                  }
-                  setEndDate(e.target.value);
-                }}
-                InputLabelProps={{ shrink: true }}
-                size="small"
-                fullWidth
-                inputProps={{ min: startDate }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-              />
+  return (
+    <div className="animate-fade-in pb-8">
+      {/* Controls Card */}
+      <Card sx={{ borderRadius: 4, mb: 4, boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
+        <CardContent>
+          <Grid container spacing={3} alignItems="flex-end">
+            <Grid item xs={12} md={5}>
+              <Box component="form" onSubmit={(e) => { e.preventDefault(); setRefetch(p => !p); }} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <TextField
+                  label="Booking Date From"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                  fullWidth
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+                <Typography color="text.secondary">to</Typography>
+                <TextField
+                  label="End Date"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    if (startDate === "") {
+                      alert("Please Select Start Date First!!");
+                      return;
+                    }
+                    setEndDate(e.target.value);
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                  size="small"
+                  fullWidth
+                  inputProps={{ min: startDate }}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+                <Button
+                  type="submit"
+                  variant="contained"
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                    '&:hover': { background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)' }
+                  }}
+                >
+                  Apply
+                </Button>
+              </Box>
+            </Grid>
+            <Grid item xs={12} md={7} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
               <Button
-                type="submit"
-                variant="contained"
+                variant="outlined"
+                onClick={downloadCSV}
+                disabled={isDownloading}
+                startIcon={isDownloading ? <CircularProgress size={16} /> : <CloudDownload />}
+                sx={{ borderRadius: 2, textTransform: 'none', borderColor: '#f97316', color: '#f97316' }}
+              >
+                {isDownloading ? "Generating CSV..." : "Export CSV"}
+              </Button>
+            </Grid>
+          </Grid>
+
+          <Box sx={{ mt: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Selfdrive Bookings", "Van Bookings"].map((serviceCategory, i) => (
+              <Chip
+                key={i}
+                icon={<Category fontSize="small" style={{ color: queryCategory === serviceCategory ? 'white' : 'inherit' }} />}
+                label={serviceCategory}
+                clickable
+                onClick={() => {
+                  setQueryCategory(serviceCategory);
+                  setPage(0);
+                }}
                 sx={{
                   borderRadius: 2,
-                  textTransform: 'none',
-                  background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-                  '&:hover': { background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)' }
+                  px: 1,
+                  bgcolor: queryCategory === serviceCategory ? 'var(--categories-bg-color)' : 'transparent',
+                  color: queryCategory === serviceCategory ? 'white' : 'text.primary',
+                  border: '1px solid',
+                  borderColor: queryCategory === serviceCategory ? 'transparent' : 'divider',
+                  '&:hover': {
+                    bgcolor: queryCategory === serviceCategory ? 'var(--categories-bg-color)' : 'action.hover',
+                    opacity: 0.9
+                  }
                 }}
-              >
-                Apply
-              </Button>
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={7} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-            <Button
-              variant="outlined"
-              onClick={downloadCSV}
-              disabled={isDownloading}
-              startIcon={isDownloading ? <CircularProgress size={16} /> : <CloudDownload />}
-              sx={{ borderRadius: 2, textTransform: 'none', borderColor: '#f97316', color: '#f97316' }}
-            >
-              {isDownloading ? "Generating CSV..." : "Export CSV"}
-            </Button>
-          </Grid>
-        </Grid>
-
-        <Box sx={{ mt: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Selfdrive Bookings", "Van Bookings"].map((serviceCategory, i) => (
-            <Chip
-              key={i}
-              icon={<Category fontSize="small" style={{ color: queryCategory === serviceCategory ? 'white' : 'inherit' }} />}
-              label={serviceCategory}
-              clickable
-              onClick={() => {
-                setQueryCategory(serviceCategory);
-                setPage(0);
-              }}
-              sx={{
-                borderRadius: 2,
-                px: 1,
-                bgcolor: queryCategory === serviceCategory ? 'var(--categories-bg-color)' : 'transparent',
-                color: queryCategory === serviceCategory ? 'white' : 'text.primary',
-                border: '1px solid',
-                borderColor: queryCategory === serviceCategory ? 'transparent' : 'divider',
-                '&:hover': {
-                  bgcolor: queryCategory === serviceCategory ? 'var(--categories-bg-color)' : 'action.hover',
-                  opacity: 0.9
-                }
-              }}
-            />
-          ))}
-        </Box>
-      </CardContent>
-    </Card>
-
-    <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
-      <TableContainer>
-        {loadingReq ? (
-          <Box sx={{ p: 4 }}>
-            <LoadingContent variant="skeleton" />
+              />
+            ))}
           </Box>
-        ) : (
-          <Table stickyHeader aria-label="sticky table" sx={{ minWidth: 650 }}>
-            <TableHead>
-              <TableRow sx={{ background: '#1e3a8a !important' }}>
-                {columns.map((column) => (
-                  <TableCell
-                    key={column.id}
-                    align="left"
-                    sx={{
-                      py: 2,
-                      px: 3,
-                      fontWeight: 700,
-                      color: '#ffffff !important',
-                      fontSize: '0.875rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      borderBottom: 'none',
-                      background: '#1e3a8a !important' // Fallback to solid blue
-                    }}
-                  >
-                    {column.label}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {rows.map((row, i) => {
-                return (
-                  <TableRow
-                    hover
-                    role="checkbox"
-                    tabIndex={-1}
-                    key={row.id || i}
-                    sx={{
-                      '&:last-child td, &:last-child th': { border: 0 },
-                      transition: 'all 0.2s',
-                      '&:hover': {
-                        backgroundColor: '#f1f5f9',
-                        transform: 'scale(1.001)',
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-                      }
-                    }}
-                  >
-                    {columns.map((column) => {
-                      let value = row[column.id];
+        </CardContent>
+      </Card>
 
-                      return (
-                        <TableCell key={column.id} align="left" sx={{ py: 2, px: 3 }}>
-                          {(column?.id === "timestamp" && value) ? (
-                            <Chip
-                              label={value}
-                              size="small"
-                              icon={<CalendarMonth fontSize="small" />}
-                              sx={{
-                                bgcolor: '#eff6ff',
-                                color: '#3b82f6',
-                                fontWeight: 500,
-                                borderRadius: '6px',
-                                height: '28px'
-                              }}
-                            />
-                          ) : (column.id === "action") ? (
-                            <Tooltip title={row.isPaymentClear ? "Payment Cleared" : "Mark as Clear"}>
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleClearAction(row.id)}
-                                  disabled={row.isPaymentClear || isPending}
-                                  sx={{
-                                    color: row.isPaymentClear ? '#22c55e' : '#ef4444',
-                                    bgcolor: row.isPaymentClear ? '#dcfce7' : '#fee2e2',
-                                    '&:hover': {
-                                      bgcolor: row.isPaymentClear ? '#bbf7d0' : '#fecaca',
-                                    },
-                                    opacity: isPending ? 0.7 : 1
-                                  }}
-                                >
-                                  {row.isPaymentClear ? <CheckCircle fontSize="small" /> : <Delete fontSize="small" />}
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                          ) : (column.id === "userInvoice") ? (
-                            <div className="flex items-center gap-1">
-                              <Tooltip title="Preview Invoice">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handlePreviewInvoice(row)}
-                                  disabled={processingInvoiceId === row.id}
-                                  sx={{ color: '#3b82f6', bgcolor: '#eff6ff', '&:hover': { bgcolor: '#dbeafe' } }}
-                                >
-                                  {processingInvoiceId === row.id ? (
-                                    <CircularProgress size={20} color="inherit" />
-                                  ) : (
-                                    <RemoveRedEyeIcon fontSize="small" />
-                                  )}
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Download Invoice">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleDownloadInvoice(row)}
-                                  disabled={processingInvoiceId === row.id}
-                                  sx={{ color: '#22c55e', bgcolor: '#dcfce7', '&:hover': { bgcolor: '#bbf7d0' } }}
-                                >
-                                  <FileDownloadIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            </div>
-                          ) : (column.id === "userAmount") ? (
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: '#334155' }}>
-                              ฿{value}
-                            </Typography>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                              {value}
-                            </Typography>
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                );
-              })}
-              {rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={10} sx={{ py: 8, textAlign: 'center' }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'text.secondary', opacity: 0.6 }}>
-                      <FilterList sx={{ fontSize: 48, mb: 1 }} />
-                      <Typography variant="h6">No {queryCategory} Found</Typography>
-                      <Typography variant="body2">Try selecting a different date range or category.</Typography>
-                    </Box>
-                  </TableCell>
+      <Paper elevation={0} sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+        <TableContainer>
+          {loadingReq ? (
+            <Box sx={{ p: 4 }}>
+              <LoadingContent variant="skeleton" />
+            </Box>
+          ) : (
+            <Table stickyHeader aria-label="sticky table" sx={{ minWidth: 650 }}>
+              <TableHead>
+                <TableRow sx={{ background: '#1e3a8a !important' }}>
+                  {columns.map((column) => (
+                    <TableCell
+                      key={column.id}
+                      align="left"
+                      sx={{
+                        py: 2,
+                        px: 3,
+                        fontWeight: 700,
+                        color: '#ffffff !important',
+                        fontSize: '0.875rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        borderBottom: 'none',
+                        background: '#1e3a8a !important' // Fallback to solid blue
+                      }}
+                    >
+                      {column.label}
+                    </TableCell>
+                  ))}
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        )}
-      </TableContainer>
-      <TablePagination
-        rowsPerPageOptions={[10, 25, 100]}
-        component="div"
-        count={totalPages}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        sx={{
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
-            fontWeight: 500,
-            color: 'text.secondary',
-          }
-        }}
-      />
-    </Paper>
+              </TableHead>
+              <TableBody>
+                {rows.map((row, i) => {
+                  return (
+                    <TableRow
+                      hover
+                      role="checkbox"
+                      tabIndex={-1}
+                      key={row.id || i}
+                      sx={{
+                        '&:last-child td, &:last-child th': { border: 0 },
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          backgroundColor: '#f1f5f9',
+                          transform: 'scale(1.001)',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+                        }
+                      }}
+                    >
+                      {columns.map((column) => {
+                        let value = row[column.id];
 
-    {/* Invoice Preview Dialog */}
-    <Dialog
-      fullScreen={false}
-      maxWidth="lg"
-      fullWidth
-      open={previewOpen}
-      onClose={handleClosePreview}
-      PaperProps={{
-        sx: { borderRadius: 2, height: '90vh' }
-      }}
-    >
-      <AppBar position="relative" elevation={0} sx={{ bgcolor: '#1e3a8a' }}>
-        <Toolbar>
-          <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
-            Invoice Preview
-          </Typography>
-          <IconButton
-            edge="start"
-            color="inherit"
-            onClick={handleClosePreview}
-            aria-label="close"
-          >
-            <CloseIcon />
-          </IconButton>
-        </Toolbar>
-      </AppBar>
-      <DialogContent sx={{ p: 0, overflow: 'hidden', bgcolor: '#f1f5f9' }}>
-        {previewPdfUrl && (
-          <iframe
-            src={previewPdfUrl}
-            style={{ width: '100%', height: '100%', border: 'none' }}
-            title="Invoice Preview"
-          />
-        )}
-      </DialogContent>
-    </Dialog>
-  </div>
-);
+                        return (
+                          <TableCell key={column.id} align="left" sx={{ py: 2, px: 3 }}>
+                            {(column?.id === "timestamp" && value) ? (
+                              <Chip
+                                label={value}
+                                size="small"
+                                icon={<CalendarMonth fontSize="small" />}
+                                sx={{
+                                  bgcolor: '#eff6ff',
+                                  color: '#3b82f6',
+                                  fontWeight: 500,
+                                  borderRadius: '6px',
+                                  height: '28px'
+                                }}
+                              />
+                            ) : (column.id === "action") ? (
+                              <Tooltip title={row.isPaymentClear ? "Payment Cleared" : "Mark as Clear"}>
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleClearAction(row.id)}
+                                    disabled={row.isPaymentClear || isPending}
+                                    sx={{
+                                      color: row.isPaymentClear ? '#22c55e' : '#ef4444',
+                                      bgcolor: row.isPaymentClear ? '#dcfce7' : '#fee2e2',
+                                      '&:hover': {
+                                        bgcolor: row.isPaymentClear ? '#bbf7d0' : '#fecaca',
+                                      },
+                                      opacity: isPending ? 0.7 : 1
+                                    }}
+                                  >
+                                    {row.isPaymentClear ? <CheckCircle fontSize="small" /> : <Delete fontSize="small" />}
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            ) : (column.id === "userInvoice") ? (
+                              <div className="flex items-center gap-1">
+                                <Tooltip title="Preview Invoice">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handlePreviewInvoice(row)}
+                                    disabled={processingInvoiceId === row.id}
+                                    sx={{ color: '#3b82f6', bgcolor: '#eff6ff', '&:hover': { bgcolor: '#dbeafe' } }}
+                                  >
+                                    {processingInvoiceId === row.id ? (
+                                      <CircularProgress size={20} color="inherit" />
+                                    ) : (
+                                      <RemoveRedEyeIcon fontSize="small" />
+                                    )}
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Download Invoice">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDownloadInvoice(row)}
+                                    disabled={processingInvoiceId === row.id}
+                                    sx={{ color: '#22c55e', bgcolor: '#dcfce7', '&:hover': { bgcolor: '#bbf7d0' } }}
+                                  >
+                                    <FileDownloadIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </div>
+                            ) : (column.id === "userAmount") ? (
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: '#334155' }}>
+                                ฿{value}
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+                                {value}
+                              </Typography>
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  );
+                })}
+                {rows.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={10} sx={{ py: 8, textAlign: 'center' }}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'text.secondary', opacity: 0.6 }}>
+                        <FilterList sx={{ fontSize: 48, mb: 1 }} />
+                        <Typography variant="h6">No {queryCategory} Found</Typography>
+                        <Typography variant="body2">Try selecting a different date range or category.</Typography>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 100]}
+          component="div"
+          count={totalPages}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{
+            borderTop: '1px solid',
+            borderColor: 'divider',
+            '.MuiTablePagination-selectLabel, .MuiTablePagination-displayedRows': {
+              fontWeight: 500,
+              color: 'text.secondary',
+            }
+          }}
+        />
+      </Paper>
+
+      {/* Invoice Preview Dialog */}
+      <Dialog
+        fullScreen={false}
+        maxWidth="lg"
+        fullWidth
+        open={previewOpen}
+        onClose={handleClosePreview}
+        PaperProps={{
+          sx: { borderRadius: 2, height: '90vh' }
+        }}
+      >
+        <AppBar position="relative" elevation={0} sx={{ bgcolor: '#1e3a8a' }}>
+          <Toolbar>
+            <Typography sx={{ ml: 2, flex: 1 }} variant="h6" component="div">
+              Invoice Preview
+            </Typography>
+            <IconButton
+              edge="start"
+              color="inherit"
+              onClick={handleClosePreview}
+              aria-label="close"
+            >
+              <CloseIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+        <DialogContent sx={{ p: 0, overflow: 'hidden', bgcolor: '#f1f5f9' }}>
+          {previewPdfUrl && (
+            <iframe
+              src={previewPdfUrl}
+              style={{ width: '100%', height: '100%', border: 'none' }}
+              title="Invoice Preview"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 };
 export default TodayBookings;

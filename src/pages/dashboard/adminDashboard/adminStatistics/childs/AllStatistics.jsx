@@ -22,6 +22,7 @@ import {
   Box,
 } from "@mui/material";
 import FilterAltIcon from "@mui/icons-material/FilterAlt";
+import AirportShuttleIcon from "@mui/icons-material/AirportShuttle";
 
 // Custom Stat Card Component
 const StatCard = ({ title, value, icon, color, gradient }) => (
@@ -110,6 +111,7 @@ const AllStatistics = () => {
   const [filteredTaxi, setFilteredTaxi] = useState([]);
   const [filteredSelfdrive, setFilteredSelfdrive] = useState([]);
   const [filteredSightseeing, setFilteredSightseeing] = useState([]);
+  const [filteredVans, setFilteredVans] = useState([]);
   const [chartType, setChartType] = useState("Bar");
 
   const months = [
@@ -138,6 +140,7 @@ const AllStatistics = () => {
     setFilteredTaxi(allStatistics.Cars || []);
     setFilteredSelfdrive(allStatistics.SelfDrive || []);
     setFilteredSightseeing(allStatistics.Sightseeing || []);
+    setFilteredVans(allStatistics.Vans || []);
   }, [allStatistics]);
 
   const allTotal = amountCalculator(filteredAll);
@@ -145,6 +148,7 @@ const AllStatistics = () => {
   const SightseeingTotal = amountCalculator(filteredSightseeing);
   const taxiTotal = amountCalculator(filteredTaxi);
   const SelfdriveTotal = amountCalculator(filteredSelfdrive);
+  const vanTotal = amountCalculator(filteredVans);
 
   return (
     <Box sx={{ pb: 4 }}>
@@ -321,6 +325,15 @@ const AllStatistics = () => {
             icon={<DirectionsCarIcon sx={{ fontSize: 32 }} />}
             color="#ee1e3a"
             gradient="linear-gradient(135deg, #ee1e3a 0%, #c41830 100%)"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={2.4}>
+          <StatCard
+            title="Vans"
+            value={vanTotal}
+            icon={<AirportShuttleIcon sx={{ fontSize: 32 }} />}
+            color="#8b5cf6"
+            gradient="linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
           />
         </Grid>
       </Grid>
