@@ -28,7 +28,12 @@ export const ensureInvoiceIdForBooking = async (category, id, currentData) => {
         col = roomBookingCollection;
         serviceType = INVOICE_TYPES.ROOM;
     } else if (category === "Van Bookings") {
-        col = vanBookingsCollection;
+        // Handle Mobile Vans vs Manual Vans
+        if (currentData.source === 'mobile') {
+            col = carBookingsCollection;
+        } else {
+            col = vanBookingsCollection;
+        }
         serviceType = INVOICE_TYPES.VAN;
     } else {
         col = travelBookingCollection;

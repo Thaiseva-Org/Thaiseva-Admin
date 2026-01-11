@@ -67,23 +67,41 @@ const BarEarningChart = ({
   useEffect(() => {
     if (!statsData.date.length) return;
 
+    const getGradient = (ctx, color) => {
+      const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+      gradient.addColorStop(0, alpha(color, 0.8));
+      gradient.addColorStop(1, alpha(color, 0.2));
+      return gradient;
+    };
+
     const datasets = [
       {
         label: "Total Revenue",
         data: statsData.Total,
         borderColor: "#FF9E2F",
-        backgroundColor: chartType === "Line" ? alpha("#FF9E2F", 0.1) : "#FF9E2F",
+        backgroundColor: (context) => {
+          const ctx = context.chart.ctx;
+          const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+          gradient.addColorStop(0, "#FF9E2F");
+          gradient.addColorStop(1, alpha("#FF9E2F", 0.3));
+          return gradient;
+        },
         pointBackgroundColor: "#fff",
         pointBorderColor: "#FF9E2F",
+        borderRadius: 4,
       },
-      // {
-      //   label: "Hotel",
-      //   data: statsData.Hotels,
-      //   borderColor: "#ffd000",
-      //   backgroundColor: chartType === "Line" ? alpha("#ffd000", 0.1) : "#ffd000",
-      //   pointBackgroundColor: "#fff",
-      //   pointBorderColor: "#ffd000",
-      // },
+      {
+        label: "Hotel",
+        data: statsData.Hotels,
+        borderColor: "#ffd000",
+        backgroundColor: (context) => {
+          // Simple color for inactive/secondary items or same gradient logic
+          return chartType === "Line" ? alpha("#ffd000", 0.1) : "#ffd000";
+        },
+        pointBackgroundColor: "#fff",
+        pointBorderColor: "#ffd000",
+        borderRadius: 4,
+      },
       {
         label: "Sightseeing",
         data: statsData.Sightseeing,
@@ -91,6 +109,7 @@ const BarEarningChart = ({
         backgroundColor: chartType === "Line" ? alpha("#0c63e7", 0.1) : "#0c63e7",
         pointBackgroundColor: "#fff",
         pointBorderColor: "#0c63e7",
+        borderRadius: 4,
       },
       {
         label: "Taxi",
@@ -99,6 +118,7 @@ const BarEarningChart = ({
         backgroundColor: chartType === "Line" ? alpha("#55AD9B", 0.1) : "#55AD9B",
         pointBackgroundColor: "#fff",
         pointBorderColor: "#55AD9B",
+        borderRadius: 4,
       },
       {
         label: "Self Drive",
@@ -107,6 +127,7 @@ const BarEarningChart = ({
         backgroundColor: chartType === "Line" ? alpha("#ee1e3a", 0.1) : "#ee1e3a",
         pointBackgroundColor: "#fff",
         pointBorderColor: "#ee1e3a",
+        borderRadius: 4,
       },
       {
         label: "Vans",
@@ -115,6 +136,7 @@ const BarEarningChart = ({
         backgroundColor: chartType === "Line" ? alpha("#8b5cf6", 0.1) : "#8b5cf6",
         pointBackgroundColor: "#fff",
         pointBorderColor: "#8b5cf6",
+        borderRadius: 4,
       },
     ];
 

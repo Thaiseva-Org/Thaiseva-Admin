@@ -22,6 +22,7 @@ import {
   selfDriveBookingCollection,
   settingsCollection,
   travelBookingCollection,
+  vanBookingsCollection,
 } from "../firebase/firebase.config";
 import { AuthContext } from "./AuthProvider";
 
@@ -57,6 +58,7 @@ const PartnerProvider = ({ children }) => {
   const [carBookings, setCarBookings] = useState([]);
   const [selfDriveBookings, setSelfDriveBookings] = useState([]);
   const [travelBookings, setTravelBookings] = useState([]);
+  const [vanBookings, setVanBookings] = useState([]);
   const [categories, setCategories] = useState([]);
   const [logo, setLogo] = useState("");
   // const [adminHomeData, setAdminHomeData] = useState({
@@ -517,6 +519,40 @@ const PartnerProvider = ({ children }) => {
     (isAdmin || isSubAdmin) && loadData();
   }, [isAdmin, isSubAdmin]);
 
+  // loading all van bookings
+  useEffect(() => {
+    const loadData = () => {
+      setLoadingData(true);
+      // Van bookings (Manual) - Check last 24 hours or just recent
+      const unSub = onSnapshot(
+        query(
+          vanBookingsCollection,
+          where("createdAt", ">=", last24Hours.toISOString()), // createdAt is usually ISO string in manual bookings
+          orderBy("createdAt", "desc")
+        ),
+        (result) => {
+          if (result.docs.length > 0) {
+            const list = result.docs.map((doc) => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                ...data,
+                source: 'manual'
+              };
+            });
+            setVanBookings(list);
+            setLoadingData(false);
+          } else {
+            setVanBookings([]);
+            setLoadingData(false);
+          }
+        }
+      );
+      return () => unSub();
+    };
+    (isAdmin || isSubAdmin) && loadData();
+  }, [isAdmin, isSubAdmin]);
+
   // loading all partner's payments
   // useEffect(() => {
   //   const loadPayments = async () => {
@@ -704,6 +740,7 @@ const PartnerProvider = ({ children }) => {
     carBookings,
     selfDriveBookings,
     travelBookings,
+    vanBookings,
     logo,
     contactInfo,
     categories,

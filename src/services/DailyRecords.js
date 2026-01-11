@@ -106,7 +106,7 @@ export const todayBooking = async (
   }
 };
 
-export const handleClear = async (category, id) => {
+export const handleClear = async (category, id, source = null) => {
   let col;
   let serviceType;
   const cat = category?.trim();
@@ -121,7 +121,11 @@ export const handleClear = async (category, id) => {
     col = roomBookingCollection;
     serviceType = INVOICE_TYPES.ROOM;
   } else if (cat === "Van Bookings") {
-    col = vanBookingsCollection;
+    if (source === 'mobile') {
+      col = carBookingsCollection;
+    } else {
+      col = vanBookingsCollection;
+    }
     serviceType = INVOICE_TYPES.VAN;
   } else {
     col = travelBookingCollection;
@@ -170,23 +174,80 @@ export const fetchBookingsTotalPages = async (
 ) => {
   const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
 
+  // Common Constraints
   let statuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
   if (category?.trim() === "Van Bookings") {
     statuses.push("Pending");
     statuses.push("pending");
+    statuses.push("PENDING");
+  } else if (!category?.trim().includes("Room")) {
+    // Taxi / Sightseeing / SelfDrive - usually we want these statuses. 
+    // Room bookings logic is handled separately usually, but for count we stick to accepted unless specified.
+    // If user wants everything, we might need to broaden this.
   }
 
-  const queryToUse = query(
-    collectionRef,
-    where("status", "in", statuses),
+  const dateConstraints = [
     where(timestampField, ">=", todayStart),
     where(timestampField, "<=", todayEnd),
-    orderBy(timestampField, "desc")
-  );
+  ];
+
+  // Conditionally add status constraint if not Room Bookings (Rooms track payment status separately)
+  if (category !== "Room Bookings") {
+    dateConstraints.unshift(where("status", "in", statuses));
+  }
 
   try {
-    const pages = await getCountFromServer(queryToUse);
-    setTotalPages(Math.ceil(pages.data().count));
+    if (category === "Van Bookings") {
+      // 1. Manual Vans (Uses String Date)
+      const qManual = query(vanBookingsCollection, ...dateConstraints);
+      const manualSnap = await getDocs(qManual);
+
+      // 2. Mobile Vans (Uses Timestamp - Needs Date Object)
+      const dateStart = new Date(todayStart);
+      const dateEnd = new Date(todayEnd);
+
+      const qMobile = query(
+        carBookingsCollection,
+        where("status", "in", statuses),
+        where("timestamp", ">=", dateStart),
+        where("timestamp", "<=", dateEnd)
+      );
+      const mobileSnap = await getDocs(qMobile);
+      const mobileVansCount = mobileSnap.docs.filter(d => d.data().transportType?.toLowerCase().includes('van')).length;
+
+      setTotalPages(manualSnap.size + mobileVansCount);
+
+    } else if (category === "Taxi Bookings") {
+      // Filter out Vans
+      const q = query(
+        carBookingsCollection,
+        where("status", "in", statuses),
+        where("timestamp", ">=", todayStart),
+        where("timestamp", "<=", todayEnd)
+      );
+      const snap = await getDocs(q);
+      const taxiCount = snap.docs.filter(d => !d.data().transportType?.toLowerCase().includes('van')).length;
+
+      setTotalPages(taxiCount);
+
+    } else if (category === "Room Bookings") {
+      // Room Bookings need special counting (Paid Only) or All?
+      // fetchTodayBooking filters by payment statuses. We should approximate or fetch all.
+      // Fetching all to be accurate with fetchTodayBooking Logic
+      const q = query(collectionRef, ...dateConstraints);
+      const snap = await getDocs(q);
+      const paidCount = snap.docs.filter(d => {
+        const data = d.data();
+        return data.isPaymentDone === true || data.isPaymentClear === true;
+      }).length;
+      setTotalPages(paidCount);
+
+    } else {
+      // Standard Count
+      const q = query(collectionRef, ...dateConstraints);
+      const pages = await getCountFromServer(q);
+      setTotalPages(Math.ceil(pages.data().count));
+    }
   } catch (error) {
     console.error("Error fetching total pages:", error);
     setTotalPages(0);
@@ -208,173 +269,158 @@ export const fetchTodayBooking = async (
   const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
 
   const validStatuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
-
   if (category?.trim()?.includes("Van")) {
     validStatuses.push("Pending");
+    validStatuses.push("pending");
+    validStatuses.push("PENDING");
   }
 
-  const performQuery = async (field, includeStatus = true) => {
-    let constraints = [];
-
-    // If includeStatus is true, we try the composite query (needs index)
-    if (includeStatus) {
-      constraints.push(where("status", "in", validStatuses));
-    }
-
-    constraints.push(where(field, ">=", todayStart));
-    constraints.push(where(field, "<=", todayEnd));
-    constraints.push(orderBy(field, "desc"));
-
-    if (pageSize) {
-      // If filtering client-side, we might want to fetch more to ensure we have enough matches
-      // But for safety, keep it simple.
-      constraints.push(limit(pageSize * 5)); // Fetch extra buffer
-    }
-
-    const q = query(collectionRef, ...constraints);
-    const snap = await getDocs(q);
-
-    // If we didn't filter by status in query, filter now
-    if (!includeStatus) {
-      return snap.docs.filter(d => validStatuses.includes(d.data().status));
-    }
-
-    return snap.docs;
+  // --- Helper for Sorting ---
+  const sortDocs = (docs) => {
+    return docs.sort((a, b) => {
+      const getTime = (item) => {
+        const val = item.timestamp || item.orderedAt || item.createdAt || item.time || item.bookingDate;
+        if (!val) return 0;
+        return val.seconds ? val.seconds : (new Date(val).getTime() / 1000);
+      };
+      return getTime(b) - getTime(a);
+    });
   };
 
   try {
     let list = [];
-    if (category === "Sightseeing Bookings" || category === "Room Bookings") {
-      // We attempt to query potential timestamp fields.
-      // For Sightseeing: orderedAt, createdAt, timestamp
-      // For Room Bookings: orderedAt, createdAt (as per RoomBookings.jsx)
 
+    // --- CASE 1: Van Bookings (Merge Manual + Mobile Vans) ---
+    if (category === "Van Bookings") {
+      // 1. Manual
+      const qManual = query(
+        vanBookingsCollection,
+        where("status", "in", validStatuses),
+        where("bookingDate", ">=", todayStart),
+        where("bookingDate", "<=", todayEnd)
+      );
+
+      // 2. Mobile (carBookings)
+      const dateStart = new Date(todayStart);
+      const dateEnd = new Date(todayEnd);
+
+      const qMobile = query(
+        carBookingsCollection,
+        where("status", "in", validStatuses),
+        where("timestamp", ">=", dateStart),
+        where("timestamp", "<=", dateEnd)
+      );
+
+      const [manualSnap, mobileSnap] = await Promise.all([getDocs(qManual), getDocs(qMobile)]);
+
+      const manualDocs = manualSnap.docs.map(d => ({ id: d.id, ...d.data(), source: 'manual' }));
+      const mobileDocs = mobileSnap.docs
+        .map(d => ({ id: d.id, ...d.data(), source: 'mobile' }))
+        .filter(d => d.transportType?.toLowerCase().includes('van'));
+
+      list = sortDocs([...manualDocs, ...mobileDocs]);
+
+    }
+    // --- CASE 2: Taxi Bookings (Exclude Vans) ---
+    else if (category === "Taxi Bookings") {
+      const q = query(
+        carBookingsCollection,
+        where("status", "in", validStatuses),
+        where("timestamp", ">=", todayStart),
+        where("timestamp", "<=", todayEnd)
+      );
+      const snap = await getDocs(q);
+
+      list = snap.docs
+        .map(d => ({ id: d.id, ...d.data(), source: 'mobile' }))
+        .filter(d => !d.transportType?.toLowerCase().includes('van'));
+
+      list = sortDocs(list);
+    }
+    // --- CASE 3: Room / Sightseeing (Existing Complex Login) ---
+    else if (category === "Sightseeing Bookings" || category === "Room Bookings") {
+      // ... Keeps existing logic for merging timestamp fields ...
+      // We can reuse the existing performQuery logic structure but simplified for brevity in this replacement block 
+      // or just copy the working logic from before.
+
+      // Re-implementing logic compactly:
       const fieldsToQuery = category === "Sightseeing Bookings"
         ? ["orderedAt", "createdAt", "timestamp"]
-        : ["createdAt", "orderedAt", "timestamp"];  // Added timestamp for Room Bookings too
+        : ["createdAt", "orderedAt", "timestamp"];
 
-      const tryFetch = async (field) => {
-        try {
-          // For Room Bookings, we DO NOT filter by status in the query to capture 'bookingStatus' variations
-          // For others, we try status filter if possible for performance
-          const useStatusFilter = category !== "Room Bookings";
-          return await performQuery(field, useStatusFilter);
-        } catch (err) {
-          if (err.code === 'failed-precondition') {
-            console.warn(`Composite query failed for ${field} due to missing index, falling back to date-only query.`);
-          } else {
-            console.warn(`Composite query failed for ${field}, falling back to date-only query.`, err);
-          }
-          return await performQuery(field, false);
-        }
+      const performQuery = async (field, includeStatus) => {
+        const constraints = [
+          where(field, ">=", todayStart),
+          where(field, "<=", todayEnd),
+          orderBy(field, "desc"),
+          limit(pageSize ? pageSize * 5 : 500)
+        ];
+        if (includeStatus) constraints.unshift(where("status", "in", validStatuses));
+
+        const q = query(collectionRef, ...constraints);
+        const snap = await getDocs(q);
+        return snap.docs;
       };
 
-      const promises = fieldsToQuery.map(f => tryFetch(f));
-      const results = await Promise.allSettled(promises);
+      const promises = fieldsToQuery.map(async f => {
+        try {
+          return await performQuery(f, category !== "Room Bookings");
+        } catch (e) {
+          return await performQuery(f, false);
+        }
+      });
 
+      const results = await Promise.all(promises);
       const docsMap = new Map();
 
-      results.forEach(result => {
-        if (result.status === 'fulfilled' && result.value) {
-          result.value.forEach(doc => {
-            const data = doc.data();
-            let isMatch = false;
-
-            // Normalize Status Logic (Match RoomBookings.jsx)
-            let normalizedStatus = data.status || "Pending";
-            const rawStatus = data.bookingStatus || data.status;
-            if (typeof rawStatus === 'string') {
-              const upper = rawStatus.toUpperCase();
-              if (['ACCEPTED', 'CONFIRMED', 'DONE'].includes(upper)) normalizedStatus = 'Accepted';
-              else if (['PENDING'].includes(upper)) normalizedStatus = 'Pending';
-            }
-            if (normalizedStatus === 'Accepted' || validStatuses.includes(data.status)) {
-              // For Room Bookings, we removed the strict payment check to ensure ALL Accepted bookings appear.
-              // The user considers 'Accepted' == 'Record' even if payment flag isn't explicitly true yet (e.g. Pay at Hotel).
-              isMatch = true;
-            }
-
-            if (isMatch) {
-              docsMap.set(doc.id, { id: doc.id, ...data });
-            }
-          });
+      results.flat().forEach(doc => {
+        const data = doc.data();
+        let isMatch = false;
+        // Room Booking Status Logic
+        if (category === "Room Bookings") {
+          const rawStatus = data.bookingStatus || data.status || "";
+          const upper = rawStatus.toUpperCase();
+          // Filter matching RoomBookings.jsx logic
+          if (['ACCEPTED', 'CONFIRMED', 'DONE'].includes(upper)) isMatch = true;
+          // Also check payment
+          if ((data.isPaymentDone === true || data.isPaymentClear === true) && isMatch) {
+            // Valid
+          } else {
+            isMatch = false; // Must be paid/clear
+          }
+        } else {
+          // Basic Status Check
+          isMatch = validStatuses.includes(data.status);
         }
+
+        if (isMatch) docsMap.set(doc.id, { id: doc.id, ...data });
       });
 
-      // Convert map to array and sort manually
-      list = Array.from(docsMap.values()).sort((a, b) => {
-        // Generic timestamp extraction
-        const getTime = (item) => {
-          const val = item.orderedAt || item.createdAt || item.timestamp || item.time;
-          if (!val) return 0;
-          return val.seconds || (new Date(val).getTime() / 1000) || 0;
-        };
-        return getTime(b) - getTime(a);
-      });
+      list = sortDocs(Array.from(docsMap.values()));
 
-      // Pagination Handling for Merged List
-      if (pageSize && list.length > pageSize) {
-        const startIndex = page * pageSize;
-        const endIndex = startIndex + pageSize;
-        list = list.slice(startIndex, endIndex);
-      }
-
-    } else {
-      // Standard single query for other categories (Taxi, etc.)
-      let statuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
-      if (category?.trim() === "Van Bookings") {
-        statuses.push("Pending");
-        statuses.push("pending");
-      }
-
-      const cons = [
-        where("status", "in", statuses),
+    }
+    // --- CASE 4: Standard Fallback (SelfDrive) ---
+    else {
+      const q = query(
+        collectionRef,
+        where("status", "in", validStatuses),
         where(timestampField, ">=", todayStart),
         where(timestampField, "<=", todayEnd),
-        orderBy(timestampField, "desc"),
-      ];
-
-      // For Room Bookings, we need to filter by payment status client-side (to avoid complex index requirements)
-      // So we fetch more items to ensure we have enough after filtering
-      if (category === "Room Bookings" && pageSize) {
-        cons.push(limit(pageSize * 5));
-      } else if (pageSize) {
-        cons.push(limit(pageSize));
-      }
-
-      if (page > 0 && lastDoc[page - 1]) cons.push(startAfter(lastDoc[page - 1]));
-
-      const q = query(collectionRef, ...cons);
-      const result = await getDocs(q);
-
-      list = result.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-
-      // Filter for PAID Room Bookings
-      if (category === "Room Bookings") {
-        list = list.filter(item => item.isPaymentDone === true || item.isPaymentClear === true);
-
-        // Handle pagination slicing manually since we fetched extra
-        if (pageSize && list.length > pageSize) {
-          // If we're on page 0, take first N. If paging, this logic is imperfect with startAfter + filtering
-          // But valid for "Records" viewing
-          list = list.slice(0, pageSize);
-        }
-      }
-
-      // Update Pagination Cursor for standard queries
-      if (pageSize && result.docs.length > 0) {
-        // This cursor logic is approximate when filtering is involved
-        const lastDocument = result.docs.length > 0 ? result.docs[result.docs.length - 1] : null;
-        setLastDocs((prev) => {
-          const updated = [...prev];
-          updated[page] = lastDocument;
-          return updated;
-        });
-      }
+        orderBy(timestampField, "desc")
+      );
+      const snap = await getDocs(q);
+      list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
+
+    // --- Pagination (Common Slicing) ---
+    if (pageSize && list.length > pageSize) {
+      const startIndex = page * pageSize;
+      const endIndex = startIndex + pageSize;
+      list = list.slice(startIndex, endIndex);
+    }
+
+    // Update cursor logic (Approximation since we are slicing)
+    // setLastDocs is irrelevant when we slice array fully, but keeping it for compatibility if needed.
 
     setData(list);
     return list;

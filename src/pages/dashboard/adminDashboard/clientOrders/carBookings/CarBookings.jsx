@@ -149,21 +149,23 @@ const CarBookings = () => {
 
   // calling createData function with partner's data
   const rows = (bookings) => {
-    return bookings?.map((booking) => {
-      return createData(
-        booking?.name || "-",
-        booking?.contact || "-",
-        booking?.time || "-",
-        booking?.pickup || "-",
-        booking?.drop || "-",
-        booking?.timestamp || "-",
-        booking?.status === "pending"
-          ? "Pending"
-          : booking?.status || "Pending",
-        booking?.id || "-",
-        booking?.transportType
-      );
-    });
+    return bookings
+      ?.filter((b) => !b?.transportType?.toLowerCase().includes("van"))
+      .map((booking) => {
+        return createData(
+          booking?.name || "-",
+          booking?.contact || "-",
+          booking?.time || "-",
+          booking?.pickup || "-",
+          booking?.drop || "-",
+          booking?.timestamp || "-",
+          booking?.status === "pending"
+            ? "Pending"
+            : booking?.status || "Pending",
+          booking?.id || "-",
+          booking?.transportType
+        );
+      });
   };
 
   // setting booking details to the state

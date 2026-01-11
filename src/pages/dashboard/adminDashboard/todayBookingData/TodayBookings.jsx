@@ -521,10 +521,14 @@ const TodayBookings = () => {
         };
       }
       if (category === "Van Bookings" || (category && category.includes("Van"))) {
-        // Ensure price is fetched, fallback to 0
-        const price = item?.price || item?.amount || "0";
+        // Price removed, set to "-"
+        const price = "-";
         // Ensure date is handled
         const bDate = item?.bookingDate || item?.createdAt || new Date();
+
+        // Determine Provider Name
+        const isMobile = item?.source === 'mobile';
+        const providerName = isMobile ? "Mobile App Request" : (item?.companyName || "Van Booking");
 
         let displayGuest = item?.guestName || defaults.guestName;
         if (item?.passengers && item.passengers.length > 0) {
@@ -534,13 +538,15 @@ const TodayBookings = () => {
         return {
           ...createData(
             defaults.id, defaults.paymentClear,
-            item?.companyName || "-", "-", /* Provider phone not always available directly */
+            providerName, "-",
             displayGuest,
             item?.guestPhone || defaults.guestPhone,
             bDate,
             price, defaults.commission,
             category, defaults.status, `${item?.pickupLocation || "?"} -> ${item?.dropLocation || "?"}`, item?.customerInvoiceId
-          ), rawData: item
+          ),
+          source: item?.source, // Important for Mobile Van support
+          rawData: item
         };
       }
       if (category === "Room Bookings") {
@@ -587,14 +593,14 @@ const TodayBookings = () => {
 
   // --- Actions ---
 
-  const handleClearAction = (id) => {
+  const handleClearAction = (row) => {
     if (window.confirm("Are you sure to clear this entry?")) {
       startTransition(async () => {
         // 1. Optimistic Update (Immediate UI feedback)
-        setOptimisticRequirements(id);
+        setOptimisticRequirements(row.id);
 
         // 2. Server Update
-        await handleClear(queryCategory, id);
+        await handleClear(queryCategory, row.id, row.source);
 
         // 3. Sync
         setRefetch((p) => !p);
@@ -854,7 +860,7 @@ const TodayBookings = () => {
                                 <span>
                                   <IconButton
                                     size="small"
-                                    onClick={() => handleClearAction(row.id)}
+                                    onClick={() => handleClearAction(row)}
                                     disabled={row.isPaymentClear || isPending}
                                     sx={{
                                       color: row.isPaymentClear ? '#22c55e' : '#ef4444',
@@ -898,7 +904,7 @@ const TodayBookings = () => {
                               </div>
                             ) : (column.id === "userAmount") ? (
                               <Typography variant="body2" sx={{ fontWeight: 700, color: '#334155' }}>
-                                ฿{value}
+                                {value === "-" || value === "0" ? "-" : `฿${value}`}
                               </Typography>
                             ) : (
                               <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>

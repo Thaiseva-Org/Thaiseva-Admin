@@ -20,6 +20,7 @@ import {
   Card,
   CardContent,
   Box,
+  Skeleton,
 } from "@mui/material";
 import FilterAltIcon from "@mui/icons-material/FilterAlt";
 import AirportShuttleIcon from "@mui/icons-material/AirportShuttle";
@@ -28,68 +29,60 @@ import AirportShuttleIcon from "@mui/icons-material/AirportShuttle";
 const StatCard = ({ title, value, icon, color, gradient }) => (
   <Card
     sx={{
-      borderRadius: 4,
-      boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)",
-      height: "100%",
+      borderRadius: "20px",
+      boxShadow: "0 2px 20px rgba(0,0,0,0.05)",
+      background: "#fff",
       position: "relative",
       overflow: "hidden",
-      transition: "transform 0.2s",
+      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      border: "1px solid rgba(0,0,0,0.05)",
       "&:hover": {
-        transform: "translateY(-5px)",
-        boxShadow: "0 20px 40px -12px rgba(0,0,0,0.2)",
+        transform: "translateY(-8px)",
+        boxShadow: `0 20px 40px -10px ${color}30`,
       },
     }}
   >
-    <div
-      style={{
+    {/* Decorative Background Circle */}
+    <Box
+      sx={{
+        position: 'absolute',
+        top: -20,
+        right: -20,
+        width: 100,
+        height: 100,
+        borderRadius: '50%',
         background: gradient,
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        opacity: 0.1,
-        zIndex: 0,
+        opacity: 0.15,
+        zIndex: 0
       }}
     />
-    <CardContent sx={{ position: "relative", zIndex: 1, p: 3 }}>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 2,
-        }}
-      >
+
+    <CardContent sx={{ position: "relative", zIndex: 1, p: "24px !important" }}>
+      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 3 }}>
         <Box
           sx={{
             p: 1.5,
-            borderRadius: "12px",
-            background: gradient,
-            color: "white",
+            borderRadius: "16px",
+            background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
+            color: color,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: `0 4px 12px ${color}40`,
           }}
         >
           {icon}
         </Box>
       </Box>
-      <Typography variant="h5" fontWeight={800} color="text.primary" sx={{ mb: 0.5 }}>
-        ฿{value.toLocaleString()}
-      </Typography>
-      <Typography
-        variant="body2"
-        sx={{
-          color: color,
-          fontWeight: 700,
-          textTransform: "uppercase",
-          letterSpacing: "0.5px",
-        }}
-      >
-        {title}
-      </Typography>
+
+      <Box>
+        <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 600, mb: 0.5, fontSize: '0.85rem' }}>
+          {title}
+        </Typography>
+        <Typography variant="h4" sx={{ fontWeight: 800, color: "text.primary", letterSpacing: '-0.5px' }}>
+          <span style={{ fontSize: '1.2rem', marginRight: '4px', verticalAlign: 'text-top', opacity: 0.7 }}>฿</span>
+          {value.toLocaleString()}
+        </Typography>
+      </Box>
     </CardContent>
   </Card>
 );
@@ -104,6 +97,7 @@ const AllStatistics = () => {
     month,
     year,
     filterRange,
+    loading,
   } = useContext(StatisticsContext);
 
   const [filteredAll, setFilteredAll] = useState([]);
@@ -262,80 +256,92 @@ const AllStatistics = () => {
       </Paper>
 
       {/* Chart Section */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: 3,
-          mb: 4,
-          borderRadius: 4,
-          border: "1px solid",
-          borderColor: "divider",
-          minHeight: 400,
-        }}
-      >
-        <BarEarningChart
-          selectedView={selectedView}
-          chartType={chartType}
-          statsData={allStatistics}
+      {loading ? (
+        <Skeleton
+          variant="rectangular"
+          height={400}
+          sx={{ borderRadius: 4, mb: 4 }}
         />
-      </Paper>
+      ) : (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            mb: 4,
+            borderRadius: 4,
+            border: "1px solid",
+            borderColor: "divider",
+            minHeight: 400,
+          }}
+        >
+          <BarEarningChart
+            selectedView={selectedView}
+            chartType={chartType}
+            statsData={allStatistics}
+          />
+        </Paper>
+      )}
 
       {/* Stats Cards Section */}
       <Grid container spacing={3}>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Total Revenue"
-            value={allTotal}
-            icon={<AccountBalanceWalletIcon sx={{ fontSize: 32 }} />}
-            color="#FF9E2F"
-            gradient="linear-gradient(135deg, #FF9E2F 0%, #E0851F 100%)"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Hotels"
-            value={hotelTotal}
-            icon={<ApartmentIcon sx={{ fontSize: 32 }} />}
-            color="#ffd000"
-            gradient="linear-gradient(135deg, #ffd000 0%, #e6bb00 100%)"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Sightseeing"
-            value={SightseeingTotal}
-            icon={<LuggageIcon sx={{ fontSize: 32 }} />}
-            color="#0c63e7"
-            gradient="linear-gradient(135deg, #0c63e7 0%, #0a4fb8 100%)"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Taxi"
-            value={taxiTotal}
-            icon={<LocalTaxiRoundedIcon sx={{ fontSize: 32 }} />}
-            color="#55AD9B"
-            gradient="linear-gradient(135deg, #55AD9B 0%, #3d8c7c 100%)"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Self Drive"
-            value={SelfdriveTotal}
-            icon={<DirectionsCarIcon sx={{ fontSize: 32 }} />}
-            color="#ee1e3a"
-            gradient="linear-gradient(135deg, #ee1e3a 0%, #c41830 100%)"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title="Vans"
-            value={vanTotal}
-            icon={<AirportShuttleIcon sx={{ fontSize: 32 }} />}
-            color="#8b5cf6"
-            gradient="linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
-          />
-        </Grid>
+        {loading
+          ? Array.from({ length: 6 }).map((_, i) => (
+            <Grid item xs={12} sm={6} md={2} key={i}>
+              <Skeleton
+                variant="rectangular"
+                height={180}
+                sx={{ borderRadius: 4 }}
+              />
+            </Grid>
+          ))
+          : [
+            {
+              title: "Total Revenue",
+              value: allTotal,
+              icon: <AccountBalanceWalletIcon sx={{ fontSize: 32 }} />,
+              color: "#FF9E2F",
+              gradient: "linear-gradient(135deg, #FF9E2F 0%, #E0851F 100%)",
+            },
+            {
+              title: "Hotels",
+              value: hotelTotal,
+              icon: <ApartmentIcon sx={{ fontSize: 32 }} />,
+              color: "#ffd000",
+              gradient: "linear-gradient(135deg, #ffd000 0%, #e6bb00 100%)",
+            },
+            {
+              title: "Sightseeing",
+              value: SightseeingTotal,
+              icon: <LuggageIcon sx={{ fontSize: 32 }} />,
+              color: "#0c63e7",
+              gradient: "linear-gradient(135deg, #0c63e7 0%, #0a4fb8 100%)",
+            },
+            {
+              title: "Taxi",
+              value: taxiTotal,
+              icon: <LocalTaxiRoundedIcon sx={{ fontSize: 32 }} />,
+              color: "#55AD9B",
+              gradient: "linear-gradient(135deg, #55AD9B 0%, #3d8c7c 100%)",
+            },
+            {
+              title: "Self Drive",
+              value: SelfdriveTotal,
+              icon: <DirectionsCarIcon sx={{ fontSize: 32 }} />,
+              color: "#ee1e3a",
+              gradient: "linear-gradient(135deg, #ee1e3a 0%, #c41830 100%)",
+            },
+            {
+              title: "Vans",
+              value: vanTotal,
+              icon: <AirportShuttleIcon sx={{ fontSize: 32 }} />,
+              color: "#8b5cf6",
+              gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
+            },
+          ].map((item, index) => (
+            <Grid item xs={12} sm={6} md={2} key={index}>
+              <StatCard {...item} />
+            </Grid>
+          ))}
       </Grid>
     </Box>
   );

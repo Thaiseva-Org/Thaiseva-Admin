@@ -38,8 +38,10 @@ import {
 } from "../../../../../utils/utils";
 import { updateHourlyEarnings, updateMonthlyEarnings } from "../../../../../services/Earning";
 import AddVanBookingModal from "./AddVanBookingModal";
+import { useNotifications } from "../../../../../contextAPIs/NotificationsProvider";
 
 const VanBookings = () => {
+    const { CreateNewNotificationToUser } = useNotifications();
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [loading, setLoading] = useState(true);
@@ -191,6 +193,16 @@ const VanBookings = () => {
                 await updateMonthlyEarnings(row.price || 0, "Vans");
             }
 
+            // Notification for Mobile Users
+            if (row.source === 'mobile' && row.userId) {
+                const title = newStatus === 'Confirmed' ? "Van Booking Confirmed" : "Van Booking Cancelled";
+                const message = newStatus === 'Confirmed'
+                    ? `Your van booking from ${row.pickupLocation} is confirmed.`
+                    : `Your van booking from ${row.pickupLocation} has been cancelled.`;
+
+                await CreateNewNotificationToUser(title, message, row.userId);
+            }
+
             successNotification(`Booking marked as ${newStatus}`);
         } catch (err) {
             console.error(err);
@@ -204,7 +216,6 @@ const VanBookings = () => {
         { id: "datetime", label: "Date/Time", width: "15%" },
         { id: "guest", label: "Guest/Agent", width: "15%" },
         { id: "status", label: "Status", width: "10%" },
-        { id: "price", label: "Price", width: "10%" },
         { id: "action", label: "Action", width: "10%" },
     ];
 
@@ -345,9 +356,6 @@ const VanBookings = () => {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <Chip label={row.status || 'Pending'} color={getStatusColor(row.status || 'Pending')} size="small" />
-                                            </td>
-                                            <td className="px-6 py-4 text-center font-bold text-primary-600">
-                                                {row.price ? `฿${Number(row.price).toLocaleString()}` : '-'}
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex justify-center gap-1">

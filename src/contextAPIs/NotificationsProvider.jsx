@@ -30,7 +30,7 @@ const getRelatedImage = () => {
 
 export const NotificationsProvider = ({ children }) => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
-  const { roomBookings, travelBookings, carBookings, selfDriveBookings } = useContext(PartnerContext);
+  const { roomBookings, travelBookings, carBookings, selfDriveBookings, vanBookings } = useContext(PartnerContext);
   const [dbNotifications, setDbNotifications] = useState([]);
   const [notifications, setNotifications] = useState([]);
 
@@ -145,13 +145,25 @@ export const NotificationsProvider = ({ children }) => {
     // 3. Car Bookings (Filtered to 24h by Provider)
     carBookings?.forEach(b => {
       const status = b.status || 'Pending';
-      pendingItems.push({
-        id: `car-${b.id}`,
-        message: `Taxi: ${b.pickup || "Unknown"} -> ${b.drop || "Unknown"} (${status})`,
-        timestamp: b.timestamp,
-        imageUrl: NewOrderImage3,
-        type: 'taxi'
-      });
+      const isVan = b.transportType?.toLowerCase().includes('van');
+
+      if (isVan) {
+        pendingItems.push({
+          id: `van-mobile-${b.id}`,
+          message: `Van Booking (App): ${b.pickup || "Unknown"} -> ${b.drop || "Unknown"} (${status})`,
+          timestamp: b.timestamp,
+          imageUrl: NewOrderImage3,
+          type: 'van'
+        });
+      } else {
+        pendingItems.push({
+          id: `car-${b.id}`,
+          message: `Taxi: ${b.pickup || "Unknown"} -> ${b.drop || "Unknown"} (${status})`,
+          timestamp: b.timestamp,
+          imageUrl: NewOrderImage3,
+          type: 'taxi'
+        });
+      }
     });
 
     // 4. Self Drive (Filtered to 24h by Provider)
@@ -166,6 +178,18 @@ export const NotificationsProvider = ({ children }) => {
       });
     });
 
+    // 5. Van Bookings (Manual)
+    vanBookings?.forEach(b => {
+      const status = b.status || 'Pending';
+      pendingItems.push({
+        id: `van-${b.id}`,
+        message: `Van Booking: ${b.pickupLocation || "Unknown"} -> ${b.dropLocation || "Unknown"} (${status})`,
+        timestamp: b.createdAt, // ISO String
+        imageUrl: NewOrderImage3,
+        type: 'van'
+      });
+    });
+
     // Merge and Sort
     const allNotifications = [...dbNotifications, ...pendingItems].sort((a, b) => {
       const timeA = a.timestamp?.seconds ? a.timestamp.seconds : (new Date(a.timestamp).getTime() / 1000);
@@ -175,7 +199,7 @@ export const NotificationsProvider = ({ children }) => {
 
     setNotifications(allNotifications);
 
-  }, [dbNotifications, roomBookings, travelBookings, carBookings, selfDriveBookings]);
+  }, [dbNotifications, roomBookings, travelBookings, carBookings, selfDriveBookings, vanBookings]);
 
   return (
     <NotificationsContext.Provider
