@@ -328,18 +328,7 @@ const ManagePartners = () => {
         setPage(0);
     };
 
-    const getStatusChip = (status) => {
-        switch (status) {
-            case "Approved":
-            case "Verified":
-                return <Chip icon={<MdCheckCircle />} label="Approved" color="success" size="small" variant="outlined" />;
-            case "Rejected":
-            case "Denied":
-                return <Chip icon={<MdCancel />} label="Rejected" color="error" size="small" variant="outlined" />;
-            default:
-                return <Chip icon={<MdPending />} label="Pending" color="warning" size="small" variant="outlined" />;
-        }
-    };
+
 
     const ServiceCategories = [
         "Hotel", "Sightseeing Packages"
@@ -348,7 +337,6 @@ const ManagePartners = () => {
     const columns = [
         { id: "partner", label: "Partner", width: "25%" },
         { id: "category", label: "Category", width: "20%" },
-        { id: "status", label: "Status", width: "15%" },
         { id: "commission", label: "Commission", width: "20%" },
         { id: "contact", label: "Contact", width: "15%" },
         { id: "actions", label: "Actions", width: "5%" },
@@ -503,9 +491,7 @@ const ManagePartners = () => {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-center">
-                                                    {getStatusChip(partner.status)}
-                                                </td>
+
                                                 <td className="px-6 py-4 whitespace-nowrap text-center">
                                                     <div className="flex flex-col gap-1 items-center">
                                                         {partner.commissions ? (

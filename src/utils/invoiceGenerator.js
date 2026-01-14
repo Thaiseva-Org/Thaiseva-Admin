@@ -35,10 +35,9 @@ export const generateInvoiceIds = async (serviceType) => {
     const yy = String(today.getFullYear()).slice(-2);
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
+    // Reference to the daily counter document specific to the service type
     const dateString = `${yy}${mm}${dd}`; // YYMMDD
-
-    // Reference to the daily counter document
-    const counterRef = doc(db, "counters", `invoices_${dateString}`);
+    const counterRef = doc(db, "counters", `invoices_${prefix}_${dateString}`);
 
     try {
         const result = await runTransaction(db, async (transaction) => {
@@ -52,13 +51,14 @@ export const generateInvoiceIds = async (serviceType) => {
             }
 
             // Update the counter
-            transaction.set(counterRef, { count: newCount, date: dateString }, { merge: true });
+            transaction.set(counterRef, { count: newCount, date: dateString, type: prefix }, { merge: true });
 
             return newCount;
         });
 
         // Format: [PREFIX][YYMMDD]-[TYPE][COUNT]
         // Example: SB251227-C1, SB251227-P1
+        // Example: TB251227-C1 (Separate counter)
         const baseId = `${prefix}${dateString}`;
         const customerId = `${baseId}-C${result}`;
         const partnerId = `${baseId}-P${result}`;

@@ -5,8 +5,9 @@ initializeApp();
 
 exports.autoAcceptSightseeingBookingsV2 = autoAcceptSightseeingBookings;
 
-import { forceHotelBookingPending } from "./triggers/hotelTriggers";
+import { forceHotelBookingPending, onHotelBookingStatusChangeV2 } from "./triggers/hotelTriggers";
 exports.forceHotelBookingPending = forceHotelBookingPending;
+exports.onHotelBookingStatusChangeV2 = onHotelBookingStatusChangeV2;
 
 // exports.sendEmail = onRequest(async (req, res) => {
 //   if (!req.body.to || !req.body.subject || !req.body.text) {

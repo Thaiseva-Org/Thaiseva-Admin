@@ -1,6 +1,7 @@
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
+import { sendWhatsAppNotification } from "../utils/whatsapp";
 
 let db: admin.firestore.Firestore;
 
@@ -19,6 +20,9 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
 
   const bookingData = snapshot.data();
   const bookingId = event.params.bookingId;
+
+  // Send WhatsApp Notification to Admin
+  await sendWhatsAppNotification();
 
   logger.info(`New Booking Triggered: ${bookingId}`, bookingData);
 

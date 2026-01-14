@@ -872,6 +872,7 @@ const RoomBookings = () => {
                         }
                         return true;
                       })
+                      .slice(isRealTime ? page * rowsPerPage : 0, isRealTime ? page * rowsPerPage + parseInt(rowsPerPage, 10) : undefined)
                       .map(
                         (row, i) => {
                           const isSelected = selectedBookings.indexOf(row.bookingId || row.id) !== -1;
@@ -1015,41 +1016,61 @@ const RoomBookings = () => {
             </div>
 
             {/* Modern Pagination */}
-            {!isRealTime && (
-              <div className="border-t border-neutral-200 bg-neutral-50 px-6 py-4">
-                <TablePagination
-                  rowsPerPageOptions={[10, 25, 100]}
-                  component="div"
-                  count={totalPages}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                  sx={{
-                    "& .MuiTablePagination-toolbar": {
-                      color: "var(--text-primary)",
+            <div className="border-t border-neutral-200 bg-neutral-50 px-6 py-4">
+              <TablePagination
+                rowsPerPageOptions={[10, 25, 100]}
+                component="div"
+                count={isRealTime ?
+                  rows(roomBookings).filter((row) => {
+                    if (tabValue === 0) return row.status === "Pending";
+                    if (tabValue === 1) return row.status === "Accepted";
+                    if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
+                    if (tabValue === 3) {
+                      const rawDate = row.checkInDate || row.checkIn;
+                      if (!rawDate) return false;
+                      let dateObj;
+                      if (rawDate.seconds) dateObj = new Date(rawDate.seconds * 1000);
+                      else dateObj = new Date(rawDate);
+
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const next7 = new Date(today);
+                      next7.setDate(today.getDate() + 7);
+                      next7.setHours(23, 59, 59, 999);
+
+                      return dateObj >= today && dateObj <= next7 && row.status !== 'Canceled' && row.status !== 'Denied';
+                    }
+                    return true;
+                  }).length
+                  : totalPages}
+                rowsPerPage={parseInt(rowsPerPage, 10)}
+                page={page}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                sx={{
+                  "& .MuiTablePagination-toolbar": {
+                    color: "var(--text-primary)",
+                  },
+                  "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
+                  {
+                    margin: 0,
+                    fontWeight: 500,
+                  },
+                  "& .MuiTablePagination-select": {
+                    borderRadius: "8px",
+                    backgroundColor: "white",
+                    border: "1px solid #e5e7eb",
+                    padding: "4px 8px",
+                  },
+                  "& .MuiTablePagination-actions button": {
+                    borderRadius: "8px",
+                    "&:hover": {
+                      backgroundColor: "var(--primary-bg-light)",
                     },
-                    "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                    {
-                      margin: 0,
-                      fontWeight: 500,
-                    },
-                    "& .MuiTablePagination-select": {
-                      borderRadius: "8px",
-                      backgroundColor: "white",
-                      border: "1px solid #e5e7eb",
-                      padding: "4px 8px",
-                    },
-                    "& .MuiTablePagination-actions button": {
-                      borderRadius: "8px",
-                      "&:hover": {
-                        backgroundColor: "var(--primary-bg-light)",
-                      },
-                    },
-                  }}
-                />
-              </div>
-            )}
+                  },
+                }}
+              />
+            </div>
           </div>
         )
       }
