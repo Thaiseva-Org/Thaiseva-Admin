@@ -27,7 +27,7 @@ export const forceHotelBookingPending = onDocumentCreated("hotelBookingData/{boo
     }
 });
 
-export const onHotelBookingStatusChangeV2 = onDocumentUpdated("hotelBookingData/{bookingId}", async (event) => {
+export const onHotelBookingStatusChangeV3 = onDocumentUpdated("hotelBookingData/{bookingId}", async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
 
