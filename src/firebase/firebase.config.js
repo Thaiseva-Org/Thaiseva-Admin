@@ -60,6 +60,14 @@ const generalPartnersCollection = collection(db, "general_partners");
 const vanCompaniesCollection = collection(db, "vanCompanies");
 const vanBookingsCollection = collection(db, "vanBookings");
 
+// Website Config Collections
+const contentCollection = collection(db, "ContentDB");
+const blogCollection = collection(db, "BlogDB");
+const offerCollection = collection(db, "OfferDB");
+const serviceCollection = collection(db, "ServiceDB");
+const testimonialCollection = collection(db, "TestimonialDB");
+const faqCollection = collection(db, "FaqDB");
+
 // Use the 'firebase' instance created above to call functions
 const deleteUserFromAuth = httpsCallable(
   getFunctions(app),
@@ -108,4 +116,12 @@ export {
   vanCompaniesCollection,
   vanBookingsCollection,
   storage,
+
+  // Website Config Collections
+  contentCollection,
+  blogCollection,
+  offerCollection,
+  serviceCollection,
+  testimonialCollection,
+  faqCollection,
 };

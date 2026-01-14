@@ -47,6 +47,12 @@ import {
   SightseeingExcelUploadPage,
   Vans,
   VanBookings,
+  Banners,
+  Blogs,
+  Offers,
+  Services,
+  Testimonials,
+  FAQs,
 } from "../pages";
 import StatisticsProvider from "../contextAPIs/StatisticsProvider";
 import { Suspense } from "react";
@@ -271,6 +277,59 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <NewNotficationsScreen />
+          </AdminRoute>
+        ),
+      },
+
+
+      /* =================================================
+                          Website Configuration
+      =================================================*/
+      {
+        path: "/dashboard/website-config/banners",
+        element: (
+          <AdminRoute>
+            <Banners />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/blogs",
+        element: (
+          <AdminRoute>
+            <Blogs />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/offers",
+        element: (
+          <AdminRoute>
+            <Offers />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/services",
+        element: (
+          <AdminRoute>
+            <Services />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/testimonials",
+        element: (
+          <AdminRoute>
+            <Testimonials />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/faqs",
+        element: (
+          <AdminRoute>
+            <FAQs />
           </AdminRoute>
         ),
       },

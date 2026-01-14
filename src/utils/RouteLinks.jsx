@@ -24,6 +24,8 @@ import {
   RestaurantIcon,
   SignalCellularAltIcon,
   TaskAltIcon,
+  TaskIcon,
+  SupportAgentIcon,
   TravelExploreIcon,
   NightlifeIcon,
   ReceiptLongRoundedIcon,
@@ -303,5 +305,38 @@ export const partnerManagementLinks = [
     icon: <ManageAccountsIcon />,
     link: "/dashboard/manage-partners",
     label: "General Partners",
+  },
+];
+
+export const websiteConfigLinks = [
+  {
+    icon: <Shop />,
+    link: "/dashboard/website-config/banners",
+    label: "Banners",
+  },
+  {
+    icon: <TaskIcon />,
+    link: "/dashboard/website-config/blogs",
+    label: "Blogs",
+  },
+  {
+    icon: <BeenhereIcon />,
+    link: "/dashboard/website-config/offers",
+    label: "Offers",
+  },
+  {
+    icon: <ManageAccountsIcon />,
+    link: "/dashboard/website-config/services",
+    label: "Service Cards",
+  },
+  {
+    icon: <GroupRoundedIcon />,
+    link: "/dashboard/website-config/testimonials",
+    label: "Testimonials",
+  },
+  {
+    icon: <SupportAgentIcon />,
+    link: "/dashboard/website-config/faqs",
+    label: "FAQs",
   },
 ];
