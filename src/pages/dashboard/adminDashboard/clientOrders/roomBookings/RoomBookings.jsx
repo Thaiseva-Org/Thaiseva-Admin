@@ -37,6 +37,8 @@ import NumbersIcon from "@mui/icons-material/Numbers";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import CreditCardIcon from "@mui/icons-material/CreditCard";
 import BedroomParentIcon from "@mui/icons-material/BedroomParent";
+import { ViewList, CalendarMonth, Search, Circle, CheckCircle } from "@mui/icons-material";
+import { Tooltip, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
 
 import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import {
@@ -84,7 +86,15 @@ const RoomBookings = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [lastDocs, setLastDocs] = useState([]);
   const [tabValue, setTabValue] = useState(0);
+
+  const [selectedBookings, setSelectedBookings] = useState([]);
   const { CreateNewNotificationToUser } = useNotifications();
+
+  // New States for requested features
+  const [viewMode, setViewMode] = useState("list");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [calendarHotel, setCalendarHotel] = useState("All");
+  const [calendarDate, setCalendarDate] = useState(new Date().toISOString().split('T')[0]);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -133,73 +143,77 @@ const RoomBookings = () => {
     setPage(newPage);
   };
 
+  /* Removed duplicate handleChangeRowsPerPage */
+
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(event.target.value);
     setPage(0);
   };
 
-  // useEffect(() => {
-  //   const sortedBookings = roomBookings;
-  //   setMatchedBookings(sortedBookings);
-  // }, [roomBookings]);
-
-  // Helper to check availability
-  const checkAvailability = (hotelId, checkInDate, checkOutDate) => {
-    let hotel = hotels.find(h => h.id === hotelId || h.uid === hotelId);
-
-    // PERMISSIVE FALLBACK: If hotel not found, mock a 'default' hotel to allow booking to proceed (assuming capacity exists)
-    if (!hotel) {
-      console.warn(`[AutoConfirm] Hotel ${hotelId} not found in context. Using default fallback capacity.`);
-      hotel = { totalRooms: 30, hotelName: "Unknown Hotel" };
+  // Bulk Action Handlers
+  const handleSelectAll = (event, currentRows) => {
+    if (event.target.checked) {
+      const newSelected = currentRows.map((n) => n.bookingId || n.id);
+      setSelectedBookings(newSelected);
+    } else {
+      setSelectedBookings([]);
     }
+  };
 
-    // Robust Capacity Lookup - Fallback to 30 if not set
-    let totalCapacity = Number(
-      hotel.totalRooms ||
-      hotel.hotel?.totalRooms ||
-      hotel.hotelInformation?.totalRooms ||
-      hotel.hotelDetails?.totalRooms ||
-      0
-    );
+  const handleSelectOne = (event, id) => {
+    const selectedIndex = selectedBookings.indexOf(id);
+    let newSelected = [];
 
-    if (totalCapacity === 0) {
-      console.warn(`[AutoConfirm] Capacity is 0. Defaulting to 30.`);
-      totalCapacity = 30; // Fallback
+    if (selectedIndex === -1) {
+      newSelected = newSelected.concat(selectedBookings, id);
+    } else if (selectedIndex === 0) {
+      newSelected = newSelected.concat(selectedBookings.slice(1));
+    } else if (selectedIndex === selectedBookings.length - 1) {
+      newSelected = newSelected.concat(selectedBookings.slice(0, -1));
+    } else if (selectedIndex > 0) {
+      newSelected = newSelected.concat(
+        selectedBookings.slice(0, selectedIndex),
+        selectedBookings.slice(selectedIndex + 1),
+      );
     }
+    setSelectedBookings(newSelected);
+  };
 
-    console.log(`[AutoConfirm] Checking Capacity for Hotel: ${hotel.hotelName || hotel.hotel?.hotelName || hotelId}. Capacity: ${totalCapacity}`);
+  const handleBulkApprove = async () => {
+    if (!confirm(`Are you sure you want to approve ${selectedBookings.length} bookings?`)) return;
 
-    // Calculate Occupied Rooms during the requested period
-    const start = new Date(checkInDate);
-    const end = new Date(checkOutDate);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
+    // Process only Pending bookings from selection
+    const rawData = isRealTime ? roomBookings : matchedBookings;
+    const targets = rawData.filter(b => selectedBookings.includes(b.bookingId || b.id) && (b.status === "Pending" || b.bookingStatus === "PENDING"));
 
-    const occupied = roomBookings.reduce((acc, b) => {
-      // Logic: Count bookings that are EFFECTIVELY occupying a room.
-      // This includes 'Accepted' bookings AND 'Pending' bookings that have already RESERVED a slot (Stage 1).
-      if ((b.hotelUid === hotelId || b.hotelId === hotelId) &&
-        (b.status === 'Accepted' || b.bookingStatus === 'ACCEPTED' || b.isBookingConfirmed === true)) {
+    setLoading(true);
+    let count = 0;
+    for (const booking of targets) {
+      const success = await confirmBookingInternal(booking);
+      if (success) count++;
+    }
+    setLoading(false);
+    setSelectedBookings([]);
+    successNotification(`Successfully approved ${count} bookings.`);
+  };
 
-        const bStartRaw = b.checkInDate || b.checkIn;
-        const bEndRaw = b.checkOutDate || b.checkOut;
+  const handleBulkDecline = async () => {
+    if (!confirm(`Are you sure you want to decline ${selectedBookings.length} bookings?`)) return;
 
-        if (bStartRaw && bEndRaw) {
-          const bStart = bStartRaw.seconds ? new Date(bStartRaw.seconds * 1000) : new Date(bStartRaw);
-          const bEnd = bEndRaw.seconds ? new Date(bEndRaw.seconds * 1000) : new Date(bEndRaw);
-          bStart.setHours(0, 0, 0, 0);
-          bEnd.setHours(0, 0, 0, 0);
+    const rawData = isRealTime ? roomBookings : matchedBookings;
+    const targets = rawData.filter(b => selectedBookings.includes(b.bookingId || b.id));
 
-          // Check Overlap: (StartA < EndB) and (EndA > StartB)
-          if (start < bEnd && end > bStart) {
-            return acc + Number(b.rooms || b.noOfRooms || 0);
-          }
-        }
-      }
-      return acc;
-    }, 0);
-
-    return totalCapacity - occupied;
+    setLoading(true);
+    for (const booking of targets) {
+      await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), {
+        status: "Canceled",
+        bookingStatus: "CANCELED",
+        isBookingConfirmed: false,
+      });
+    }
+    setLoading(false);
+    setSelectedBookings([]);
+    deleteNotification(`Declined ${targets.length} bookings.`);
   };
 
   const confirmBookingInternal = async (booking) => {
@@ -231,75 +245,10 @@ const RoomBookings = () => {
       }
       return true;
     } catch (e) {
-      console.error("[AutoConfirm] Confirm failed", e);
+      console.error("[ManualConfirm] Confirm failed", e);
       return false;
     }
   };
-
-  // Auto-Confirm Effect
-  useEffect(() => {
-    // We removed the !isRealTime check to ensure this runs in background always
-    // if (!isRealTime) return;
-
-    const processAutoConfirm = async () => {
-      const pending = roomBookings.filter(b => b.status === "Pending" || b.bookingStatus === "PENDING" || b.status === "Not Reviewed");
-
-      if (pending.length === 0) return;
-
-      console.log(`[AutoConfirm] Found ${pending.length} pending bookings.`);
-
-      for (const booking of pending) {
-        // Prepare dates
-        const checkInRaw = booking.checkInDate || booking.checkIn;
-        const checkOutRaw = booking.checkOutDate || booking.checkOut;
-
-        if (!checkInRaw || !checkOutRaw) {
-          // console.warn(`[AutoConfirm] Invalid dates for booking ${booking.id}`);
-          continue;
-        }
-
-        const checkIn = checkInRaw.seconds ? new Date(checkInRaw.seconds * 1000) : new Date(checkInRaw);
-        const checkOut = checkOutRaw.seconds ? new Date(checkOutRaw.seconds * 1000) : new Date(checkOutRaw);
-
-        const hotelId = booking.hotelUid || booking.hotelId;
-        const requestedRooms = Number(booking.rooms || booking.noOfRooms || 0);
-
-        if (hotelId && requestedRooms > 0) {
-
-          // STAGE 1: Check Availability & Reserve Slot (isBookingConfirmed = true)
-          // We do this if it's not yet confirmed.
-          if (!booking.isBookingConfirmed) {
-            const available = checkAvailability(hotelId, checkIn, checkOut);
-
-            if (available >= requestedRooms) {
-              console.log(`[AutoConfirm] Rooms Available (${available} >= ${requestedRooms}). Reserving slot for ${booking.id}...`);
-              try {
-                // Update Doc
-                await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), {
-                  isBookingConfirmed: true
-                });
-                console.log("Slot Reserved Success");
-              } catch (err) {
-                console.error("[AutoConfirm] Error reserving slot:", err);
-              }
-            } else {
-              console.log(`[AutoConfirm] Not enough rooms for ${booking.id} at Hotel ${hotelId}. Avail: ${available}, Req: ${requestedRooms}`);
-            }
-          }
-
-          // STAGE 2: Finalize Booking (Pending -> Accepted)
-          // Only if slot is confirmed (We are ignoring payment check as per new requirement)
-          if (booking.isBookingConfirmed && booking.status !== 'Accepted') {
-            console.log(`[AutoConfirm] Finalizing booking ${booking.id} (Payment Check Skipped)`);
-            await confirmBookingInternal(booking);
-          }
-        }
-      }
-    };
-
-    processAutoConfirm();
-
-  }, [roomBookings, hotels, isRealTime]);
 
   let columns = [
     { property: "hotelName", label: "Hotel", width: "15%" },
@@ -309,7 +258,6 @@ const RoomBookings = () => {
     { property: "checkIn", label: "Check in", width: "14%" },
     { property: "orderedAt", label: "Booking time	", width: "14%" },
     { property: "amount", label: "Amount", width: "10%" },
-    { property: "status", label: "Status", width: "5%" },
     { property: "action", label: "Action", width: "10%" },
   ];
 
@@ -374,9 +322,175 @@ const RoomBookings = () => {
 
   // calling createData function with partner's data
   const rows = (bookings) => {
-    return bookings?.map((booking) => {
+    // 1. Filter by Search Query
+    const filtered = bookings?.filter((b) => {
+      const search = searchQuery.toLowerCase();
+      const guestName = (b.fullName || b.guestDetails?.name || "").toLowerCase();
+      const hotel = (b.hotelName || "").toLowerCase();
+      const id = (b.id || b.bookingId || "").toLowerCase();
+
+      return guestName.includes(search) || hotel.includes(search) || id.includes(search);
+    });
+
+    // 2. Map to Data Objects
+    return filtered?.map((booking) => {
       return createData(booking);
     });
+  };
+
+  // Status Timeline Component
+  const BookingTimeline = ({ booking }) => {
+    const steps = [
+      { label: "Booked", date: booking.orderedAt ? new Date(booking.orderedAt.seconds * 1000).toLocaleDateString() : "", completed: true },
+      { label: "Confirmed", date: "", completed: booking.status === "Accepted" || booking.bookingStatus === "ACCEPTED" },
+      { label: "Check-In", date: booking.checkIn, completed: new Date() >= new Date(booking.checkIn) && booking.status === "Accepted" },
+      { label: "Check-Out", date: booking.checkOut, completed: new Date() >= new Date(booking.checkOut) && booking.status === "Accepted" },
+    ];
+
+    return (
+      <div className="w-full py-6">
+        <div className="flex items-center justify-between relative">
+          {/* Connecting Line */}
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-neutral-200 -z-0"></div>
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-success-500 -z-0 transition-all duration-500"
+            style={{ width: `${(steps.filter(s => s.completed).length - 1) / (steps.length - 1) * 100}%` }}></div>
+
+          {steps.map((step, index) => (
+            <div key={index} className="flex flex-col items-center relative z-10 bg-white px-2">
+              {step.completed ? (
+                <CheckCircle className="text-success-500 text-3xl bg-white rounded-full" />
+              ) : (
+                <Circle className="text-neutral-300 text-3xl bg-white rounded-full" />
+              )}
+              <span className={`text-xs font-bold mt-2 ${step.completed ? 'text-neutral-800' : 'text-neutral-400'}`}>{step.label}</span>
+              {step.date && <span className="text-[10px] text-neutral-500 font-medium">{step.date}</span>}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Calendar/Gantt View Implementation
+  const CalendarView = ({ bookings }) => {
+    const uniqueHotels = [...new Set(bookings.map(b => b.hotelName))].sort();
+
+    // Filter by selected hotel
+    const calendarBookings = calendarHotel === "All"
+      ? bookings
+      : bookings.filter(b => b.hotelName === calendarHotel);
+
+    // Timeline Settings
+    const baseDate = new Date(calendarDate);
+    const daysToShow = 14;
+    const dates = Array.from({ length: daysToShow }, (_, i) => {
+      const d = new Date(baseDate);
+      d.setDate(baseDate.getDate() + i);
+      return d;
+    });
+
+    return (
+      <div className="bg-white rounded-xl shadow-lg border border-neutral-200 p-4">
+        {/* Controls */}
+        <div className="flex gap-4 mb-6 items-center flex-wrap">
+          <FormControl size="small" className="min-w-[200px]">
+            <InputLabel>Filter Hotel</InputLabel>
+            <Select
+              value={calendarHotel}
+              label="Filter Hotel"
+              onChange={(e) => setCalendarHotel(e.target.value)}
+            >
+              <MenuItem value="All">All Hotels</MenuItem>
+              {uniqueHotels.map(h => <MenuItem key={h} value={h}>{h}</MenuItem>)}
+            </Select>
+          </FormControl>
+
+          <input
+            type="date"
+            value={calendarDate}
+            onChange={(e) => setCalendarDate(e.target.value)}
+            className="px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+          />
+        </div>
+
+        {/* Gantt Chart */}
+        <div className="overflow-x-auto border border-neutral-200 rounded-lg relative">
+          <div className="min-w-[1000px]">
+            {/* Header Dates */}
+            <div className="flex border-b border-neutral-200 bg-neutral-50 sticky top-0 z-10">
+              <div className="w-48 p-3 font-bold text-neutral-600 sticky left-0 bg-neutral-50 border-r border-neutral-200 z-20">Hotel / Room</div>
+              {dates.map(date => (
+                <div key={date.toString()} className="flex-1 min-w-[60px] p-2 text-center border-r border-neutral-100 last:border-0">
+                  <div className="text-xs font-bold text-neutral-700">{date.toLocaleDateString('en-US', { day: '2-digit', month: 'short' })}</div>
+                  <div className="text-[10px] text-neutral-400">{date.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Rows */}
+            {calendarBookings.length === 0 ? (
+              <div className="p-8 text-center text-neutral-400">No bookings found for this view</div>
+            ) : (
+              calendarBookings.map((booking, idx) => {
+                // Calculate Bar Position and Width
+                const checkIn = booking.checkInDate?.seconds ? new Date(booking.checkInDate.seconds * 1000) : new Date(booking.checkIn);
+                const checkOut = booking.checkOutDate?.seconds ? new Date(booking.checkOutDate.seconds * 1000) : new Date(booking.checkOut);
+
+                // Normalize time
+                checkIn.setHours(0, 0, 0, 0);
+                checkOut.setHours(0, 0, 0, 0);
+                baseDate.setHours(0, 0, 0, 0);
+
+                const endDate = new Date(baseDate);
+                endDate.setDate(baseDate.getDate() + daysToShow);
+
+                // Check if visible
+                if (checkOut <= baseDate || checkIn >= endDate) return null;
+
+                // Calculate styles
+                const startDiff = Math.max(0, (checkIn - baseDate) / (1000 * 60 * 60 * 24));
+                const duration = Math.min(daysToShow - startDiff, (checkOut - Math.max(baseDate, checkIn)) / (1000 * 60 * 60 * 24));
+                const widthPercent = (duration / daysToShow) * 100;
+                const leftPercent = (startDiff / daysToShow) * 100;
+
+                // Skip if invalid
+                if (widthPercent <= 0) return null;
+
+                return (
+                  <div key={idx} className="flex border-b border-neutral-100 hover:bg-neutral-50 transition-colors">
+                    <div className="w-48 p-3 text-sm font-medium text-neutral-700 sticky left-0 bg-white border-r border-neutral-200 z-10 truncate" title={booking.hotelName}>
+                      {booking.hotelName} <br />
+                      <span className="text-xs text-neutral-400 font-normal">{booking.guestDetails?.name || booking.fullName}</span>
+                    </div>
+                    <div className="flex-1 relative h-16">
+                      {/* Grid Lines */}
+                      <div className="absolute inset-0 flex pointer-events-none">
+                        {dates.map((_, i) => <div key={i} className="flex-1 border-r border-neutral-50 h-full"></div>)}
+                      </div>
+
+                      {/* Booking Bar */}
+                      <div
+                        onClick={() => handleViewBookingDetails(booking.bookingId || booking.id)}
+                        className={`absolute h-10 top-3 rounded-md shadow-sm cursor-pointer hover:brightness-95 flex items-center px-2 text-xs text-white font-medium overflow-hidden whitespace-nowrap transition-all
+                            ${booking.status === 'Accepted' ? 'bg-success-500' : booking.status === 'Pending' ? 'bg-warning-500' : 'bg-neutral-400'}
+                          `}
+                        style={{
+                          width: `${widthPercent - 1}%`, // -1 for gap
+                          left: `${leftPercent}%`
+                        }}
+                        title={`${booking.guestDetails?.name} (${booking.noOfRooms} rms)`}
+                      >
+                        {booking.guestDetails?.name || "Guest"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const handleConfirmBooking = async (booking) => {
@@ -534,7 +648,36 @@ const RoomBookings = () => {
         </div>
       </div>
 
-      {/* Date Filter Section */}
+      {/* View Toggle & Search */}
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
+        <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-neutral-200 shadow-sm">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-neutral-500 hover:bg-neutral-50'}`}
+          >
+            <ViewList className="mr-2 !text-lg" /> List View
+          </button>
+          <button
+            onClick={() => setViewMode('calendar')}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'calendar' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-neutral-500 hover:bg-neutral-50'}`}
+          >
+            <CalendarMonth className="mr-2 !text-lg" /> Calendar View
+          </button>
+        </div>
+
+        <div className="relative w-full md:w-auto md:min-w-[300px]">
+          <input
+            type="text"
+            placeholder="Search guest, hotel, ID..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 !text-xl" />
+        </div>
+      </div>
+
+      {/* Date Filter Section (Only show in List mode for now, or both) */}
       <div className="bg-white rounded-xl shadow-lg border border-neutral-200 p-5 mb-6 hover:shadow-xl transition-shadow duration-300">
         <div className="flex justify-between items-center gap-4 flex-wrap">
           <h3 className="text-lg font-semibold text-primary-700 flex items-center gap-2">
@@ -614,231 +757,302 @@ const RoomBookings = () => {
         </Tabs>
       </Box>
 
-      {/* Modern Table Container */}
-      <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          {loading ? (
-            <LoadingContent variant="skeleton" />
-          ) : (
-            <table className="w-full">
-              <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
-                <tr>
-                  {columns.map((column) => (
-                    <th
-                      key={column.property}
-                      className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider"
-                      style={{ width: column.width }}
+      {/* Content Area */}
+      {
+        viewMode === 'calendar' ? (
+          <CalendarView bookings={rows(isRealTime ? roomBookings : matchedBookings)} />
+        ) : (
+          /* Modern Table Container */
+          <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden relative">
+            {/* Bulk Action Bar */}
+            {selectedBookings.length > 0 && (
+              <div className="absolute top-0 left-0 w-full bg-primary-50 p-2 z-20 flex items-center justify-between border-b border-primary-100 animate-fade-in">
+                <div className="flex items-center gap-4 pl-4">
+                  <span className="font-bold text-primary-800">{selectedBookings.length} Selected</span>
+                </div>
+                <div className="flex gap-2 pr-4">
+                  {tabValue === 0 && (
+                    <button
+                      onClick={handleBulkApprove}
+                      className="bg-success-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-success-700 transition-colors shadow-sm"
                     >
-                      {column.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200">
-                {rows(isRealTime ? roomBookings : matchedBookings)
-                  .filter((row) => {
-                    if (tabValue === 0) return row.status === "Pending";
-                    if (tabValue === 1) return row.status === "Accepted";
-                    if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
-                    if (tabValue === 3) {
-                      const rawDate = row.checkInDate || row.checkIn;
-                      if (!rawDate) return false;
-                      let dateObj;
-                      if (rawDate.seconds) dateObj = new Date(rawDate.seconds * 1000);
-                      else dateObj = new Date(rawDate);
+                      Approve Selected
+                    </button>
+                  )}
+                  {(tabValue === 0 || tabValue === 1) && (
+                    <button
+                      onClick={handleBulkDecline}
+                      className="bg-danger-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-danger-700 transition-colors shadow-sm"
+                    >
+                      {tabValue === 1 ? "Cancel Selected" : "Decline Selected"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
 
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const next7 = new Date(today);
-                      next7.setDate(today.getDate() + 7);
-                      next7.setHours(23, 59, 59, 999);
+            <div className="overflow-x-auto">
+              {loading ? (
+                <LoadingContent variant="skeleton" />
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
+                    <tr>
+                      <th className="px-4 py-4 w-[50px]">
+                        {tabValue !== 2 && (
+                          <input
+                            type="checkbox"
+                            className="rounded border-white/30 text-primary-600 focus:ring-white/50 w-4 h-4 cursor-pointer"
+                            onChange={(e) => {
+                              // Get current visible rows
+                              const currentRows = rows(isRealTime ? roomBookings : matchedBookings).filter((row) => {
+                                if (tabValue === 0) return row.status === "Pending";
+                                if (tabValue === 1) return row.status === "Accepted";
+                                if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
+                                // .. other filters
+                                return true;
+                              });
+                              handleSelectAll(e, currentRows);
+                            }}
+                            checked={selectedBookings.length > 0 && selectedBookings.length === rows(isRealTime ? roomBookings : matchedBookings).filter((row) => {
+                              if (tabValue === 0) return row.status === "Pending";
+                              if (tabValue === 1) return row.status === "Accepted";
+                              if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
+                              if (tabValue === 3) {
+                                const rawDate = row.checkInDate || row.checkIn;
+                                if (!rawDate) return false;
+                                let dateObj;
+                                if (rawDate.seconds) dateObj = new Date(rawDate.seconds * 1000);
+                                else dateObj = new Date(rawDate);
 
-                      return dateObj >= today && dateObj <= next7 && row.status !== 'Canceled' && row.status !== 'Denied';
-                    }
-                    return true;
-                  })
-                  .map(
-                    (row, i) => {
-                      return (
-                        <tr
-                          key={i}
-                          className="hover:bg-primary-50 transition-colors duration-200"
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                const next7 = new Date(today);
+                                next7.setDate(today.getDate() + 7);
+                                next7.setHours(23, 59, 59, 999);
+
+                                return dateObj >= today && dateObj <= next7 && row.status !== 'Canceled' && row.status !== 'Denied';
+                              }
+                              return true;
+                            }).length}
+                          />
+                        )}
+                      </th>
+                      {columns.map((column) => (
+                        <th
+                          key={column.property}
+                          className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider"
+                          style={{ width: column.width }}
                         >
-                          {columns.map((column) => {
-                            const value = row[column.property];
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200">
+                    {rows(isRealTime ? roomBookings : matchedBookings)
+                      .filter((row) => {
+                        if (tabValue === 0) return row.status === "Pending";
+                        if (tabValue === 1) return row.status === "Accepted";
+                        if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
+                        if (tabValue === 3) {
+                          const rawDate = row.checkInDate || row.checkIn;
+                          if (!rawDate) return false;
+                          let dateObj;
+                          if (rawDate.seconds) dateObj = new Date(rawDate.seconds * 1000);
+                          else dateObj = new Date(rawDate);
 
-                            let dateDisplay = "N/A";
-                            if (column.property === "orderedAt" && row["orderedAt"]) {
-                              const orderedAt = row["orderedAt"];
-                              const dateObj = orderedAt?.seconds
-                                ? new Date(orderedAt.seconds * 1000 + orderedAt.nanoseconds / 1000000)
-                                : new Date(orderedAt);
-                              dateDisplay = getDateAndTime(dateObj);
-                            }
+                          const today = new Date();
+                          today.setHours(0, 0, 0, 0);
+                          const next7 = new Date(today);
+                          next7.setDate(today.getDate() + 7);
+                          next7.setHours(23, 59, 59, 999);
 
-                            return (
-                              <td
-                                key={column.property}
-                                className="px-6 py-4 text-center"
-                              >
-                                {column.property === "status" ? (
-                                  <span
-                                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${value === "Pending" || value === "PENDING"
-                                      ? "bg-warning-100 text-warning-700 border border-warning-300"
-                                      : value === "Accepted" || value === "ACCEPTED"
-                                        ? "bg-success-100 text-success-700 border border-success-300"
-                                        : "bg-danger-100 text-danger-700 border border-danger-300"
-                                      }`}
-                                  >
-                                    {(value === "Accepted" || value === "ACCEPTED") && "✓ "}
-                                    {(value === "Pending" || value === "PENDING") && "⏳ "}
-                                    {(value === "Canceled" || value === "CANCELED" || value === "REJECTED") && "✗ "}
-                                    {value}
-                                  </span>
-                                ) : column.property === "orderedAt" ? (
-                                  <span className="text-sm text-neutral-600">
-                                    {dateDisplay}
-                                  </span>
-                                ) : column.property === "roomNumbers" ? (
-                                  <div className="flex items-center justify-center flex-wrap gap-1">
-                                    {(value && value.length > 0) ? value.map((item, i) => (
-                                      <span
-                                        key={i}
-                                        className="bg-primary-100 text-primary-700 font-semibold py-1 px-2 rounded-lg text-xs border border-primary-200"
-                                      >
-                                        {item}
-                                      </span>
-                                    )) : (
-                                      <span className="text-neutral-400 text-xs">-</span>
-                                    )}
-                                  </div>
-                                ) : column.property === "action" ? (
-                                  <div className="flex gap-2 justify-center items-center">
-                                    {row["status"] === 3 && (
-                                      <button
-                                        onClick={() => handleDelete(row.id)}
-                                        className="p-2 bg-danger-100 hover:bg-danger-200 text-danger-700 rounded-lg transition-colors"
-                                        title="Delete booking"
-                                      >
-                                        <DeleteForeverIcon />
-                                      </button>
-                                    )}
-
-                                    <button
-                                      onClick={() => handleViewBookingDetails(row.bookingId)}
-                                      className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
-                                      title="View Booking Details"
-                                    >
-                                      <MdVisibility size={20} />
-                                    </button>
-
-                                    {row.packageId && (
-                                      <button
-                                        onClick={() => handleViewPackageDetails(row.packageId)}
-                                        className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-colors"
-                                        title="View Package Details"
-                                      >
-                                        <MdInfo size={20} />
-                                      </button>
-                                    )}
-
-                                    {row.status === "Pending" && (
-                                      <>
-                                        <button
-                                          onClick={() => handleConfirmBooking(row)}
-                                          className="p-2 rounded-full bg-success-500 text-white hover:bg-success-600 hover:scale-110 transition-all duration-200"
-                                          title="Accept Booking"
-                                        >
-                                          <DoneRoundedIcon className="scale-90" />
-                                        </button>
-                                        <button
-                                          onClick={() => handleCancelBooking(row)}
-                                          className="p-2 rounded-full bg-danger-500 text-white hover:bg-danger-600 hover:scale-110 transition-all duration-200"
-                                          title="Decline Booking"
-                                        >
-                                          <CloseRoundedIcon className="scale-90" />
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                ) : column.property === "amount" ? (
-                                  <span className="font-semibold text-success-600">
-                                    ฿{value}
-                                  </span>
-                                ) : column.property === "noOfRooms" ? (
-                                  <span className="inline-flex items-center justify-center w-10 h-10 bg-primary-100 text-primary-700 rounded-full font-semibold">
-                                    {value}
-                                  </span>
-                                ) : (
-                                  <span className="text-sm text-neutral-700">
-                                    {value}
-                                  </span>
+                          return dateObj >= today && dateObj <= next7 && row.status !== 'Canceled' && row.status !== 'Denied';
+                        }
+                        return true;
+                      })
+                      .map(
+                        (row, i) => {
+                          const isSelected = selectedBookings.indexOf(row.bookingId || row.id) !== -1;
+                          return (
+                            <tr
+                              key={i}
+                              className={`hover:bg-primary-50 transition-colors duration-200 ${isSelected ? 'bg-primary-50' : ''}`}
+                            >
+                              <td className="px-4 py-4 text-center">
+                                {tabValue !== 2 && (
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(event) => handleSelectOne(event, row.bookingId || row.id)}
+                                    className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500 w-4 h-4 cursor-pointer"
+                                  />
                                 )}
                               </td>
-                            );
-                          })}
-                        </tr>
-                      );
-                    }
-                  )}
-                {(isRealTime ? roomBookings : matchedBookings).length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="px-6 py-12">
-                      <div className="flex flex-col items-center justify-center text-neutral-400">
-                        <span className="text-6xl mb-4">📅</span>
-                        <p className="text-lg font-medium text-neutral-500">
-                          No Room Bookings Found
-                        </p>
-                        <p className="text-sm text-neutral-400 mt-2">
-                          There are no bookings available for the selected
-                          period.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
+                              {columns.map((column) => {
+                                const value = row[column.property];
 
-        {/* Modern Pagination */}
-        {!isRealTime && (
-          <div className="border-t border-neutral-200 bg-neutral-50 px-6 py-4">
-            <TablePagination
-              rowsPerPageOptions={[10, 25, 100]}
-              component="div"
-              count={totalPages}
-              rowsPerPage={rowsPerPage}
-              page={page}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{
-                "& .MuiTablePagination-toolbar": {
-                  color: "var(--text-primary)",
-                },
-                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                {
-                  margin: 0,
-                  fontWeight: 500,
-                },
-                "& .MuiTablePagination-select": {
-                  borderRadius: "8px",
-                  backgroundColor: "white",
-                  border: "1px solid #e5e7eb",
-                  padding: "4px 8px",
-                },
-                "& .MuiTablePagination-actions button": {
-                  borderRadius: "8px",
-                  "&:hover": {
-                    backgroundColor: "var(--primary-bg-light)",
-                  },
-                },
-              }}
-            />
+                                let dateDisplay = "N/A";
+                                if (column.property === "orderedAt" && row["orderedAt"]) {
+                                  const orderedAt = row["orderedAt"];
+                                  const dateObj = orderedAt?.seconds
+                                    ? new Date(orderedAt.seconds * 1000 + orderedAt.nanoseconds / 1000000)
+                                    : new Date(orderedAt);
+                                  dateDisplay = getDateAndTime(dateObj);
+                                }
+
+                                return (
+                                  <td
+                                    key={column.property}
+                                    className="px-6 py-4 text-center"
+                                  >
+                                    {column.property === "orderedAt" ? (
+                                      <span className="text-sm text-neutral-600">
+                                        {dateDisplay}
+                                      </span>
+                                    ) : column.property === "roomNumbers" ? (
+                                      <div className="flex items-center justify-center flex-wrap gap-1">
+                                        {(value && value.length > 0) ? value.map((item, i) => (
+                                          <span
+                                            key={i}
+                                            className="bg-primary-100 text-primary-700 font-semibold py-1 px-2 rounded-lg text-xs border border-primary-200"
+                                          >
+                                            {item}
+                                          </span>
+                                        )) : (
+                                          <span className="text-neutral-400 text-xs">-</span>
+                                        )}
+                                      </div>
+                                    ) : column.property === "action" ? (
+                                      <div className="flex gap-2 justify-center items-center">
+                                        {row["status"] === 3 && (
+                                          <button
+                                            onClick={() => handleDelete(row.id)}
+                                            className="p-2 bg-danger-100 hover:bg-danger-200 text-danger-700 rounded-lg transition-colors"
+                                            title="Delete booking"
+                                          >
+                                            <DeleteForeverIcon />
+                                          </button>
+                                        )}
+
+                                        <button
+                                          onClick={() => handleViewBookingDetails(row.bookingId)}
+                                          className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+                                          title="View Booking Details"
+                                        >
+                                          <MdVisibility size={20} />
+                                        </button>
+
+                                        {row.packageId && (
+                                          <button
+                                            onClick={() => handleViewPackageDetails(row.packageId)}
+                                            className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-colors"
+                                            title="View Package Details"
+                                          >
+                                            <MdInfo size={20} />
+                                          </button>
+                                        )}
+
+                                        {row.status === "Pending" && (
+                                          <>
+                                            <button
+                                              onClick={() => handleConfirmBooking(row)}
+                                              className="p-2 rounded-full bg-success-500 text-white hover:bg-success-600 hover:scale-110 transition-all duration-200"
+                                              title="Accept Booking"
+                                            >
+                                              <DoneRoundedIcon className="scale-90" />
+                                            </button>
+                                            <button
+                                              onClick={() => handleCancelBooking(row)}
+                                              className="p-2 rounded-full bg-danger-500 text-white hover:bg-danger-600 hover:scale-110 transition-all duration-200"
+                                              title="Decline Booking"
+                                            >
+                                              <CloseRoundedIcon className="scale-90" />
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+                                    ) : column.property === "amount" ? (
+                                      <span className="font-semibold text-success-600">
+                                        ฿{value}
+                                      </span>
+                                    ) : column.property === "noOfRooms" ? (
+                                      <span className="inline-flex items-center justify-center w-10 h-10 bg-primary-100 text-primary-700 rounded-full font-semibold">
+                                        {value}
+                                      </span>
+                                    ) : (
+                                      <span className="text-sm text-neutral-700">
+                                        {value}
+                                      </span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        }
+                      )}
+                    {(isRealTime ? roomBookings : matchedBookings).length === 0 && (
+                      <tr>
+                        <td colSpan={9} className="px-6 py-12">
+                          <div className="flex flex-col items-center justify-center text-neutral-400">
+                            <span className="text-6xl mb-4">📅</span>
+                            <p className="text-lg font-medium text-neutral-500">
+                              No Room Bookings Found
+                            </p>
+                            <p className="text-sm text-neutral-400 mt-2">
+                              There are no bookings available for the selected
+                              period.
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Modern Pagination */}
+            {!isRealTime && (
+              <div className="border-t border-neutral-200 bg-neutral-50 px-6 py-4">
+                <TablePagination
+                  rowsPerPageOptions={[10, 25, 100]}
+                  component="div"
+                  count={totalPages}
+                  rowsPerPage={rowsPerPage}
+                  page={page}
+                  onPageChange={handleChangePage}
+                  onRowsPerPageChange={handleChangeRowsPerPage}
+                  sx={{
+                    "& .MuiTablePagination-toolbar": {
+                      color: "var(--text-primary)",
+                    },
+                    "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
+                    {
+                      margin: 0,
+                      fontWeight: 500,
+                    },
+                    "& .MuiTablePagination-select": {
+                      borderRadius: "8px",
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      padding: "4px 8px",
+                    },
+                    "& .MuiTablePagination-actions button": {
+                      borderRadius: "8px",
+                      "&:hover": {
+                        backgroundColor: "var(--primary-bg-light)",
+                      },
+                    },
+                  }}
+                />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        )
+      }
 
       {/* View Booking details and confirm booking modal */}
       <Dialog
@@ -885,6 +1099,13 @@ const RoomBookings = () => {
 
         {/* modal body */}
         <DialogContent sx={{ p: 3, bgcolor: '#f8fafc' }}>
+
+          {/* Status Timeline */}
+          <div className="mb-6 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+            <h4 className="font-bold text-slate-700 mb-2 text-sm uppercase tracking-wider">Booking Status</h4>
+            <BookingTimeline booking={bookingDetails} />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
             {/* Stay Info */}

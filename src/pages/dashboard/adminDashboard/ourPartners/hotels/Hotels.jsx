@@ -195,7 +195,7 @@ const Hotels = () => {
     { id: "phoneNumber", label: "Phone", width: "15%" },
     { id: "email", label: "Email", width: "15%" },
     { id: "address", label: "Address", width: "25%" },
-    { id: "totalRoomsAvailable", label: "Availability", width: "10%" },
+    { id: "totalRoomsAvailable", label: "Total Rooms", width: "10%" },
     { id: "action", label: "Action", width: "10%" },
   ];
 
@@ -553,14 +553,9 @@ const Hotels = () => {
                                     : value}
                                 </span>
                               ) : column.id === "totalRoomsAvailable" ? (
-                                <Tooltip title={`${value} Available out of ${row.totalCapacity} Total`}>
-                                  <span className={`inline-flex items-center justify-center min-w-[3rem] px-2 h-8 border rounded-full font-bold text-sm shadow-sm ${value === 0
-                                    ? "bg-red-50 text-red-700 border-red-200"
-                                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                    }`}>
-                                    {value} / {row.totalCapacity}
-                                  </span>
-                                </Tooltip>
+                                <span className="inline-flex items-center justify-center min-w-[3rem] px-2 h-8 font-bold text-sm text-neutral-700">
+                                  {row.totalCapacity}
+                                </span>
                               ) : column.id === "action" ? (
                                 <div className="flex items-center justify-center gap-2">
                                   {/* View */}
@@ -678,13 +673,10 @@ const Hotels = () => {
                             </Tooltip>
                           </Box>
                           <div className="flex items-center gap-2">
-                            <Tooltip title={`${row.totalRoomsAvailable} Available out of ${row.totalCapacity} Total`}>
-                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold border ${row.totalRoomsAvailable === 0
-                                  ? "bg-red-50 text-red-700 border-red-100"
-                                  : "bg-emerald-50 text-emerald-700 border-emerald-100"
-                                }`}>
+                            <Tooltip title={`${row.totalCapacity} Total Rooms`}>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold border bg-neutral-50 text-neutral-700 border-neutral-100">
                                 <MdMeetingRoom size={14} />
-                                {row.totalRoomsAvailable} / {row.totalCapacity} Rooms
+                                {row.totalCapacity} Rooms
                               </span>
                             </Tooltip>
                             <Tooltip title="Room Types">
