@@ -41,7 +41,8 @@ import ArticleIcon from "@mui/icons-material/Article";
 import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
 import PersonIcon from "@mui/icons-material/PersonOutline";
 
-// Custom Modal Components
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 import Dialog from "@mui/material/Dialog";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -378,19 +379,25 @@ const Blogs = () => {
                                 variant="outlined"
                                 sx={{ mb: 3 }}
                             />
-                            <TextField
-                                label="Content (HTML Supported)"
-                                name="content"
-                                value={currentBlog.content}
-                                onChange={handleChange}
-                                fullWidth
-                                multiline
-                                minRows={10}
-                                variant="outlined"
-                                placeholder="<p>Write your amazing story here...</p>"
-                                helperText="Basic HTML tags supported for formatting."
-                                sx={{ mb: 3 }}
-                            />
+                            <div className="mb-12">
+                                <Typography variant="subtitle2" className="mb-2 text-gray-700 font-semibold">Content</Typography>
+                                <ReactQuill
+                                    theme="snow"
+                                    value={currentBlog.content}
+                                    onChange={(value) => setCurrentBlog(prev => ({ ...prev, content: value }))}
+                                    style={{ height: '300px', borderRadius: '12px', overflow: 'hidden' }}
+                                    className="bg-white rounded-xl"
+                                    modules={{
+                                        toolbar: [
+                                            [{ 'header': [1, 2, 3, false] }],
+                                            ['bold', 'italic', 'underline', 'strike'],
+                                            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                                            ['link', 'image', 'video'],
+                                            ['clean']
+                                        ],
+                                    }}
+                                />
+                            </div>
                             <TextField
                                 label="Excerpt / Summary"
                                 name="excerpt"
