@@ -9,6 +9,26 @@ import { forceHotelBookingPending, onHotelBookingStatusChangeV3 } from "./trigge
 exports.forceHotelBookingPending = forceHotelBookingPending;
 exports.onHotelBookingStatusChangeV3 = onHotelBookingStatusChangeV3;
 
+import { onSightseeingBookingStatusChange } from "./triggers/bookingTriggers";
+exports.onSightseeingBookingStatusChange = onSightseeingBookingStatusChange;
+
+import {
+    onCarBookingCreated,
+    onCarBookingStatusChange,
+    onVanBookingCreated,
+    onVanBookingStatusChange,
+    onSelfDriveBookingCreated,
+    onSelfDriveBookingStatusChange
+} from "./triggers/transportTriggers";
+
+exports.onCarBookingCreated = onCarBookingCreated;
+exports.onCarBookingStatusChange = onCarBookingStatusChange;
+exports.onVanBookingCreated = onVanBookingCreated;
+exports.onVanBookingStatusChange = onVanBookingStatusChange;
+exports.onSelfDriveBookingCreated = onSelfDriveBookingCreated;
+exports.onSelfDriveBookingStatusChange = onSelfDriveBookingStatusChange;
+
+
 // exports.sendEmail = onRequest(async (req, res) => {
 //   if (!req.body.to || !req.body.subject || !req.body.text) {
 //     res

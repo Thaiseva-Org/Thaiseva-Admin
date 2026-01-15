@@ -1,4 +1,5 @@
-import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { sendWhatsAppNotification } from "../utils/whatsapp";
@@ -149,3 +150,31 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
     logger.error("Error in autoAcceptSightseeingBookings:", error);
   }
 });
+
+export const onSightseeingBookingStatusChange = onDocumentUpdated("travelBookingDetails/{bookingId}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+
+  if (!before || !after) return;
+
+  const statusBefore = before.status;
+  const statusAfter = after.status;
+
+  // Check if status actually changed
+  if (statusBefore === statusAfter) return;
+
+  logger.info(`Sightseeing Booking ${event.params.bookingId} status changed: ${statusBefore} -> ${statusAfter}`);
+
+  // Status: Accepted
+  if (statusAfter === "Accepted" || statusAfter === "ACCEPTED") {
+    logger.info("Sending WhatsApp Notification: Booking Accepted");
+    await sendWhatsAppNotification("hello_world");
+  }
+
+  // Status: Canceled
+  if (statusAfter === "Canceled" || statusAfter === "CANCELED" || statusAfter === "Cancelled") {
+    logger.info("Sending WhatsApp Notification: Booking Canceled");
+    await sendWhatsAppNotification("hello_world");
+  }
+});
+

@@ -9,8 +9,8 @@ dotenv.config();
 // In compiled lib structure:
 const PHONE_NUMBER_ID = "899290049941177";
 const ADMIN_PHONE_NUMBER = "919284091637";
-// Temporary hardcode to bypass env var issues
-const HARDCODED_TOKEN = "EAAWQVwqWzbwBQbuAFiUmPzZBp8vvLWd7uvw4nA66ZATWPL6jcoF5OpngEkXF43513up6dd9bkXbkStZAtwNZCpHd5A3ZCJZC7ETyJHO8qAV9mOJoCBMZB0LZAIcZBHJZAb493pI64k30bsoMophoMHm1sEZBZCc6DDOQOJX2oIPhinfIFQkqmTkxJB9lLDyTTEu0iYrSuwZDZD";
+// Permanent token provided by user
+const PERMANENT_TOKEN = "EAAWQVwqWzbwBQbuAFiUmPzZBp8vvLWd7uvw4nA66ZATWPL6jcoF5OpngEkXF43513up6dd9bkXbkStZAtwNZCpHd5A3ZCJZC7ETyJHO8qAV9mOJoCBMZB0LZAIcZBHJZAb493pI64k30bsoMophoMHm1sEZBZCc6DDOQOJX2oIPhinfIFQkqmTkxJB9lLDyTTEu0iYrSuwZDZD";
 
 /**
  * Sends a WhatsApp notification to the admin using the WhatsApp Business API.
@@ -21,7 +21,7 @@ export async function sendWhatsAppNotification(
     templateName: string = "hello_world",
     languageCode: string = "en_US"
 ) {
-    const accessToken = HARDCODED_TOKEN; // process.env.WHATSAPP_ACCESS_TOKEN;
+    const accessToken = PERMANENT_TOKEN; // process.env.WHATSAPP_ACCESS_TOKEN;
 
     // Detailed logging for debugging
     const tokenExists = !!accessToken;
