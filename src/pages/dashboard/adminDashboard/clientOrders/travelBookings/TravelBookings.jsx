@@ -126,7 +126,7 @@ const TravelBookings = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -172,8 +172,9 @@ const TravelBookings = () => {
   const rows = (bookings) => {
     return bookings?.map((booking) => {
       // Handle both data structures (Old vs New)
-      const guestName = booking?.guestDetails?.name?.replace("not_present", "").trim() || booking?.fullName || "N/A";
-      const phone = booking?.guestDetails?.phoneNumber || booking?.phone || "N/A";
+      const guestName = booking?.fullName || booking?.guestDetails?.name?.replace("not_present", "").trim() || booking?.name || "N/A";
+      const phone = booking?.guestPhone || booking?.guestDetails?.phoneNumber || booking?.phone || "N/A";
+      const email = booking?.guestEmail || booking?.email || booking?.guestDetails?.email || "N/A";
       const title = booking?.title || booking?.packageName || "Unknown Package";
       const orderTime = booking?.orderedAt || booking?.createdAt || booking?.timestamp;
       const priceVal = booking?.price || booking?.totalAmount || 0;
@@ -190,7 +191,7 @@ const TravelBookings = () => {
         booking.id || booking.orderId,
         booking.dataid || booking.packageId,
         booking.isBookingConfirmed,
-        booking
+        { ...booking, email, hotelName: booking.hotelName || booking.hotel?.hotelName || (typeof booking.hotel === 'string' ? booking.hotel : null) || "N/A" } // ensure email/hotelName are passed
       );
     });
   };

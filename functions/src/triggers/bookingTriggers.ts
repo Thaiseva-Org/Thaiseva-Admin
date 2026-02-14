@@ -1,5 +1,4 @@
 import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
-
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 import { sendWhatsAppNotification } from "../utils/whatsapp";
@@ -22,8 +21,8 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
   const bookingData = snapshot.data();
   const bookingId = event.params.bookingId;
 
-  // Send WhatsApp Notification to Admin
-  await sendWhatsAppNotification();
+  // Send WhatsApp Notification
+  await sendWhatsAppNotification("notification", [`New Sightseeing Booking: ${bookingId}`]);
 
   logger.info(`New Booking Triggered: ${bookingId}`, bookingData);
 
@@ -33,12 +32,10 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
     return;
   }
 
-  // Determine if it's a partner booking
   const partnerId = bookingData.partnerId || bookingData.providerId || bookingData.agentId || null;
   logger.info(`Processing Booking ${bookingId}: Package ${packageId}, Partner: ${partnerId}`);
 
   try {
-    // 1. Fetch the Package Details to get limits
     const packageDocRef = db.collection("sightseeingPackagesDetails").doc(packageId);
     const packageDocSnapshot = await packageDocRef.get();
 
@@ -49,15 +46,12 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
 
     const packageData = packageDocSnapshot.data();
 
-    // FETCH GLOBAL SETTINGS
     const settingsDoc = await db.collection("settings").doc("sightseeingConfig").get();
     const globalLimit = settingsDoc.exists ? (parseInt(settingsDoc.data()?.globalWeeklyLimit) || 200) : 200;
 
     let limit = globalLimit;
 
-    // Logic for Partner vs Own
     if (partnerId && packageData?.authorizedPartners && Array.isArray(packageData.authorizedPartners)) {
-      // Find specific partner limit
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const authorizedPartner = packageData.authorizedPartners.find((p: any) => p.partnerId === partnerId || p.id === partnerId);
       if (authorizedPartner && authorizedPartner.maxBookingsPerWeek) {
@@ -70,11 +64,10 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
       logger.info(`Own Booking, using Global Limit: ${limit}`);
     }
 
-    // 2. Count existing bookings for this week
     const bookingDateRaw = bookingData.orderedAt || bookingData.createdAt;
     const bookingDate = bookingDateRaw ? bookingDateRaw.toDate() : new Date();
     const startOfWeek = new Date(bookingDate);
-    const day = startOfWeek.getDay() || 7; // Get current day number, converting Sun (0) to 7
+    const day = startOfWeek.getDay() || 7;
     if (day !== 1) startOfWeek.setHours(-24 * (day - 1));
     startOfWeek.setHours(0, 0, 0, 0);
 
@@ -82,19 +75,15 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
     endOfWeek.setDate(startOfWeek.getDate() + 6);
     endOfWeek.setHours(23, 59, 59, 999);
 
-    // SIMPLIFIED QUERY TO AVOID MISSING INDEX ERRORS
-    // We fetch all bookings for this package and filter date/status in memory.
     let query = db.collection("travelBookingDetails")
       .where("packageId", "==", packageId);
 
-    // Execute query
     const bookingsSnapshot = await query.get();
 
     let count = 0;
     const validStatuses = ["Accepted", "Confirmed", "Done"];
 
     if (partnerId) {
-      // For partner, strictly count their bookings
       count = bookingsSnapshot.docs.filter(doc => {
         const d = doc.data();
         const pid = d.partnerId || d.providerId || d.agentId;
@@ -108,7 +97,6 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
         return works;
       }).length;
     } else {
-      // For own, count bookings NOT from partners
       count = bookingsSnapshot.docs.filter(doc => {
         const d = doc.data();
         const pid = d.partnerId || d.providerId || d.agentId;
@@ -125,10 +113,8 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
 
     logger.info(`Current confirmed count for this week: ${count}. Limit: ${limit}`);
 
-    // 3. Logic: Check Limit
     if (count < limit) {
       logger.info(`Limit passed (${count} < ${limit}). Auto-accepting booking ${bookingId}.`);
-      // Auto Accept
       await snapshot.ref.update({
         status: "Accepted",
         isBookingConfirmed: true,
@@ -138,7 +124,6 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
       logger.info(`Booking ${bookingId} successfully updated to Accepted.`);
     } else {
       logger.info(`Limit reached (${count} >= ${limit}). Leaving booking ${bookingId} as Pending.`);
-      // Ensure consistency if needed, but usually imply Pending if created as such
       if (bookingData.status !== "Pending" && bookingData.status !== "Review In Progress") {
         await snapshot.ref.update({
           status: "Pending"
@@ -163,18 +148,23 @@ export const onSightseeingBookingStatusChange = onDocumentUpdated("travelBooking
   // Check if status actually changed
   if (statusBefore === statusAfter) return;
 
+  // Prevent double notification if the booking was just auto-accepted (since we already notified on creation)
+  if (after.autoAccepted && (statusAfter === "Accepted" || statusAfter === "ACCEPTED")) {
+    logger.info(`Skipping 'Accepted' notification for ${event.params.bookingId} because it was auto-accepted.`);
+    return;
+  }
+
   logger.info(`Sightseeing Booking ${event.params.bookingId} status changed: ${statusBefore} -> ${statusAfter}`);
 
-  // Status: Accepted
   if (statusAfter === "Accepted" || statusAfter === "ACCEPTED") {
     logger.info("Sending WhatsApp Notification: Booking Accepted");
-    await sendWhatsAppNotification("hello_world");
+    await sendWhatsAppNotification("notification", [`Sightseeing Booking ${event.params.bookingId} Accepted ✅`]);
   }
 
-  // Status: Canceled
   if (statusAfter === "Canceled" || statusAfter === "CANCELED" || statusAfter === "Cancelled") {
     logger.info("Sending WhatsApp Notification: Booking Canceled");
-    await sendWhatsAppNotification("hello_world");
+    await sendWhatsAppNotification("notification", [`Sightseeing Booking ${event.params.bookingId} Cancelled ❌`]);
   }
 });
+
 

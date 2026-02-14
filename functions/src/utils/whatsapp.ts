@@ -18,7 +18,8 @@ const PERMANENT_TOKEN = "EAAWQVwqWzbwBQbuAFiUmPzZBp8vvLWd7uvw4nA66ZATWPL6jcoF5Op
  * @param languageCode The language code for the template (default: "en_US")
  */
 export async function sendWhatsAppNotification(
-    templateName: string = "hello_world",
+    templateName: string = "notification",
+    parameters: string[] = [],
     languageCode: string = "en_US"
 ) {
     const accessToken = PERMANENT_TOKEN; // process.env.WHATSAPP_ACCESS_TOKEN;
@@ -38,6 +39,16 @@ export async function sendWhatsAppNotification(
 
     const url = `https://graph.facebook.com/v22.0/${PHONE_NUMBER_ID}/messages`;
 
+    const components = parameters.length > 0 ? [
+        {
+            type: "body",
+            parameters: parameters.map(param => ({
+                type: "text",
+                text: param
+            }))
+        }
+    ] : [];
+
     const payload = {
         messaging_product: "whatsapp",
         to: ADMIN_PHONE_NUMBER,
@@ -47,6 +58,7 @@ export async function sendWhatsAppNotification(
             language: {
                 code: languageCode,
             },
+            components: components
         },
     };
 

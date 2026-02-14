@@ -94,6 +94,11 @@ const AddSightseeingPackage = () => {
     const handleNextStep = () => setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
     const handleBackStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
+    // Scroll to top on step change
+    useEffect(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [currentStep]);
+
     const [coverPhotoURL, setCoverPhotoURL] = useState("");
     const [packageDetails, setPackageDetails] = useState({
         id: "",
@@ -110,6 +115,8 @@ const AddSightseeingPackage = () => {
         dropToAirport: false,
         packageType: "",
         maxBookingsPerWeek: 200,
+        minPersons: 1,
+        maxPersons: 100
     });
 
     const [arrayData, setArrayData] = useState({
@@ -253,6 +260,8 @@ const AddSightseeingPackage = () => {
                         pickupFromHotel: existingData?.pickupDropDetails?.pickupFromHotel || false,
                         dropToAirport: existingData?.pickupDropDetails?.dropToAirport || false,
                         maxBookingsPerWeek: existingData?.maxBookingsPerWeek || 200,
+                        minPersons: existingData?.pricingStructure?.minPersons || 1,
+                        maxPersons: existingData?.pricingStructure?.maxPersons || 100,
                     });
 
                     // Set form values for react-hook-form
@@ -267,6 +276,8 @@ const AddSightseeingPackage = () => {
                     setValue("transportType", existingData?.transportType);
                     setValue("packageType", existingData?.packageType || "");
                     setValue("maxBookingsPerWeek", existingData?.maxBookingsPerWeek || 200);
+                    setValue("minPersons", existingData?.pricingStructure?.minPersons || 1);
+                    setValue("maxPersons", existingData?.pricingStructure?.maxPersons || 100);
 
                     setCoverPhotoURL(existingData.coverPhoto || existingData.thumbnailImage);
 
@@ -399,6 +410,8 @@ const AddSightseeingPackage = () => {
         setValue("extraAdultPrice", randomPackage.pricingStructure.extraAdultPrice);
         setValue("transportType", randomPackage.transportType);
         setValue("maxBookingsPerWeek", 200);
+        setValue("minPersons", randomPackage.pricingStructure.minPersons || 1);
+        setValue("maxPersons", randomPackage.pricingStructure.maxPersons || 100);
 
         setPackageDetails({
             id: "",
@@ -414,6 +427,8 @@ const AddSightseeingPackage = () => {
             pickupFromHotel: randomPackage.pickupDropDetails.pickupFromHotel,
             dropToAirport: randomPackage.pickupDropDetails.dropToAirport,
             maxBookingsPerWeek: 200,
+            minPersons: randomPackage.pricingStructure.minPersons || 1,
+            maxPersons: randomPackage.pricingStructure.maxPersons || 100,
         });
 
         setCoverPhotoURL(randomPackage.thumbnailImage);
@@ -522,6 +537,8 @@ const AddSightseeingPackage = () => {
             period: parseFloat(period),
             packageType: data.packageType || "",
             maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
+            minPersons: parseInt(data.minPersons || 1),
+            maxPersons: parseInt(data.maxPersons || 100),
             coverPhoto: coverPhotoURL,
             timestamp,
             images: arrayData?.pictures || [],
@@ -570,7 +587,9 @@ const AddSightseeingPackage = () => {
             pricingStructure: {
                 pricePerAdult: parseFloat(price),
                 pricePerChild: parseFloat(data.pricePerChild || 0),
-                extraAdultPrice: parseFloat(data.extraAdultPrice || 0)
+                extraAdultPrice: parseFloat(data.extraAdultPrice || 0),
+                minPersons: parseInt(data.minPersons || 1),
+                maxPersons: parseInt(data.maxPersons || 100)
             },
 
             transportType: data.transportType || "",
@@ -601,7 +620,7 @@ const AddSightseeingPackage = () => {
     };
 
     const textField = (label, name, placeholder, defaultValue) => {
-        const isRequired = !["pricePerChild", "extraAdultPrice", "transportType", "discount", "packageType"].includes(name);
+        const isRequired = !["pricePerChild", "extraAdultPrice", "transportType", "discount", "packageType", "minPersons", "maxPersons"].includes(name);
         return (
             <Grid item xs={12} sm={name === "description" ? 12 : 6}>
                 <TextField
@@ -610,7 +629,7 @@ const AddSightseeingPackage = () => {
                             {label} {isRequired && <span className="text-red-500">*</span>}
                         </span>
                     }
-                    type={["price", "discount", "period", "pricePerChild", "extraAdultPrice"].includes(name) ? "number" : "text"}
+                    type={["price", "discount", "period", "pricePerChild", "extraAdultPrice", "minPersons", "maxPersons"].includes(name) ? "number" : "text"}
                     onWheel={(e) => e.target.blur()}
                     defaultValue={defaultValue || ""}
                     placeholder={placeholder}
@@ -619,7 +638,7 @@ const AddSightseeingPackage = () => {
                     rows={name === "description" ? 3 : ""}
                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                     inputProps={{
-                        min: name === "price" ? 1 : name === "discount" ? 0 : name === "period" ? 1 : undefined,
+                        min: name === "price" ? 1 : name === "discount" ? 0 : name === "period" ? 1 : name === "minPersons" ? 1 : name === "maxPersons" ? 1 : undefined,
                         max: name === "discount" ? 100 : name === "period" ? 100 : undefined,
                     }}
                     InputLabelProps={{ shrink: !!defaultValue ? true : undefined }}
@@ -669,7 +688,6 @@ const AddSightseeingPackage = () => {
                                         {textField("Package Title", "title", "e.g., Grand Thailand Tour", packageDetails?.title)}
                                         {textField("Duration (Days)", "period", "e.g., 5", packageDetails?.period)}
                                         {textField("Location", "location", "e.g., Bangkok", packageDetails?.location)}
-                                        {textField("Base Price (Adult)", "price", "0", packageDetails?.price)}
 
                                         <Grid item xs={12} sm={6}>
                                             <FormControl fullWidth sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}>
@@ -955,9 +973,12 @@ const AddSightseeingPackage = () => {
                                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
                                         <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">💰 Pricing & Discounts</Typography>
                                         <Grid container spacing={4}>
+                                            {textField("Adult Price (Base)", "price", "Cost per adult", packageDetails?.price)}
                                             {textField("Child Price", "pricePerChild", "Cost per child", packageDetails?.pricePerChild)}
                                             {textField("Extra Adult", "extraAdultPrice", "Cost per extra adult", packageDetails?.extraAdultPrice)}
                                             {textField("Discount (%)", "discount", "Global discount %", packageDetails?.discount)}
+                                            {textField("Min. Persons", "minPersons", "e.g., 2", packageDetails?.minPersons)}
+                                            {textField("Max. Persons", "maxPersons", "e.g., 10", packageDetails?.maxPersons)}
 
                                             <Grid item xs={12}>
                                                 <div className="p-5 bg-yellow-50 rounded-xl border border-yellow-100">

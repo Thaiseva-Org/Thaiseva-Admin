@@ -116,7 +116,7 @@ const Drivers = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(+event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -342,17 +342,16 @@ const Drivers = () => {
                               {((value === "Pending" ||
                                 value === "Verified" ||
                                 value === "Denied") && (
-                                <span
-                                  className={`${
-                                    (value === "Pending" &&
-                                      "bg-orange-300 text-black") ||
-                                    (value === "Verified" && "bg-green-500") ||
-                                    (value === "Denied" && "bg-red-600")
-                                  } text-white  py-1 px-2 rounded`}
-                                >
-                                  {value}
-                                </span>
-                              )) ||
+                                  <span
+                                    className={`${(value === "Pending" &&
+                                        "bg-orange-300 text-black") ||
+                                      (value === "Verified" && "bg-green-500") ||
+                                      (value === "Denied" && "bg-red-600")
+                                      } text-white  py-1 px-2 rounded`}
+                                  >
+                                    {value}
+                                  </span>
+                                )) ||
                                 (column.id === "action" && (
                                   <div className="flex items-center justify-center gap-1">
                                     <div
@@ -522,12 +521,11 @@ const Drivers = () => {
             <Grid item xs={12} sm={6} md={6}>
               <span className="font-bold ">Current Status : </span>{" "}
               <span
-                className={`${
-                  (driverDetails?.status === "Pending" &&
+                className={`${(driverDetails?.status === "Pending" &&
                     "bg-orange-300 text-black") ||
                   (driverDetails?.status === "Verified" && "bg-green-500") ||
                   (driverDetails?.status === "Denied" && "bg-red-600")
-                } text-white  py-1 px-2 rounded`}
+                  } text-white  py-1 px-2 rounded`}
               >
                 {driverDetails?.status}
               </span>

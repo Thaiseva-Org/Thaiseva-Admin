@@ -31,6 +31,7 @@ import {
     hotelPackages,
     storage,
 } from "../../../../../firebase/firebase.config";
+import { Checkbox, FormControlLabel } from "@mui/material";
 import {
     calculateDiscountPrice,
     successNotification,
@@ -56,6 +57,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         ratings: "",
         numberOfReviews: "",
         totalRooms: "",
+        extraBedPrice: 0,
+        hasExtraBed: false,
     });
     const [arrayData, setArrayData] = useState({
         amenities: [],
@@ -75,6 +78,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         handleSubmit,
         reset,
         register,
+        watch,
         formState: { errors },
     } = useForm();
 
@@ -102,7 +106,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         { property: "discount", label: "Discount", width: "10%" },
         { property: "discountPrice", label: "Discount Price", width: "15%" },
         { property: "noOfGuest", label: "Guests", width: "10%" },
-
+        { property: "extraBedPrice", label: "Extra Bed", width: "10%" },
         { property: "action", label: "Action", width: "15%" },
     ];
 
@@ -131,6 +135,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             ratings: "",
             numberOfReviews: "",
             totalRooms: "",
+            extraBedPrice: 0,
+            hasExtraBed: false,
         });
         setCoverPhotoURL("");
         setArrayData({
@@ -150,8 +156,9 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             discount,
             period,
             numberOfGuests,
-            address,
-            totalRooms
+            totalRooms,
+            extraBedPrice,
+            hasExtraBed
         } = data;
 
         let id;
@@ -187,6 +194,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             location: hotelLocation,
             phoneNumber: hotelPhone,
             duration: 30,
+            extraBedPrice: hasExtraBed ? parseFloat(extraBedPrice || 0) : 0,
+            hasExtraBed: !!hasExtraBed,
             pricingOverrides: pricingOverrides,
             status: "Approved", // Default status as per requirement
             updatedAt: serverTimestamp(),
@@ -221,6 +230,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             ratings: room.ratings,
             numberOfReviews: room.numberOfReviews,
             totalRooms: room.totalRooms,
+            extraBedPrice: room.extraBedPrice || 0,
+            hasExtraBed: room.hasExtraBed || false,
         });
         setCoverPhotoURL(room.coverPhoto);
         setArrayData({
@@ -237,6 +248,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             period: room.period,
             numberOfGuests: room.numberOfGuests,
             totalRooms: room.totalRooms,
+            extraBedPrice: room.extraBedPrice || 0,
+            hasExtraBed: room.hasExtraBed || false,
         });
 
         setPricingOverrides(room.pricingOverrides || []);
@@ -334,14 +347,14 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                 <TextField
                     label={label}
                     type={
-                        ["price", "discount", "numberOfGuests", "period"].includes(name)
+                        ["price", "discount", "numberOfGuests", "period", "extraBedPrice"].includes(name)
                             ? "number"
                             : "text"
                     }
                     inputProps={{
                         min: ["discount"].includes(name)
                             ? 0
-                            : ["price", "numberOfGuests", "period"].includes(name)
+                            : ["price", "numberOfGuests", "period", "extraBedPrice"].includes(name)
                                 ? 1
                                 : undefined,
                         max: ["discount", "numberOfGuests"].includes(name)
@@ -361,6 +374,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             </Grid>
         );
     };
+
+    const hasExtraBed = watch("hasExtraBed");
 
     return (
         <div>
@@ -431,6 +446,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                                                                 (value != 0 ? `${value}` : "-")) ||
                                                             (column.property === "numberOfReviews" &&
                                                                 (value !== 0 ? `${value}` : "-")) ||
+                                                            (column.property === "extraBedPrice" &&
+                                                                (row.hasExtraBed ? `฿ ${value}` : "-")) ||
                                                             value}
                                                     </TableCell>
                                                 );
@@ -516,6 +533,31 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                                 "totalRooms",
                                 "Total inventory count",
                                 roomDetails?.totalRooms
+                            )}
+
+                            {/* Extra Bed Option */}
+                            <Grid item xs={12} sm={6}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', ml: 1 }}>
+                                    <FormControlLabel
+                                        control={
+                                            <Checkbox
+                                                {...register("hasExtraBed")}
+                                                checked={!!hasExtraBed}
+                                                onChange={(e) => {
+                                                    setValue("hasExtraBed", e.target.checked);
+                                                }}
+                                            />
+                                        }
+                                        label="Extra Bed Available"
+                                    />
+                                </Box>
+                            </Grid>
+
+                            {hasExtraBed && textField(
+                                "Extra Bed Price",
+                                "extraBedPrice",
+                                "Eg: 50",
+                                roomDetails?.extraBedPrice
                             )}
 
                             <Grid item xs={12}>

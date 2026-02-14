@@ -117,7 +117,7 @@ const MyServices = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -235,8 +235,7 @@ const MyServices = () => {
 
     await setDoc(doc(localServicesCollection, id), service).then(() => {
       successNotification(
-        `The service is ${
-          serviceDetails?.serviceName ? "updated" : "added"
+        `The service is ${serviceDetails?.serviceName ? "updated" : "added"
         } successfully`
       );
       setRefetchServices((p) => !p);
@@ -459,23 +458,23 @@ const MyServices = () => {
               {/* Vehicle Registration Number */}
               {partnerDetails.serviceCategory ===
                 "Logistics and Transportation" && (
-                <>
-                  {textField(
-                    "Vehicle Registration Number",
-                    "vehicleNumber",
-                    "Number plate",
-                    serviceDetails?.serviceArea
-                  )}
+                  <>
+                    {textField(
+                      "Vehicle Registration Number",
+                      "vehicleNumber",
+                      "Number plate",
+                      serviceDetails?.serviceArea
+                    )}
 
-                  {/* Vehicle Type */}
-                  {textField(
-                    "Vehicle Type",
-                    "vehicleType",
-                    "Truck or Ven",
-                    serviceDetails?.serviceArea
-                  )}
-                </>
-              )}
+                    {/* Vehicle Type */}
+                    {textField(
+                      "Vehicle Type",
+                      "vehicleType",
+                      "Truck or Ven",
+                      serviceDetails?.serviceArea
+                    )}
+                  </>
+                )}
             </Grid>
             {error && <p className="text-red-500 text-center">{error}</p>}
           </DialogContent>

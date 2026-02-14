@@ -84,6 +84,7 @@ const AddedRooms = () => {
     { property: "discount", label: "Discount", width: "10%" },
     { property: "discountPrice", label: "Discount Price", width: "15%" },
     { property: "noOfGuest", label: "Guests", width: "10%" },
+    { property: "extraBedPrice", label: "Extra Bed", width: "10%" },
     { property: "status", label: "Status", width: "15%" },
     { property: "action", label: "Action", width: "15%" },
     // { property: "period", label: "Period", width: 50 },
@@ -113,6 +114,8 @@ const AddedRooms = () => {
       noOfGuest,
       status,
       id,
+      hasExtraBed,
+      extraBedPrice,
     };
   }
 
@@ -127,7 +130,9 @@ const AddedRooms = () => {
       room.numberOfReviews,
       room.numberOfGuests,
       room.status,
-      room.id
+      room.id,
+      room.hasExtraBed,
+      room.extraBedPrice
     );
   });
 
@@ -222,8 +227,7 @@ const AddedRooms = () => {
     // await setDoc(doc(hotelPackages, id), packageInfo);
     await setDoc(doc(hotelPackageDetails, id), packageDetails).then(() => {
       successNotification(
-        `The Package is ${
-          roomDetails?.packageName ? "updated" : "added"
+        `The Package is ${roomDetails?.packageName ? "updated" : "added"
         } successfully`
       );
     });
@@ -381,8 +385,8 @@ const AddedRooms = () => {
             min: ["discount"].includes(name)
               ? 0
               : ["price", "numberOfGuests", "period"].includes(name)
-              ? 1
-              : undefined,
+                ? 1
+                : undefined,
             max: ["discount", "numberOfGuests"].includes(name)
               ? 100
               : undefined,
@@ -452,17 +456,16 @@ const AddedRooms = () => {
                             {((value === "Pending" ||
                               value === "Approved" ||
                               value === "Denied") && (
-                              <span
-                                className={`${
-                                  (value === "Pending" &&
+                                <span
+                                  className={`${(value === "Pending" &&
                                     "bg-orange-300 text-black") ||
-                                  (value === "Approved" && "bg-green-500") ||
-                                  (value === "Denied" && "bg-red-600")
-                                } text-white  py-1 px-2 rounded`}
-                              >
-                                {value}
-                              </span>
-                            )) ||
+                                    (value === "Approved" && "bg-green-500") ||
+                                    (value === "Denied" && "bg-red-600")
+                                    } text-white  py-1 px-2 rounded`}
+                                >
+                                  {value}
+                                </span>
+                              )) ||
                               (column.property === "discountPrice" &&
                                 `$ ${calculateDiscountPrice(
                                   row["price"],
@@ -517,6 +520,8 @@ const AddedRooms = () => {
                                 (value != 0 ? `${value}` : "-")) ||
                               (column.property === "numberOfReviews" &&
                                 (value !== 0 ? `${value}` : "-")) ||
+                              (column.property === "extraBedPrice" &&
+                                (row.hasExtraBed ? `$ ${value}` : "-")) ||
                               value}
                           </TableCell>
                         );

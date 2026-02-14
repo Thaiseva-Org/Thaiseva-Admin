@@ -13,7 +13,7 @@ export const onCarBookingCreated = onDocumentCreated("car_bookings/{bookingId}",
 
     // Send WhatsApp Notification for New Booking
     logger.info(`New Car Booking Triggered: ${event.params.bookingId}`);
-    await sendWhatsAppNotification("hello_world");
+    await sendWhatsAppNotification("notification", [`New Car Booking: ${event.params.bookingId}`]);
 });
 
 export const onCarBookingStatusChange = onDocumentUpdated("car_bookings/{bookingId}", async (event) => {
@@ -31,12 +31,12 @@ export const onCarBookingStatusChange = onDocumentUpdated("car_bookings/{booking
 
     if (['Accepted', 'ACCEPTED'].includes(statusAfter)) {
         logger.info("Sending WhatsApp Notification: Car Booking Accepted");
-        await sendWhatsAppNotification("hello_world");
+        await sendWhatsAppNotification("notification", [`Car Booking ${event.params.bookingId} Accepted ✅`]);
     }
 
     if (['Canceled', 'CANCELED', 'Cancelled'].includes(statusAfter)) {
         logger.info("Sending WhatsApp Notification: Car Booking Canceled");
-        await sendWhatsAppNotification("hello_world");
+        await sendWhatsAppNotification("notification", [`Car Booking ${event.params.bookingId} Cancelled ❌`]);
     }
 });
 
@@ -49,7 +49,7 @@ export const onVanBookingCreated = onDocumentCreated("vanBookings/{bookingId}", 
     if (!snapshot) return;
 
     logger.info(`New Van Booking Triggered: ${event.params.bookingId}`);
-    await sendWhatsAppNotification("hello_world");
+    await sendWhatsAppNotification("notification", [`New Van Booking: ${event.params.bookingId}`]);
 });
 
 export const onVanBookingStatusChange = onDocumentUpdated("vanBookings/{bookingId}", async (event) => {
@@ -67,12 +67,12 @@ export const onVanBookingStatusChange = onDocumentUpdated("vanBookings/{bookingI
 
     if (['Accepted', 'ACCEPTED'].includes(statusAfter)) {
         logger.info("Sending WhatsApp Notification: Van Booking Accepted");
-        await sendWhatsAppNotification("hello_world");
+        await sendWhatsAppNotification("notification", [`Van Booking ${event.params.bookingId} Accepted ✅`]);
     }
 
     if (['Canceled', 'CANCELED', 'Cancelled'].includes(statusAfter)) {
         logger.info("Sending WhatsApp Notification: Van Booking Canceled");
-        await sendWhatsAppNotification("hello_world");
+        await sendWhatsAppNotification("notification", [`Van Booking ${event.params.bookingId} Cancelled ❌`]);
     }
 });
 
@@ -85,7 +85,7 @@ export const onSelfDriveBookingCreated = onDocumentCreated("self_driving_booking
     if (!snapshot) return;
 
     logger.info(`New Self Drive Booking Triggered: ${event.params.bookingId}`);
-    await sendWhatsAppNotification("hello_world");
+    await sendWhatsAppNotification("notification", [`New Self Drive Booking: ${event.params.bookingId}`]);
 });
 
 export const onSelfDriveBookingStatusChange = onDocumentUpdated("self_driving_bookings/{bookingId}", async (event) => {
@@ -103,11 +103,11 @@ export const onSelfDriveBookingStatusChange = onDocumentUpdated("self_driving_bo
 
     if (['Accepted', 'ACCEPTED'].includes(statusAfter)) {
         logger.info("Sending WhatsApp Notification: Self Drive Booking Accepted");
-        await sendWhatsAppNotification("hello_world");
+        await sendWhatsAppNotification("notification", [`Self Drive Booking ${event.params.bookingId} Accepted ✅`]);
     }
 
     if (['Canceled', 'CANCELED', 'Cancelled'].includes(statusAfter)) {
         logger.info("Sending WhatsApp Notification: Self Drive Booking Canceled");
-        await sendWhatsAppNotification("hello_world");
+        await sendWhatsAppNotification("notification", [`Self Drive Booking ${event.params.bookingId} Cancelled ❌`]);
     }
 });

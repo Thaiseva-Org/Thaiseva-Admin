@@ -310,19 +310,9 @@ export const partnerManagementLinks = [
 
 export const websiteConfigLinks = [
   {
-    icon: <Shop />,
-    link: "/dashboard/website-config/banners",
-    label: "Banners",
-  },
-  {
     icon: <TaskIcon />,
     link: "/dashboard/website-config/blogs",
     label: "Blogs",
-  },
-  {
-    icon: <BeenhereIcon />,
-    link: "/dashboard/website-config/offers",
-    label: "Offers",
   },
   {
     icon: <ManageAccountsIcon />,
@@ -330,13 +320,8 @@ export const websiteConfigLinks = [
     label: "Service Cards",
   },
   {
-    icon: <GroupRoundedIcon />,
-    link: "/dashboard/website-config/testimonials",
-    label: "Testimonials",
-  },
-  {
     icon: <SupportAgentIcon />,
-    link: "/dashboard/website-config/faqs",
-    label: "FAQs",
+    link: "/dashboard/website-config/contact-us",
+    label: "Contact Us",
   },
 ];

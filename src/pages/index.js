@@ -214,12 +214,15 @@ const PartnerDashboard = lazy(() =>
 // ========== Dashboard Pages End ==========
 
 // ========== Website Config Pages ==========
-const Banners = lazy(() => import("./dashboard/adminDashboard/websiteConfig/Banners"));
-const Blogs = lazy(() => import("./dashboard/adminDashboard/websiteConfig/Blogs"));
-const Offers = lazy(() => import("./dashboard/adminDashboard/websiteConfig/Offers"));
-const Services = lazy(() => import("./dashboard/adminDashboard/websiteConfig/Services"));
-const Testimonials = lazy(() => import("./dashboard/adminDashboard/websiteConfig/Testimonials"));
-const FAQs = lazy(() => import("./dashboard/adminDashboard/websiteConfig/FAQs"));
+const Blogs = lazy(() =>
+  import("./dashboard/adminDashboard/websiteConfig/Blogs")
+);
+const Services = lazy(() =>
+  import("./dashboard/adminDashboard/websiteConfig/Services")
+);
+const ContactUs = lazy(() =>
+  import("./dashboard/adminDashboard/websiteConfig/ContactUs")
+);
 // ========== Website Config Pages End ==========
 
 const NotFound = lazy(() => import("./NotFound"));
@@ -306,10 +309,7 @@ export {
   VanBookings,
 
   // Website Config export
-  Banners,
   Blogs,
-  Offers,
   Services,
-  Testimonials,
-  FAQs,
+  ContactUs,
 };

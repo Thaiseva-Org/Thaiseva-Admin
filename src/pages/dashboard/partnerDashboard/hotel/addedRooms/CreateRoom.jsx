@@ -10,6 +10,8 @@ import {
   DialogTitle,
   Grid,
   TextField,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
@@ -49,6 +51,8 @@ const CreateRoom = () => {
     ratings: "",
     numberOfReviews: "",
     country: "",
+    extraBedPrice: 0,
+    hasExtraBed: false,
   });
   const [arrayData, setArrayData] = useState({
     amenities: [],
@@ -80,8 +84,7 @@ const CreateRoom = () => {
   const handleAddRoom = async (data) => {
     if (
       confirm(
-        `Are you sure to ${
-          roomDetails?.packageName ? "update" : "add"
+        `Are you sure to ${roomDetails?.packageName ? "update" : "add"
         } this package.`
       )
     ) {
@@ -96,6 +99,8 @@ const CreateRoom = () => {
         // period,
         numberOfGuests,
         // address,
+        extraBedPrice,
+        hasExtraBed,
       } = data;
 
       let id;
@@ -136,6 +141,8 @@ const CreateRoom = () => {
         currency,
         phoneNumber,
         duration: 30,
+        extraBedPrice: hasExtraBed ? parseFloat(extraBedPrice || 0) : 0,
+        hasExtraBed: !!hasExtraBed,
         updatedAt: serverTimestamp(),
         ...(roomDetails?.packageName ? { createdAt: serverTimestamp() } : {}),
       };
@@ -144,8 +151,7 @@ const CreateRoom = () => {
       // await setDoc(doc(hotelPackages, id), packageInfo);
       await setDoc(doc(hotelPackageDetails, id), packageDetails).then(() => {
         successNotification(
-          `The Package is ${
-            roomDetails?.packageName ? "updated" : "added"
+          `The Package is ${roomDetails?.packageName ? "updated" : "added"
           } successfully`
         );
       });
@@ -199,6 +205,8 @@ const CreateRoom = () => {
         numberOfGuests,
         ratings,
         numberOfReviews,
+        extraBedPrice,
+        hasExtraBed,
       } = existingData;
 
       setRoomDetails({
@@ -213,6 +221,8 @@ const CreateRoom = () => {
         numberOfGuests,
         ratings,
         numberOfReviews,
+        extraBedPrice: extraBedPrice || 0,
+        hasExtraBed: hasExtraBed || false,
       });
       setValue("packageName", packageName);
       setValue("description", description);
@@ -221,6 +231,8 @@ const CreateRoom = () => {
       // setValue("address", address);
       // setValue("period", period);
       setValue("numberOfGuests", numberOfGuests);
+      setValue("extraBedPrice", extraBedPrice || 0);
+      setValue("hasExtraBed", hasExtraBed || false);
 
       setCoverPhotoURL(existingData?.coverPhoto);
       setArrayData((p) => ({
@@ -317,7 +329,7 @@ const CreateRoom = () => {
         <TextField
           label={label}
           type={
-            ["price", "discount", "numberOfGuests", "period"].includes(name)
+            ["price", "discount", "numberOfGuests", "period", "extraBedPrice"].includes(name)
               ? "number"
               : "text"
           }
@@ -333,9 +345,9 @@ const CreateRoom = () => {
           inputProps={{
             min: ["discount"].includes(name)
               ? 0
-              : ["numberOfGuests", "price", "period"].includes(name)
-              ? 1
-              : undefined,
+              : ["numberOfGuests", "price", "period", "extraBedPrice"].includes(name)
+                ? 1
+                : undefined,
             max: ["discount", "numberOfGuests"].includes(name)
               ? 100
               : undefined,
@@ -356,6 +368,8 @@ const CreateRoom = () => {
       </Grid>
     );
   };
+
+  const hasExtraBed = watch("hasExtraBed");
 
   // const textField = (label, name, placeholder, defaultValue) => {
   //   return (
@@ -517,6 +531,31 @@ const CreateRoom = () => {
 
             {/* Discount */}
             {textField("Discount", "discount", "Eg: 20", roomDetails?.discount)}
+
+            {/* Extra Bed Option */}
+            <Grid item xs={12} sm={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', ml: 1 }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      {...register("hasExtraBed")}
+                      checked={!!hasExtraBed}
+                      onChange={(e) => {
+                        setValue("hasExtraBed", e.target.checked);
+                      }}
+                    />
+                  }
+                  label="Extra Bed Available"
+                />
+              </Box>
+            </Grid>
+
+            {hasExtraBed && textField(
+              "Extra Bed Price",
+              "extraBedPrice",
+              "Eg: 50",
+              roomDetails?.extraBedPrice
+            )}
 
             {/* Description */}
             {textField(
@@ -765,7 +804,7 @@ const CreateRoom = () => {
             autoFocus
             onClick={handleSubmit(handleAddRoom)}
             className="add-new-btn"
-            // sx={{ bgcolor: "blue", color: "white", hover: "none" }}
+          // sx={{ bgcolor: "blue", color: "white", hover: "none" }}
           >
             {roomDetails?.packageName ? "Update" : "Add"}
           </button>

@@ -14,6 +14,7 @@ import {
   TablePagination,
   Tab,
   Tabs,
+  Typography,
 } from "@mui/material";
 import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 import CloseIcon from "@mui/icons-material/Close";
@@ -37,8 +38,13 @@ import NumbersIcon from "@mui/icons-material/Numbers";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import CreditCardIcon from "@mui/icons-material/CreditCard";
 import BedroomParentIcon from "@mui/icons-material/BedroomParent";
-import { ViewList, CalendarMonth, Search, Circle, CheckCircle } from "@mui/icons-material";
-import { Tooltip, Select, MenuItem, FormControl, InputLabel } from "@mui/material";
+import { ViewList, CalendarMonth, Search, Circle, CheckCircle, FileDownload as FileDownloadIcon, RemoveRedEye as RemoveRedEyeIcon } from "@mui/icons-material";
+import { Tooltip, Select, MenuItem, FormControl, InputLabel, CircularProgress, AppBar, Toolbar } from "@mui/material";
+
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import { logo } from "../../../../../assets";
+import { ensureInvoiceIdForBooking } from "../../../../../services/invoiceService";
 
 import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import {
@@ -70,8 +76,11 @@ import { useNotifications } from "../../../../../contextAPIs/NotificationsProvid
 
 const RoomBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
-  const { roomBookings, hotels } = useContext(PartnerContext);
+  const { roomBookings, hotels, contactInfo } = useContext(PartnerContext);
   const [matchedBookings, setMatchedBookings] = useState([]);
+  const [processingInvoiceId, setProcessingInvoiceId] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
   const [openPackageDetailsModal, setOpenPackageDetailsModal] = useState(false);
   const [openBookingDetailsModal, setOpenBookingDetailsModal] = useState(false);
   const [bookingDetails, setBookingDetails] = useState({});
@@ -99,6 +108,155 @@ const RoomBookings = () => {
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
     setPage(0);
+  };
+
+  const generatePdfBlob = async (row) => {
+    try {
+      const doc = new jsPDF();
+      const raw = row.rawData || {};
+      const category = "Room Bookings";
+
+      const COLORS = {
+        primary: [30, 58, 138],
+        darkBg: [15, 23, 42],
+        slate800: [30, 41, 59],
+        slate600: [71, 85, 105],
+        slate500: [100, 116, 139],
+        slate100: [241, 245, 249],
+        emerald: [16, 185, 129],
+      };
+
+      const drawBrandHeader = (title) => {
+        doc.setFillColor(...COLORS.primary);
+        doc.rect(0, 0, 210, 45, 'F');
+        try {
+          doc.setFillColor(255, 255, 255);
+          doc.roundedRect(14, 8, 50, 24, 2, 2, 'F');
+          doc.addImage(logo, 'JPEG', 15, 9, 48, 22);
+        } catch (e) {
+          doc.setFontSize(10); doc.setTextColor(255, 255, 255); doc.text("THAISEVA", 15, 20);
+        }
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(title.toUpperCase(), 196, 18, { align: "right" });
+        const status = raw.status || "Pending";
+        const isSuccess = status.toLowerCase() === 'accepted' || status.toLowerCase() === 'confirmed';
+        doc.setFillColor(...(isSuccess ? COLORS.emerald : [200, 200, 200]));
+        doc.roundedRect(176, 25, 20, 6, 2, 2, 'F');
+        doc.setFontSize(8);
+        doc.text(status.toUpperCase(), 186, 29, { align: "center" });
+      };
+
+      const drawSectionTitle = (text, y) => {
+        doc.setFontSize(10);
+        doc.setTextColor(...COLORS.primary);
+        doc.setFont("helvetica", "bold");
+        doc.text(text.toUpperCase(), 14, y);
+        doc.setDrawColor(...COLORS.slate100);
+        doc.line(14, y + 2, 196, y + 2);
+      };
+
+      const drawField = (label, value, x, y) => {
+        if (!value || value === "-" || value === "0" || value === "") return;
+        doc.setFontSize(9);
+        doc.setTextColor(...COLORS.slate500);
+        doc.setFont("helvetica", "normal");
+        doc.text(label, x, y);
+        doc.setTextColor(...COLORS.slate800);
+        doc.setFont("helvetica", "bold");
+        doc.text(String(value), x, y + 5);
+      };
+
+      drawBrandHeader("Hotel Confirmation");
+      let y = 60;
+      drawSectionTitle("Reservation Details", y);
+      y += 10;
+      const displayId = row.customerInvoiceId || raw.bookingId || row.bookingId || row.id;
+      drawField("Booking ID", displayId, 14, y);
+      drawField("Booked On", row.orderedAt ? new Date(row.orderedAt.seconds ? row.orderedAt.seconds * 1000 : row.orderedAt).toLocaleDateString() : "-", 60, y);
+      drawField("Hotel Name", row.hotelName, 110, y);
+
+      y += 20;
+      drawSectionTitle("Guest Information", y);
+      y += 10;
+      drawField("Primary Guest", row.name, 14, y);
+      drawField("Contact", row.phone, 60, y);
+      if (row.nationality) drawField("Nationality", row.nationality, 160, y);
+
+      y += 20;
+      drawSectionTitle("Stay Details", y);
+      y += 10;
+      drawField("Check-In", row.checkIn, 14, y);
+      drawField("Check-Out", row.checkOut, 60, y);
+      if (row.nights) drawField("Duration", `${row.nights} Night(s)`, 110, y);
+      drawField("Guests", `${row.adults || 0} Adults, ${row.children || 0} Children`, 160, y);
+
+      y += 20;
+      drawSectionTitle("Room Allocation", y);
+      y += 10;
+      const rooms = raw.roomDetails || [{ roomName: row.roomName || "Standard Room", count: row.noOfRooms || 1 }];
+      autoTable(doc, {
+        startY: y,
+        head: [['Room Type', 'Qty', 'Assigned Rooms']],
+        body: rooms.map(r => [r.roomName, r.count || 1, row.roomNumbers || "On Arrival"]),
+        theme: 'grid',
+        headStyles: { fillColor: COLORS.slate100, textColor: COLORS.slate600, fontSize: 8 },
+        styles: { fontSize: 9, textColor: COLORS.slate800 }
+      });
+
+      return doc.output('blob');
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      throw error;
+    }
+  };
+
+  const handlePreviewInvoice = async (row) => {
+    if (processingInvoiceId) return;
+    setProcessingInvoiceId(row.bookingId || row.id);
+    try {
+      const updatedRow = await ensureInvoiceIdForBooking("Room Bookings", row.bookingId || row.id, row.rawData);
+      const rowWithInvoice = { ...row, customerInvoiceId: updatedRow.customerInvoiceId };
+      const blob = await generatePdfBlob(rowWithInvoice);
+      const url = URL.createObjectURL(blob);
+      setPreviewPdfUrl(url);
+      setPreviewOpen(true);
+    } catch (error) {
+      console.error("Error previewing PDF:", error);
+      alert("Failed to preview invoice.");
+    } finally {
+      setProcessingInvoiceId(null);
+    }
+  };
+
+  const handleDownloadInvoice = async (row) => {
+    if (processingInvoiceId) return;
+    setProcessingInvoiceId(row.bookingId || row.id);
+    try {
+      const updatedRow = await ensureInvoiceIdForBooking("Room Bookings", row.bookingId || row.id, row.rawData);
+      const rowWithInvoice = { ...row, customerInvoiceId: updatedRow.customerInvoiceId };
+      const blob = await generatePdfBlob(rowWithInvoice);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Invoice_${updatedRow.customerInvoiceId || row.bookingId || row.id}.pdf`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      alert("Failed to download invoice.");
+    } finally {
+      setProcessingInvoiceId(null);
+    }
+  };
+
+  const handleClosePreview = () => {
+    setPreviewOpen(false);
+    if (previewPdfUrl) {
+      URL.revokeObjectURL(previewPdfUrl);
+      setPreviewPdfUrl(null);
+    }
   };
 
   const handleDateRangeSubmit = (event) => {
@@ -146,7 +304,7 @@ const RoomBookings = () => {
   /* Removed duplicate handleChangeRowsPerPage */
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -256,8 +414,8 @@ const RoomBookings = () => {
     { property: "phone", label: "Phone", width: "10%" },
     { property: "noOfRooms", label: "Rooms", width: "5%" },
     { property: "checkIn", label: "Check in", width: "14%" },
-    { property: "orderedAt", label: "Booking time	", width: "14%" },
     { property: "amount", label: "Amount", width: "10%" },
+    { property: "userInvoice", label: "Invoice", width: "12%" },
     { property: "action", label: "Action", width: "10%" },
   ];
 
@@ -291,10 +449,20 @@ const RoomBookings = () => {
       ...booking,
       isBookingConfirmed: booking.isBookingConfirmed,
       isPaymentDone: booking.isPaymentDone,
-      hotelName: booking.hotelName,
-      name: booking.fullName || booking.guestDetails?.name || "N/A",
-      phone: booking.phone || booking.guestDetails?.phone || "N/A",
-      email: booking.email || booking.guestDetails?.email || "N/A",
+      hotelName: (() => {
+        const primary = booking.hotelName || "";
+        const nested = booking.hotel?.hotelName || "";
+        const fallback = typeof booking.hotel === 'string' ? booking.hotel : "";
+
+        // If primary is generic "Hotel", use nested or fallback
+        if (primary.toLowerCase() === "hotel" || !primary) {
+          return nested || fallback || primary || "N/A";
+        }
+        return primary;
+      })(),
+      name: booking.fullName || booking.guestDetails?.name || booking.name || "N/A",
+      phone: booking.guestPhone || booking.phone || booking.guestDetails?.phone || "N/A",
+      email: booking.guestEmail || booking.email || booking.guestDetails?.email || "N/A",
       noOfRooms: booking.rooms || booking.noOfRooms,
       checkIn: getDate(checkInDate),
       checkOut: getDate(checkOutDate),
@@ -308,15 +476,16 @@ const RoomBookings = () => {
       hotelUid: booking.hotelUid,
       userId: booking.userId,
       // New fields mapping
-      adults: booking.adults,
-      children: booking.children,
-      nationality: booking.nationality,
+      adults: booking.adults !== undefined ? booking.adults : (booking.guestDetails?.adults || 0),
+      children: booking.children !== undefined ? booking.children : (booking.guestDetails?.children || 0),
+      nationality: booking.nationality || "N/A",
       nights: booking.nights,
       roomName: booking.roomName,
       paymentMethod: booking.paymentMethod,
       currency: booking.currency,
       amountINR: booking.amountINR,
       amountTHB: booking.amountTHB,
+      rawData: booking, // Keep original data for PDF generation
     };
   }
 
@@ -925,6 +1094,37 @@ const RoomBookings = () => {
                                           <span className="text-neutral-400 text-xs">-</span>
                                         )}
                                       </div>
+                                    ) : column.property === "userInvoice" ? (
+                                      <div className="flex justify-center items-center gap-1">
+                                        <Tooltip title="Preview Invoice">
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handlePreviewInvoice(row)}
+                                            disabled={processingInvoiceId === (row.bookingId || row.id)}
+                                            sx={{ color: '#3b82f6', bgcolor: '#eff6ff', '&:hover': { bgcolor: '#dbeafe' } }}
+                                          >
+                                            {processingInvoiceId === (row.bookingId || row.id) ? (
+                                              <CircularProgress size={16} color="inherit" />
+                                            ) : (
+                                              <RemoveRedEyeIcon fontSize="small" />
+                                            )}
+                                          </IconButton>
+                                        </Tooltip>
+                                        <Tooltip title="Download Invoice">
+                                          <IconButton
+                                            size="small"
+                                            onClick={() => handleDownloadInvoice(row)}
+                                            disabled={processingInvoiceId === (row.bookingId || row.id)}
+                                            sx={{ color: '#10b981', bgcolor: '#ecfdf5', '&:hover': { bgcolor: '#d1fae5' } }}
+                                          >
+                                            {processingInvoiceId === (row.bookingId || row.id) ? (
+                                              <CircularProgress size={16} color="inherit" />
+                                            ) : (
+                                              <FileDownloadIcon fontSize="small" />
+                                            )}
+                                          </IconButton>
+                                        </Tooltip>
+                                      </div>
                                     ) : column.property === "action" ? (
                                       <div className="flex gap-2 justify-center items-center">
                                         {row["status"] === 3 && (
@@ -1380,7 +1580,61 @@ const RoomBookings = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </div >
+      {/* PDF Preview Dialog */}
+      <Dialog
+        open={previewOpen}
+        onClose={handleClosePreview}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: { height: '90vh', borderRadius: 4 }
+        }}
+      >
+        <AppBar sx={{ position: 'relative', bgcolor: '#1e3a8a' }}>
+          <Toolbar>
+            <Typography sx={{ ml: 2, flex: 1, fontWeight: 700 }} variant="h6" component="div">
+              Invoice Preview
+            </Typography>
+            <IconButton edge="start" color="inherit" onClick={handleClosePreview} aria-label="close">
+              <CloseIcon />
+            </IconButton>
+          </Toolbar>
+        </AppBar>
+        <DialogContent sx={{ p: 0, overflow: 'hidden', bgcolor: '#525659' }}>
+          {previewPdfUrl ? (
+            <iframe
+              src={previewPdfUrl}
+              width="100%"
+              height="100%"
+              style={{ border: 'none' }}
+              title="PDF Preview"
+            />
+          ) : (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'white' }}>
+              <CircularProgress color="inherit" />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: 'white' }}>
+          <Button onClick={handleClosePreview} variant="outlined" sx={{ borderRadius: 2 }}>
+            Close
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<FileDownloadIcon />}
+            onClick={() => {
+              const link = document.createElement('a');
+              link.href = previewPdfUrl;
+              link.download = `Invoice_Preview.pdf`;
+              link.click();
+            }}
+            sx={{ borderRadius: 2, bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}
+          >
+            Download PDF
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </div>
   );
 };
 

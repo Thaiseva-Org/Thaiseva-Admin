@@ -140,7 +140,9 @@ export const getEmptySightseeingPackage = () => {
         pricingStructure: {
             pricePerAdult: 0,
             pricePerChild: 0,
-            extraAdultPrice: 0
+            extraAdultPrice: 0,
+            minPersons: 1,
+            maxPersons: 100
         },
         specialRates: {
             seasonalPricing: {

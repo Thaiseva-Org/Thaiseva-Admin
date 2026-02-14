@@ -154,7 +154,7 @@ const Restaurants = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(+event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -385,8 +385,8 @@ const Restaurants = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeading 
-        text="Restaurants Management" 
+      <PageHeading
+        text="Restaurants Management"
         subtitle="View and manage all restaurant partners"
       />
 
@@ -400,8 +400,8 @@ const Restaurants = () => {
                 {columns.map((column) => (
                   <TableCell
                     key={column.id}
-                    style={{ 
-                      width: column.width, 
+                    style={{
+                      width: column.width,
                       fontWeight: "700",
                       backgroundColor: "#f8fafc",
                       color: "#1e293b",
@@ -421,10 +421,10 @@ const Restaurants = () => {
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((row) => {
                   return (
-                    <TableRow 
-                      hover 
-                      role="checkbox" 
-                      tabIndex={-1} 
+                    <TableRow
+                      hover
+                      role="checkbox"
+                      tabIndex={-1}
                       key={row.uid}
                       sx={{
                         "&:hover": {
@@ -449,11 +449,10 @@ const Restaurants = () => {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${
-                          row.isVerified === "Verified"
+                        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${row.isVerified === "Verified"
                             ? "bg-success-100 text-success-700 border border-success-200"
                             : "bg-warning-100 text-warning-700 border border-warning-200"
-                        }`}>
+                          }`}>
                           {row.isVerified === "Verified" ? "✓ Accepted" : "⏳ Pending"}
                         </span>
                       </TableCell>
@@ -598,8 +597,8 @@ const Restaurants = () => {
           },
         }}
       >
-        <DialogTitle sx={{ 
-          borderBottom: "1px solid #e2e8f0", 
+        <DialogTitle sx={{
+          borderBottom: "1px solid #e2e8f0",
           pb: 2,
           fontSize: "1.5rem",
           fontWeight: "bold",
@@ -760,11 +759,10 @@ const Restaurants = () => {
                       {restaurantDetails?.name || "N/A"}
                     </h3>
                     <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${
-                        restaurantDetails?.status === "Verified"
+                      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${restaurantDetails?.status === "Verified"
                           ? "bg-success-500 text-white"
                           : "bg-warning-500 text-white"
-                      }`}>
+                        }`}>
                         {restaurantDetails?.status === "Verified" ? "✓ Verified" : "⏳ Pending"}
                       </span>
                     </div>
@@ -881,12 +879,12 @@ const Restaurants = () => {
             </div>
           )}
         </DialogContent>
-        <DialogActions sx={{ 
-          borderTop: "1px solid #e2e8f0", 
+        <DialogActions sx={{
+          borderTop: "1px solid #e2e8f0",
           p: 3,
           gap: 2
         }}>
-          <Button 
+          <Button
             onClick={() => setIsEditing(!isEditing)}
             sx={{
               borderRadius: "12px",
@@ -902,7 +900,7 @@ const Restaurants = () => {
             {isEditing ? "Cancel" : "Edit"}
           </Button>
           {isEditing && (
-            <Button 
+            <Button
               onClick={handleEditRestaurant}
               variant="contained"
               sx={{

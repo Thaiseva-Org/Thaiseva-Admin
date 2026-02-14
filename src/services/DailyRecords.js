@@ -230,17 +230,54 @@ export const fetchBookingsTotalPages = async (
 
       setTotalPages(taxiCount);
 
-    } else if (category === "Room Bookings") {
-      // Room Bookings need special counting (Paid Only) or All?
-      // fetchTodayBooking filters by payment statuses. We should approximate or fetch all.
-      // Fetching all to be accurate with fetchTodayBooking Logic
-      const q = query(collectionRef, ...dateConstraints);
-      const snap = await getDocs(q);
-      const paidCount = snap.docs.filter(d => {
-        const data = d.data();
-        return data.isPaymentDone === true || data.isPaymentClear === true;
-      }).length;
-      setTotalPages(paidCount);
+    } else if (category === "Room Bookings" || category === "Sightseeing Bookings") {
+      // Room/Sightseeing: Use multi-field logic for consistent count
+      const fields = category === "Room Bookings"
+        ? ["createdAt", "orderedAt", "timestamp", "checkInDate", "checkIn"]
+        : ["orderedAt", "createdAt", "timestamp"];
+
+      const validStatuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
+
+      const promises = fields.map(async field => {
+        let start = todayStart;
+        let end = todayEnd;
+
+        // For string-based fields, ensure we use string comparison
+        if (field === "checkInDate" || field === "checkIn") {
+          const sDate = new Date(todayStart).toISOString().split('T')[0];
+          const eDate = new Date(todayEnd).toISOString().split('T')[0];
+
+          // We'll run TWO queries for these fields to be safe (one for Date/Timestamp, one for String)
+          const qDate = query(collectionRef, where(field, ">=", todayStart), where(field, "<=", todayEnd));
+          const qString = query(collectionRef, where(field, ">=", sDate), where(field, "<=", eDate));
+
+          const [sDateSnap, sStringSnap] = await Promise.all([getDocs(qDate), getDocs(qString)]);
+          return [...sDateSnap.docs, ...sStringSnap.docs];
+        }
+
+        const q = query(
+          collectionRef,
+          where(field, ">=", todayStart),
+          where(field, "<=", todayEnd)
+        );
+        const snap = await getDocs(q);
+        return snap.docs;
+      });
+
+      const results = await Promise.all(promises);
+      const uniqueIds = new Set();
+      results.flat().forEach(doc => {
+        const data = doc.data();
+        let isMatch = false;
+        if (category === "Room Bookings") {
+          const rawStatus = data.bookingStatus || data.status || "";
+          if (["ACCEPTED", "CONFIRMED", "DONE"].includes(rawStatus.toUpperCase())) isMatch = true;
+        } else {
+          isMatch = validStatuses.includes(data.status);
+        }
+        if (isMatch) uniqueIds.add(doc.id);
+      });
+      setTotalPages(uniqueIds.size);
 
     } else {
       // Standard Count
@@ -346,18 +383,32 @@ export const fetchTodayBooking = async (
       // Re-implementing logic compactly:
       const fieldsToQuery = category === "Sightseeing Bookings"
         ? ["orderedAt", "createdAt", "timestamp"]
-        : ["createdAt", "orderedAt", "timestamp"];
+        : ["createdAt", "orderedAt", "timestamp", "checkInDate", "checkIn"];
 
       const performQuery = async (field, includeStatus) => {
-        const constraints = [
-          where(field, ">=", todayStart),
-          where(field, "<=", todayEnd),
-          orderBy(field, "desc"),
-          limit(pageSize ? pageSize * 5 : 500)
-        ];
-        if (includeStatus) constraints.unshift(where("status", "in", validStatuses));
+        const sDate = new Date(todayStart).toISOString().split('T')[0];
+        const eDate = new Date(todayEnd).toISOString().split('T')[0];
 
-        const q = query(collectionRef, ...constraints);
+        const getConstraints = (f, start, end) => {
+          const c = [
+            where(f, ">=", start),
+            where(f, "<=", end),
+            orderBy(f, "desc"),
+            limit(2000)
+          ];
+          if (includeStatus) c.unshift(where("status", "in", validStatuses));
+          return c;
+        };
+
+        if (field === "checkInDate" || field === "checkIn") {
+          // Check both formats
+          const q1 = query(collectionRef, ...getConstraints(field, todayStart, todayEnd));
+          const q2 = query(collectionRef, ...getConstraints(field, sDate, eDate));
+          const [res1, res2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+          return [...res1.docs, ...res2.docs];
+        }
+
+        const q = query(collectionRef, ...getConstraints(field, todayStart, todayEnd));
         const snap = await getDocs(q);
         return snap.docs;
       };
@@ -380,14 +431,8 @@ export const fetchTodayBooking = async (
         if (category === "Room Bookings") {
           const rawStatus = data.bookingStatus || data.status || "";
           const upper = rawStatus.toUpperCase();
-          // Filter matching RoomBookings.jsx logic
+          // Filter matching RoomBookings.jsx logic - Accepted ones are records
           if (['ACCEPTED', 'CONFIRMED', 'DONE'].includes(upper)) isMatch = true;
-          // Also check payment
-          if ((data.isPaymentDone === true || data.isPaymentClear === true) && isMatch) {
-            // Valid
-          } else {
-            isMatch = false; // Must be paid/clear
-          }
         } else {
           // Basic Status Check
           isMatch = validStatuses.includes(data.status);

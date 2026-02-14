@@ -230,7 +230,7 @@ const LocalServices = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -420,11 +420,10 @@ const LocalServices = () => {
               onClick={() => {
                 setQueryCategory(serviceCategory), setPage(0);
               }}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                queryCategory === serviceCategory
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${queryCategory === serviceCategory
                   ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md scale-105"
                   : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
+                }`}
             >
               {serviceCategory}
             </button>
@@ -582,10 +581,10 @@ const LocalServices = () => {
                     padding: "12px 16px",
                   },
                   "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                    {
-                      color: "#6B7280",
-                      fontWeight: 500,
-                    },
+                  {
+                    color: "#6B7280",
+                    fontWeight: 500,
+                  },
                   "& .MuiTablePagination-select": {
                     borderRadius: "8px",
                     padding: "4px 8px",
@@ -651,23 +650,23 @@ const LocalServices = () => {
               {/* Vehicle Registration Number */}
               {partnerDetails.serviceCategory ===
                 "Logistics and Transportation" && (
-                <>
-                  {textField(
-                    "Vehicle Registration Number",
-                    "vehicleNumber",
-                    "Number plate",
-                    serviceDetails?.serviceArea
-                  )}
+                  <>
+                    {textField(
+                      "Vehicle Registration Number",
+                      "vehicleNumber",
+                      "Number plate",
+                      serviceDetails?.serviceArea
+                    )}
 
-                  {/* Vehicle Type */}
-                  {textField(
-                    "Vehicle Type",
-                    "vehicleType",
-                    "Truck or Ven",
-                    serviceDetails?.serviceArea
-                  )}
-                </>
-              )}
+                    {/* Vehicle Type */}
+                    {textField(
+                      "Vehicle Type",
+                      "vehicleType",
+                      "Truck or Ven",
+                      serviceDetails?.serviceArea
+                    )}
+                  </>
+                )}
             </Grid>
             {/* {error && <p className="text-red-500 text-center">{error}</p>} */}
           </DialogContent>

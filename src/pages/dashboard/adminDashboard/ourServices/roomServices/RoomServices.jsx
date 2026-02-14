@@ -227,7 +227,7 @@ const RoomServices = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(+event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -358,16 +358,15 @@ const RoomServices = () => {
                               className="px-6 py-4 text-center"
                             >
                               {value === "Pending" ||
-                              value === "Approved" ||
-                              value === "Denied" ? (
+                                value === "Approved" ||
+                                value === "Denied" ? (
                                 <span
-                                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                                    value === "Pending"
+                                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${value === "Pending"
                                       ? "bg-warning-100 text-warning-700 border border-warning-300"
                                       : value === "Approved"
-                                      ? "bg-success-100 text-success-700 border border-success-300"
-                                      : "bg-danger-100 text-danger-700 border border-danger-300"
-                                  }`}
+                                        ? "bg-success-100 text-success-700 border border-success-300"
+                                        : "bg-danger-100 text-danger-700 border border-danger-300"
+                                    }`}
                                 >
                                   {value === "Approved" && "✓ "}
                                   {value === "Pending" && "⏳ "}
@@ -450,10 +449,10 @@ const RoomServices = () => {
                 color: "var(--text-primary)",
               },
               "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                {
-                  margin: 0,
-                  fontWeight: 500,
-                },
+              {
+                margin: 0,
+                fontWeight: 500,
+              },
               "& .MuiTablePagination-select": {
                 borderRadius: "8px",
                 backgroundColor: "white",
@@ -581,12 +580,11 @@ const RoomServices = () => {
                 <Grid item xs={12} sm={6} md={6}>
                   <span className="font-bold ">Current Status : </span>{" "}
                   <span
-                    className={`${
-                      (roomDetails?.status === "Pending" &&
+                    className={`${(roomDetails?.status === "Pending" &&
                         "bg-orange-300 text-black") ||
                       (roomDetails?.status === "Approved" && "bg-green-500") ||
                       (roomDetails?.status === "Denied" && "bg-red-600")
-                    } text-white  py-1 px-2 rounded`}
+                      } text-white  py-1 px-2 rounded`}
                   >
                     {roomDetails?.status}
                   </span>

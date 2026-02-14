@@ -71,6 +71,13 @@ const Blogs = () => {
         category: "Travel",
         author: "Admin",
         status: "Draft",
+        metaTitle: "",
+        metaDescription: "",
+        metaKeywords: "",
+        canonicalUrl: "",
+        ogTitle: "",
+        ogDescription: "",
+        ogImage: "",
     });
 
     const fetchBlogs = async () => {
@@ -130,6 +137,13 @@ const Blogs = () => {
             category: "Travel",
             author: "Admin",
             status: "Draft",
+            metaTitle: "",
+            metaDescription: "",
+            metaKeywords: "",
+            canonicalUrl: "",
+            ogTitle: "",
+            ogDescription: "",
+            ogImage: "",
         });
         setIsUpdate(false);
         setSelectedId(null);
@@ -146,6 +160,13 @@ const Blogs = () => {
             category: item.category,
             author: item.author,
             status: item.status,
+            metaTitle: item.metaTitle || "",
+            metaDescription: item.metaDescription || "",
+            metaKeywords: item.metaKeywords || "",
+            canonicalUrl: item.canonicalUrl || "",
+            ogTitle: item.ogTitle || "",
+            ogDescription: item.ogDescription || "",
+            ogImage: item.ogImage || "",
         });
         setIsUpdate(true);
         setSelectedId(item.id);
@@ -166,6 +187,14 @@ const Blogs = () => {
     }
 
     const handleImageChange = (url) => setCurrentBlog(prev => ({ ...prev, image: url }));
+    const handleOgImageChange = (url) => setCurrentBlog(prev => ({ ...prev, ogImage: url }));
+
+    const stripHtml = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    const calcReadTime = (html) => {
+        const words = stripHtml(html).split(" ").filter(Boolean).length;
+        const minutes = Math.max(1, Math.ceil(words / 200));
+        return `${minutes} min read`;
+    };
 
     const handleSave = async () => {
         if (!currentBlog.title || !currentBlog.content) {
@@ -174,16 +203,35 @@ const Blogs = () => {
         }
 
         try {
+            const metaTitle = currentBlog.metaTitle?.trim() || currentBlog.title;
+            const metaDescription =
+                currentBlog.metaDescription?.trim() ||
+                currentBlog.excerpt?.trim() ||
+                stripHtml(currentBlog.content).slice(0, 160);
+            const ogTitle = currentBlog.ogTitle?.trim() || metaTitle;
+            const ogDescription = currentBlog.ogDescription?.trim() || metaDescription;
+            const readTime = calcReadTime(currentBlog.content);
+
             if (isUpdate && selectedId) {
                 const docRef = doc(db, "BlogDB", selectedId);
                 await updateDoc(docRef, {
                     ...currentBlog,
+                    metaTitle,
+                    metaDescription,
+                    ogTitle,
+                    ogDescription,
+                    readTime,
                     updatedAt: serverTimestamp(),
                 });
                 Swal.fire({ icon: 'success', title: 'Updated', timer: 1000, showConfirmButton: false });
             } else {
                 await addDoc(collection(db, "BlogDB"), {
                     ...currentBlog,
+                    metaTitle,
+                    metaDescription,
+                    ogTitle,
+                    ogDescription,
+                    readTime,
                     publishedDate: currentBlog.status === 'Published' ? serverTimestamp() : null,
                     createdAt: serverTimestamp(),
                 });
@@ -464,6 +512,82 @@ const Blogs = () => {
                                     size="small"
                                     helperText="Auto-generated from title"
                                 />
+
+                                <Box className="pt-2 border-t border-gray-200">
+                                    <Typography variant="subtitle2" className="mb-3 text-gray-700 font-semibold">
+                                        SEO Metadata
+                                    </Typography>
+                                    <TextField
+                                        label="Meta Title"
+                                        name="metaTitle"
+                                        value={currentBlog.metaTitle}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        size="small"
+                                        sx={{ mb: 2 }}
+                                        helperText="Defaults to article title"
+                                    />
+                                    <TextField
+                                        label="Meta Description"
+                                        name="metaDescription"
+                                        value={currentBlog.metaDescription}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        size="small"
+                                        multiline
+                                        rows={3}
+                                        sx={{ mb: 2 }}
+                                        helperText="Best under 160 characters"
+                                    />
+                                    <TextField
+                                        label="Meta Keywords"
+                                        name="metaKeywords"
+                                        value={currentBlog.metaKeywords}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        size="small"
+                                        sx={{ mb: 2 }}
+                                        helperText="Comma-separated keywords"
+                                    />
+                                    <TextField
+                                        label="Canonical URL"
+                                        name="canonicalUrl"
+                                        value={currentBlog.canonicalUrl}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        size="small"
+                                        sx={{ mb: 2 }}
+                                    />
+                                    <TextField
+                                        label="Open Graph Title"
+                                        name="ogTitle"
+                                        value={currentBlog.ogTitle}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        size="small"
+                                        sx={{ mb: 2 }}
+                                        helperText="Defaults to Meta Title"
+                                    />
+                                    <TextField
+                                        label="Open Graph Description"
+                                        name="ogDescription"
+                                        value={currentBlog.ogDescription}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        size="small"
+                                        multiline
+                                        rows={2}
+                                        sx={{ mb: 2 }}
+                                        helperText="Defaults to Meta Description"
+                                    />
+                                    <DragDropImageUploader
+                                        label="Open Graph Image"
+                                        image={currentBlog.ogImage}
+                                        onImageChange={handleOgImageChange}
+                                        folder="blogs"
+                                        height={120}
+                                    />
+                                </Box>
                             </Box>
                         </Grid>
                     </Grid>

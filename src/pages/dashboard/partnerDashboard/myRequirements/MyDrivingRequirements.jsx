@@ -112,7 +112,7 @@ const MyDrivingRequirements = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(+event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -176,24 +176,23 @@ const MyDrivingRequirements = () => {
 
                           const date = new Date(
                             row["date"]?.seconds * 1000 +
-                              row["date"]?.nanoseconds / 1000000
+                            row["date"]?.nanoseconds / 1000000
                           );
                           return (
                             <TableCell key={column.id} align="center">
                               {((value === "Incomplete" ||
                                 value === "Pending" ||
                                 value === "Completed") && (
-                                <span
-                                  className={`${
-                                    (value === "Incomplete" &&
-                                      "bg-slate-400 text-black") ||
-                                    (value === "Pending" && "bg-orange-500") ||
-                                    (value === "Completed" && "bg-green-500")
-                                  } text-white  py-1 px-2 rounded`}
-                                >
-                                  {value}
-                                </span>
-                              )) ||
+                                  <span
+                                    className={`${(value === "Incomplete" &&
+                                        "bg-slate-400 text-black") ||
+                                      (value === "Pending" && "bg-orange-500") ||
+                                      (value === "Completed" && "bg-green-500")
+                                      } text-white  py-1 px-2 rounded`}
+                                  >
+                                    {value}
+                                  </span>
+                                )) ||
                                 (column?.id === "date" && format(date)) ||
                                 (column.id === "action" && (
                                   <>
@@ -232,7 +231,7 @@ const MyDrivingRequirements = () => {
         open={viewDetailsModal}
         onClose={() => setViewDetailsModal(false)}
         aria-labelledby="responsive-dialog-title"
-        // fullWidth
+      // fullWidth
       >
         <Box>
           <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">

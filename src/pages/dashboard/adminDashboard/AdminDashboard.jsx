@@ -34,6 +34,9 @@ const AdminDashboard = () => {
   return (
     <div>
       <PageHeading text="Admin Dashboard" />
+      <div className="p-4">
+        {/* Seed button removed as per user request */}
+      </div>
 
       <div>
         <CategoriesAndLogo

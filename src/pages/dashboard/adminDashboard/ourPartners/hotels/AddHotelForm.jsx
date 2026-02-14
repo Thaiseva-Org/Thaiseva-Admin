@@ -162,6 +162,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             checkIn: "14:00",
             checkOut: "12:00",
             extraBed: "",
+            extraBedPrice: 0,
             paymentInfo: "Prepaid",
             refundable: true
         },
@@ -864,6 +865,14 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                         {room.maxGuests || room.guests || 2}
                                     </div>
                                 </div>
+                                {room.policies?.extraBed === "Available" && (
+                                    <div className="col-span-2">
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Extra Bed Price</label>
+                                        <div className="mt-1 bg-blue-50 rounded-xl px-3 py-2 text-blue-900 font-bold border border-blue-100">
+                                            $ {room.policies?.extraBedPrice || 0}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -910,6 +919,9 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                             <div className="space-y-2">
                                 <p><span className="font-semibold text-gray-900">Total Rooms:</span> {getValues("totalRooms")}</p>
                                 <p><span className="font-semibold text-gray-900">Room Types:</span> {roomTypes.length}</p>
+                                {roomTypes.some(r => r.policies?.extraBed === "Available") && (
+                                    <p><span className="font-semibold text-gray-900">Extra Beds:</span> Yes (Available in some rooms)</p>
+                                )}
                                 <p><span className="font-semibold text-gray-900">Amenities:</span> {[...selectedAmenities, ...customAmenities].length} selected</p>
                                 <p><span className="font-semibold text-gray-900">Pets Allowed:</span> {petsAllowed ? "Yes" : "No"}</p>
                                 <p><span className="font-semibold text-gray-900">Discount:</span> {hotelDiscount}%</p>
@@ -1292,14 +1304,24 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                     />
                                     <div className="flex items-center gap-4 p-2 border border-gray-200 rounded-xl h-[56px] relative">
-                                        <span className="text-sm font-bold text-gray-600 pl-2">Extra Bed?</span>
+                                        <span className="text-sm font-bold text-gray-600 pl-2">Extra Bed Available?</span>
                                         <input
                                             type="checkbox"
                                             checked={newRoom.policies.extraBed === "Available"}
-                                            onChange={(e) => setNewRoom({ ...newRoom, policies: { ...newRoom.policies, extraBed: e.target.checked ? "Available" : "" } })}
+                                            onChange={(e) => setNewRoom({ ...newRoom, policies: { ...newRoom.policies, extraBed: e.target.checked ? "Available" : "", extraBedPrice: e.target.checked ? newRoom.policies.extraBedPrice : 0 } })}
                                             className="w-5 h-5 text-blue-600 rounded absolute right-4"
                                         />
                                     </div>
+                                    {newRoom.policies.extraBed === "Available" && (
+                                        <TextField
+                                            label="Extra Bed Price"
+                                            type="number"
+                                            fullWidth
+                                            value={newRoom.policies.extraBedPrice}
+                                            onChange={(e) => setNewRoom({ ...newRoom, policies: { ...newRoom.policies, extraBedPrice: e.target.value === "" ? "" : Number(e.target.value) } })}
+                                            sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                        />
+                                    )}
                                     <div className="col-span-2">
                                         <TextField
                                             label="Additional Notes"

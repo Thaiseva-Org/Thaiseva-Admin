@@ -162,7 +162,7 @@ const LocalRequirements = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -556,11 +556,10 @@ const LocalRequirements = () => {
             <button
               key={i}
               onClick={() => setQueryCategory(serviceCategory)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                queryCategory === serviceCategory
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${queryCategory === serviceCategory
                   ? "bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md scale-105"
                   : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
+                }`}
             >
               {serviceCategory}
             </button>
@@ -709,16 +708,15 @@ const LocalRequirements = () => {
                                 className="px-4 py-4 text-center text-sm"
                               >
                                 {value === "Incomplete" ||
-                                value === "Pending" ||
-                                value === "Completed" ? (
+                                  value === "Pending" ||
+                                  value === "Completed" ? (
                                   <span
-                                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
-                                      value === "Incomplete"
+                                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${value === "Incomplete"
                                         ? "bg-neutral-200 text-neutral-700"
                                         : value === "Pending"
-                                        ? "bg-warning-100 text-warning-700"
-                                        : "bg-success-100 text-success-700"
-                                    }`}
+                                          ? "bg-warning-100 text-warning-700"
+                                          : "bg-success-100 text-success-700"
+                                      }`}
                                   >
                                     {value === "Incomplete" && "⚪ "}
                                     {value === "Pending" && "⏳ "}
@@ -729,14 +727,14 @@ const LocalRequirements = () => {
                                   <div className="flex items-center justify-center gap-2">
                                     {(row["isChecked"] ||
                                       row["isCompleted"] !== true) && (
-                                      <div
-                                        onClick={() =>
-                                          handleDeleteRequirement(row.id)
-                                        }
-                                      >
-                                        <DeleteButton title="Delete Requirement" />
-                                      </div>
-                                    )}
+                                        <div
+                                          onClick={() =>
+                                            handleDeleteRequirement(row.id)
+                                          }
+                                        >
+                                          <DeleteButton title="Delete Requirement" />
+                                        </div>
+                                      )}
                                     <div
                                       onClick={() => handleViewDetails(row.id)}
                                     >
@@ -783,10 +781,10 @@ const LocalRequirements = () => {
                       padding: "12px 16px",
                     },
                     "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                      {
-                        color: "#6B7280",
-                        fontWeight: 500,
-                      },
+                    {
+                      color: "#6B7280",
+                      fontWeight: 500,
+                    },
                     "& .MuiTablePagination-select": {
                       borderRadius: "8px",
                       padding: "4px 8px",

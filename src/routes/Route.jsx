@@ -47,16 +47,14 @@ import {
   SightseeingExcelUploadPage,
   Vans,
   VanBookings,
-  Banners,
   Blogs,
-  Offers,
   Services,
-  Testimonials,
-  FAQs,
+  ContactUs,
 } from "../pages";
 import StatisticsProvider from "../contextAPIs/StatisticsProvider";
 import { Suspense } from "react";
 import Loading from "../components/Loading";
+import ScrollToTop from "../components/ScrollToTop";
 
 export const router = createBrowserRouter([
   {
@@ -70,6 +68,7 @@ export const router = createBrowserRouter([
           </div>
         }
       >
+        <ScrollToTop />
         <Main />
       </Suspense>
     ),
@@ -79,6 +78,7 @@ export const router = createBrowserRouter([
     path: "/dashboard",
     element: (
       <PrivetRouter>
+        <ScrollToTop />
         <Dashboard />
       </PrivetRouter>
     ),
@@ -286,26 +286,10 @@ export const router = createBrowserRouter([
                           Website Configuration
       =================================================*/
       {
-        path: "/dashboard/website-config/banners",
-        element: (
-          <AdminRoute>
-            <Banners />
-          </AdminRoute>
-        ),
-      },
-      {
         path: "/dashboard/website-config/blogs",
         element: (
           <AdminRoute>
             <Blogs />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "/dashboard/website-config/offers",
-        element: (
-          <AdminRoute>
-            <Offers />
           </AdminRoute>
         ),
       },
@@ -318,18 +302,10 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "/dashboard/website-config/testimonials",
+        path: "/dashboard/website-config/contact-us",
         element: (
           <AdminRoute>
-            <Testimonials />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "/dashboard/website-config/faqs",
-        element: (
-          <AdminRoute>
-            <FAQs />
+            <ContactUs />
           </AdminRoute>
         ),
       },
@@ -460,7 +436,7 @@ export const router = createBrowserRouter([
 
       /* =================================================
                     Partner dashboard routes
-    =================================================*/
+      =================================================*/
       {
         path: "/dashboard/my-services",
         element: (

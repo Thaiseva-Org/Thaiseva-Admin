@@ -10,8 +10,9 @@ export const forceHotelBookingPending = onDocumentCreated("hotelBookingData/{boo
 
     const bookingData = snapshot.data();
 
+
     // Send WhatsApp Notification to Admin
-    await sendWhatsAppNotification();
+    await sendWhatsAppNotification("notification", [`New Hotel Booking: ${event.params.bookingId}`]);
 
     // Check if the booking is not in the desired "Pending" state
     // We strictly enforce "Pending" and isBookingConfirmed: false
@@ -44,12 +45,12 @@ export const onHotelBookingStatusChangeV3 = onDocumentUpdated("hotelBookingData/
     // Status: Accepted
     if (statusAfter === "Accepted" || statusAfter === "ACCEPTED") {
         logger.info("Sending WhatsApp Notification: Booking Accepted");
-        await sendWhatsAppNotification("hello_world"); // Use 'booking_accepted' template if available
+        await sendWhatsAppNotification("notification", [`Hotel Booking ${event.params.bookingId} Accepted ✅`]);
     }
 
     // Status: Canceled
     if (statusAfter === "Canceled" || statusAfter === "CANCELED" || statusAfter === "Cancelled") {
         logger.info("Sending WhatsApp Notification: Booking Canceled");
-        await sendWhatsAppNotification("hello_world"); // Use 'booking_canceled' template if available
+        await sendWhatsAppNotification("notification", [`Hotel Booking ${event.params.bookingId} Cancelled ❌`]);
     }
 });

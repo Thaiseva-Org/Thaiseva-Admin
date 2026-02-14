@@ -88,7 +88,15 @@ function Dashboard(props) {
   // const [openCommuincationMenu, setOpenCommunicationMenu] =
   //   React.useState(false);
   const location = useLocation(); // to track the url
+  const scrollRef = React.useRef(null);
   const { dispatch } = useContext(AdminChatContext);
+
+  // Scroll to top of main container on route change
+  React.useLayoutEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo(0, 0);
+    }
+  }, [location.pathname]);
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -1215,6 +1223,7 @@ function Dashboard(props) {
       </Box>
       <Box
         component="main"
+        ref={scrollRef}
         sx={{
           flexGrow: 1,
           p: { sm: 4, xs: 2 },

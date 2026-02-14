@@ -177,7 +177,7 @@ const TravelRequirements = () => {
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(+event.target.value);
+    setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
   };
 
@@ -258,48 +258,44 @@ const TravelRequirements = () => {
             placeholder="Type Requirement Id"
             fullWidth
             defaultValue=""
-            // onChange={(e) => handleSearchByServiceArea(e.target.value)}
+          // onChange={(e) => handleSearchByServiceArea(e.target.value)}
           />
         </Grid>
       </Grid>
 
       <div className="flex flex-wrap gap-1 justify-between md:pr-4 mb-1">
         <button
-          className={`py-1 px-2 rounded text-sm ${
-            queryStatus === "Total"
+          className={`py-1 px-2 rounded text-sm ${queryStatus === "Total"
               ? "bg-[var(--primary-bg)] text-white"
               : "bg-gray-300"
-          }`}
+            }`}
           onClick={() => setQueryStatus("Total")}
         >
           Total : {totalQuantity}
         </button>
         <button
-          className={`py-1 px-2 rounded text-sm ${
-            queryStatus === "Completed"
+          className={`py-1 px-2 rounded text-sm ${queryStatus === "Completed"
               ? "bg-[var(--primary-bg)] text-white"
               : "bg-gray-300"
-          }`}
+            }`}
           onClick={() => setQueryStatus("Completed")}
         >
           Completed : {completedQuantity}
         </button>
         <button
-          className={`py-1 px-2 rounded text-sm ${
-            queryStatus === "Pending"
+          className={`py-1 px-2 rounded text-sm ${queryStatus === "Pending"
               ? "bg-[var(--primary-bg)] text-white"
               : "bg-gray-300"
-          }`}
+            }`}
           onClick={() => setQueryStatus("Pending")}
         >
           Pending : {pendingQuantity}
         </button>
         <button
-          className={`py-1 px-2 rounded text-sm ${
-            queryStatus === "Incomplete"
+          className={`py-1 px-2 rounded text-sm ${queryStatus === "Incomplete"
               ? "bg-[var(--primary-bg)] text-white"
               : "bg-gray-300"
-          }`}
+            }`}
           onClick={() => setQueryStatus("Incomplete")}
         >
           Incomplete : {notYetQuantity}
@@ -357,24 +353,23 @@ const TravelRequirements = () => {
 
                           const date = new Date(
                             row["date"]?.seconds * 1000 +
-                              row["date"]?.nanoseconds / 1000000
+                            row["date"]?.nanoseconds / 1000000
                           );
                           return (
                             <TableCell key={column.id} align="center">
                               {((value === "Incomplete" ||
                                 value === "Pending" ||
                                 value === "Completed") && (
-                                <div
-                                  className={`block w-fit mx-auto ${
-                                    (value === "Incomplete" &&
-                                      "bg-slate-400 text-black") ||
-                                    (value === "Pending" && "bg-orange-500") ||
-                                    (value === "Completed" && "bg-green-500")
-                                  } text-white  py-1 px-2 rounded`}
-                                >
-                                  {value}
-                                </div>
-                              )) ||
+                                  <div
+                                    className={`block w-fit mx-auto ${(value === "Incomplete" &&
+                                        "bg-slate-400 text-black") ||
+                                      (value === "Pending" && "bg-orange-500") ||
+                                      (value === "Completed" && "bg-green-500")
+                                      } text-white  py-1 px-2 rounded`}
+                                  >
+                                    {value}
+                                  </div>
+                                )) ||
                                 (column?.id === "date" && format(date)) ||
                                 (column.id === "action" && (
                                   <>

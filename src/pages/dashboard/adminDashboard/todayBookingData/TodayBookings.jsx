@@ -182,9 +182,10 @@ const TodayBookings = () => {
         // Customer Details
         drawSectionTitle("Customer Details", y);
         y += 10;
-        drawField("Name", raw.guestDetails?.name || raw.fullName, 14, y);
-        drawField("Phone", raw.guestDetails?.phoneNumber || raw.phone, 60, y);
-        if (raw.guestDetails?.email) drawField("Email", raw.guestDetails.email, 110, y);
+        drawField("Name", raw.fullName || raw.guestDetails?.name || raw.name, 14, y);
+        drawField("Phone", raw.guestPhone || raw.guestDetails?.phoneNumber || raw.phone, 60, y);
+        const email = raw.guestEmail || raw.guestDetails?.email || raw.email;
+        if (email) drawField("Email", email, 110, y);
         // Removed Nationality as typically extra
 
         y += 20;
@@ -217,25 +218,32 @@ const TodayBookings = () => {
         const displayId = raw.bookingId || row.customerInvoiceId || row.id;
         drawField("Booking ID", displayId, 14, y);
         drawField("Booked On", row.timestamp, 60, y);
-        drawField("Hotel Name", raw.hotel?.hotelName || raw.hotelName, 110, y);
+        drawField("Hotel Name", raw.hotelName || raw.hotel?.hotelName || (typeof raw.hotel === 'string' ? raw.hotel : ""), 110, y);
 
         y += 20;
         drawSectionTitle("Guest Information", y);
         y += 10;
-        drawField("Primary Guest", raw.fullName || raw.name, 14, y);
-        drawField("Contact", `${raw.phone || "-"}`, 60, y); // Removed Email combo if cluttered
+        drawField("Primary Guest", raw.fullName || raw.guestDetails?.name || raw.name, 14, y);
+        drawField("Contact", `${raw.guestPhone || raw.guestDetails?.phoneNumber || raw.phone || "-"}`, 60, y);
         if (raw.nationality) drawField("Nationality", raw.nationality, 160, y);
 
         y += 20;
         drawSectionTitle("Stay Details", y);
         y += 10;
-        drawField("Check-In", raw.checkInDate, 14, y);
-        drawField("Check-Out", raw.checkOutDate, 60, y);
+        const formatDate = (val) => {
+          if (!val) return "-";
+          if (val.seconds) return new Date(val.seconds * 1000).toLocaleDateString();
+          return new Date(val).toLocaleDateString();
+        };
+
+        drawField("Check-In", formatDate(raw.checkInDate), 14, y);
+        drawField("Check-Out", formatDate(raw.checkOutDate), 60, y);
 
         // Duration Calc
         let nights = raw.nights;
         if (!nights && raw.checkInDate && raw.checkOutDate) {
-          const d1 = new Date(raw.checkInDate); const d2 = new Date(raw.checkOutDate);
+          const d1 = raw.checkInDate.seconds ? new Date(raw.checkInDate.seconds * 1000) : new Date(raw.checkInDate);
+          const d2 = raw.checkOutDate.seconds ? new Date(raw.checkOutDate.seconds * 1000) : new Date(raw.checkOutDate);
           nights = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
         }
         if (nights) drawField("Duration", `${nights} Night(s)`, 110, y);
@@ -490,12 +498,15 @@ const TodayBookings = () => {
         paymentClear: item?.isPaymentClear || item?.isPaymentDone,
         provider: "-",
         providerContact: "-",
-        guestName: item?.guestDetails?.name || item?.name || item?.fullName || item?.username || "-",
-        guestPhone: item?.guestDetails?.phone || item?.guestDetails?.phoneNumber || item?.contact || item?.phone || item?.phoneNo || "-",
+        guestName: item?.fullName || item?.guestDetails?.name || item?.name || item?.username || "-",
+        guestPhone: item?.guestPhone || item?.guestDetails?.phone || item?.guestDetails?.phoneNumber || item?.contact || item?.phone || item?.phoneNo || "-",
+        guestEmail: item?.guestEmail || item?.email || item?.guestDetails?.email || "-",
         time: item?.timestamp || item?.time || item?.orderedAt || item?.createdAt || new Date(),
         amount: item?.amountTHB || item?.amountINR || item?.AmountOffered || item?.amount || item?.price || "0",
         commission: "0",
-        status: item?.status === "pending" ? "Pending" : item?.status || "Pending"
+        status: item?.status === "pending" ? "Pending" : item?.status || "Pending",
+        adults: item?.adults !== undefined ? item.adults : (item?.guestDetails?.adults || 0),
+        children: item?.children !== undefined ? item.children : (item?.guestDetails?.children || 0),
       };
 
       if (category === "Taxi Bookings") {
@@ -551,12 +562,24 @@ const TodayBookings = () => {
       }
       if (category === "Room Bookings") {
         const roomPrice = item?.totalPrice || item?.totalAmount || item?.amount || defaults.amount;
+        // For Room Bookings, "Timestamp" should show the Check-In Date
+        const checkIn = item.checkInDate || item.checkIn || defaults.time;
+
         return {
           ...createData(
             defaults.id, defaults.paymentClear,
-            item?.hotel?.hotelName || item?.hotelName || "-", item?.hotel?.phoneNumber || item?.managerPhone || "-",
+            (() => {
+              const primary = item?.hotelName || "";
+              const nested = item?.hotel?.hotelName || "";
+              const fallback = typeof item?.hotel === 'string' ? item.hotel : "";
+              if (primary.toLowerCase() === "hotel" || !primary) {
+                return nested || fallback || primary || "-";
+              }
+              return primary;
+            })(),
+            item?.hotel?.phoneNumber || item?.managerPhone || "-",
             defaults.guestName, defaults.guestPhone,
-            defaults.time, roomPrice, defaults.commission,
+            checkIn, roomPrice, defaults.commission,
             category, defaults.status, "", item?.customerInvoiceId
           ), rawData: item
         };
@@ -687,10 +710,10 @@ const TodayBookings = () => {
   };
 
   const columns = [
-    { id: "provider", label: "Provider", width: "15%" },
+    { id: "provider", label: queryCategory === "Room Bookings" ? "Hotel Name" : "Provider", width: "15%" },
     { id: "phone", label: "User Contact", width: "10%" },
     { id: "name", label: "Guest Name", width: "12%" },
-    { id: "timestamp", label: "Booking Time", width: "13%" },
+    { id: "timestamp", label: queryCategory === "Room Bookings" ? "Check In" : "Booking Time", width: "13%" },
     { id: "userAmount", label: "Booking Amount", width: "10%" },
     { id: "userInvoice", label: "Invoice", width: "15%" },
     { id: "action", label: "Action", width: "10%" },
@@ -703,7 +726,7 @@ const TodayBookings = () => {
         <CardContent>
           <Grid container spacing={3} alignItems="flex-end">
             <Grid item xs={12} md={5}>
-              <Box component="form" onSubmit={(e) => { e.preventDefault(); setRefetch(p => !p); }} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box component="form" onSubmit={(e) => { e.preventDefault(); setPage(0); setRefetch(p => !p); }} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <TextField
                   label="Booking Date From"
                   type="date"
