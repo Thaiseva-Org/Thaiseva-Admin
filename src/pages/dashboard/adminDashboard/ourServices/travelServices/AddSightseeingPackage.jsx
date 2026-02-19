@@ -22,12 +22,11 @@ import {
     Close as CloseIcon,
     Save as SaveIcon,
     ArrowBack as ArrowBackIcon,
-    AutoFixHigh as AutoFixHighIcon,
 } from "@mui/icons-material";
 import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
 import { v4 as uuid } from "uuid";
-import { sightseeingDummyData } from "../../../../../utils/sightseeingDummyData";
+
 import {
     doc,
     setDoc,
@@ -233,7 +232,9 @@ const AddSightseeingPackage = () => {
         register,
         formState: { errors },
         setValue,
-    } = useForm();
+    } = useForm({
+        shouldUnregister: false // Keep values when fields unmount (step change)
+    });
 
     // Load data for edit mode
     useEffect(() => {
@@ -397,58 +398,6 @@ const AddSightseeingPackage = () => {
         setArrayData((p) => ({ ...p, excluded: newExcluded }));
     };
 
-    const handleAutofill = () => {
-        const randomPackage = sightseeingDummyData[Math.floor(Math.random() * sightseeingDummyData.length)];
-
-        setValue("title", randomPackage.packageName);
-        setValue("description", randomPackage.about);
-        setValue("price", randomPackage.startingPrice);
-        setValue("period", randomPackage.duration.days);
-        setValue("location", randomPackage.location);
-        setValue("discount", 0);
-        setValue("pricePerChild", randomPackage.pricingStructure.pricePerChild);
-        setValue("extraAdultPrice", randomPackage.pricingStructure.extraAdultPrice);
-        setValue("transportType", randomPackage.transportType);
-        setValue("maxBookingsPerWeek", 200);
-        setValue("minPersons", randomPackage.pricingStructure.minPersons || 1);
-        setValue("maxPersons", randomPackage.pricingStructure.maxPersons || 100);
-
-        setPackageDetails({
-            id: "",
-            title: randomPackage.packageName,
-            price: randomPackage.startingPrice,
-            description: randomPackage.about,
-            discount: 0,
-            location: randomPackage.location,
-            period: randomPackage.duration.days,
-            pricePerChild: randomPackage.pricingStructure.pricePerChild,
-            extraAdultPrice: randomPackage.pricingStructure.extraAdultPrice,
-            transportType: randomPackage.transportType,
-            pickupFromHotel: randomPackage.pickupDropDetails.pickupFromHotel,
-            dropToAirport: randomPackage.pickupDropDetails.dropToAirport,
-            maxBookingsPerWeek: 200,
-            minPersons: randomPackage.pricingStructure.minPersons || 1,
-            maxPersons: randomPackage.pricingStructure.maxPersons || 100,
-        });
-
-        setCoverPhotoURL(randomPackage.thumbnailImage);
-
-        setArrayData({
-            amenities: randomPackage.highlights,
-            hotels: [],
-            included: randomPackage.included,
-            excluded: randomPackage.excluded,
-            pictures: randomPackage.packageImages,
-            places: randomPackage.sights.map(s => s.title),
-        });
-
-        setItinerary(randomPackage.itinerary);
-        setHotelsIncluded(randomPackage.hotelsIncluded);
-        setSights(randomPackage.sights);
-        setSpecialRates(randomPackage.specialRates);
-
-        toast.success("Form autofilled with dummy data!");
-    };
 
     const handleAddPartner = () => {
         if (!partnerConfig.partnerId || !partnerConfig.commissionRate || !partnerConfig.maxBookingsPerWeek) {
@@ -522,6 +471,15 @@ const AddSightseeingPackage = () => {
         }
         if (arrayData?.amenities?.length < 1) {
             return toast.error("Please provide at least 1 amenity");
+        }
+        if (!data.packageType) {
+            return toast.error("Please select a Package Type");
+        }
+        if (parseFloat(price) <= 0) {
+            return toast.error("Price must be greater than 0");
+        }
+        if (itinerary.length === 0) {
+            return toast.error("Please add at least one day to the itinerary");
         }
 
         const id = isEdit ? packageId : uuid();
@@ -620,7 +578,7 @@ const AddSightseeingPackage = () => {
     };
 
     const textField = (label, name, placeholder, defaultValue) => {
-        const isRequired = !["pricePerChild", "extraAdultPrice", "transportType", "discount", "packageType", "minPersons", "maxPersons"].includes(name);
+        const isRequired = !["pricePerChild", "extraAdultPrice", "transportType", "discount", "minPersons", "maxPersons"].includes(name);
         return (
             <Grid item xs={12} sm={name === "description" ? 12 : 6}>
                 <TextField
@@ -691,11 +649,11 @@ const AddSightseeingPackage = () => {
 
                                         <Grid item xs={12} sm={6}>
                                             <FormControl fullWidth sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}>
-                                                <InputLabel id="package-type-label">Package Type</InputLabel>
+                                                <InputLabel id="package-type-label">Package Type <span className="text-red-500">*</span></InputLabel>
                                                 <Select
                                                     labelId="package-type-label"
                                                     label="Package Type"
-                                                    {...register("packageType", { required: false })}
+                                                    {...register("packageType", { required: true })}
                                                     value={packageDetails.packageType || ""} // Controlled value
                                                     onChange={(e) => {
                                                         const result = e.target.value;
@@ -730,7 +688,7 @@ const AddSightseeingPackage = () => {
                                                 <Typography variant="subtitle1" fontWeight="bold" color="text.primary" sx={{ mb: 3 }}>Media Assets</Typography>
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                     <div className="space-y-3">
-                                                        <label className="text-sm font-semibold text-gray-700">Cover Image</label>
+                                                        <label className="text-sm font-semibold text-gray-700">Cover Image <span className="text-red-500">*</span></label>
                                                         <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-6 hover:bg-white transition-all text-center cursor-pointer min-h-[160px] flex flex-col items-center justify-center bg-gray-50/50">
                                                             <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleUploadCoverPhoto} />
                                                             {coverPhotoURL ? (
@@ -744,7 +702,7 @@ const AddSightseeingPackage = () => {
                                                         </div>
                                                     </div>
                                                     <div className="space-y-3">
-                                                        <label className="text-sm font-semibold text-gray-700">Gallery Images ({arrayData.pictures.length})</label>
+                                                        <label className="text-sm font-semibold text-gray-700">Gallery Images ({arrayData.pictures.length}) <span className="text-red-500">*</span></label>
                                                         <div className="relative border-2 border-dashed border-gray-300 rounded-xl p-6 hover:bg-white transition-all text-center cursor-pointer min-h-[160px] flex flex-col items-center justify-center bg-gray-50/50">
                                                             <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleUploadPictures} />
                                                             <div className="text-gray-400 flex flex-col items-center">
@@ -793,11 +751,11 @@ const AddSightseeingPackage = () => {
                                             ) : (
                                                 itinerary.map((day, dIndex) => (
                                                     <div key={dIndex} className="border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-shadow relative bg-white group">
-                                                        <div className="absolute top-4 right-4 text-gray-300 group-hover:text-red-500 cursor-pointer transition-colors" onClick={() => {
-                                                            const newItin = itinerary.filter((_, i) => i !== dIndex);
-                                                            setItinerary(newItin);
-                                                        }}>
-                                                            <DeleteButton />
+                                                        <div className="absolute top-4 right-4 text-gray-300 group-hover:text-red-500 cursor-pointer transition-colors">
+                                                            <DeleteButton handleDelete={() => {
+                                                                const newItin = itinerary.filter((_, i) => i !== dIndex);
+                                                                setItinerary(newItin);
+                                                            }} />
                                                         </div>
 
                                                         <div className="flex items-center gap-4 mb-6">
@@ -941,6 +899,42 @@ const AddSightseeingPackage = () => {
                                                     <Chip key={i} label={item} onDelete={() => handleRemoveExclude(i)} className="bg-white border hover:shadow-sm" />
                                                 ))}
                                                 {arrayData.excluded.length === 0 && <span className="text-sm text-gray-400 italic w-full text-center my-auto">No exclusions added yet.</span>}
+                                            </div>
+                                        </div>
+                                        <div className="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm h-full">
+                                            <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>🗺️ Places to Visit</Typography>
+                                            <div className="flex gap-2 mb-4">
+                                                <TextField
+                                                    ref={placesRef}
+                                                    size="small"
+                                                    placeholder="Add place..."
+                                                    fullWidth
+                                                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddPlace())}
+                                                    sx={{
+                                                        "& .MuiOutlinedInput-root": {
+                                                            borderRadius: "999px",
+                                                            backgroundColor: "#f3f4f6",
+                                                            "& fieldset": { border: "none" },
+                                                        }
+                                                    }}
+                                                />
+                                                <Button
+                                                    variant="contained"
+                                                    onClick={handleAddPlace}
+                                                    sx={{
+                                                        borderRadius: "999px",
+                                                        minWidth: '50px',
+                                                        boxShadow: 'none'
+                                                    }}
+                                                >
+                                                    <AddCircleIcon />
+                                                </Button>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2 min-h-[80px] p-4 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                                                {arrayData.places.map((item, i) => (
+                                                    <Chip key={i} label={item} onDelete={() => handleRemovePlace(i)} className="bg-white border hover:shadow-sm" />
+                                                ))}
+                                                {arrayData.places.length === 0 && <span className="text-sm text-gray-400 italic w-full text-center my-auto">No places added yet.</span>}
                                             </div>
                                         </div>
                                     </div>

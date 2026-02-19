@@ -37,6 +37,7 @@ import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from 
 import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc, getDocs } from "firebase/firestore";
 import { db } from "../../../../../firebase/firebase.config";
 import { getFileUrl, successNotification } from "../../../../../utils/utils";
+
 import axios from "axios";
 
 // --- Components ---
@@ -124,7 +125,9 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     const [currentStep, setCurrentStep] = useState(1);
     const totalSteps = 3;
 
-    const { handleSubmit, control, setValue, getValues, register, formState: { errors }, trigger } = useForm();
+    const { handleSubmit, control, setValue, getValues, register, formState: { errors }, trigger } = useForm({
+        shouldUnregister: false // Keep values when fields unmount (step change)
+    });
     const [map, setMap] = useState(null);
     const [location, setLocation] = useState(null);
     const [searchBox, setSearchBox] = useState(null);
@@ -145,6 +148,8 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     const [logoError, setLogoError] = useState(false);
     const [locationError, setLocationError] = useState(false);
     const [submissionError, setSubmissionError] = useState("");
+
+
 
     const [roomTypes, setRoomTypes] = useState([]);
     const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
@@ -944,10 +949,11 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
             <div className="max-w-5xl mx-auto">
                 {/* Header added here */}
-                <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
                     <Typography variant="h4" sx={{ fontWeight: 800, color: '#1e293b' }}>
                         {isEdit ? "Edit Hotel Details" : "Add New Hotel"}
                     </Typography>
+
                 </Box>
 
                 <ProgressBar currentStep={currentStep} totalSteps={totalSteps} isEdit={isEdit} />

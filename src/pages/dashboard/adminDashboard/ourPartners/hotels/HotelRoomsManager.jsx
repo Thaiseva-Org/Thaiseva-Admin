@@ -476,7 +476,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                 fullWidth
             >
                 <Box component="form" onSubmit={handleSubmit(handleAddRoom)}>
-                    <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">
+                    <DialogTitle sx={{ m: 0, p: 2, display: 'flex', alignItems: 'center', gap: 2 }} id="customized-dialog-title">
                         {roomDetails?.packageName ? "Update" : "Add New"} Package
                     </DialogTitle>
                     <IconButton
