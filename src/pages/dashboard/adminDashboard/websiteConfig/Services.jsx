@@ -224,23 +224,6 @@ const Services = () => {
                                         <Typography variant="body2" color="text.secondary" className="line-clamp-3 leading-relaxed">
                                             {service.description}
                                         </Typography>
-
-                                        {(service.link || service.color) && (
-                                            <div className="mt-4 pt-3 border-t border-dashed flex gap-2 overflow-hidden">
-                                                {service.link && (
-                                                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                                                        <LinkIcon fontSize="inherit" />
-                                                        <span className="truncate max-w-[100px]">{service.link}</span>
-                                                    </div>
-                                                )}
-                                                {service.color && (
-                                                    <div className="flex items-center gap-1 text-xs text-gray-400">
-                                                        <PaletteIcon fontSize="inherit" />
-                                                        <span>{service.color}</span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
                                     </CardContent>
 
                                     <CardActions sx={{ justifyContent: "flex-end", p: 2, pt: 0 }}>
@@ -309,42 +292,6 @@ const Services = () => {
                                 onImageChange={handleImageChange}
                                 folder="services"
                                 height={180}
-                            />
-                        </Grid>
-
-                        <Grid item xs={6}>
-                            <TextField
-                                label="Icon Class (Bootstrap)"
-                                name="icon"
-                                value={currentService.icon}
-                                onChange={handleChange}
-                                fullWidth
-                                size="small"
-                                variant="outlined"
-                                helperText="e.g. bi-people"
-                            />
-                        </Grid>
-                        <Grid item xs={6}>
-                            <TextField
-                                label="Color Class (Tailwind)"
-                                name="color"
-                                value={currentService.color}
-                                onChange={handleChange}
-                                fullWidth
-                                size="small"
-                                variant="outlined"
-                                helperText="e.g. bg-blue-500"
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <TextField
-                                label="Link Path"
-                                name="link"
-                                value={currentService.link}
-                                onChange={handleChange}
-                                fullWidth
-                                variant="outlined"
-                                placeholder="/services/details"
                             />
                         </Grid>
                     </Grid>

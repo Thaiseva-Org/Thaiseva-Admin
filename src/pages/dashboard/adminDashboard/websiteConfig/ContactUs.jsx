@@ -18,6 +18,12 @@ import {
   TableRow,
   Tooltip,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  Divider,
 } from "@mui/material";
 import {
   collection,
@@ -33,12 +39,21 @@ import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
 import SearchIcon from "@mui/icons-material/Search";
 import ArchiveIcon from "@mui/icons-material/Archive";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import CloseIcon from "@mui/icons-material/Close";
+import ScheduleIcon from "@mui/icons-material/Schedule";
+import MailOutlineIcon from "@mui/icons-material/MailOutline";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
+import PublicIcon from "@mui/icons-material/Public";
 
 const ContactUs = () => {
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [tabValue, setTabValue] = useState(0); // 0: All, 1: New, 2: Archived
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const fetchMessages = async () => {
     setLoading(true);
@@ -115,11 +130,22 @@ const ContactUs = () => {
     return new Date(ts).toLocaleString();
   };
 
+  const handleOpenModal = (message) => {
+    setSelectedMessage(message);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedMessage(null);
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <ConfigHeader
         title="Contact Us Messages"
         subtitle="View messages received from the website. Archive once handled."
+        showAdd={false}
       />
 
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
@@ -170,7 +196,7 @@ const ContactUs = () => {
                 <TableCell sx={{ fontWeight: 700 }}>Message</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Source</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Received</TableCell>
-                <TableCell sx={{ fontWeight: 700 }} align="right">
+                <TableCell sx={{ fontWeight: 700 }} align="center">
                   Action
                 </TableCell>
               </TableRow>
@@ -251,17 +277,30 @@ const ContactUs = () => {
                   </TableCell>
                   <TableCell>{item?.metadata?.source || item.source || "-"}</TableCell>
                   <TableCell>{formatDate(item.createdAt)}</TableCell>
-                  <TableCell align="right">
-                    <Button
-                      startIcon={<ArchiveIcon />}
-                      size="small"
-                      variant="outlined"
-                      color="inherit"
-                      disabled={item.status === "Archived"}
-                      onClick={() => handleArchive(item.id)}
-                    >
-                      Archive
-                    </Button>
+                  <TableCell align="center">
+                    <div className="flex items-center justify-center gap-2">
+                      <Tooltip title="View Message">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => handleOpenModal(item)}
+                        >
+                          <VisibilityIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Archive">
+                        <span>
+                          <IconButton
+                            size="small"
+                            color="inherit"
+                            disabled={item.status === "Archived"}
+                            onClick={() => handleArchive(item.id)}
+                          >
+                            <ArchiveIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -269,6 +308,149 @@ const ContactUs = () => {
           </Table>
         </TableContainer>
       )}
+
+      {/* View Message Modal */}
+      <Dialog
+        open={isModalOpen}
+        onClose={handleCloseModal}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1 },
+        }}
+      >
+        <DialogTitle sx={{ m: 0, p: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            Message Details
+          </Typography>
+          <IconButton onClick={handleCloseModal}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ py: 3 }}>
+          {selectedMessage && (
+            <Grid container spacing={3}>
+              {/* Header Info */}
+              <Grid item xs={12} md={6}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PersonOutlineIcon fontSize="small" /> FROM
+                  </Typography>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                    {selectedMessage.fullName || "Unknown User"}
+                  </Typography>
+                </Box>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <MailOutlineIcon fontSize="small" /> EMAIL
+                  </Typography>
+                  <div className="flex items-center gap-2">
+                    <Typography variant="body1">{selectedMessage.email || "-"}</Typography>
+                    {selectedMessage.email && (
+                      <IconButton size="small" onClick={() => copyToClipboard(selectedMessage.email, "Email copied")}>
+                        <ContentCopyIcon fontSize="inherit" />
+                      </IconButton>
+                    )}
+                  </div>
+                </Box>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PhoneIphoneIcon fontSize="small" /> PHONE
+                  </Typography>
+                  <div className="flex items-center gap-2">
+                    <Typography variant="body1">{selectedMessage.mobileNumber || "-"}</Typography>
+                    {selectedMessage.mobileNumber && (
+                      <IconButton size="small" onClick={() => copyToClipboard(selectedMessage.mobileNumber, "Phone copied")}>
+                        <ContentCopyIcon fontSize="inherit" />
+                      </IconButton>
+                    )}
+                  </div>
+                </Box>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ScheduleIcon fontSize="small" /> RECEIVED AT
+                  </Typography>
+                  <Typography variant="body1">
+                    {formatDate(selectedMessage.createdAt)}
+                  </Typography>
+                </Box>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PublicIcon fontSize="small" /> SOURCE
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedMessage?.metadata?.source || selectedMessage.source || "Website"}
+                  </Typography>
+                </Box>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+                    STATUS
+                  </Typography>
+                  <Box sx={{ mt: 0.5 }}>
+                    <Chip
+                      label={selectedMessage.status || "New"}
+                      color={selectedMessage.status === "Archived" ? "default" : "success"}
+                      size="small"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  </Box>
+                </Box>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Divider sx={{ mb: 3 }} />
+                <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+                  SUBJECT
+                </Typography>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: 'var(--primary-700)' }}>
+                  {selectedMessage.subject || "General Inquiry"}
+                </Typography>
+
+                <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+                  MESSAGE
+                </Typography>
+                <Paper
+                  variant="outlined"
+                  sx={{
+                    p: 2,
+                    backgroundColor: "var(--secondary-bg)",
+                    borderRadius: 2,
+                    mt: 1,
+                    whiteSpace: "pre-wrap",
+                    minHeight: "100px",
+                  }}
+                >
+                  <Typography variant="body1">
+                    {selectedMessage.message || "No message content."}
+                  </Typography>
+                </Paper>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={handleCloseModal} color="inherit">
+            Close
+          </Button>
+          {selectedMessage?.status !== "Archived" && (
+            <Button
+              variant="contained"
+              startIcon={<ArchiveIcon />}
+              color="warning"
+              onClick={() => {
+                handleArchive(selectedMessage.id);
+                handleCloseModal();
+              }}
+              sx={{ px: 3 }}
+            >
+              Archive Message
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
