@@ -321,15 +321,14 @@ const Blogs = () => {
                         <Grid item xs={12} sm={6} md={4} key={item.id}>
                             <Fade in={true} timeout={500}>
                                 <Card className="modern-card h-full flex flex-col group cursor-pointer" onClick={() => handleView(item)}>
-                                    <div className="relative">
+                                    <div className="relative aspect-video overflow-hidden">
                                         <CardMedia
                                             component="img"
-                                            height="220"
                                             image={item.image || "https://placehold.co/600x400?text=No+Image"}
                                             alt={item.title}
-                                            sx={{ height: 220, objectFit: 'cover', transition: 'transform 0.5s', '.group:hover &': { transform: 'scale(1.05)' } }}
+                                            sx={{ height: '100%', width: '100%', objectFit: 'cover', transition: 'transform 0.5s', '.group:hover &': { transform: 'scale(1.1)' } }}
                                         />
-                                        <div className="absolute top-4 right-4">
+                                        <div className="absolute top-4 right-4 z-10">
                                             <Chip
                                                 label={item.status}
                                                 size="small"
@@ -346,10 +345,10 @@ const Blogs = () => {
                                     </div>
 
                                     <CardContent sx={{ flexGrow: 1, p: 3, pt: 4 }}>
-                                        <Typography variant="h6" className="font-bold leading-snug mb-3 line-clamp-2 text-gray-900 group-hover:text-blue-600 transition-colors">
+                                        <Typography variant="h6" className="font-bold leading-snug mb-3 line-clamp-2 text-gray-900 group-hover:text-blue-600 transition-colors break-words overflow-hidden">
                                             {item.title}
                                         </Typography>
-                                        <Typography variant="body2" className="line-clamp-3 mb-6 text-gray-500 leading-relaxed">
+                                        <Typography variant="body2" className="line-clamp-3 mb-6 text-gray-500 leading-relaxed break-words overflow-hidden">
                                             {item.excerpt}
                                         </Typography>
 
@@ -587,7 +586,7 @@ const Blogs = () => {
                 </DialogTitle>
                 <DialogContent sx={{ py: 6, px: { xs: 3, md: 8 } }}>
                     {viewBlog && (
-                        <article className="prose prose-blue max-w-none prose-headings:font-bold prose-img:rounded-xl">
+                        <article className="prose prose-blue max-w-none prose-headings:font-bold prose-img:rounded-xl break-words overflow-x-hidden">
                             {viewBlog.image && (
                                 <img src={viewBlog.image} alt="" className="w-full h-auto max-h-[400px] object-cover rounded-2xl mb-8 shadow-sm" />
                             )}
@@ -608,7 +607,7 @@ const Blogs = () => {
                                 )}
                             </div>
 
-                            <div className="text-gray-700 leading-relaxed text-lg" dangerouslySetInnerHTML={{ __html: viewBlog.content }} />
+                            <div className="text-gray-700 leading-relaxed text-lg break-words whitespace-pre-line" dangerouslySetInnerHTML={{ __html: viewBlog.content }} />
                         </article>
                     )}
                 </DialogContent>
