@@ -1,88 +1,74 @@
-import { useContext, useEffect, useState } from "react";
-import { StatisticsContext } from "../../../../../contextAPIs/StatisticsProvider";
+import { useContext, useMemo, useState } from "react";
 import {
-  AccountBalanceWalletIcon,
-  ApartmentIcon,
-  LocalTaxiRoundedIcon,
-  LuggageIcon,
-  DirectionsCarIcon,
-} from "../../../../../utils/Icons";
-import { amountCalculator } from "../../../../../utils/utils";
-import BarEarningChart from "../../../../../components/BarEarningChart";
-import {
+  Box,
   Button,
-  FormControl,
-  MenuItem,
-  Select,
-  Grid,
-  Paper,
-  Typography,
   Card,
   CardContent,
-  Box,
+  Chip,
+  FormControl,
+  Grid,
+  LinearProgress,
+  MenuItem,
+  Paper,
+  Select,
   Skeleton,
+  Stack,
+  TextField,
+  Typography,
 } from "@mui/material";
 import FilterAltIcon from "@mui/icons-material/FilterAlt";
-import AirportShuttleIcon from "@mui/icons-material/AirportShuttle";
+import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
+import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
+import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
+import TimelineRoundedIcon from "@mui/icons-material/TimelineRounded";
+import { StatisticsContext } from "../../../../../contextAPIs/StatisticsProvider";
+import BarEarningChart from "../../../../../components/BarEarningChart";
 
-// Custom Stat Card Component
-const StatCard = ({ title, value, icon, color, gradient }) => (
+const formatCurrency = (value) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "THB",
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0);
+
+const SummaryCard = ({ title, value, subtitle, icon }) => (
   <Card
+    elevation={0}
     sx={{
-      borderRadius: "20px",
-      boxShadow: "0 2px 20px rgba(0,0,0,0.05)",
-      background: "#fff",
-      position: "relative",
-      overflow: "hidden",
-      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-      border: "1px solid rgba(0,0,0,0.05)",
-      "&:hover": {
-        transform: "translateY(-8px)",
-        boxShadow: `0 20px 40px -10px ${color}30`,
-      },
+      height: "100%",
+      borderRadius: 4,
+      border: "1px solid",
+      borderColor: "divider",
+      boxShadow: "0 10px 30px rgba(15, 23, 42, 0.05)",
     }}
   >
-    {/* Decorative Background Circle */}
-    <Box
-      sx={{
-        position: 'absolute',
-        top: -20,
-        right: -20,
-        width: 100,
-        height: 100,
-        borderRadius: '50%',
-        background: gradient,
-        opacity: 0.15,
-        zIndex: 0
-      }}
-    />
-
-    <CardContent sx={{ position: "relative", zIndex: 1, p: "24px !important" }}>
-      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 3 }}>
+    <CardContent sx={{ p: 3 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+        <Box>
+          <Typography variant="body2" color="text.secondary" fontWeight={600}>
+            {title}
+          </Typography>
+          <Typography variant="h5" fontWeight={800} sx={{ mt: 1 }}>
+            {value}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {subtitle}
+          </Typography>
+        </Box>
         <Box
           sx={{
-            p: 1.5,
-            borderRadius: "16px",
-            background: `linear-gradient(135deg, ${color}15 0%, ${color}05 100%)`,
-            color: color,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
+            width: 44,
+            height: 44,
+            display: "grid",
+            placeItems: "center",
+            borderRadius: 3,
+            bgcolor: "rgba(15, 118, 110, 0.08)",
+            color: "#0f766e",
           }}
         >
           {icon}
         </Box>
-      </Box>
-
-      <Box>
-        <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: 600, mb: 0.5, fontSize: '0.85rem' }}>
-          {title}
-        </Typography>
-        <Typography variant="h4" sx={{ fontWeight: 800, color: "text.primary", letterSpacing: '-0.5px' }}>
-          <span style={{ fontSize: '1.2rem', marginRight: '4px', verticalAlign: 'text-top', opacity: 0.7 }}>฿</span>
-          {value.toLocaleString()}
-        </Typography>
-      </Box>
+      </Stack>
     </CardContent>
   </Card>
 );
@@ -92,61 +78,48 @@ const AllStatistics = () => {
     allStatistics,
     selectedView,
     setSelectedView,
-    setMonth,
-    setYear,
-    month,
-    year,
+    fromDate,
+    setFromDate,
+    toDate,
+    setToDate,
     filterRange,
     loading,
   } = useContext(StatisticsContext);
-
-  const [filteredAll, setFilteredAll] = useState([]);
-  const [filteredHotel, setFilteredHotel] = useState([]);
-  const [filteredTaxi, setFilteredTaxi] = useState([]);
-  const [filteredSelfdrive, setFilteredSelfdrive] = useState([]);
-  const [filteredSightseeing, setFilteredSightseeing] = useState([]);
-  const [filteredVans, setFilteredVans] = useState([]);
   const [chartType, setChartType] = useState("Bar");
 
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const currentYear = new Date().getFullYear();
-  const years = Array.from(
-    { length: currentYear - 2025 + 1 },
-    (_, i) => currentYear - i
+  const summaryCards = useMemo(
+    () => [
+      {
+        title: "Total Revenue",
+        value: formatCurrency(allStatistics?.totals?.totalRevenue),
+        subtitle: "Calculated across the active reporting window.",
+        icon: <PaidRoundedIcon />,
+      },
+      {
+        title: selectedView === "Days" ? "Average Per Day" : "Average Per Month",
+        value: formatCurrency(allStatistics?.totals?.averagePerPeriod),
+        subtitle:
+          selectedView === "Days"
+            ? "Average daily revenue inside the selected window."
+            : "Average monthly revenue inside the selected window.",
+        icon: <TimelineRoundedIcon />,
+      },
+      {
+        title: "Window Length",
+        value: `${allStatistics?.reportingWindow?.dayCount || 0} days`,
+        subtitle: `${allStatistics?.reportingWindow?.fromLabel || "Select dates"} to ${
+          allStatistics?.reportingWindow?.toLabel || "apply filter"
+        }`,
+        icon: <CalendarMonthRoundedIcon />,
+      },
+    ],
+    [allStatistics, selectedView]
   );
 
-  useEffect(() => {
-    setFilteredAll(allStatistics.Total || []);
-    setFilteredHotel(allStatistics.Hotels || []);
-    setFilteredTaxi(allStatistics.Cars || []);
-    setFilteredSelfdrive(allStatistics.SelfDrive || []);
-    setFilteredSightseeing(allStatistics.Sightseeing || []);
-    setFilteredVans(allStatistics.Vans || []);
-  }, [allStatistics]);
-
-  const allTotal = amountCalculator(filteredAll);
-  const hotelTotal = amountCalculator(filteredHotel);
-  const SightseeingTotal = amountCalculator(filteredSightseeing);
-  const taxiTotal = amountCalculator(filteredTaxi);
-  const SelfdriveTotal = amountCalculator(filteredSelfdrive);
-  const vanTotal = amountCalculator(filteredVans);
+  const topService = allStatistics?.serviceBreakdown?.[0];
 
   return (
     <Box sx={{ pb: 4 }}>
-      {/* Controls Section */}
       <Paper
         elevation={0}
         sx={{
@@ -155,113 +128,123 @@ const AllStatistics = () => {
           borderRadius: 4,
           border: "1px solid",
           borderColor: "divider",
-          background: "white",
+          background:
+            "linear-gradient(180deg, rgba(248,250,252,0.9) 0%, rgba(255,255,255,1) 100%)",
         }}
       >
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <Box sx={{ display: "flex", gap: 2 }}>
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <Typography variant="caption" sx={{ mb: 0.5, color: "text.secondary", fontWeight: 600 }}>
-                  View By
-                </Typography>
-                <Select
-                  value={selectedView}
-                  onChange={(e) => setSelectedView(e.target.value)}
-                  displayEmpty
-                  sx={{ borderRadius: 2 }}
-                >
-                  <MenuItem value={"Days"}>Days</MenuItem>
-                  <MenuItem value={"Months"}>Months</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: 120 }}>
-                <Typography variant="caption" sx={{ mb: 0.5, color: "text.secondary", fontWeight: 600 }}>
-                  Chart Type
-                </Typography>
-                <Select
-                  value={chartType}
-                  onChange={(e) => setChartType(e.target.value)}
-                  displayEmpty
-                  sx={{ borderRadius: 2 }}
-                >
-                  <MenuItem value={"Bar"}>Bar</MenuItem>
-                  <MenuItem value={"Line"}>Line</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
+        <Grid container spacing={2} alignItems="end">
+          <Grid item xs={12} md={2}>
+            <FormControl size="small" fullWidth>
+              <Typography variant="caption" sx={{ mb: 0.5, color: "text.secondary", fontWeight: 700 }}>
+                View By
+              </Typography>
+              <Select
+                value={selectedView}
+                onChange={(event) => setSelectedView(event.target.value)}
+                sx={{ borderRadius: 2 }}
+              >
+                <MenuItem value="Days">Days</MenuItem>
+                <MenuItem value="Months">Months</MenuItem>
+              </Select>
+            </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={6}>
-            <Box sx={{ display: "flex", gap: 2, alignItems: "flex-end", justifyContent: { md: "flex-end" } }}>
-              <FormControl size="small" sx={{ minWidth: 100 }}>
-                <Typography variant="caption" sx={{ mb: 0.5, color: "text.secondary", fontWeight: 600 }}>
-                  Month
-                </Typography>
-                <Select
-                  value={month}
-                  onChange={(e) => setMonth(e.target.value)}
-                  displayEmpty
-                  sx={{ borderRadius: 2 }}
-                >
-                  {months.map((val, i) => (
-                    <MenuItem
-                      value={val}
-                      key={i}
-                      disabled={
-                        year == new Date().getFullYear() &&
-                        i > new Date().getMonth()
-                      }
-                    >
-                      {val}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: 100 }}>
-                <Typography variant="caption" sx={{ mb: 0.5, color: "text.secondary", fontWeight: 600 }}>
-                  Year
-                </Typography>
-                <Select
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  displayEmpty
-                  sx={{ borderRadius: 2 }}
-                >
-                  {years.map((val, i) => (
-                    <MenuItem value={val} key={i}>
-                      {val}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Button
-                variant="contained"
-                onClick={filterRange}
-                startIcon={<FilterAltIcon />}
-                sx={{
-                  borderRadius: 2,
-                  textTransform: "none",
-                  fontWeight: 600,
-                  background: "var(--primary-bg)",
-                  height: 40,
-                  mb: "1px" // Alignment tweak
-                }}
+          <Grid item xs={12} md={2}>
+            <FormControl size="small" fullWidth>
+              <Typography variant="caption" sx={{ mb: 0.5, color: "text.secondary", fontWeight: 700 }}>
+                Chart Type
+              </Typography>
+              <Select
+                value={chartType}
+                onChange={(event) => setChartType(event.target.value)}
+                sx={{ borderRadius: 2 }}
               >
-                Apply
-              </Button>
-            </Box>
+                <MenuItem value="Bar">Bar</MenuItem>
+                <MenuItem value="Line">Line</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <Typography variant="caption" sx={{ mb: 0.5, color: "text.secondary", fontWeight: 700, display: "block" }}>
+              From
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <Typography variant="caption" sx={{ mb: 0.5, color: "text.secondary", fontWeight: 700, display: "block" }}>
+              To
+            </Typography>
+            <TextField
+              fullWidth
+              size="small"
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={2}>
+            <Button
+              fullWidth
+              variant="contained"
+              onClick={filterRange}
+              startIcon={<FilterAltIcon />}
+              sx={{
+                height: 40,
+                borderRadius: 2,
+                textTransform: "none",
+                fontWeight: 700,
+                background: "var(--primary-bg)",
+              }}
+            >
+              Apply
+            </Button>
           </Grid>
         </Grid>
+
+        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mt: 2 }}>
+          <Chip
+            icon={<InsightsRoundedIcon />}
+            label={`Reporting window: ${allStatistics?.reportingWindow?.fromLabel || "--"} to ${
+              allStatistics?.reportingWindow?.toLabel || "--"
+            }`}
+            sx={{ width: "fit-content" }}
+          />
+          {topService ? (
+            <Chip
+              label={`Top service: ${topService.label} (${formatCurrency(topService.total)})`}
+              sx={{ width: "fit-content" }}
+            />
+          ) : null}
+        </Stack>
       </Paper>
 
-      {/* Chart Section */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {loading
+          ? Array.from({ length: 3 }).map((_, index) => (
+              <Grid item xs={12} md={4} key={index}>
+                <Skeleton variant="rectangular" height={150} sx={{ borderRadius: 4 }} />
+              </Grid>
+            ))
+          : summaryCards.map((card) => (
+              <Grid item xs={12} md={4} key={card.title}>
+                <SummaryCard {...card} />
+              </Grid>
+            ))}
+      </Grid>
+
       {loading ? (
-        <Skeleton
-          variant="rectangular"
-          height={400}
-          sx={{ borderRadius: 4, mb: 4 }}
-        />
+        <Skeleton variant="rectangular" height={420} sx={{ borderRadius: 4, mb: 4 }} />
       ) : (
         <Paper
           elevation={0}
@@ -271,78 +254,82 @@ const AllStatistics = () => {
             borderRadius: 4,
             border: "1px solid",
             borderColor: "divider",
-            minHeight: 400,
+            minHeight: 420,
           }}
         >
           <BarEarningChart
-            selectedView={selectedView}
             chartType={chartType}
+            selectedView={selectedView}
             statsData={allStatistics}
           />
         </Paper>
       )}
 
-      {/* Stats Cards Section */}
-      <Grid container spacing={3}>
-        {loading
-          ? Array.from({ length: 6 }).map((_, i) => (
-            <Grid item xs={12} sm={6} md={2} key={i}>
-              <Skeleton
-                variant="rectangular"
-                height={180}
-                sx={{ borderRadius: 4 }}
-              />
-            </Grid>
-          ))
-          : [
-            {
-              title: "Total Revenue",
-              value: allTotal,
-              icon: <AccountBalanceWalletIcon sx={{ fontSize: 32 }} />,
-              color: "#FF9E2F",
-              gradient: "linear-gradient(135deg, #FF9E2F 0%, #E0851F 100%)",
-            },
-            {
-              title: "Hotels",
-              value: hotelTotal,
-              icon: <ApartmentIcon sx={{ fontSize: 32 }} />,
-              color: "#ffd000",
-              gradient: "linear-gradient(135deg, #ffd000 0%, #e6bb00 100%)",
-            },
-            {
-              title: "Sightseeing",
-              value: SightseeingTotal,
-              icon: <LuggageIcon sx={{ fontSize: 32 }} />,
-              color: "#0c63e7",
-              gradient: "linear-gradient(135deg, #0c63e7 0%, #0a4fb8 100%)",
-            },
-            {
-              title: "Taxi",
-              value: taxiTotal,
-              icon: <LocalTaxiRoundedIcon sx={{ fontSize: 32 }} />,
-              color: "#55AD9B",
-              gradient: "linear-gradient(135deg, #55AD9B 0%, #3d8c7c 100%)",
-            },
-            {
-              title: "Self Drive",
-              value: SelfdriveTotal,
-              icon: <DirectionsCarIcon sx={{ fontSize: 32 }} />,
-              color: "#ee1e3a",
-              gradient: "linear-gradient(135deg, #ee1e3a 0%, #c41830 100%)",
-            },
-            {
-              title: "Vans",
-              value: vanTotal,
-              icon: <AirportShuttleIcon sx={{ fontSize: 32 }} />,
-              color: "#8b5cf6",
-              gradient: "linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)",
-            },
-          ].map((item, index) => (
-            <Grid item xs={12} sm={6} md={2} key={index}>
-              <StatCard {...item} />
-            </Grid>
-          ))}
-      </Grid>
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          borderRadius: 4,
+          border: "1px solid",
+          borderColor: "divider",
+        }}
+      >
+        <Typography variant="h6" fontWeight={800}>
+          Service Breakdown
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 3 }}>
+          Every service total below is calculated from the same selected reporting window.
+        </Typography>
+
+        {loading ? (
+          <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 3 }} />
+        ) : (
+          <Stack spacing={2.5}>
+            {allStatistics?.serviceBreakdown?.map((item) => (
+              <Box key={item.key}>
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  spacing={2}
+                  sx={{ mb: 1 }}
+                >
+                  <Box>
+                    <Typography variant="body1" fontWeight={700}>
+                      {item.label}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.share.toFixed(1)}% of total revenue
+                    </Typography>
+                  </Box>
+                  <Typography variant="body1" fontWeight={800}>
+                    {formatCurrency(item.total)}
+                  </Typography>
+                </Stack>
+                <LinearProgress
+                  variant="determinate"
+                  value={Math.min(item.share || 0, 100)}
+                  sx={{
+                    height: 10,
+                    borderRadius: 999,
+                    bgcolor: "rgba(148, 163, 184, 0.18)",
+                    "& .MuiLinearProgress-bar": {
+                      borderRadius: 999,
+                      background: "linear-gradient(90deg, #0f766e 0%, #14b8a6 100%)",
+                    },
+                  }}
+                />
+              </Box>
+            ))}
+
+            {!allStatistics?.serviceBreakdown?.length ? (
+              <Typography variant="body2" color="text.secondary">
+                No revenue data was found for the selected date range.
+              </Typography>
+            ) : null}
+          </Stack>
+        )}
+      </Paper>
     </Box>
   );
 };

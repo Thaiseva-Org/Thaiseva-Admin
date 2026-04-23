@@ -44,9 +44,7 @@ Applied same field mapping fixes for rejected/canceled bookings.
   phone: "+915946646464",          // Guest phone with country code
   countryCode: "+91",              // Country code
   email: "jdjs@fkf.com",          // Guest email
-  totalAmount: 7276,               // Total price including VAT
-  subtotal: 6800,                  // Price before VAT
-  vat7: 476,                       // VAT amount (7%)
+  totalAmount: 7276,               // Total booking price
   adults: 2,                       // Number of adults
   children: 1,                     // Number of children
   extraAdults: 0,                  // Extra adults count

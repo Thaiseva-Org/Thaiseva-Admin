@@ -2,7 +2,7 @@ import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/fire
 import * as logger from "firebase-functions/logger";
 import { sendWhatsAppNotification } from "../utils/whatsapp";
 
-export const forceHotelBookingPending = onDocumentCreated("hotelBookingData/{bookingId}", async (event) => {
+export const forceHotelBookingPending = onDocumentCreated({ document: "hotelBookingData/{bookingId}", region: "asia-east2" }, async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
         return;
@@ -28,7 +28,7 @@ export const forceHotelBookingPending = onDocumentCreated("hotelBookingData/{boo
     }
 });
 
-export const onHotelBookingStatusChangeV3 = onDocumentUpdated("hotelBookingData/{bookingId}", async (event) => {
+export const onHotelBookingStatusChangeV3 = onDocumentUpdated({ document: "hotelBookingData/{bookingId}", region: "asia-east2" }, async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
 

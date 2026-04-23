@@ -120,7 +120,6 @@ const TravelServices = () => {
 
   const columns = [
     { id: "title", label: "Title", width: "20%" },
-    { id: "description", label: "Description", width: "30%" },
     {
       id: "location",
       label: "Location",

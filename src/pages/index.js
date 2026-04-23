@@ -104,6 +104,9 @@ const UserData = lazy(() =>
 const TodayBookings = lazy(() =>
   import("./dashboard/adminDashboard/todayBookingData/TodayBookings.jsx")
 );
+const DeletionRequests = lazy(() =>
+  import("./dashboard/adminDashboard/deletionRequests/DeletionRequests.jsx")
+);
 // ----- not in use for now -----
 const Coupons = lazy(() =>
   import("./dashboard/adminDashboard/coupons/Coupons")
@@ -260,6 +263,7 @@ export {
   NewNotficationsScreen,
   UserData,
   TodayBookings,
+  DeletionRequests,
   Coupons,
 
   // Requirement export

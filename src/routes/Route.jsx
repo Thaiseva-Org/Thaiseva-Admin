@@ -22,6 +22,7 @@ import {
   AdminStatistics,
   NewNotficationsScreen,
   UserData,
+  DeletionRequests,
   TodayBookings,
   LocalRequirements,
   CustomerChat,
@@ -49,7 +50,7 @@ import {
   VanBookings,
   Blogs,
   Services,
-  ContactUs,
+  ContactUs
 } from "../pages";
 import StatisticsProvider from "../contextAPIs/StatisticsProvider";
 import { Suspense } from "react";
@@ -96,6 +97,14 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <UserData />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/deletion-requests",
+        element: (
+          <AdminRoute>
+            <DeletionRequests />
           </AdminRoute>
         ),
       },

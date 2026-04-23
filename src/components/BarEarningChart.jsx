@@ -42,13 +42,27 @@ const BarEarningChart = ({
     Total: [],
   },
 }) => {
+  const formatAxisCurrency = (value) => {
+    const amount = Number(value) || 0;
+
+    if (Math.abs(amount) >= 1000000) {
+      return `THB ${(amount / 1000000).toFixed(1)}M`;
+    }
+
+    if (Math.abs(amount) >= 1000) {
+      return `THB ${(amount / 1000).toFixed(1)}K`;
+    }
+
+    return `THB ${amount.toLocaleString("en-US")}`;
+  };
+
   const chartRef = useRef(null);
   const theme = useTheme();
   // Initialize min based on data length
   const [min, setMin] = useState(0);
   // Max is derived from min for pagination window
-  const getWindowSize = () => (selectedView === "Days" ? 7 : 6);
-  const max = min + getWindowSize() - 1;
+  const windowSize = selectedView === "Days" ? 7 : 6;
+  const max = min + windowSize - 1;
 
   const [data, setData] = useState({
     labels: [],
@@ -58,21 +72,13 @@ const BarEarningChart = ({
   useEffect(() => {
     // Reset min when view changes or data updates to show the latest data (end of array)
     if (statsData.date.length > 0) {
-      const windowSize = getWindowSize();
       const newMin = Math.max(0, statsData.date.length - windowSize);
       setMin(newMin);
     }
-  }, [selectedView, statsData.date.length]);
+  }, [selectedView, statsData.date.length, windowSize]);
 
   useEffect(() => {
     if (!statsData.date.length) return;
-
-    const getGradient = (ctx, color) => {
-      const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-      gradient.addColorStop(0, alpha(color, 0.8));
-      gradient.addColorStop(1, alpha(color, 0.2));
-      return gradient;
-    };
 
     const datasets = [
       {
@@ -94,7 +100,7 @@ const BarEarningChart = ({
         label: "Hotel",
         data: statsData.Hotels,
         borderColor: "#ffd000",
-        backgroundColor: (context) => {
+        backgroundColor: () => {
           // Simple color for inactive/secondary items or same gradient logic
           return chartType === "Line" ? alpha("#ffd000", 0.1) : "#ffd000";
         },
@@ -241,9 +247,7 @@ const BarEarningChart = ({
           },
           color: theme.palette.text.secondary,
           callback: function (value) {
-            if (value >= 1000000) return (value / 1000000).toFixed(1) + "M";
-            if (value >= 1000) return (value / 1000).toFixed(0) + "k";
-            return value;
+            return formatAxisCurrency(value);
           },
         },
       },
@@ -273,7 +277,6 @@ const BarEarningChart = ({
 
   const handleNext = () => {
     if (data.labels.length === 0) return;
-    const windowSize = getWindowSize();
     if (max < data.labels.length - 1) {
       // Advance by half window size for smoother browsing, or full. Let's do 1 step or more.
       // Logic: Move forward but don't exceed bounds
@@ -302,11 +305,20 @@ const BarEarningChart = ({
           justifyContent: "space-between",
           alignItems: "center",
           mb: 2,
+          gap: 2,
+          flexWrap: "wrap",
         }}
       >
-        <Typography variant="h6" fontWeight={700} color="text.primary">
-          Earnings Overview
-        </Typography>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="h6" fontWeight={700} color="text.primary">
+            Earnings Overview
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {statsData?.reportingWindow?.fromLabel && statsData?.reportingWindow?.toLabel
+              ? `${statsData.reportingWindow.fromLabel} to ${statsData.reportingWindow.toLabel}`
+              : "Selected reporting window"}
+          </Typography>
+        </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
           <IconButton
             onClick={handlePrev}

@@ -59,6 +59,7 @@ const managePartnersCollection = collection(db, "manage_partners");
 const generalPartnersCollection = collection(db, "general_partners");
 const vanCompaniesCollection = collection(db, "vanCompanies");
 const vanBookingsCollection = collection(db, "vanBookings");
+const deletionRequestsCollection = collection(db, "DeletionRequests");
 
 // Website Config Collections
 const contentCollection = collection(db, "ContentDB");
@@ -115,6 +116,7 @@ export {
   generalPartnersCollection,
   vanCompaniesCollection,
   vanBookingsCollection,
+  deletionRequestsCollection,
   storage,
 
   // Website Config Collections

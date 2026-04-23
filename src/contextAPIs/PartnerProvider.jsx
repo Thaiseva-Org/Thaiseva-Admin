@@ -103,12 +103,20 @@ const PartnerProvider = ({ children }) => {
   // loading logo
   useEffect(() => {
     const loadLogo = async () => {
-      const logoSnapshot = await getDocs(
-        query(settingsCollection, where("id", "==", "logo"))
-      );
-      const logo = logoSnapshot.docs?.[0].data();
-      if (logo) {
-        setLogo(logo.logo);
+      try {
+        const logoDocRef = doc(settingsCollection, "logo");
+        const logoSnap = await getDoc(logoDocRef);
+        
+        if (logoSnap.exists()) {
+          const logoData = logoSnap.data();
+          setLogo(logoData.logo);
+        }
+      } catch (error) {
+        if (error.code === 'permission-denied') {
+             console.warn("Could not load logo due to permissions (this is normal before full login).");
+        } else {
+             console.warn("Error loading logo:", error.message);
+        }
       }
     };
 
@@ -606,7 +614,7 @@ const PartnerProvider = ({ children }) => {
                   return !isRestaurant; // Return true if NOT a restaurant (i.e., is a customer)
                 }
               } catch (error) {
-                console.error("Error fetching user data:", error);
+                console.warn("Could not fetch chat user (permissions):", error.message);
               }
               return true; // Include by default if error
             })
@@ -663,7 +671,7 @@ const PartnerProvider = ({ children }) => {
                   return isRestaurant; // Return true if IS a restaurant
                 }
               } catch (error) {
-                console.error("Error fetching user data for restaurant:", error);
+                console.warn("Could not fetch chat user for restaurant (permissions):", error.message);
               }
               return false; // Exclude by default if error
             })

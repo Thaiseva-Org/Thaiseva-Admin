@@ -7,7 +7,7 @@ import { sendWhatsAppNotification } from "../utils/whatsapp";
 // CAR / TAXI BOOKINGS
 // ============================================================================
 
-export const onCarBookingCreated = onDocumentCreated("car_bookings/{bookingId}", async (event) => {
+export const onCarBookingCreated = onDocumentCreated({ document: "car_bookings/{bookingId}", region: "asia-east2" }, async (event) => {
     const snapshot = event.data;
     if (!snapshot) return;
 
@@ -16,7 +16,7 @@ export const onCarBookingCreated = onDocumentCreated("car_bookings/{bookingId}",
     await sendWhatsAppNotification("notification", [`New Car Booking: ${event.params.bookingId}`]);
 });
 
-export const onCarBookingStatusChange = onDocumentUpdated("car_bookings/{bookingId}", async (event) => {
+export const onCarBookingStatusChange = onDocumentUpdated({ document: "car_bookings/{bookingId}", region: "asia-east2" }, async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
 
@@ -44,7 +44,7 @@ export const onCarBookingStatusChange = onDocumentUpdated("car_bookings/{booking
 // VAN BOOKINGS
 // ============================================================================
 
-export const onVanBookingCreated = onDocumentCreated("vanBookings/{bookingId}", async (event) => {
+export const onVanBookingCreated = onDocumentCreated({ document: "vanBookings/{bookingId}", region: "asia-east2" }, async (event) => {
     const snapshot = event.data;
     if (!snapshot) return;
 
@@ -52,7 +52,7 @@ export const onVanBookingCreated = onDocumentCreated("vanBookings/{bookingId}", 
     await sendWhatsAppNotification("notification", [`New Van Booking: ${event.params.bookingId}`]);
 });
 
-export const onVanBookingStatusChange = onDocumentUpdated("vanBookings/{bookingId}", async (event) => {
+export const onVanBookingStatusChange = onDocumentUpdated({ document: "vanBookings/{bookingId}", region: "asia-east2" }, async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
 
@@ -80,7 +80,7 @@ export const onVanBookingStatusChange = onDocumentUpdated("vanBookings/{bookingI
 // SELF DRIVE BOOKINGS
 // ============================================================================
 
-export const onSelfDriveBookingCreated = onDocumentCreated("self_driving_bookings/{bookingId}", async (event) => {
+export const onSelfDriveBookingCreated = onDocumentCreated({ document: "self_driving_bookings/{bookingId}", region: "asia-east2" }, async (event) => {
     const snapshot = event.data;
     if (!snapshot) return;
 
@@ -88,7 +88,7 @@ export const onSelfDriveBookingCreated = onDocumentCreated("self_driving_booking
     await sendWhatsAppNotification("notification", [`New Self Drive Booking: ${event.params.bookingId}`]);
 });
 
-export const onSelfDriveBookingStatusChange = onDocumentUpdated("self_driving_bookings/{bookingId}", async (event) => {
+export const onSelfDriveBookingStatusChange = onDocumentUpdated({ document: "self_driving_bookings/{bookingId}", region: "asia-east2" }, async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
 

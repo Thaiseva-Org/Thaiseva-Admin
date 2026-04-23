@@ -5,7 +5,7 @@ import { sendWhatsAppNotification } from "../utils/whatsapp";
 
 let db: admin.firestore.Firestore;
 
-export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDetails/{bookingId}", async (event) => {
+export const autoAcceptSightseeingBookings = onDocumentCreated({ document: "travelBookingDetails/{bookingId}", region: "asia-east2" }, async (event) => {
   if (!admin.apps.length) {
     admin.initializeApp();
   }
@@ -136,7 +136,7 @@ export const autoAcceptSightseeingBookings = onDocumentCreated("travelBookingDet
   }
 });
 
-export const onSightseeingBookingStatusChange = onDocumentUpdated("travelBookingDetails/{bookingId}", async (event) => {
+export const onSightseeingBookingStatusChange = onDocumentUpdated({ document: "travelBookingDetails/{bookingId}", region: "asia-east2" }, async (event) => {
   const before = event.data?.before.data();
   const after = event.data?.after.data();
 

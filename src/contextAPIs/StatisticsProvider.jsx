@@ -1,60 +1,110 @@
-import { doc, getDoc } from "firebase/firestore";
 import { createContext, useContext, useEffect, useState } from "react";
-import { statisticsCollection } from "../firebase/firebase.config";
-import { AuthContext } from "./AuthProvider";
 import { createStatData } from "../services/Earning";
+import { AuthContext } from "./AuthProvider";
+
 export const StatisticsContext = createContext();
 
+const getTodayKey = () => {
+  const today = new Date();
+  return new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+    .toISOString()
+    .split("T")[0];
+};
+
+const getDefaultFromKey = () => {
+  const today = new Date();
+  today.setDate(today.getDate() - 29);
+  return new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+    .toISOString()
+    .split("T")[0];
+};
+
+const normalizeRange = (fromDate, toDate) => {
+  if (!fromDate || !toDate) {
+    return {
+      from: fromDate || getDefaultFromKey(),
+      to: toDate || getTodayKey(),
+    };
+  }
+
+  if (new Date(fromDate).getTime() <= new Date(toDate).getTime()) {
+    return { from: fromDate, to: toDate };
+  }
+
+  return { from: toDate, to: fromDate };
+};
+
+const emptyStatistics = {
+  date: [],
+  Cars: [],
+  SelfDrive: [],
+  Sightseeing: [],
+  Hotels: [],
+  Vans: [],
+  Total: [],
+  reportingWindow: {
+    from: "",
+    to: "",
+    fromLabel: "",
+    toLabel: "",
+    dayCount: 0,
+    periodCount: 0,
+  },
+  totals: {
+    totalRevenue: 0,
+    averagePerDay: 0,
+    averagePerPeriod: 0,
+  },
+  totalsByType: {},
+  serviceBreakdown: [],
+};
+
 const StatisticsProvider = ({ children }) => {
-  const [allStatistics, setAllStatistics] = useState({
-    date: [],
-    Cars: [],
-    SelfDrive: [],
-    Sightseeing: [],
-    Hotels: [],
-    Vans: [],
-    Total: [],
-  });
-  const [selectedView, setSelectedView] = useState("Days");
-  const [month, setMonth] = useState("Jan");
-  const [year, setYear] = useState("2025");
   const { isAdmin } = useContext(AuthContext);
+  const [allStatistics, setAllStatistics] = useState(emptyStatistics);
+  const [selectedView, setSelectedView] = useState("Days");
+  const [fromDate, setFromDate] = useState(getDefaultFromKey);
+  const [toDate, setToDate] = useState(getTodayKey);
+  const [appliedFromDate, setAppliedFromDate] = useState(getDefaultFromKey);
+  const [appliedToDate, setAppliedToDate] = useState(getTodayKey);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const loadAllStatistics = async () => {
       setLoading(true);
-      const data = await createStatData(selectedView);
+      const data = await createStatData(selectedView, appliedFromDate, appliedToDate);
       setAllStatistics(data);
       setLoading(false);
     };
 
-    isAdmin && loadAllStatistics();
-  }, [isAdmin, selectedView]);
+    if (isAdmin) {
+      loadAllStatistics();
+    }
+  }, [appliedFromDate, appliedToDate, isAdmin, selectedView]);
 
   const filterRange = async () => {
-    setLoading(true);
-    const data = await createStatData("Days", month, year);
-    setAllStatistics(data);
-    setLoading(false);
-  };
+    const normalizedRange = normalizeRange(fromDate, toDate);
 
-
-
-  const obj = {
-    allStatistics,
-    selectedView,
-    setSelectedView,
-    setMonth,
-    month,
-    year,
-    setYear,
-    filterRange,
-    loading,
+    setFromDate(normalizedRange.from);
+    setToDate(normalizedRange.to);
+    setAppliedFromDate(normalizedRange.from);
+    setAppliedToDate(normalizedRange.to);
   };
 
   return (
-    <StatisticsContext.Provider value={obj}>
+    <StatisticsContext.Provider
+      value={{
+        allStatistics,
+        selectedView,
+        setSelectedView,
+        fromDate,
+        setFromDate,
+        toDate,
+        setToDate,
+        filterRange,
+        loading,
+      }}
+    >
       {children}
     </StatisticsContext.Provider>
   );

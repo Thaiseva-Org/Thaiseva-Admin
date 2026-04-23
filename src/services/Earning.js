@@ -1,73 +1,158 @@
 import {
+  collection,
   doc,
   getDoc,
-  setDoc,
   getDocs,
-  collection,
-  updateDoc,
   query,
+  setDoc,
+  updateDoc,
   where,
 } from "firebase/firestore";
 import { db } from "../firebase/firebase.config.js";
 
+const SERVICE_TYPES = ["Cars", "SelfDrive", "Sightseeing", "Hotels", "Vans"];
+
+const SERVICE_LABELS = {
+  Cars: "Taxi",
+  SelfDrive: "Self Drive",
+  Sightseeing: "Sightseeing",
+  Hotels: "Hotels",
+  Vans: "Vans",
+};
+
+const DEFAULT_RANGE_DAYS = 30;
+
+const toDateKey = (date) =>
+  new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .split("T")[0];
+
+const parseDateKey = (value) => {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
+const startOfDay = (date) => {
+  const nextDate = new Date(date);
+  nextDate.setHours(0, 0, 0, 0);
+  return nextDate;
+};
+
+const addDays = (date, days) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const getDefaultDateRange = () => {
+  const today = startOfDay(new Date());
+  return {
+    from: addDays(today, -(DEFAULT_RANGE_DAYS - 1)),
+    to: today,
+  };
+};
+
+const normalizeDateRange = (fromDate, toDate) => {
+  const fallback = getDefaultDateRange();
+  const start = fromDate ? startOfDay(new Date(fromDate)) : fallback.from;
+  const end = toDate ? startOfDay(new Date(toDate)) : fallback.to;
+
+  if (start.getTime() > end.getTime()) {
+    return { from: end, to: start };
+  }
+
+  return { from: start, to: end };
+};
+
+const getDateKeysInRange = (fromDate, toDate) => {
+  const dates = [];
+  const cursor = new Date(fromDate);
+
+  while (cursor.getTime() <= toDate.getTime()) {
+    dates.push(toDateKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return dates;
+};
+
+const formatDayLabel = (dateKey) =>
+  parseDateKey(dateKey).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+const formatMonthLabel = (dateKey) =>
+  parseDateKey(dateKey).toLocaleDateString("en-US", {
+    month: "short",
+    year: "2-digit",
+  });
+
+const sumSeries = (series = []) =>
+  series.reduce((total, value) => total + (Number(value) || 0), 0);
+
+const buildMonthlySeries = (dailyKeys, dailySeries) => {
+  const buckets = new Map();
+
+  dailyKeys.forEach((dateKey, index) => {
+    const bucket = formatMonthLabel(dateKey);
+    buckets.set(bucket, (buckets.get(bucket) || 0) + (Number(dailySeries[index]) || 0));
+  });
+
+  return {
+    labels: Array.from(buckets.keys()),
+    values: Array.from(buckets.values()),
+  };
+};
+
 async function updateHourlyEarnings(orderAmount, type = "", id = "") {
   try {
     const now = new Date();
-
     const currentDate = now.toISOString().slice(0, 10);
     const currentHour = `${now.getHours().toString().padStart(2, "0")}:00`;
 
     const dailyDocRef =
       id === ""
         ? doc(
-          db,
-          `MasterEarnings/Admin/${type}/Earnings/dailyEarnings`,
-          currentDate
-        )
+            db,
+            `MasterEarnings/Admin/${type}/Earnings/dailyEarnings`,
+            currentDate
+          )
         : doc(
-          db,
-          `MasterEarnings/${type}/${id}/Earnings/dailyEarnings`,
-          currentDate
-        );
+            db,
+            `MasterEarnings/${type}/${id}/Earnings/dailyEarnings`,
+            currentDate
+          );
 
     const dailyDocSnapshot = await getDoc(dailyDocRef);
 
     if (dailyDocSnapshot.exists()) {
       const data = dailyDocSnapshot.data();
       let totalAmount = data.totalAmount || 0;
-      let hourlyEarnings = data.hourlyEarnings || [];
+      const hourlyEarnings = data.hourlyEarnings || [];
 
-      // Find if the current hour already exists
-      const index = hourlyEarnings.findIndex(
-        (entry) => entry.hour === currentHour
-      );
+      const index = hourlyEarnings.findIndex((entry) => entry.hour === currentHour);
 
       if (index >= 0) {
-        // Update existing entry
         hourlyEarnings[index].earnings += Number(orderAmount);
       } else {
-        // Add new entry for this hour
         hourlyEarnings.push({
           hour: currentHour,
           earnings: Number(orderAmount),
         });
       }
-      totalAmount += Number(orderAmount);
 
+      totalAmount += Number(orderAmount);
       await updateDoc(dailyDocRef, { hourlyEarnings, totalAmount });
-    } else {
-      // Create the document if it doesn't exist
-      await setDoc(dailyDocRef, {
-        date: currentDate,
-        hourlyEarnings: [{ hour: currentHour, earnings: Number(orderAmount) }],
-        totalAmount: Number(orderAmount),
-        timestamp: new Date(),
-      });
+      return;
     }
 
-    // console.log(
-    //   `Earnings updated successfully for ${currentDate} ${currentHour}`
-    // );
+    await setDoc(dailyDocRef, {
+      date: currentDate,
+      hourlyEarnings: [{ hour: currentHour, earnings: Number(orderAmount) }],
+      totalAmount: Number(orderAmount),
+      timestamp: new Date(),
+    });
   } catch (error) {
     console.error("Error updating hourly earnings:", error);
   }
@@ -76,8 +161,6 @@ async function updateHourlyEarnings(orderAmount, type = "", id = "") {
 async function updateMonthlyEarnings(orderAmount, type, id = "") {
   try {
     const now = new Date();
-
-    // Format year and month (e.g., "2025-01" for January 2025)
     const currentYearMonth = `${now.getFullYear()}-${(now.getMonth() + 1)
       .toString()
       .padStart(2, "0")}`;
@@ -85,170 +168,154 @@ async function updateMonthlyEarnings(orderAmount, type, id = "") {
     const monthlyDocRef =
       id === ""
         ? doc(
-          db,
-          `MasterEarnings/Admin/${type}/Earnings/monthlyEarnings`,
-          currentYearMonth
-        )
+            db,
+            `MasterEarnings/Admin/${type}/Earnings/monthlyEarnings`,
+            currentYearMonth
+          )
         : doc(
-          db,
-          `MasterEarnings/${type}/${id}/Earnings/monthlyEarnings`,
-          currentYearMonth
-        );
+            db,
+            `MasterEarnings/${type}/${id}/Earnings/monthlyEarnings`,
+            currentYearMonth
+          );
 
     const monthlyDocSnapshot = await getDoc(monthlyDocRef);
 
     if (monthlyDocSnapshot.exists()) {
-      // Update the existing document
       const data = monthlyDocSnapshot.data();
       const currentEarnings = data.totalEarnings || 0;
 
       await updateDoc(monthlyDocRef, {
         totalEarnings: currentEarnings + Number(orderAmount),
       });
-    } else {
-      // Create a new document if it doesn't exist
-      await setDoc(monthlyDocRef, {
-        month: currentYearMonth,
-        totalEarnings: Number(orderAmount),
-        timestamp: new Date(),
-      });
+      return;
     }
 
-    // console.log(
-    //   `Monthly earnings updated successfully for ${currentYearMonth}`
-    // );
+    await setDoc(monthlyDocRef, {
+      month: currentYearMonth,
+      totalEarnings: Number(orderAmount),
+      timestamp: new Date(),
+    });
   } catch (error) {
     console.error("Error updating monthly earnings:", error);
   }
 }
 
-function getLast30Days() {
-  const dates = [];
-  const now = new Date();
-  for (let i = 0; i < 30; i++) {
-    const currentDate = new Date();
-    currentDate.setDate(now.getDate() - i);
-    dates.push(currentDate.toISOString().slice(0, 10));
-  }
-  return dates.reverse(); // Sorted from earliest to latest
-}
-
-function getSelectedMonthDays(month, year) {
-  const dates = [];
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const monthIndex = months.indexOf(month);
-
-  // Start from Day 1 of the month
-  const date = new Date(year, monthIndex, 1);
-
-  // Loop until month changes
-  while (date.getMonth() === monthIndex) {
-    // Add date string
-    const dateString = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-      .toISOString()
-      .split('T')[0];
-    dates.push(dateString);
-    date.setDate(date.getDate() + 1);
-  }
-  return dates;
-}
-
-// Renamed for clarity, fetching daily earnings for a range of dates
-async function getDailyEarningsInRange(type, month = "", year = "") {
+async function getDailyEarningsInRange(type, fromDate = "", toDate = "") {
   try {
-    const last30Days =
-      month === "" && year === ""
-        ? getLast30Days()
-        : getSelectedMonthDays(month, year);
+    const { from, to } = normalizeDateRange(fromDate, toDate);
+    const dateKeys = getDateKeysInRange(from, to);
 
-    if (last30Days.length === 0) return [];
+    if (!dateKeys.length) {
+      return [];
+    }
 
     const earningsRef = collection(
       db,
       `MasterEarnings/Admin/${type}/Earnings/dailyEarnings`
     );
 
-    // Fetch in chunks or optimizing query. 
-    // Firestore 'in' query supports up to 10-30 depending on implementation but here we use range.
-    // Range query is efficient on 'date' string field.
     const earningsQuery = query(
       earningsRef,
-      where("date", ">=", last30Days[0]),
-      where("date", "<=", last30Days[last30Days.length - 1])
+      where("date", ">=", dateKeys[0]),
+      where("date", "<=", dateKeys[dateKeys.length - 1])
     );
 
     const querySnapshot = await getDocs(earningsQuery);
-
     const earningsMap = new Map(
-      querySnapshot.docs.map((doc) => [doc.id, doc.data().totalAmount || 0])
+      querySnapshot.docs.map((snapshotDoc) => [
+        snapshotDoc.id,
+        snapshotDoc.data().totalAmount || 0,
+      ])
     );
 
-    const dailyEarnings = last30Days.map((date) => earningsMap.get(date) || 0);
-    return dailyEarnings;
+    return dateKeys.map((dateKey) => earningsMap.get(dateKey) || 0);
   } catch (error) {
     console.error("Error fetching daily earnings:", error);
     return [];
   }
 }
 
-async function createStatData(view = "Days", month = "", year = "") {
+async function createStatData(view = "Days", fromDate = "", toDate = "") {
   try {
-    const dateRange =
-      month === "" && year === ""
-        ? getLast30Days()
-        : getSelectedMonthDays(month, year);
-    const lastMonths = getLast12Months();
-    const types = ["Cars", "SelfDrive", "Sightseeing", "Hotels", "Vans"];
-    const data = {
-      date: view === "Days" ? dateRange : lastMonths,
-      Cars: [],
-      SelfDrive: [],
-      Sightseeing: [],
-      Hotels: [],
-      Vans: [],
-      Total: [],
-    };
-    for (let item of types) {
-      if (view === "Days") {
-        data[item] = await getDailyEarningsInRange(item, month, year);
-      } else {
-        data[item] = await getAllMonthlyEarnings(item);
-      }
+    const { from, to } = normalizeDateRange(fromDate, toDate);
+    const dailyKeys = getDateKeysInRange(from, to);
+
+    const dailySeriesEntries = await Promise.all(
+      SERVICE_TYPES.map(async (type) => [
+        type,
+        await getDailyEarningsInRange(type, from, to),
+      ])
+    );
+
+    const dailySeriesMap = Object.fromEntries(dailySeriesEntries);
+    const totalDailySeries = dailyKeys.map((_, index) =>
+      SERVICE_TYPES.reduce(
+        (total, type) => total + (Number(dailySeriesMap[type]?.[index]) || 0),
+        0
+      )
+    );
+
+    let labels = dailyKeys.map(formatDayLabel);
+    const chartSeries = { ...dailySeriesMap, Total: totalDailySeries };
+
+    if (view === "Months") {
+      const monthlyLabels = buildMonthlySeries(dailyKeys, totalDailySeries).labels;
+      labels = monthlyLabels;
+
+      SERVICE_TYPES.forEach((type) => {
+        chartSeries[type] = buildMonthlySeries(dailyKeys, dailySeriesMap[type]).values;
+      });
+      chartSeries.Total = buildMonthlySeries(dailyKeys, totalDailySeries).values;
     }
 
-    if (view === "Days") {
-      data.Total = dateRange.map(
-        (date, index) =>
-          (data.Hotels[index] || 0) +
-          (data.Sightseeing[index] || 0) +
-          (data.Cars[index] || 0) +
-          (data.SelfDrive[index] || 0) +
-          (data.Vans[index] || 0)
-      );
-    } else {
-      data.Total = lastMonths.map(
-        (date, index) =>
-          (data.Hotels[index] || 0) +
-          (data.Sightseeing[index] || 0) +
-          (data.Cars[index] || 0) +
-          (data.SelfDrive[index] || 0) +
-          (data.Vans[index] || 0)
-      );
-    }
-    return data;
+    const totalsByType = SERVICE_TYPES.reduce((accumulator, type) => {
+      accumulator[type] = sumSeries(dailySeriesMap[type]);
+      return accumulator;
+    }, {});
+
+    const totalRevenue = sumSeries(totalDailySeries);
+    const periodCount = chartSeries.Total.length || 1;
+    const dayCount = dailyKeys.length || 1;
+
+    const serviceBreakdown = SERVICE_TYPES.map((type) => ({
+      key: type,
+      label: SERVICE_LABELS[type],
+      total: totalsByType[type],
+      share: totalRevenue > 0 ? (totalsByType[type] / totalRevenue) * 100 : 0,
+    })).sort((left, right) => right.total - left.total);
+
+    return {
+      date: labels,
+      Cars: chartSeries.Cars,
+      SelfDrive: chartSeries.SelfDrive,
+      Sightseeing: chartSeries.Sightseeing,
+      Hotels: chartSeries.Hotels,
+      Vans: chartSeries.Vans,
+      Total: chartSeries.Total,
+      reportingWindow: {
+        from: toDateKey(from),
+        to: toDateKey(to),
+        fromLabel: from.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+        toLabel: to.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }),
+        dayCount,
+        periodCount,
+      },
+      totals: {
+        totalRevenue,
+        averagePerDay: totalRevenue / dayCount,
+        averagePerPeriod: totalRevenue / periodCount,
+      },
+      totalsByType,
+      serviceBreakdown,
+    };
   } catch (error) {
     console.error("Error fetching earnings data:", error);
     return {
@@ -259,91 +326,28 @@ async function createStatData(view = "Days", month = "", year = "") {
       Hotels: [],
       Vans: [],
       Total: [],
+      reportingWindow: {
+        from: "",
+        to: "",
+        fromLabel: "",
+        toLabel: "",
+        dayCount: 0,
+        periodCount: 0,
+      },
+      totals: {
+        totalRevenue: 0,
+        averagePerDay: 0,
+        averagePerPeriod: 0,
+      },
+      totalsByType: {},
+      serviceBreakdown: [],
     };
   }
 }
 
-function getLast12Months() {
-  const months = [];
-  const now = new Date();
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-
-  for (let i = 0; i < 12; i++) {
-    const currentMonth = new Date();
-    currentMonth.setMonth(now.getMonth() - i);
-    const month = monthNames[currentMonth.getMonth()];
-    const year = currentMonth.getFullYear().toString().slice(-2);
-    months.push(`${month} ${year}`);
-  }
-
-  return months.reverse();
-}
-
-async function getAllMonthlyEarnings(type) {
-  try {
-    const now = new Date();
-    const startDate = new Date(now);
-    startDate.setMonth(now.getMonth() - 11); // 12 months ago
-    const startMonth = `${startDate.getFullYear()}-${(startDate.getMonth() + 1)
-      .toString()
-      .padStart(2, "0")}`;
-    const currentMonth = `${now.getFullYear()}-${(now.getMonth() + 1)
-      .toString()
-      .padStart(2, "0")}`;
-
-    const earningsRef = collection(
-      db,
-      `MasterEarnings/Admin/${type}/Earnings/monthlyEarnings`
-    );
-
-    const earningsQuery = query(
-      earningsRef,
-      where("month", ">=", startMonth),
-      where("month", "<=", currentMonth)
-    );
-
-    const querySnapshot = await getDocs(earningsQuery);
-
-    const monthlyEarnings = [];
-
-    // Map the results, filling empty months with 0 if needed
-    const monthMap = new Map(
-      querySnapshot.docs.map((doc) => [doc.id, doc.data().totalEarnings || 0])
-    );
-
-    // Fill last 12 months, accounting for missing months
-    for (let i = 0; i < 12; i++) {
-      const monthDate = new Date(now);
-      monthDate.setMonth(now.getMonth() - i);
-      const year = monthDate.getFullYear();
-      const month = (monthDate.getMonth() + 1).toString().padStart(2, "0");
-      const monthId = `${year}-${month}`;
-
-      monthlyEarnings.unshift(monthMap.get(monthId) || 0);
-    }
-    return monthlyEarnings;
-  } catch (error) {
-    console.error("Error fetching monthly earnings:", error);
-  }
-}
-
 export {
-  updateHourlyEarnings,
-  updateMonthlyEarnings,
   createStatData,
   getDailyEarningsInRange,
-  getAllMonthlyEarnings,
+  updateHourlyEarnings,
+  updateMonthlyEarnings,
 };

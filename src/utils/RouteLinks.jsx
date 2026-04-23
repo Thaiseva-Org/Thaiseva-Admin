@@ -30,6 +30,7 @@ import {
   NightlifeIcon,
   ReceiptLongRoundedIcon,
   GroupRoundedIcon,
+  PersonRemoveIcon,
 } from "./Icons";
 
 export const primaryLinks = [
@@ -173,6 +174,11 @@ export const newprimaryLinks = [
     icon: <GroupRoundedIcon />,
     link: "/dashboard/user-data",
     label: "Users Data",
+  },
+  {
+    icon: <PersonRemoveIcon />,
+    link: "/dashboard/deletion-requests",
+    label: "Deletion Requests",
   },
 ];
 

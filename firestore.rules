@@ -1,24 +1,100 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // --- HELPER FUNCTIONS ---
+    function isAuthenticated() {
+      return request.auth != null;
+    }
     
-    // Helper function to check if user is admin
     function isAdmin() {
-      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin";
+      return isAuthenticated() && (
+        request.auth.token.admin == true || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin" ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+      );
     }
 
-    // Restrict write access to partners collection to admins only
-    match /partners/{document=**} {
+    function isOwner(userIdField) {
+      return isAuthenticated() && (
+        resource == null || 
+        resource.data[userIdField] == request.auth.uid ||
+        resource.data.userId == request.auth.uid ||
+        resource.data.authUid == request.auth.uid
+      );
+    }
+
+    // --- PUBLIC COLLECTIONS (Read-Only) ---
+    match /{collection}/{docId} {
+      allow read: if collection in [
+        'BlogDB', 'ServiceDB', 'HotelDB', 'sightseeingPackages', 
+        'sightseeingPackagesDetails', 'hotelPackages', 'hotelPackageDetails', 
+        'TestimonialDB', 'FaqDB', 'OfferDB', 'ContentDB', 'localServices', 
+        'restaurants', 'carDetails', 'foodMenu', 'coupons', 'partners',
+        'TourDB', 'travelServices'
+      ];
+      allow write: if isAdmin();
+    }
+
+    // Allow reading sub-collections of public items
+    match /HotelDB/{hotelId}/rooms/{roomId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Allow read/write for all other collections for authenticated users
-    // This allows the app to function for logged-in staff while preventing anonymous public access.
-    // The previous rule expired on Dec 31, 2025.
-    match /{collection}/{document=**} {
-      allow read, write: if request.auth != null && collection != 'partners';
+    // --- CONTACT MESSAGES ---
+    match /ContactMessages/{docId} {
+      allow read, write: if isAdmin();
+      allow create: if true; // Allow public to send messages
+    }
+
+    // --- USER DATA ---
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /notifications/{docId} {
+      allow read: if isOwner('userId') || isAdmin();
+      allow write, delete: if isOwner('userId') || isAdmin();
+    }
+
+    // --- BOOKING COLLECTIONS ---
+    match /{collection}/{docId} {
+      allow create: if collection in [
+        'hotelBookingData', 'travelBookingDetails', 'car_bookings', 
+        'self_driving_bookings', 'vanBookings'
+      ] && isAuthenticated(); // Relaxed validation to ensure functionality
+
+      allow read: if collection in [
+        'hotelBookingData', 'travelBookingDetails', 'car_bookings', 
+        'self_driving_bookings', 'vanBookings'
+      ] && (isOwner('userId') || isAdmin());
+
+      allow update, delete: if isAdmin();
+    }
+
+    // --- ADMIN ONLY COLLECTIONS ---
+    match /{collection}/{docId} {
+      allow read, write: if isAdmin() && collection in [
+        'agents', 'drivers', 'shops', 'clubs', 'allRequirements', 
+        'travelRequirements', 'partner_invoices', 'manage_partners', 
+        'general_partners', 'vanCompanies', 'settings', 'statistics', 
+        'hotel_statistics'
+      ];
+    }
+
+    // --- CHAT SYSTEM ---
+    match /chatRooms/{roomId} {
+      allow read, write: if isAuthenticated(); // Should ideally check participants
+    }
+    match /chats/{chatId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Default: Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
-}
+}

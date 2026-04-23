@@ -64,7 +64,7 @@ const Chats = ({ setOpenSidebar, filterType }) => {
             };
           }
         } catch (error) {
-          console.error("Error fetching user data:", error);
+          console.warn("Could not fetch chat user metadata (permissions):", error.message);
         }
         return null;
       });
