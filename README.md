@@ -8,16 +8,7 @@ The official administrative and partner management portal for **Thaiseva**. This
 
 *   **Production Admin Portal**: [https://hotel-booking-admin.web.app/dashboard](https://hotel-booking-admin.web.app/dashboard)
 
-### 🔑 Test Credentials
-> [!NOTE]
-> Below are the credentials for testing and local development access.
 
-| Role | Email Address | Password |
-| :--- | :--- | :--- |
-| **Admin** | `admin@gmail.com` | `User100%` |
-| **User** | `user1@gmail.com` | `User100%` |
-
----
 
 ## 🛠️ Technology Stack
 
