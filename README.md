@@ -8,7 +8,23 @@ The official administrative and partner management portal for **Thaiseva**. This
 
 *   **Production Admin Portal**: [https://hotel-booking-admin.web.app/dashboard](https://hotel-booking-admin.web.app/dashboard)
 
+---
 
+## 🌟 Key Features
+
+*   **📦 Comprehensive Booking Manager**: Admin tracking and CRUD interface for car rentals (Self-Drive & with Driver), vans, hotel rooms, and sightseeing packages.
+*   **🤝 Structured Partner Onboarding**: Step-by-step registration for:
+    *   Hotels/Accommodations
+    *   Local Partners
+    *   Drivers & Transportation
+    *   Restaurants & Dine-In Partners
+*   **💬 Real-time Communication**: Firebase-backed chat rooms categorized by support type (Customer Support, Driver Support, Hotel Support, Local Partner Support, and Restaurant Support) with real-time syncing.
+*   **🗺️ Interactive Geo-Tracking**: Integrated Google Maps for partner onboarding and direction configurations.
+*   **⚙️ Configuration Manager**: Live content modifications including FAQ seeding, banner uploads, and promotional banners for the main customer application.
+*   **📈 Stat Tracker & Charts**: Visualizes earnings and user registration metrics using interactive bar and line charts.
+*   **📄 Automated Invoices**: Generate billing invoices using custom PDF layouts compiled client-side.
+
+---
 
 ## 🛠️ Technology Stack
 
@@ -44,6 +60,26 @@ The official administrative and partner management portal for **Thaiseva**. This
 ├── firebase.json              # Firebase CLI Hosting and codebase configuration
 ├── tailwind.config.js         # Tailwind CSS styling tokens config
 └── package.json               # Development and runtime dependencies config
+```
+
+---
+
+## 🔒 Configuration & Environment Setup
+
+The application connects to Firebase and Google Maps services. Create a `.env` file in the root directory:
+
+```env
+# Firebase Client SDK Configuration
+VITE_FIREBASE_API_KEY=your_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=gothai-admin.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=gothai-admin
+VITE_FIREBASE_STORAGE_BUCKET=gothai-admin.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+
+# Google Maps Configuration
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 ```
 
 ---
@@ -86,8 +122,17 @@ Within the root directory, you can run:
 
 ---
 
-## ☁️ Deployment
+## ☁️ Firebase Infrastructure & Deployment
 
+### Firestore Security Rules
+Access is restricted based on administrative clearance check helper functions within `firestore.rules`:
+*   `isAdmin()`: Validates request email against admin domains or verifies roles in the `/users/` database document.
+*   `isOwner()`: Matches incoming resources against the authentication UID.
+
+### Storage Security Rules
+Rules defined in `storage.rules` restrict writes on partner files and banners to authenticated accounts, while keeping public assets read-accessible.
+
+### Deployments
 Deployments are managed via the Firebase CLI:
 
 1.  **Build the production frontend**:
