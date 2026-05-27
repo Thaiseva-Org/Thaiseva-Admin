@@ -10,19 +10,39 @@ The official administrative and partner management portal for **Thaiseva**. This
 
 ---
 
-## 🌟 Key Features
+## 🌟 Core Modules & Features
 
-*   **📦 Comprehensive Booking Manager**: Admin tracking and CRUD interface for car rentals (Self-Drive & with Driver), vans, hotel rooms, and sightseeing packages.
-*   **🤝 Structured Partner Onboarding**: Step-by-step registration for:
-    *   Hotels/Accommodations
-    *   Local Partners
-    *   Drivers & Transportation
-    *   Restaurants & Dine-In Partners
-*   **💬 Real-time Communication**: Firebase-backed chat rooms categorized by support type (Customer Support, Driver Support, Hotel Support, Local Partner Support, and Restaurant Support) with real-time syncing.
-*   **🗺️ Interactive Geo-Tracking**: Integrated Google Maps for partner onboarding and direction configurations.
-*   **⚙️ Configuration Manager**: Live content modifications including FAQ seeding, banner uploads, and promotional banners for the main customer application.
-*   **📈 Stat Tracker & Charts**: Visualizes earnings and user registration metrics using interactive bar and line charts.
-*   **📄 Automated Invoices**: Generate billing invoices using custom PDF layouts compiled client-side.
+### 📦 1. Booking Operations Manager
+Admin tracking and CRUD interface covering all service categories:
+*   **Car & Taxi rentals**: Supports Self-Drive and Driver-inclusive bookings.
+*   **Van services**: Custom scheduling, distance logs, and partner assignments.
+*   **Hotel Room Reservations**: Manage check-in/out dates, guest details, room numbers, and track pricing splits.
+*   **Sightseeing & Tour Packages**: Detail itineraries, days/nights layouts, included activities, and authorized travel operators.
+
+### 🤝 2. Partner Onboarding Pipeline
+Comprehensive registration flows that handle licensing, payment info, and profiles for:
+*   **Hotels/Accommodations**
+*   **Local Partners & Service Providers**
+*   **Drivers & Logistics Operators**
+*   **Restaurants & Dine-In Partnerships**
+
+### 💬 3. Chat Room Infrastructure
+Direct, real-time messaging between admins and partners, divided into specific channels powered by Firestore:
+*   `Customer Support` (Clients to Admin)
+*   `Driver Support` (Drivers to Admin)
+*   `Hotel Support` (Hotels to Admin)
+*   `Local Partner Support` (General Partners to Admin)
+*   `Restaurant Support` (Restaurants to Admin)
+
+### 📈 4. Statistics Dashboard & Visualizations
+Built-in business analytics utilizing **Chart.js** and **React ChartJS 2**:
+*   Track revenue logs, booking frequencies, and user registrations.
+*   Interactive grid representations and graphs comparing partner groups.
+
+### 📄 5. Invoicing & Billing Engine
+A reporting service utilizing `@react-pdf/renderer` and `jsPDF` auto-tables:
+*   Dynamically compile partner orders, service fees, commissions, and taxes.
+*   Supports live client-side PDF preview and download capabilities.
 
 ---
 
@@ -38,23 +58,34 @@ The official administrative and partner management portal for **Thaiseva**. This
 
 ---
 
-## 📁 Repository Structure
+## 📁 Repository Blueprint
 
 ```
 ├── .firebase/                 # Firebase staging and caching artifacts
 ├── functions/                 # Firebase Cloud Functions (TypeScript)
 │   ├── src/                   # Functions source code (triggers, hooks, and utilities)
-│   └── package.json           # Function-specific dependencies
+│   │   ├── triggers/          # Firestore triggers (e.g. updating stats, hotel listeners)
+│   │   ├── utils/             # TypeScript backend helper functions
+│   │   └── index.ts           # Functions entry point
+│   ├── package.json           # Function-specific dependencies
+│   └── tsconfig.json          # TypeScript configurations
 ├── src/                       # Main React application source code
-│   ├── assets/                # Images, fonts, and static vectors
-│   ├── components/            # Shared UI components (Charts, Maps, Banners, Tables)
-│   ├── contextAPIs/           # React Context state management providers
-│   ├── firebase/              # Firebase Client SDK initializer and configuration
-│   ├── layouts/               # Layout components (Sidebar, Navbar, wrappers)
-│   ├── pages/                 # Routing pages (Admin/Partner Dashboards, Forms)
-│   ├── routes/                # Route definitions & protection layers (PrivetRouter)
+│   ├── assets/                # Images, animations (Lottie), and static assets
+│   ├── components/            # UI components (Shared UI elements, Charts, Map interfaces)
+│   │   ├── reports/           # PDF Invoices, tables, and financial invoice layouts
+│   │   └── websiteConfig/     # Live site banners, image upload utilities
+│   ├── contextAPIs/           # React Context providers (state management)
+│   ├── firebase/              # Firebase Client SDK configuration & custom endpoints
+│   ├── layouts/               # Admin and Partner page layouts (Sidebar, Navbar, wrappers)
+│   ├── pages/                 # Full pages grouped by Dashboard context
+│   │   ├── dashboard/         
+│   │   │   ├── adminDashboard/# Primary Admin layouts (orders, statistics, requirements)
+│   │   │   └── partnerDashboard/# Partner-specific profiles, bookings, and menus
+│   │   └── login/             # Portal authentication screen
+│   ├── routes/                # Protected routes (`AdminRoute`, `PartnerRoute`, etc.)
 │   ├── services/              # API interfaces, database encryption, and records fetchers
-│   └── utils/                 # Helper functions, formatters, and links definitions
+│   ├── utils/                 # General helpers, formatters, and sidebar routes
+│   └── validation/            # Zod validation schemas
 ├── firestore.rules            # Security rules for Firestore Database
 ├── storage.rules              # Security rules for Firebase Cloud Storage
 ├── firebase.json              # Firebase CLI Hosting and codebase configuration
@@ -66,7 +97,7 @@ The official administrative and partner management portal for **Thaiseva**. This
 
 ## 🔒 Configuration & Environment Setup
 
-The application connects to Firebase and Google Maps services. Create a `.env` file in the root directory:
+Create a `.env` file in the root directory to store your service API configurations:
 
 ```env
 # Firebase Client SDK Configuration
@@ -81,6 +112,99 @@ VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
 # Google Maps Configuration
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
 ```
+
+---
+
+## 🗄️ Firestore Database Schema Reference
+
+Below is a detailed guide on the primary Firestore database collections and document shapes:
+
+### 1. User & Partner Accounts (`users`, `partners`, `drivers`, `restaurants`)
+
+*   **`users`**: Main identity profiles for staff and users.
+    ```typescript
+    interface UserRecord {
+      uid: string;
+      email: string;
+      displayName: string;
+      role: 'Admin' | 'Partner' | 'Sub Admin';
+      status: 'Pending' | 'Verified';
+      phoneNo?: string;
+      phoneNumber?: string;
+      photoURL?: string;
+      createdAt: Timestamp;
+    }
+    ```
+*   **`partners`**: Standard Local Partners profiles.
+    ```typescript
+    interface PartnerRecord {
+      uid: string;
+      fullName: string;
+      email: string;
+      address: string;
+      phoneNumber: string;
+      serviceCategory: string | string[];
+      status: 'Pending' | 'Verified';
+      paymentInformation: {
+        bankName: string;
+        accountNumber: string;
+        bankAddress: string;
+      };
+    }
+    ```
+
+### 2. Hotel & Accommodation Catalog (`HotelDB`)
+*   **`HotelDB/{hotelId}`**: Details of the registered hotel partner.
+    ```typescript
+    interface HotelRecord {
+      hotel: {
+        hotelId: string;
+        hotelUid: string;
+        hotelName: string;
+        startingPrice: number;
+        totalRooms: number;
+        address: string;
+        images: {
+          logo: string;
+          gallery: string[];
+        };
+        rating: number;
+        status: 'Verified' | 'Pending';
+      };
+    }
+    ```
+*   **`HotelDB/{hotelId}/rooms/{roomId}`**: Subcollection containing detailed room types.
+    ```typescript
+    interface RoomRecord {
+      roomName: string;
+      maxGuests: number;
+      numberOfBeds: number;
+      photos: string[];
+      amenities: string[];
+      pricing: {
+        basePrice: number;
+        pricePerNightAfterDiscount: number;
+      };
+    }
+    ```
+
+### 3. Bookings (`hotelBookingData`, `travelBookingDetails`, `dineInBookings`)
+*   **`hotelBookingData`**: Accommodation orders.
+    ```typescript
+    interface HotelBooking {
+      bookingId: string;
+      fullName: string;
+      guestEmail: string;
+      hotelId: string;
+      hotelName: string;
+      roomName: string;
+      checkInDate: string | Timestamp;
+      checkOutDate: string | Timestamp;
+      amount: number;
+      isPaymentDone: boolean;
+      status: 'Pending' | 'Accepted' | 'Canceled';
+    }
+    ```
 
 ---
 
