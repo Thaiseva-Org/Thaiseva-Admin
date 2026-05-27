@@ -14,18 +14,6 @@ import {
     TextField,
     Box
 } from "@mui/material";
-import {
-    collection,
-    getDocs,
-    addDoc,
-    updateDoc,
-    deleteDoc,
-    doc,
-    serverTimestamp,
-    orderBy,
-    query,
-} from "firebase/firestore";
-import { db } from "../../../../firebase/firebase.config";
 import DragDropImageUploader from "../../../../components/websiteConfig/DragDropImageUploader";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
 import Swal from "sweetalert2";
@@ -33,6 +21,8 @@ import DeleteIcon from "@mui/icons-material/DeleteOutlined";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
 import SortIcon from "@mui/icons-material/Sort";
+import { deleteTestimonial, getAdminTestimonials, saveTestimonial } from "../../../../services/WebsiteConfig";
+import { getZodErrorMessage, testimonialSchema } from "../../../../validation/websiteConfigSchemas";
 
 // Custom Modal Components
 import Dialog from "@mui/material/Dialog";
@@ -59,20 +49,11 @@ const Testimonials = () => {
     const fetchTestimonials = async () => {
         setLoading(true);
         try {
-            const q = query(collection(db, "TestimonialDB"), orderBy("displayOrder", "asc"));
-            const querySnapshot = await getDocs(q);
-            const data = querySnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
+            const data = await getAdminTestimonials();
             setTestimonials(data);
         } catch (error) {
-            // Fallback for missing index
-            if (error.code === 'failed-precondition') {
-                const querySnapshot = await getDocs(collection(db, "TestimonialDB"));
-                const data = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-                setTestimonials(data);
-            }
+            console.error("Error fetching testimonials:", error);
+            Swal.fire("Error", "Failed to fetch testimonials.", "error");
         } finally {
             setTimeout(() => setLoading(false), 500);
         }
@@ -119,30 +100,24 @@ const Testimonials = () => {
     const handleImageChange = (url) => setCurrentTestimonial(prev => ({ ...prev, image: url }));
 
     const handleSave = async () => {
-        if (!currentTestimonial.user || !currentTestimonial.text) {
-            Swal.fire("Validation Error", "Name and Review Text are required", "warning");
+        const parsedTestimonial = testimonialSchema.safeParse({
+            ...currentTestimonial,
+            user: currentTestimonial.user.trim(),
+            role: currentTestimonial.role.trim(),
+            text: currentTestimonial.text.trim(),
+            image: currentTestimonial.image.trim(),
+            rating: Number(currentTestimonial.rating),
+            displayOrder: Number(currentTestimonial.displayOrder) || 0,
+        });
+
+        if (!parsedTestimonial.success) {
+            Swal.fire("Validation Error", getZodErrorMessage(parsedTestimonial.error), "warning");
             return;
         }
 
         try {
-            if (isUpdate && selectedId) {
-                const docRef = doc(db, "TestimonialDB", selectedId);
-                await updateDoc(docRef, {
-                    ...currentTestimonial,
-                    rating: Number(currentTestimonial.rating),
-                    displayOrder: Number(currentTestimonial.displayOrder),
-                    updatedAt: serverTimestamp(),
-                });
-                Swal.fire({ icon: 'success', title: 'Testimonial Updated', timer: 1000, showConfirmButton: false });
-            } else {
-                await addDoc(collection(db, "TestimonialDB"), {
-                    ...currentTestimonial,
-                    rating: Number(currentTestimonial.rating),
-                    displayOrder: Number(currentTestimonial.displayOrder),
-                    createdAt: serverTimestamp(),
-                });
-                Swal.fire({ icon: 'success', title: 'Testimonial Added', timer: 1000, showConfirmButton: false });
-            }
+            await saveTestimonial(parsedTestimonial.data, isUpdate ? selectedId : null);
+            Swal.fire({ icon: 'success', title: isUpdate ? 'Testimonial Updated' : 'Testimonial Added', timer: 1000, showConfirmButton: false });
             setOpenModal(false);
             fetchTestimonials();
         } catch (error) {
@@ -160,7 +135,7 @@ const Testimonials = () => {
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    await deleteDoc(doc(db, "TestimonialDB", id));
+                    await deleteTestimonial(id);
                     fetchTestimonials();
                     Swal.fire("Deleted", "", "success");
                 } catch (error) {
@@ -310,7 +285,7 @@ const Testimonials = () => {
                                     name="rating"
                                     value={Number(currentTestimonial.rating)}
                                     onChange={(event, newValue) => {
-                                        setCurrentTestimonial(prev => ({ ...prev, rating: newValue }));
+                                        setCurrentTestimonial(prev => ({ ...prev, rating: newValue ?? 1 }));
                                     }}
                                 />
                             </div>

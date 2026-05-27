@@ -326,6 +326,16 @@ export const websiteConfigLinks = [
     label: "Service Cards",
   },
   {
+    icon: <TaskIcon />,
+    link: "/dashboard/website-config/faqs",
+    label: "FAQs",
+  },
+  {
+    icon: <SupportAgentIcon />,
+    link: "/dashboard/website-config/testimonials",
+    label: "Testimonials",
+  },
+  {
     icon: <SupportAgentIcon />,
     link: "/dashboard/website-config/contact-us",
     label: "Contact Us",

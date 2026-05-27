@@ -53,6 +53,7 @@ import {
   formatPhoneNumber,
   getDateAndTime,
 } from "../../../../../utils/utils";
+import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
 
 const TravelBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
@@ -1209,6 +1210,7 @@ const TravelBookings = () => {
                       {textField("Email", bookingDetails?.guestDetails?.email || bookingDetails?.email, true)}
                       {textField("Price", bookingDetails?.price || bookingDetails?.totalAmount, true)}
                       {textField("Number of Guests", bookingDetails?.noOfPassengers || bookingDetails?.adults + (bookingDetails?.children || 0), true)}
+                      {getBookingSpecialNotes(bookingDetails) && textField("Special Notes", getBookingSpecialNotes(bookingDetails), true)}
                     </Grid>
                   </Box>
                 </Grid>

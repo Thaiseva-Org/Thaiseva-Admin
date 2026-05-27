@@ -50,6 +50,7 @@ import {
   getDateAndTime,
   successNotification,
 } from "../../../../../utils/utils";
+import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
 
 const Bookings = () => {
   const { userData, isPartner } = useContext(AuthContext);
@@ -118,6 +119,65 @@ const Bookings = () => {
     setPage(0);
   };
 
+  const normalizeBookingStatus = (booking = {}) => {
+    const rawStatus = booking.bookingStatus || booking.status || "";
+    const upperStatus = String(rawStatus).toUpperCase();
+
+    if (upperStatus === "PENDING") return "Pending";
+    if (upperStatus === "ACCEPTED" || upperStatus === "CONFIRMED") return "Accepted";
+    if (
+      upperStatus === "CANCELED" ||
+      upperStatus === "CANCELLED" ||
+      upperStatus === "REJECTED" ||
+      upperStatus === "DENIED"
+    ) {
+      return "Canceled";
+    }
+
+    return rawStatus || "-";
+  };
+
+  const normalizeDate = (value) => {
+    if (!value || value === "-") return null;
+    if (value.seconds) {
+      return new Date(value.seconds * 1000 + (value.nanoseconds || 0) / 1000000);
+    }
+
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date;
+  };
+
+  const normalizeRoomBooking = (booking = {}) => {
+    const orderedAt = booking.createdAt || booking.orderedAt || booking.timestamp || null;
+    const amount = booking.amountTHB || booking.amount || booking.subtotal || 0;
+
+    return {
+      ...booking,
+      name: booking.fullName || booking.guestDetails?.name || booking.name || "-",
+      phone: booking.guestPhone || booking.userPhone || booking.phone || booking.guestDetails?.phone || "-",
+      email: booking.guestEmail || booking.userEmail || booking.email || booking.guestDetails?.email || "-",
+      noOfRooms: booking.rooms || booking.noOfRooms || 0,
+      orderedAt,
+      roomNumbers: booking.roomNumbers || [],
+      status: normalizeBookingStatus(booking),
+      packageId: booking.packageId || booking.roomId || booking.hotelUid,
+      bookingId: booking.bookingId || booking.id,
+      hotelUid: booking.hotelUid,
+      userId: booking.userId || booking.authUid,
+      hotelName: booking.hotelName || booking.hotel?.hotelName || "Hotel",
+      roomName: booking.roomName || booking.packageName || "N/A",
+      amount,
+      amountTHB: booking.amountTHB || amount,
+      paymentMethod: booking.paymentMethod || booking.paymentConfirmation?.provider || "N/A",
+      isPaymentDone: Boolean(booking.isPaymentDone || booking.paymentConfirmation?.status === "paid"),
+      adults: booking.adults ?? booking.guestDetails?.adults ?? 0,
+      children: booking.children ?? booking.guestDetails?.children ?? 0,
+      nationality: booking.nationality || "N/A",
+      nights: booking.nights || 0,
+      specialNotes: getBookingSpecialNotes(booking),
+    };
+  };
+
   // Bookings table header
   let columns = [
     { property: "name", label: "Guest Name", width: "15%" },
@@ -129,46 +189,9 @@ const Bookings = () => {
     { property: "action", label: "Action", width: "15%" },
   ];
 
-  // creating single row
-  function createData(
-    name,
-    phone,
-    noOfRooms,
-    orderedAt,
-    roomNumbers,
-    status,
-    packageId,
-    bookingId
-  ) {
-    return {
-      name,
-      phone,
-      noOfRooms,
-      orderedAt,
-      roomNumbers,
-      status,
-      packageId,
-      bookingId,
-    };
-  }
-
   // calling createData function with partner's data
   const rows = (bookings) => {
-    return bookings?.map((booking) => {
-      // Handle timestamp display mapping
-      const orderedAtRaw = booking.createdAt || booking.orderedAt;
-
-      return createData(
-        booking?.guestDetails?.name || "-",
-        booking?.guestDetails?.phone || "-",
-        booking.noOfRooms,
-        orderedAtRaw || "-",
-        booking.roomNumbers,
-        booking.status || "-",
-        booking.packageId,
-        booking.bookingId
-      );
-    });
+    return bookings?.map((booking) => normalizeRoomBooking(booking)) || [];
   };
 
   const handleViewBookingDetails = async (id) => {
@@ -189,7 +212,7 @@ const Bookings = () => {
         )
         : new Date(existingData?.checkOutDate);
       setBookingDetails({
-        ...existingData,
+        ...normalizeRoomBooking({ ...existingData, bookingId: snapshot.id }),
         bookingId: snapshot.id,
         checkInDate: getDate(checkInDate),
         checkOutDate: getDate(checkOutDate),
@@ -231,7 +254,7 @@ const Bookings = () => {
   const handleConfirmBooking = async (e) => {
     e.preventDefault();
     setError("");
-    if (bookingDetails?.status !== "Pending") {
+    if (normalizeBookingStatus(bookingDetails) !== "Pending") {
       setOpenBookingDetailsModal(false);
       return;
     }
@@ -257,22 +280,22 @@ const Bookings = () => {
       ).then(async () => {
         setOpenBookingDetailsModal(false);
         successNotification("Booking is confirmed successfully");
-        await updateHourlyEarnings(bookingDetails?.amount, "Hotels");
+        await updateHourlyEarnings(bookingDetails?.amountTHB || bookingDetails?.amount, "Hotels");
         await updateHourlyEarnings(
-          bookingDetails?.amount,
+          bookingDetails?.amountTHB || bookingDetails?.amount,
           "Hotels",
           bookingDetails?.hotelUid
         );
-        await updateMonthlyEarnings(bookingDetails?.amount, "Hotels");
+        await updateMonthlyEarnings(bookingDetails?.amountTHB || bookingDetails?.amount, "Hotels");
         await updateMonthlyEarnings(
-          bookingDetails?.amount,
+          bookingDetails?.amountTHB || bookingDetails?.amount,
           "Hotels",
           bookingDetails?.hotelUid
         );
         setData({ managerPhone: "", roomNumbers: [] });
         await CreateNewNotificationToUser(
           "Room booking confirm!",
-          `Hey ${bookingDetails?.guestDetails?.name}! your room booking at ${bookingDetails?.hotelName} is confirmed!`,
+          `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is confirmed!`,
           bookingDetails?.userId
         );
       });
@@ -282,7 +305,7 @@ const Bookings = () => {
   const handleCancelBooking = async (e) => {
     e.preventDefault();
     setError("");
-    if (bookingDetails?.status === "Accepted") {
+    if (normalizeBookingStatus(bookingDetails) === "Accepted") {
       setOpenBookingDetailsModal(false);
       return;
     }
@@ -448,10 +471,7 @@ const Bookings = () => {
                         {columns.map((column) => {
                           const value = row[column.property];
 
-                          const date = new Date(
-                            row["orderedAt"].seconds * 1000 +
-                            row["orderedAt"].nanoseconds / 1000000
-                          );
+                          const date = normalizeDate(row.orderedAt);
                           return (
                             <TableCell key={column.property} align="center">
                               {(column.property === "status" && (
@@ -466,7 +486,7 @@ const Bookings = () => {
                                 </span>
                               )) ||
                                 (column.property === "orderedAt" &&
-                                  getDateAndTime(date)) ||
+                                  (date ? getDateAndTime(date) : "N/A")) ||
                                 (column.property === "roomNumbers" && (
                                   <div className="flex items-center justify-center flex-wrap gap-1">
                                     {value?.map((item, i) => (
@@ -598,10 +618,11 @@ const Bookings = () => {
             <div className="bg-neutral-50 p-4 rounded-lg mb-4 border border-neutral-200">
               <h3 className="font-bold text-lg mb-3 text-primary-700 border-b border-neutral-200 pb-2">Guest Information</h3>
               <Grid container spacing={2}>
-                {textField("Guest Name", bookingDetails?.fullName || bookingDetails?.guestDetails?.name || "N/A")}
-                {textField("Phone", bookingDetails?.phone || bookingDetails?.guestDetails?.phone || "N/A")}
-                {textField("Email", bookingDetails?.email || bookingDetails?.guestDetails?.email || "N/A")}
+                {textField("Guest Name", bookingDetails?.name || bookingDetails?.fullName || bookingDetails?.guestDetails?.name || "N/A")}
+                {textField("Phone", bookingDetails?.phone || bookingDetails?.guestPhone || bookingDetails?.userPhone || bookingDetails?.guestDetails?.phone || "N/A")}
+                {textField("Email", bookingDetails?.email || bookingDetails?.guestEmail || bookingDetails?.userEmail || bookingDetails?.guestDetails?.email || "N/A")}
                 {textField("Nationality", bookingDetails?.nationality || "N/A")}
+                {bookingDetails?.specialNotes && textField("Special Notes", bookingDetails.specialNotes, true)}
                 <Grid item xs={12} sm={6}>
                   <div className="flex gap-2">
                     <p><span className="font-bold">Guests:</span> {bookingDetails?.adults || 0} Adults, {bookingDetails?.children || 0} Children</p>
@@ -617,6 +638,9 @@ const Bookings = () => {
                 {textField("Amount (THB)", `฿${bookingDetails?.amountTHB || bookingDetails?.amount || 0}`)}
                 {bookingDetails?.amountINR && textField("Amount (INR)", `₹${bookingDetails?.amountINR}`)}
                 {textField("Payment Method", bookingDetails?.paymentMethod || "N/A")}
+                {textField("Customer Invoice", bookingDetails?.customerInvoiceId || "N/A")}
+                {textField("Partner Invoice", bookingDetails?.partnerInvoiceId || bookingDetails?.invoiceId || "N/A")}
+                {textField("Payment Verification", bookingDetails?.paymentVerificationStatus || bookingDetails?.paymentConfirmation?.status || "N/A")}
                 <Grid item xs={12} sm={6}>
                   <div className="flex gap-2 items-center">
                     <span className="font-bold">Payment Status:</span>

@@ -20,6 +20,11 @@ const RequirementsProvider = ({ children }) => {
 
   const now = new Date();
   const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+  const handleRequirementsError = (label, resetState = () => {}) => (error) => {
+    console.warn(`${label} listener stopped:`, error.message);
+    resetState();
+    setLoadingReq(false);
+  };
 
   // fetching all loal requirements for admin dashboard
   useEffect(() => {
@@ -43,13 +48,17 @@ const RequirementsProvider = ({ children }) => {
                 where("date", ">=", threeDaysAgo),
                 orderBy("date", "desc")
               );
-        unSub = onSnapshot(q, (snapshot) => {
-          if (!isMounted) return;
+        unSub = onSnapshot(
+          q,
+          (snapshot) => {
+            if (!isMounted) return;
 
-          const list = snapshot.docs.map((doc) => doc.data());
-          setAllRequirements(list);
-          setLoadingReq(false);
-        });
+            const list = snapshot.docs.map((doc) => doc.data());
+            setAllRequirements(list);
+            setLoadingReq(false);
+          },
+          handleRequirementsError("Requirements", () => setAllRequirements([]))
+        );
       } catch (error) {
         console.error("Error fetching requirements:", error);
         setLoadingReq(false);
@@ -81,16 +90,15 @@ const RequirementsProvider = ({ children }) => {
         where("date", ">=", threeDaysAgo),
         orderBy("date", "desc")
       );
-      let unSub = onSnapshot(q, (result) => {
-        const list = result.docs.map((doc) => doc.data());
-        if (list?.length > 0) {
+      let unSub = onSnapshot(
+        q,
+        (result) => {
+          const list = result.docs.map((doc) => doc.data());
           setMyRequirements(list);
           setLoadingReq(false);
-        } else {
-          setMyRequirements([]);
-          setLoadingReq(false);
-        }
-      });
+        },
+        handleRequirementsError("My requirements", () => setMyRequirements([]))
+      );
 
       return () => {
         unSub();
@@ -103,16 +111,15 @@ const RequirementsProvider = ({ children }) => {
   // fetching all travel requirements for admin dashboard
   useEffect(() => {
     const loadTravelRequirements = async () => {
-      const unSub = onSnapshot(travelRequirementsCollection, (result) => {
-        const list = result.docs.map((doc) => doc.data());
-        if (list?.length > 0) {
+      const unSub = onSnapshot(
+        travelRequirementsCollection,
+        (result) => {
+          const list = result.docs.map((doc) => doc.data());
           setTravelRequirements(list);
           setLoadingReq(false);
-        } else {
-          setTravelRequirements([]);
-          setLoadingReq(false);
-        }
-      });
+        },
+        handleRequirementsError("Travel requirements", () => setTravelRequirements([]))
+      );
       return () => {
         unSub();
       };

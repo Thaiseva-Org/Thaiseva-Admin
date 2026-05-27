@@ -58,7 +58,7 @@ const ContactUs = () => {
   const fetchMessages = async () => {
     setLoading(true);
     try {
-      const q = query(collection(db, "ContusDB"), orderBy("createdAt", "desc"));
+      const q = query(collection(db, "ContactMessages"), orderBy("createdAt", "desc"));
       const snap = await getDocs(q);
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setMessages(data);
@@ -84,7 +84,8 @@ const ContactUs = () => {
           m.fullName?.toLowerCase().includes(term) ||
           m.email?.toLowerCase().includes(term) ||
           m.subject?.toLowerCase().includes(term) ||
-          m.message?.toLowerCase().includes(term)
+          m.message?.toLowerCase().includes(term) ||
+          m.ipAddress?.toLowerCase().includes(term)
       );
     }
     return data;
@@ -107,7 +108,7 @@ const ContactUs = () => {
 
   const handleArchive = async (id) => {
     try {
-      await updateDoc(doc(db, "ContusDB", id), {
+      await updateDoc(doc(db, "ContactMessages", id), {
         status: "Archived",
       });
       setMessages((prev) =>
@@ -162,7 +163,7 @@ const ContactUs = () => {
           </Tabs>
         </Box>
         <TextField
-          placeholder="Search by name, email, subject..."
+          placeholder="Search by name, email, IP..."
           size="small"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -192,6 +193,7 @@ const ContactUs = () => {
                 <TableCell sx={{ fontWeight: 700 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Phone</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>IP Address</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Subject</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Message</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Source</TableCell>
@@ -261,6 +263,7 @@ const ContactUs = () => {
                       )}
                     </div>
                   </TableCell>
+                  <TableCell>{item.ipAddress || "-"}</TableCell>
                   <TableCell>{item.subject || "General Inquiry"}</TableCell>
                   <TableCell sx={{ maxWidth: 320 }}>
                     <Typography
@@ -383,6 +386,14 @@ const ContactUs = () => {
                   </Typography>
                   <Typography variant="body1">
                     {selectedMessage?.metadata?.source || selectedMessage.source || "Website"}
+                  </Typography>
+                </Box>
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PublicIcon fontSize="small" /> IP ADDRESS
+                  </Typography>
+                  <Typography variant="body1">
+                    {selectedMessage.ipAddress || "-"}
                   </Typography>
                 </Box>
                 <Box sx={{ mb: 3 }}>

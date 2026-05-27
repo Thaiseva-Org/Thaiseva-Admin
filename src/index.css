@@ -245,6 +245,33 @@ input[type="number"]::-webkit-outer-spin-button {
   text-overflow: ellipsis;
 }
 
+.blog-content-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 460px;
+  overflow: hidden;
+}
+
+.blog-content-editor .ql-toolbar {
+  flex-shrink: 0;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: normal;
+}
+
+.blog-content-editor .ql-container {
+  flex: 1;
+  min-height: 320px;
+  border: 0;
+  font-size: 1rem;
+  overflow: hidden;
+}
+
+.blog-content-editor .ql-editor {
+  min-height: 320px;
+  overflow-y: auto;
+}
+
 /* Modern Button Classes */
 .input-add-btn {
   @apply bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 

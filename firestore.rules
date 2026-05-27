@@ -9,9 +9,14 @@ service cloud.firestore {
     
     function isAdmin() {
       return isAuthenticated() && (
+        request.auth.token.email in [
+          "admin@gmail.com",
+          "thaiseva_admin@gmail.com"
+        ] ||
         request.auth.token.admin == true || 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin" ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin"
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin" ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Sub Admin"
       );
     }
 
@@ -20,7 +25,23 @@ service cloud.firestore {
         resource == null || 
         resource.data[userIdField] == request.auth.uid ||
         resource.data.userId == request.auth.uid ||
-        resource.data.authUid == request.auth.uid
+        resource.data.authUid == request.auth.uid ||
+        resource.data.uid == request.auth.uid ||
+        resource.data.providerUid == request.auth.uid ||
+        resource.data.hotelUid == request.auth.uid ||
+        resource.data.restaurantUid == request.auth.uid
+      );
+    }
+
+    function ownsIncoming(userIdField) {
+      return isAuthenticated() && (
+        request.resource.data[userIdField] == request.auth.uid ||
+        request.resource.data.userId == request.auth.uid ||
+        request.resource.data.authUid == request.auth.uid ||
+        request.resource.data.uid == request.auth.uid ||
+        request.resource.data.providerUid == request.auth.uid ||
+        request.resource.data.hotelUid == request.auth.uid ||
+        request.resource.data.restaurantUid == request.auth.uid
       );
     }
 
@@ -39,13 +60,28 @@ service cloud.firestore {
     // Allow reading sub-collections of public items
     match /HotelDB/{hotelId}/rooms/{roomId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == hotelId);
+    }
+
+    match /restaurants/{ownerId}/restaurantDetails/{restaurantId} {
+      allow read: if true;
+      allow write: if isAdmin() || (isAuthenticated() && request.auth.uid == ownerId);
     }
 
     // --- CONTACT MESSAGES ---
     match /ContactMessages/{docId} {
       allow read, write: if isAdmin();
       allow create: if true; // Allow public to send messages
+    }
+
+    match /FaqDB/{faqId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /TestimonialDB/{testimonialId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // --- USER DATA ---
@@ -55,8 +91,15 @@ service cloud.firestore {
     }
 
     match /notifications/{docId} {
-      allow read: if isOwner('userId') || isAdmin();
-      allow write, delete: if isOwner('userId') || isAdmin();
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /notifications/users/{userId}/{messageId} {
+      allow read, write, delete: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /notifications/admin/messages/{messageId} {
+      allow read, write, delete: if isAdmin();
     }
 
     // --- BOOKING COLLECTIONS ---
@@ -71,7 +114,88 @@ service cloud.firestore {
         'self_driving_bookings', 'vanBookings'
       ] && (isOwner('userId') || isAdmin());
 
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin() || (
+        collection in ['hotelBookingData', 'travelBookingDetails', 'car_bookings', 'self_driving_bookings', 'vanBookings'] &&
+        isOwner('userId')
+      );
+      allow delete: if isAdmin();
+    }
+
+    // --- PARTNER-OWNED SERVICE DATA ---
+    match /partners/{partnerId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (isAuthenticated() && request.auth.uid == partnerId);
+      allow delete: if isAdmin();
+    }
+
+    match /drivers/{driverId} {
+      allow read: if isAdmin() || (isAuthenticated() && request.auth.uid == driverId);
+      allow create, update: if isAdmin() || (isAuthenticated() && request.auth.uid == driverId);
+      allow delete: if isAdmin();
+    }
+
+    match /HotelDB/{hotelId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (isAuthenticated() && request.auth.uid == hotelId);
+      allow delete: if isAdmin();
+    }
+
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (isAuthenticated() && request.auth.uid == restaurantId);
+      allow delete: if isAdmin();
+    }
+
+    match /foodMenu/{menuId} {
+      allow read: if true;
+      allow create: if isAdmin() || ownsIncoming('restaurantUid');
+      allow update, delete: if isAdmin() || isOwner('restaurantUid');
+    }
+
+    match /localServices/{serviceId} {
+      allow read: if true;
+      allow create: if isAdmin() || ownsIncoming('providerUid');
+      allow update, delete: if isAdmin() || isOwner('providerUid');
+    }
+
+    match /hotelPackageDetails/{packageId} {
+      allow read: if true;
+      allow create: if isAdmin() || ownsIncoming('hotelUid');
+      allow update, delete: if isAdmin() || isOwner('hotelUid');
+    }
+
+    match /hotelPackages/{packageId} {
+      allow read: if true;
+      allow create: if isAdmin() || ownsIncoming('hotelUid');
+      allow update, delete: if isAdmin() || isOwner('hotelUid');
+    }
+
+    match /allRequirements/{requirementId} {
+      allow read: if isAdmin() || isOwner('providerUid');
+      allow create: if isAdmin() || ownsIncoming('providerUid');
+      allow update, delete: if isAdmin() || isOwner('providerUid');
+    }
+
+    match /travelRequirements/{requirementId} {
+      allow read: if isAdmin() || isOwner('providerUid');
+      allow create: if isAdmin() || ownsIncoming('providerUid');
+      allow update, delete: if isAdmin() || isOwner('providerUid');
+    }
+
+    match /general_partners/{partnerId}/assignedPackages/{assignmentId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /counters/{counterId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /acceptedRestaurants/{restaurantId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /restroRequests/{restaurantId} {
+      allow read, write: if isAdmin();
     }
 
     // --- ADMIN ONLY COLLECTIONS ---
@@ -80,7 +204,8 @@ service cloud.firestore {
         'agents', 'drivers', 'shops', 'clubs', 'allRequirements', 
         'travelRequirements', 'partner_invoices', 'manage_partners', 
         'general_partners', 'vanCompanies', 'settings', 'statistics', 
-        'hotel_statistics'
+        'hotel_statistics', 'DeletionRequests', 'counters',
+        'acceptedRestaurants', 'restroRequests'
       ];
     }
 
@@ -97,4 +222,4 @@ service cloud.firestore {
       allow read, write: if false;
     }
   }
-}
+}

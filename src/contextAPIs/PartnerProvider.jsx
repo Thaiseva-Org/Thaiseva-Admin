@@ -85,6 +85,15 @@ const PartnerProvider = ({ children }) => {
 
   const now = new Date();
   const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const hotelBookingLookback = new Date(
+    now.getTime() - 180 * 24 * 60 * 60 * 1000
+  );
+  const handleSnapshotError = (label, resetState = () => {}) => (error) => {
+    console.warn(`${label} listener stopped:`, error.message);
+    resetState();
+    setLoadingData(false);
+    setLoadingPartnerData(false);
+  };
 
   // loading home data
   // useEffect(() => {
@@ -151,10 +160,16 @@ const PartnerProvider = ({ children }) => {
       //   setPartners(list); // Set the state with the list of data
       // }
 
-      const q = query(partnersCollection, where("status", "==", "Pending"));
-      const pending = await getCountFromServer(q);
-      setTotalRequest(pending.data().count);
-      setLoadingPartnerData(false);
+      try {
+        const q = query(partnersCollection, where("status", "==", "Pending"));
+        const pending = await getCountFromServer(q);
+        setTotalRequest(pending.data().count);
+      } catch (error) {
+        console.warn("Could not load pending partner count:", error.message);
+        setTotalRequest(0);
+      } finally {
+        setLoadingPartnerData(false);
+      }
     };
 
     (isAdmin || isSubAdmin) && loadPatnersData();
@@ -207,18 +222,17 @@ const PartnerProvider = ({ children }) => {
   useEffect(() => {
     const loadHotels = async () => {
       setLoadingPartnerData(true);
-      const unSub = onSnapshot(hotelsCollection, (result) => {
-        if (result) {
-          const list = result.docs.map((doc) => doc.data());
-          if (list?.length > 0) {
+      const unSub = onSnapshot(
+        hotelsCollection,
+        (result) => {
+          if (result) {
+            const list = result.docs.map((doc) => doc.data());
             setHotels(list);
             setLoadingPartnerData(false);
-          } else {
-            setHotels([]);
-            setLoadingPartnerData(false);
           }
-        }
-      });
+        },
+        handleSnapshotError("Hotels", () => setHotels([]))
+      );
 
       return () => {
         unSub();
@@ -275,14 +289,10 @@ const PartnerProvider = ({ children }) => {
         // query(hotelPackages, where("hotelUid", "==", user.uid)),
         query(hotelPackages, where("hotelUid", "==", user.uid)),
         (result) => {
-          if (result.docs.length > 0) {
-            const list = result.docs.map((doc) => doc.data());
-            setMyRooms(list);
-          }
-          if (result.docs.length == 0) {
-            setMyRooms([]);
-          }
-        }
+          const list = result.docs.map((doc) => doc.data());
+          setMyRooms(list);
+        },
+        handleSnapshotError("My rooms", () => setMyRooms([]))
       );
 
       return () => {
@@ -301,16 +311,11 @@ const PartnerProvider = ({ children }) => {
       const unSub = onSnapshot(
         query(hotelPackageDetails, orderBy("updatedAt", "desc")),
         (result) => {
-          if (result.docs.length > 0) {
-            const list = result.docs.map((doc) => doc.data());
-            setRooms(list);
-            setLoadingData(false);
-          }
-          if (result.docs.length == 0) {
-            setRooms([]);
-            setLoadingData(false);
-          }
-        }
+          const list = result.docs.map((doc) => doc.data());
+          setRooms(list);
+          setLoadingData(false);
+        },
+        handleSnapshotError("Room services", () => setRooms([]))
       );
 
       return () => {
@@ -350,22 +355,17 @@ const PartnerProvider = ({ children }) => {
       const unSub = onSnapshot(
         query(
           roomBookingCollection,
-          where("createdAt", ">=", last24Hours),
+          where("createdAt", ">=", hotelBookingLookback),
           orderBy("createdAt", "desc")
         ),
         (result) => {
-          if (result.docs.length > 0) {
-            const list = result.docs.map((doc) => {
-              return { ...doc.data(), bookingId: doc.id };
-            });
-            setRoomBookings(list);
-            setLoadingData(false);
-          }
-          if (result.docs.length == 0) {
-            setRoomBookings([]);
-            setLoadingData(false);
-          }
-        }
+          const list = result.docs.map((doc) => {
+            return { ...doc.data(), bookingId: doc.id };
+          });
+          setRoomBookings(list);
+          setLoadingData(false);
+        },
+        handleSnapshotError("Room bookings", () => setRoomBookings([]))
       );
 
       return () => {
@@ -383,22 +383,17 @@ const PartnerProvider = ({ children }) => {
         query(
           roomBookingCollection,
           where("hotelUid", "==", userData?.uid),
-          where("createdAt", ">=", last24Hours),
+          where("createdAt", ">=", hotelBookingLookback),
           orderBy("createdAt", "desc")
         ),
         (result) => {
-          if (result.docs.length > 0) {
-            const list = result.docs.map((doc) => {
-              return { ...doc.data(), bookingId: doc.id };
-            });
-            setMyRoomBookings(list);
-            setLoadingData(false);
-          }
-          if (result.docs.length == 0) {
-            setMyRoomBookings([]);
-            setLoadingData(false);
-          }
-        }
+          const list = result.docs.map((doc) => {
+            return { ...doc.data(), bookingId: doc.id };
+          });
+          setMyRoomBookings(list);
+          setLoadingData(false);
+        },
+        handleSnapshotError("My room bookings", () => setMyRoomBookings([]))
       );
 
       return () => {
@@ -420,23 +415,18 @@ const PartnerProvider = ({ children }) => {
           orderBy("timestamp", "desc")
         ),
         (result) => {
-          if (result.docs.length > 0) {
-            const list = result.docs.map((doc) => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                ...data,
-              };
-            });
+          const list = result.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+            };
+          });
 
-            setCarBookings(list);
-            setLoadingData(false);
-          }
-          if (result.docs.length == 0) {
-            setCarBookings([]);
-            setLoadingData(false);
-          }
-        }
+          setCarBookings(list);
+          setLoadingData(false);
+        },
+        handleSnapshotError("Car bookings", () => setCarBookings([]))
       );
 
       return () => {
@@ -457,24 +447,19 @@ const PartnerProvider = ({ children }) => {
           orderBy("time", "desc")
         ),
         (result) => {
-          if (result.docs.length > 0) {
-            const list = result.docs.map((doc) => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                name: data?.username?.trim(),
-                ...data,
-              };
-            });
+          const list = result.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              name: data?.username?.trim(),
+              ...data,
+            };
+          });
 
-            setSelfDriveBookings(list);
-            setLoadingData(false);
-          }
-          if (result.docs.length == 0) {
-            setSelfDriveBookings([]);
-            setLoadingData(false);
-          }
-        }
+          setSelfDriveBookings(list);
+          setLoadingData(false);
+        },
+        handleSnapshotError("Self-drive bookings", () => setSelfDriveBookings([]))
       );
 
       return () => {
@@ -493,31 +478,26 @@ const PartnerProvider = ({ children }) => {
           travelBookingCollection
         ),
         (result) => {
-          if (result.docs.length > 0) {
-            const list = result.docs.map((doc) => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                name: data?.guestDetails?.name
-                  ?.replace("not_present", "")
-                  .trim(),
-                ...data,
-              };
-            });
-            // Sort client-side (latest first)
-            list.sort((a, b) => {
-              const timeA = a.orderedAt?.seconds || a.createdAt?.seconds || a.timestamp?.seconds || 0;
-              const timeB = b.orderedAt?.seconds || b.createdAt?.seconds || b.timestamp?.seconds || 0;
-              return timeB - timeA; // Descending order (newest first)
-            });
-            setTravelBookings(list);
-            setLoadingData(false);
-          }
-          if (result.docs.length == 0) {
-            setTravelBookings([]);
-            setLoadingData(false);
-          }
-        }
+          const list = result.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              name: data?.guestDetails?.name
+                ?.replace("not_present", "")
+                .trim(),
+              ...data,
+            };
+          });
+          // Sort client-side (latest first)
+          list.sort((a, b) => {
+            const timeA = a.orderedAt?.seconds || a.createdAt?.seconds || a.timestamp?.seconds || 0;
+            const timeB = b.orderedAt?.seconds || b.createdAt?.seconds || b.timestamp?.seconds || 0;
+            return timeB - timeA; // Descending order (newest first)
+          });
+          setTravelBookings(list);
+          setLoadingData(false);
+        },
+        handleSnapshotError("Travel bookings", () => setTravelBookings([]))
       );
 
       return () => {
@@ -539,22 +519,18 @@ const PartnerProvider = ({ children }) => {
           orderBy("createdAt", "desc")
         ),
         (result) => {
-          if (result.docs.length > 0) {
-            const list = result.docs.map((doc) => {
-              const data = doc.data();
-              return {
-                id: doc.id,
-                ...data,
-                source: 'manual'
-              };
-            });
-            setVanBookings(list);
-            setLoadingData(false);
-          } else {
-            setVanBookings([]);
-            setLoadingData(false);
-          }
-        }
+          const list = result.docs.map((doc) => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              source: 'manual'
+            };
+          });
+          setVanBookings(list);
+          setLoadingData(false);
+        },
+        handleSnapshotError("Van bookings", () => setVanBookings([]))
       );
       return () => unSub();
     };
@@ -623,7 +599,8 @@ const PartnerProvider = ({ children }) => {
           // Count only non-restaurant unread chats
           const customerUnreadCount = userChecks.filter(Boolean).length;
           setChatCount(customerUnreadCount);
-        }
+        },
+        handleSnapshotError("Customer chats", () => setChatCount(0))
       );
 
       return () => {
@@ -680,7 +657,8 @@ const PartnerProvider = ({ children }) => {
           // Count only restaurant unread chats
           const restaurantUnreadCount = restaurantChecks.filter(Boolean).length;
           setRestaurantChatCount(restaurantUnreadCount);
-        }
+        },
+        handleSnapshotError("Restaurant chats", () => setRestaurantChatCount(0))
       );
 
       return () => {
@@ -707,7 +685,8 @@ const PartnerProvider = ({ children }) => {
           // Count unread hotel chats
           const unreadCount = Object.values(data).filter((chat) => chat.isRead === false).length;
           setHotelChatCount(unreadCount);
-        }
+        },
+        handleSnapshotError("Hotel chats", () => setHotelChatCount(0))
       );
 
       return () => {

@@ -39,6 +39,7 @@ import {
   successNotification,
   timeCalculator,
 } from "../../../../../utils/utils";
+import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
 
 const SelfDriveBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
@@ -771,6 +772,7 @@ const SelfDriveBookings = () => {
                 bookingDetails.type || "not available",
                 true
               )}
+              {getBookingSpecialNotes(bookingDetails) && textField("Special Notes", getBookingSpecialNotes(bookingDetails), true)}
 
               {/* Driving Licence */}
               {imgTextField(

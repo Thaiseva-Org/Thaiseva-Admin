@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
     Button,
     Card,
@@ -15,8 +15,7 @@ import {
     InputAdornment,
     Tabs,
     Tab,
-    Box,
-    Badge
+    Box
 } from "@mui/material";
 import {
     collection,
@@ -70,7 +69,7 @@ const Blogs = () => {
         image: "",
         category: "Travel",
         author: "Admin",
-        status: "Draft",
+        status: "Published",
         metaTitle: "",
         metaDescription: "",
         metaKeywords: "",
@@ -132,7 +131,7 @@ const Blogs = () => {
             image: "",
             category: "Travel",
             author: "Admin",
-            status: "Draft",
+            status: "Published",
             metaTitle: "",
             metaDescription: "",
             metaKeywords: "",
@@ -208,12 +207,17 @@ const Blogs = () => {
                 });
                 Swal.fire({ icon: 'success', title: 'Updated', timer: 1000, showConfirmButton: false });
             } else {
-                await addDoc(collection(db, "BlogDB"), {
+                const publishedBlog = {
                     ...currentBlog,
+                    status: "Published",
+                };
+
+                await addDoc(collection(db, "BlogDB"), {
+                    ...publishedBlog,
                     metaTitle,
                     metaDescription,
                     readTime,
-                    publishedDate: currentBlog.status === 'Published' ? serverTimestamp() : null,
+                    publishedDate: serverTimestamp(),
                     createdAt: serverTimestamp(),
                 });
                 Swal.fire({ icon: 'success', title: 'Published', timer: 1000, showConfirmButton: false });
@@ -387,9 +391,15 @@ const Blogs = () => {
                 onClose={handleCloseModal}
                 maxWidth="lg"
                 fullWidth
-                PaperProps={{ sx: { borderRadius: '24px', overflow: 'hidden' } }}
+                PaperProps={{
+                    sx: {
+                        borderRadius: { xs: '16px', sm: '24px' },
+                        overflow: 'hidden',
+                        maxHeight: 'calc(100vh - 32px)'
+                    }
+                }}
             >
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white pb-24 relative">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-800 p-6 text-white relative">
                     <Typography variant="h5" className="font-bold flex items-center gap-2">
                         {isUpdate ? <EditIcon /> : <ArticleIcon />}
                         {isUpdate ? 'Edit Article' : 'Write New Article'}
@@ -399,157 +409,156 @@ const Blogs = () => {
                     </Typography>
                 </div>
 
-                <DialogContent sx={{ px: 4, pb: 4, pt: 0 }}>
-                    <div className="bg-white rounded-2xl shadow-lg -mt-16 p-6 relative z-10 border border-gray-100">
-                        <Grid container spacing={4}>
-                            <Grid item xs={12} md={8}>
-                                <TextField
-                                    label="Article Title"
-                                    name="title"
-                                    value={currentBlog.title}
-                                    onChange={handleChange}
-                                    fullWidth
-                                    variant="outlined"
-                                    sx={{ mb: 4, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                <DialogContent sx={{ px: { xs: 2, sm: 4 }, py: 4, overflowX: 'hidden' }}>
+                    <Grid container spacing={4}>
+                        <Grid item xs={12} md={8}>
+                            <TextField
+                                label="Article Title"
+                                name="title"
+                                value={currentBlog.title}
+                                onChange={handleChange}
+                                fullWidth
+                                variant="outlined"
+                                sx={{ mb: 4, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                            />
+
+                            <TextField
+                                label="Excerpt / Summary"
+                                name="excerpt"
+                                value={currentBlog.excerpt}
+                                onChange={handleChange}
+                                fullWidth
+                                multiline
+                                rows={3}
+                                variant="outlined"
+                                sx={{ mb: 4, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
+                                helperText="A short summary that appears on the blog listing page."
+                            />
+
+                            <div className="mb-8 md:mb-0">
+                                <Typography variant="subtitle2" className="mb-3 text-gray-700 font-bold flex items-center gap-2">
+                                    <ArticleIcon fontSize="small" color="primary" /> Main Content
+                                </Typography>
+                                <ReactQuill
+                                    theme="snow"
+                                    value={currentBlog.content}
+                                    onChange={(value) => setCurrentBlog(prev => ({ ...prev, content: value }))}
+                                    className="blog-content-editor bg-white rounded-xl border border-gray-200"
+                                    modules={{
+                                        toolbar: [
+                                            [{ 'header': [1, 2, 3, false] }],
+                                            ['bold', 'italic', 'underline', 'strike'],
+                                            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                                            ['link', 'image', 'video'],
+                                            ['clean']
+                                        ],
+                                    }}
+                                />
+                            </div>
+                        </Grid>
+
+                        <Grid item xs={12} md={4}>
+                            <Box className="space-y-5 md:border-l md:border-gray-200 md:pl-6">
+                                <DragDropImageUploader
+                                    label="Cover Image"
+                                    image={currentBlog.image}
+                                    onImageChange={handleImageChange}
+                                    folder="blogs"
+                                    height={200}
                                 />
 
-                                <TextField
-                                    label="Excerpt / Summary"
-                                    name="excerpt"
-                                    value={currentBlog.excerpt}
-                                    onChange={handleChange}
-                                    fullWidth
-                                    multiline
-                                    rows={3}
-                                    variant="outlined"
-                                    sx={{ mb: 4, '& .MuiOutlinedInput-root': { borderRadius: '12px' } }}
-                                    helperText="A short summary that appears on the blog listing page."
-                                />
+                                <div className="space-y-4 pt-2">
+                                    <TextField
+                                        select
+                                        label="Status"
+                                        name="status"
+                                        value={currentBlog.status}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        disabled={!isUpdate}
+                                        helperText={!isUpdate ? "New posts are published automatically." : ""}
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                    >
+                                        <MenuItem value="Draft">Draft</MenuItem>
+                                        <MenuItem value="Published">Published</MenuItem>
+                                    </TextField>
 
-                                <div className="mb-8">
-                                    <Typography variant="subtitle2" className="mb-3 text-gray-700 font-bold flex items-center gap-2">
-                                        <ArticleIcon fontSize="small" color="primary" /> Main Content
-                                    </Typography>
-                                    <ReactQuill
-                                        theme="snow"
-                                        value={currentBlog.content}
-                                        onChange={(value) => setCurrentBlog(prev => ({ ...prev, content: value }))}
-                                        style={{ height: '400px', display: 'flex', flexDirection: 'column' }}
-                                        className="bg-white rounded-xl overflow-hidden border border-gray-200"
-                                        modules={{
-                                            toolbar: [
-                                                [{ 'header': [1, 2, 3, false] }],
-                                                ['bold', 'italic', 'underline', 'strike'],
-                                                [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                                                ['link', 'image', 'video'],
-                                                ['clean']
-                                            ],
-                                        }}
+                                    <TextField
+                                        select
+                                        label="Category"
+                                        name="category"
+                                        value={currentBlog.category}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                    >
+                                        {['Travel', 'Food', 'News', 'Lifestyle', 'Updates', 'Tips & Tricks'].map(c => (
+                                            <MenuItem key={c} value={c}>{c}</MenuItem>
+                                        ))}
+                                    </TextField>
+
+                                    <TextField
+                                        label="Author"
+                                        name="author"
+                                        value={currentBlog.author}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                    />
+
+                                    <TextField
+                                        label="URL Slug"
+                                        name="slug"
+                                        value={currentBlog.slug}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                                        helperText="Auto-generated from title"
                                     />
                                 </div>
-                            </Grid>
 
-                            <Grid item xs={12} md={4}>
-                                <Box className="bg-gray-50/50 border border-gray-100 p-5 rounded-2xl space-y-5">
-                                    <DragDropImageUploader
-                                        label="Cover Image"
-                                        image={currentBlog.image}
-                                        onImageChange={handleImageChange}
-                                        folder="blogs"
-                                        height={200}
+                                <Box className="pt-4 border-t border-gray-200 mt-6 !mb-2">
+                                    <Typography variant="subtitle2" className="mb-4 text-gray-700 font-bold flex items-center gap-2">
+                                        SEO Metadata
+                                    </Typography>
+                                    <TextField
+                                        label="Meta Title"
+                                        name="metaTitle"
+                                        value={currentBlog.metaTitle}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        size="small"
+                                        sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                                        helperText="Defaults to article title"
                                     />
-
-                                    <div className="space-y-4 pt-2">
-                                        <TextField
-                                            select
-                                            label="Status"
-                                            name="status"
-                                            value={currentBlog.status}
-                                            onChange={handleChange}
-                                            fullWidth
-                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                                        >
-                                            <MenuItem value="Draft">Draft</MenuItem>
-                                            <MenuItem value="Published">Published</MenuItem>
-                                        </TextField>
-
-                                        <TextField
-                                            select
-                                            label="Category"
-                                            name="category"
-                                            value={currentBlog.category}
-                                            onChange={handleChange}
-                                            fullWidth
-                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                                        >
-                                            {['Travel', 'Food', 'News', 'Lifestyle', 'Updates', 'Tips & Tricks'].map(c => (
-                                                <MenuItem key={c} value={c}>{c}</MenuItem>
-                                            ))}
-                                        </TextField>
-
-                                        <TextField
-                                            label="Author"
-                                            name="author"
-                                            value={currentBlog.author}
-                                            onChange={handleChange}
-                                            fullWidth
-                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                                        />
-
-                                        <TextField
-                                            label="URL Slug"
-                                            name="slug"
-                                            value={currentBlog.slug}
-                                            onChange={handleChange}
-                                            fullWidth
-                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
-                                            helperText="Auto-generated from title"
-                                        />
-                                    </div>
-
-                                    <Box className="pt-4 border-t border-gray-200 mt-6 !mb-2">
-                                        <Typography variant="subtitle2" className="mb-4 text-gray-700 font-bold flex items-center gap-2">
-                                            SEO Metadata
-                                        </Typography>
-                                        <TextField
-                                            label="Meta Title"
-                                            name="metaTitle"
-                                            value={currentBlog.metaTitle}
-                                            onChange={handleChange}
-                                            fullWidth
-                                            size="small"
-                                            sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                                            helperText="Defaults to article title"
-                                        />
-                                        <TextField
-                                            label="Meta Description"
-                                            name="metaDescription"
-                                            value={currentBlog.metaDescription}
-                                            onChange={handleChange}
-                                            fullWidth
-                                            size="small"
-                                            multiline
-                                            rows={3}
-                                            sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                                            helperText="Best under 160 characters for search results"
-                                        />
-                                        <TextField
-                                            label="Meta Keywords"
-                                            name="metaKeywords"
-                                            value={currentBlog.metaKeywords}
-                                            onChange={handleChange}
-                                            fullWidth
-                                            size="small"
-                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
-                                            helperText="Comma-separated keywords"
-                                        />
-                                    </Box>
+                                    <TextField
+                                        label="Meta Description"
+                                        name="metaDescription"
+                                        value={currentBlog.metaDescription}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        size="small"
+                                        multiline
+                                        rows={3}
+                                        sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                                        helperText="Best under 160 characters for search results"
+                                    />
+                                    <TextField
+                                        label="Meta Keywords"
+                                        name="metaKeywords"
+                                        value={currentBlog.metaKeywords}
+                                        onChange={handleChange}
+                                        fullWidth
+                                        size="small"
+                                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: '8px' } }}
+                                        helperText="Comma-separated keywords"
+                                    />
                                 </Box>
-                            </Grid>
+                            </Box>
                         </Grid>
-                    </div>
+                    </Grid>
                 </DialogContent>
-                <DialogActions sx={{ px: 4, pb: 4, pt: 2, bgcolor: '#fafafa' }}>
+                <DialogActions sx={{ px: { xs: 2, sm: 4 }, pb: { xs: 2, sm: 4 }, pt: 2, bgcolor: '#fafafa', flexWrap: 'wrap', gap: 1 }}>
                     <Button onClick={handleCloseModal} sx={{ color: 'gray', borderRadius: '10px', px: 3, fontWeight: 600 }}>Cancel</Button>
                     <Button
                         onClick={handleSave}

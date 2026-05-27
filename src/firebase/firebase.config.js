@@ -60,6 +60,7 @@ const generalPartnersCollection = collection(db, "general_partners");
 const vanCompaniesCollection = collection(db, "vanCompanies");
 const vanBookingsCollection = collection(db, "vanBookings");
 const deletionRequestsCollection = collection(db, "DeletionRequests");
+const contactMessagesCollection = collection(db, "ContactMessages");
 
 // Website Config Collections
 const contentCollection = collection(db, "ContentDB");
@@ -118,6 +119,7 @@ export {
   vanBookingsCollection,
   deletionRequestsCollection,
   storage,
+  contactMessagesCollection,
 
   // Website Config Collections
   contentCollection,

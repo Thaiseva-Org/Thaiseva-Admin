@@ -8,9 +8,9 @@ import { RouterProvider } from "react-router-dom";
 import PartnerProvider from "./contextAPIs/PartnerProvider";
 import RequirementsProvider from "./contextAPIs/RequirementsProvider";
 import { SnackbarProvider } from "notistack";
-import { LoadScript } from "@react-google-maps/api";
 import PartnerChatProvider from "./contextAPIs/PartnerChatProvider";
 import { NotificationsProvider } from "./contextAPIs/NotificationsProvider";
+import GoogleMapsProvider from "./components/GoogleMapsProvider";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -21,13 +21,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             <NotificationsProvider>
               <PartnerChatProvider>
                 <SnackbarProvider maxSnack={3}>
-                  <LoadScript
-                    id="google-map-script"
-                    googleMapsApiKey={import.meta.env.VITE_Google_Api_Key}
-                    libraries={["places"]}
-                  >
+                  <GoogleMapsProvider>
                     <RouterProvider router={router} />
-                  </LoadScript>
+                  </GoogleMapsProvider>
                 </SnackbarProvider>
               </PartnerChatProvider>
             </NotificationsProvider>

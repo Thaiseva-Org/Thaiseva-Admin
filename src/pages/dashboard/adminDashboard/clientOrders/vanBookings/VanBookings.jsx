@@ -39,6 +39,7 @@ import {
 import { updateHourlyEarnings, updateMonthlyEarnings } from "../../../../../services/Earning";
 import AddVanBookingModal from "./AddVanBookingModal";
 import { useNotifications } from "../../../../../contextAPIs/NotificationsProvider";
+import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
 
 const VanBookings = () => {
     const { CreateNewNotificationToUser } = useNotifications();
@@ -352,6 +353,9 @@ const VanBookings = () => {
                                                         {row.passengers?.length > 0 && <span className="text-xs font-bold text-primary-600 ml-1">(+{row.passengers.length})</span>}
                                                     </span>
                                                     <span className="text-xs text-neutral-500">Ag: {row.agentName || 'None'}</span>
+                                                    {getBookingSpecialNotes(row) && (
+                                                        <span className="text-xs text-neutral-500">Note: {getBookingSpecialNotes(row)}</span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4 text-center">

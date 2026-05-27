@@ -50,6 +50,8 @@ import {
   VanBookings,
   Blogs,
   Services,
+  FAQs,
+  Testimonials,
   ContactUs
 } from "../pages";
 import StatisticsProvider from "../contextAPIs/StatisticsProvider";
@@ -307,6 +309,22 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <Services />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/faqs",
+        element: (
+          <AdminRoute>
+            <FAQs />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/testimonials",
+        element: (
+          <AdminRoute>
+            <Testimonials />
           </AdminRoute>
         ),
       },

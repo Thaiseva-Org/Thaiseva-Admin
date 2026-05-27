@@ -223,6 +223,12 @@ const Blogs = lazy(() =>
 const Services = lazy(() =>
   import("./dashboard/adminDashboard/websiteConfig/Services")
 );
+const FAQs = lazy(() =>
+  import("./dashboard/adminDashboard/websiteConfig/FAQs")
+);
+const Testimonials = lazy(() =>
+  import("./dashboard/adminDashboard/websiteConfig/Testimonials")
+);
 const ContactUs = lazy(() =>
   import("./dashboard/adminDashboard/websiteConfig/ContactUs")
 );
@@ -315,5 +321,7 @@ export {
   // Website Config export
   Blogs,
   Services,
+  FAQs,
+  Testimonials,
   ContactUs,
 };

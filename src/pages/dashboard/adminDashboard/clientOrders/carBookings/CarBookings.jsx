@@ -41,6 +41,7 @@ import {
   fetchBookingsTotalPages,
 } from "../../../../../services/Bookings";
 import { useNotifications } from "../../../../../contextAPIs/NotificationsProvider";
+import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
 
 const CarBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
@@ -719,6 +720,7 @@ const CarBookings = () => {
 
               {/* Required time */}
               {textField("Required time", `${bookingDetails?.time}`)}
+              {getBookingSpecialNotes(bookingDetails) && textField("Special Notes", getBookingSpecialNotes(bookingDetails), true)}
 
               {/* booking time */}
               {textField(

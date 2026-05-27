@@ -12,22 +12,14 @@ import {
     Skeleton,
     Fade
 } from "@mui/material";
-import {
-    collection,
-    getDocs,
-    addDoc,
-    updateDoc,
-    deleteDoc,
-    doc,
-    serverTimestamp,
-} from "firebase/firestore";
-import { db } from "../../../../firebase/firebase.config";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
 import Swal from "sweetalert2";
 import DeleteIcon from "@mui/icons-material/DeleteOutlined";
 import EditIcon from "@mui/icons-material/EditOutlined";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import { deleteFAQ, getAdminFAQs, saveFAQ } from "../../../../services/WebsiteConfig";
+import { faqSchema, getZodErrorMessage } from "../../../../validation/websiteConfigSchemas";
 
 // Custom Modal Components
 import Dialog from "@mui/material/Dialog";
@@ -51,14 +43,11 @@ const FAQs = () => {
     const fetchFaqs = async () => {
         setLoading(true);
         try {
-            const querySnapshot = await getDocs(collection(db, "FaqDB"));
-            const data = querySnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
+            const data = await getAdminFAQs();
             setFaqs(data);
         } catch (error) {
             console.error("Error fetching FAQs:", error);
+            Swal.fire("Error", "Failed to fetch FAQs.", "error");
         } finally {
             setTimeout(() => setLoading(false), 500);
         }
@@ -97,26 +86,21 @@ const FAQs = () => {
     };
 
     const handleSave = async () => {
-        if (!currentFaq.question || !currentFaq.answer) {
-            Swal.fire("Validation Error", "Question and Answer are required", "warning");
+        const parsedFaq = faqSchema.safeParse({
+            ...currentFaq,
+            question: currentFaq.question.trim(),
+            answer: currentFaq.answer.trim(),
+            category: currentFaq.category.trim(),
+        });
+
+        if (!parsedFaq.success) {
+            Swal.fire("Validation Error", getZodErrorMessage(parsedFaq.error), "warning");
             return;
         }
 
         try {
-            if (isUpdate && selectedId) {
-                const docRef = doc(db, "FaqDB", selectedId);
-                await updateDoc(docRef, {
-                    ...currentFaq,
-                    updatedAt: serverTimestamp(),
-                });
-                Swal.fire({ icon: 'success', title: 'Updated', timer: 1000, showConfirmButton: false });
-            } else {
-                await addDoc(collection(db, "FaqDB"), {
-                    ...currentFaq,
-                    createdAt: serverTimestamp(),
-                });
-                Swal.fire({ icon: 'success', title: 'Added', timer: 1000, showConfirmButton: false });
-            }
+            await saveFAQ(parsedFaq.data, isUpdate ? selectedId : null);
+            Swal.fire({ icon: 'success', title: isUpdate ? 'Updated' : 'Added', timer: 1000, showConfirmButton: false });
             setOpenModal(false);
             fetchFaqs();
         } catch (error) {
@@ -134,7 +118,7 @@ const FAQs = () => {
         }).then(async (result) => {
             if (result.isConfirmed) {
                 try {
-                    await deleteDoc(doc(db, "FaqDB", id));
+                    await deleteFAQ(id);
                     fetchFaqs();
                     Swal.fire("Deleted", "", "success");
                 } catch (error) {

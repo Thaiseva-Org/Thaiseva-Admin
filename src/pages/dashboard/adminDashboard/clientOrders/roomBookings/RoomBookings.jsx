@@ -73,6 +73,7 @@ import {
   updateMonthlyEarnings,
 } from "../../../../../services/Earning";
 import { useNotifications } from "../../../../../contextAPIs/NotificationsProvider";
+import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
 
 const RoomBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
@@ -481,6 +482,7 @@ const RoomBookings = () => {
       nationality: booking.nationality || "N/A",
       nights: booking.nights,
       roomName: booking.roomName,
+      specialNotes: getBookingSpecialNotes(booking),
       paymentMethod: booking.paymentMethod,
       currency: booking.currency,
       amountINR: booking.amountINR,
@@ -509,8 +511,17 @@ const RoomBookings = () => {
 
   // Status Timeline Component
   const BookingTimeline = ({ booking }) => {
+    const getTimelineDate = (value) => {
+      if (!value) return "";
+      const date = value.seconds
+        ? new Date(value.seconds * 1000 + (value.nanoseconds || 0) / 1000000)
+        : new Date(value);
+
+      return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString();
+    };
+
     const steps = [
-      { label: "Booked", date: booking.orderedAt ? new Date(booking.orderedAt.seconds * 1000).toLocaleDateString() : "", completed: true },
+      { label: "Booked", date: getTimelineDate(booking.orderedAt || booking.createdAt), completed: true },
       { label: "Confirmed", date: "", completed: booking.status === "Accepted" || booking.bookingStatus === "ACCEPTED" },
       { label: "Check-In", date: booking.checkIn, completed: new Date() >= new Date(booking.checkIn) && booking.status === "Accepted" },
       { label: "Check-Out", date: booking.checkOut, completed: new Date() >= new Date(booking.checkOut) && booking.status === "Accepted" },
@@ -691,7 +702,8 @@ const RoomBookings = () => {
 
   // setting booking details to the state
   const handleViewBookingDetails = async (id) => {
-    const bookings = rows(roomBookings).filter((item) => item.bookingId === id);
+    const sourceBookings = isRealTime ? roomBookings : matchedBookings;
+    const bookings = rows(sourceBookings).filter((item) => item.bookingId === id);
     setBookingDetails(bookings[0]);
     setOpenBookingDetailsModal(true);
   };
@@ -1361,6 +1373,7 @@ const RoomBookings = () => {
                 {renderDetailItem("Email", bookingDetails?.email || "N/A", <EmailIcon fontSize="small" />, false, "text-purple-600 bg-purple-50")}
                 {renderDetailItem("Nationality", bookingDetails?.nationality || "N/A", <PublicIcon fontSize="small" />, false, "text-purple-600 bg-purple-50")}
                 {renderDetailItem("Guests", `${bookingDetails?.adults || 0} Adults, ${bookingDetails?.children || 0} Children`, <PersonIcon fontSize="small" />, true, "text-purple-600 bg-purple-50")}
+                {bookingDetails?.specialNotes && renderDetailItem("Special Notes", bookingDetails.specialNotes, <MdInfo fontSize="small" />, true, "text-purple-600 bg-purple-50")}
               </Grid>
             </div>
 

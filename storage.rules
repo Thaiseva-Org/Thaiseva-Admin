@@ -7,20 +7,13 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isAuthenticated() && (
-        request.auth.token.admin == true || 
-        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ["Admin", "admin"]
-      );
-    }
-
     // --- RULES ---
     match /{allPaths=**} {
       // Allow public read for all files (catalogs, blogs, hotel images, etc.)
       allow read: if true;
       
-      // Only admins can upload, update, or delete files
-      allow write: if isAdmin();
+      // Authenticated users upload profile, service, room, package, and chat files.
+      allow write: if isAuthenticated();
     }
   }
 }
