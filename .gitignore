@@ -23,3 +23,40 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Local / temporary logs and artifacts
+build_err.txt
+import_errors.txt
+import_errors_utf8.txt
+lint_errors.txt
+lint_output.txt
+vite.config.js.timestamp-*
+
+# Mock/sensitive data
+users_check.json
+
+# Developer helper files, mockups and scripts
+test.js
+check_imports.py
+src/push_self_drive.js
+
+# Developer summaries/walkthroughs
+walkthrough.md
+AUTOMATION_LOGIC_REPORT.md
+Project_Status_Report.csv
+SIGHTSEEING_BOOKING_COMPLETE_FIX.md
+SIGHTSEEING_BOOKING_FIX.md
+SIGHTSEEING_COMPLETE_SUMMARY.md
+SIGHTSEEING_SORTING_FIX.md
+SECURITY_AUDIT_REPORT.md
+
+# Unused pages/components (ignored locally)
+src/pages/LocalRequirementCategoryAdd.jsx
+src/pages/ShoppingMallAdd.jsx
+src/pages/forms/MessageToAgent.jsx
+src/pages/forms/RestaurantOnboarding.jsx
+src/components/IconButton.jsx
+src/components/Secured.jsx
+src/components/AddRequirementIcon.jsx
+src/components/NotificationOffers.jsx
+
