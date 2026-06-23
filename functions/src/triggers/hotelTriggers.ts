@@ -4,7 +4,7 @@ import {
 } from "firebase-functions/v2/firestore";
 import { getFirestore } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
-import { sendWhatsAppNotification } from "../utils/whatsapp";
+import { sendTelegramNotification } from "../utils/telegram";
 
 const isMissingHotelName = (hotelName: unknown) => {
   if (typeof hotelName !== "string") return true;
@@ -55,9 +55,20 @@ export const forceHotelBookingPending = onDocumentCreated(
       hotelName && isMissingHotelName(bookingData.hotelName);
     const updateData: Record<string, unknown> = {};
 
-    await sendWhatsAppNotification("notification", [
-      `New Hotel Booking: ${event.params.bookingId}`,
-    ]);
+    const name = bookingData.customerName || bookingData.name || bookingData.firstName || "Unknown Customer";
+    const finalHotelName = shouldSaveHotelName ? hotelName : (bookingData.hotelName || "Unknown Hotel");
+    const checkIn = bookingData.checkInDate || bookingData.checkIn || "Unknown";
+    const checkOut = bookingData.checkOutDate || bookingData.checkOut || "Unknown";
+    const amount = bookingData.totalAmount || bookingData.price || "N/A";
+
+    const message = `<b>🏨 New Hotel Booking</b>\n` +
+                    `🆔 <code>${event.params.bookingId}</code>\n` +
+                    `👤 ${name}\n` +
+                    `🏢 ${finalHotelName}\n` +
+                    `📅 ${checkIn} - ${checkOut}\n` +
+                    `💰 ฿${amount}`;
+
+    await sendTelegramNotification(message);
 
     if (shouldSaveHotelName) {
       updateData.hotelName = hotelName;
@@ -118,11 +129,17 @@ export const onHotelBookingStatusChangeV3 = onDocumentUpdated(
         `${statusBefore} -> ${statusAfter}`,
     );
 
+    const name = after.customerName || after.name || after.firstName || "Unknown Customer";
+    const finalHotelName = after.hotelName || "Unknown Hotel";
+
     if (statusAfter === "Accepted" || statusAfter === "ACCEPTED") {
-      logger.info("Sending WhatsApp Notification: Booking Accepted");
-      await sendWhatsAppNotification("notification", [
-        `Hotel Booking ${event.params.bookingId} Accepted`,
-      ]);
+      logger.info("Sending Telegram Notification: Booking Accepted");
+      await sendTelegramNotification(
+        `<b>✅ Hotel Booking Accepted</b>\n` +
+        `🆔 <code>${event.params.bookingId}</code>\n` +
+        `👤 ${name}\n` +
+        `🏢 ${finalHotelName}`
+      );
     }
 
     if (
@@ -130,10 +147,13 @@ export const onHotelBookingStatusChangeV3 = onDocumentUpdated(
       statusAfter === "CANCELED" ||
       statusAfter === "Cancelled"
     ) {
-      logger.info("Sending WhatsApp Notification: Booking Canceled");
-      await sendWhatsAppNotification("notification", [
-        `Hotel Booking ${event.params.bookingId} Cancelled`,
-      ]);
+      logger.info("Sending Telegram Notification: Booking Canceled");
+      await sendTelegramNotification(
+        `<b>❌ Hotel Booking Cancelled</b>\n` +
+        `🆔 <code>${event.params.bookingId}</code>\n` +
+        `👤 ${name}\n` +
+        `🏢 ${finalHotelName}`
+      );
     }
   },
 );

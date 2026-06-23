@@ -55,10 +55,6 @@ const MyLocalRequirements = () => {
   const [loading, setLoading] = useState(false);
   const [matchedRequirements, setMatchedRequirements] = useState([]);
 
-  if (!isVerifiedPartner) {
-    return <PendingPartnership />;
-  }
-
   const handleDateRangeSubmit = (event) => {
     event.preventDefault();
     if (endDate == "") {
@@ -92,6 +88,10 @@ const MyLocalRequirements = () => {
       );
     }
   }, [isVerifiedPartner, user, page, rowsPerPage, isRealTime, refetch]);
+
+  if (!isVerifiedPartner) {
+    return <PendingPartnership />;
+  }
 
   const handleChangePage = (_, newPage) => {
     setPage(newPage);

@@ -6,9 +6,9 @@ import SentimentVeryDissatisfiedIcon from "@mui/icons-material/SentimentVeryDiss
 import Unauthorized from "../components/Unauthorized";
 
 const PartnerRoute = ({ children }) => {
-  const { userData, isLoading, isPartner } = useContext(AuthContext);
+  const { userData, loading, isPartner } = useContext(AuthContext);
 
-  if (isLoading) {
+  if (loading) {
     return <Loading />;
   }
   //Returning account pending message

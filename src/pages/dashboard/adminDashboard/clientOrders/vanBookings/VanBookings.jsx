@@ -11,7 +11,13 @@ import {
     Select,
     FormControl,
     InputLabel,
-    Button
+    Button,
+    Grid,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Box,
+    Typography
 } from "@mui/material";
 import {
     collection,
@@ -34,7 +40,10 @@ import {
     askingForDelete,
     deleteNotification,
     successNotification,
-    getDateAndTime
+    getDateAndTime,
+    dateCalculator,
+    timeCalculator,
+    formatPhoneNumber
 } from "../../../../../utils/utils";
 import { updateHourlyEarnings, updateMonthlyEarnings } from "../../../../../services/Earning";
 import AddVanBookingModal from "./AddVanBookingModal";
@@ -56,6 +65,16 @@ const VanBookings = () => {
     const [dateFrom, setDateFrom] = useState("");
     const [dateTo, setDateTo] = useState("");
     const [searchText, setSearchText] = useState("");
+
+    const [openConfirmModal, setOpenConfirmModal] = useState(false);
+    const [confirmBookingDetails, setConfirmBookingDetails] = useState({
+        Driver: { name: "", phone: "" },
+        vehicleDetails: { vehicle: "", vehicleNumber: "" },
+        AmountOffered: "",
+        comission: 0,
+        status: "Accepted",
+    });
+    const [confirmError, setConfirmError] = useState({ for: "", text: "" });
 
     // Filtering Logic
     const filterBookings = () => {
@@ -187,17 +206,19 @@ const VanBookings = () => {
     const handleUpdateStatus = async (row, newStatus) => {
         try {
             const collectionRef = row.source === 'mobile' ? carBookingsCollection : vanBookingsCollection;
-            await updateDoc(doc(collectionRef, row.id), { status: newStatus });
+            const updatedStatus = row.source === 'mobile' && newStatus === 'Cancelled' ? 'Canceled' : newStatus;
+            await updateDoc(doc(collectionRef, row.id), { status: updatedStatus });
 
-            if (newStatus === "Confirmed") {
-                await updateHourlyEarnings(row.price || 0, "Vans");
-                await updateMonthlyEarnings(row.price || 0, "Vans");
+            if (newStatus === "Confirmed" || newStatus === "Accepted") {
+                const finalPrice = row.price || row.AmountOffered || 0;
+                await updateHourlyEarnings(finalPrice, "Vans");
+                await updateMonthlyEarnings(finalPrice, "Vans");
             }
 
             // Notification for Mobile Users
             if (row.source === 'mobile' && row.userId) {
-                const title = newStatus === 'Confirmed' ? "Van Booking Confirmed" : "Van Booking Cancelled";
-                const message = newStatus === 'Confirmed'
+                const title = newStatus === 'Confirmed' || newStatus === 'Accepted' ? "Van Booking Confirmed" : "Van Booking Cancelled";
+                const message = newStatus === 'Confirmed' || newStatus === 'Accepted'
                     ? `Your van booking from ${row.pickupLocation} is confirmed.`
                     : `Your van booking from ${row.pickupLocation} has been cancelled.`;
 
@@ -207,6 +228,64 @@ const VanBookings = () => {
             successNotification(`Booking marked as ${newStatus}`);
         } catch (err) {
             console.error(err);
+        }
+    };
+
+    const handleConfirmMobileBooking = async () => {
+        setConfirmError({ for: "", text: "" });
+        if (confirmBookingDetails.Driver.name.trim().length < 1) {
+            setConfirmError({ for: "driverName", text: "Driver name is required." });
+            return;
+        }
+        if (confirmBookingDetails.Driver.phone.trim().length < 1) {
+            setConfirmError({ for: "driverPhone", text: "Driver number is required." });
+            return;
+        }
+        if (confirmBookingDetails.vehicleDetails.vehicle.trim().length < 1) {
+            setConfirmError({ for: "vehicle", text: "Vehicle name is required." });
+            return;
+        }
+        if (confirmBookingDetails.vehicleDetails.vehicleNumber.trim().length < 1) {
+            setConfirmError({ for: "vehicleNumber", text: "Vehicle number is required." });
+            return;
+        }
+        if (confirmBookingDetails.AmountOffered.toString().trim().length < 1) {
+            setConfirmError({ for: "amount", text: "Amount is required." });
+            return;
+        }
+        if (confirmBookingDetails.comission.toString().trim().length < 1) {
+            setConfirmError({ for: "comission", text: "Commission is required." });
+            return;
+        }
+
+        if (confirm("Do you want to proceed with confirming this booking?")) {
+            try {
+                await updateDoc(doc(carBookingsCollection, confirmBookingDetails.id), {
+                    Driver: confirmBookingDetails.Driver,
+                    vehicleDetails: confirmBookingDetails.vehicleDetails,
+                    AmountOffered: confirmBookingDetails.AmountOffered,
+                    comission: confirmBookingDetails.comission,
+                    status: "Accepted",
+                });
+
+                await updateHourlyEarnings(confirmBookingDetails.AmountOffered, "Vans");
+                await updateHourlyEarnings(confirmBookingDetails.AmountOffered, "Vans", confirmBookingDetails.Driver.phone);
+                await updateMonthlyEarnings(confirmBookingDetails.AmountOffered, "Vans");
+                await updateMonthlyEarnings(confirmBookingDetails.AmountOffered, "Vans", confirmBookingDetails.Driver.phone);
+
+                if (confirmBookingDetails.userId) {
+                    await CreateNewNotificationToUser(
+                        "Van booking confirm!",
+                        `Hey ${confirmBookingDetails.name}! your van booking is confirmed!`,
+                        confirmBookingDetails.userId
+                    );
+                }
+
+                successNotification("Booking confirmed successfully.");
+                setOpenConfirmModal(false);
+            } catch (err) {
+                console.error(err);
+            }
         }
     };
 
@@ -223,8 +302,10 @@ const VanBookings = () => {
     const getStatusColor = (status) => {
         switch (status?.toLowerCase()) {
             case 'confirmed': return 'success';
+            case 'accepted': return 'success';
             case 'pending': return 'warning';
             case 'cancelled': return 'error';
+            case 'canceled': return 'error';
             default: return 'default';
         }
     };
@@ -364,9 +445,36 @@ const VanBookings = () => {
                                             <td className="px-6 py-4 text-center">
                                                 <div className="flex justify-center gap-1">
                                                     {/* Status Actions */}
-                                                    {(!row.status || row.status === 'Pending') && (
+                                                    {(!row.status || row.status?.toLowerCase() === 'pending') && (
                                                         <>
-                                                            <IconButton size="small" color="success" onClick={() => handleUpdateStatus(row, "Confirmed")} title="Confirm">
+                                                            <IconButton 
+                                                                size="small" 
+                                                                color="success" 
+                                                                onClick={() => {
+                                                                    if (row.source === 'mobile') {
+                                                                        setConfirmBookingDetails({
+                                                                            id: row.id,
+                                                                            name: row.guestName || "",
+                                                                            contact: row.guestPhone || row.contact || "",
+                                                                            pickup: row.pickupLocation || "",
+                                                                            drop: row.dropLocation || "",
+                                                                            transportType: row.vanType || "",
+                                                                            time: row.reqTime || "",
+                                                                            timestamp: row.bookingDate || null,
+                                                                            userId: row.userId || "",
+                                                                            Driver: { name: "", phone: "" },
+                                                                            vehicleDetails: { vehicle: "", vehicleNumber: "" },
+                                                                            AmountOffered: "",
+                                                                            comission: 0,
+                                                                            status: "Accepted"
+                                                                        });
+                                                                        setOpenConfirmModal(true);
+                                                                    } else {
+                                                                        handleUpdateStatus(row, "Confirmed");
+                                                                    }
+                                                                }} 
+                                                                title="Confirm"
+                                                            >
                                                                 <MdCheck />
                                                             </IconButton>
                                                             <IconButton size="small" color="error" onClick={() => handleUpdateStatus(row, "Cancelled")} title="Cancel">
@@ -405,6 +513,173 @@ const VanBookings = () => {
                     bookingData={selectedBooking}
                 />
             )}
+
+            {/* Confirm Mobile Booking Modal */}
+            <Dialog
+                open={openConfirmModal}
+                onClose={() => {
+                    setOpenConfirmModal(false);
+                    setConfirmError({ for: "", text: "" });
+                }}
+                fullWidth
+                maxWidth="md"
+                PaperProps={{ sx: { borderRadius: "16px" } }}
+            >
+                <Box>
+                    <DialogTitle sx={{ m: 0, p: 2, borderBottom: "1px solid #eee", fontSize: "1.25rem", fontWeight: "bold" }}>
+                        Confirm Mobile Van Booking
+                        <IconButton
+                            onClick={() => {
+                                setOpenConfirmModal(false);
+                                setConfirmError({ for: "", text: "" });
+                            }}
+                            sx={{ position: "absolute", right: 8, top: 8, color: "grey.500" }}
+                        >
+                            <MdClose />
+                        </IconButton>
+                    </DialogTitle>
+
+                    <DialogContent dividers sx={{ p: 3 }}>
+                        <Grid container spacing={3}>
+                            {/* Customer Details */}
+                            <Grid item xs={12}>
+                                <Typography variant="subtitle2" sx={{ color: "primary.main", fontWeight: "bold", borderBottom: "1px solid #f0f0f0", pb: 1, mb: 1 }}>
+                                    CUSTOMER DETAILS
+                                </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Typography variant="body2"><span className="font-bold">Guest Name:</span> {confirmBookingDetails.name || "N/A"}</Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Typography variant="body2"><span className="font-bold">Guest Phone:</span> {confirmBookingDetails.contact || "N/A"}</Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Typography variant="body2"><span className="font-bold">Pickup Location:</span> {confirmBookingDetails.pickup || "N/A"}</Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Typography variant="body2"><span className="font-bold">Drop Location:</span> {confirmBookingDetails.drop || "N/A"}</Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Typography variant="body2"><span className="font-bold">Vehicle Type:</span> {confirmBookingDetails.transportType || "N/A"}</Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Typography variant="body2"><span className="font-bold">Required Time:</span> {confirmBookingDetails.time || "N/A"}</Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <Typography variant="body2">
+                                    <span className="font-bold">Booking Time:</span> {confirmBookingDetails.timestamp ? `${dateCalculator(confirmBookingDetails.timestamp)} ${timeCalculator(confirmBookingDetails.timestamp)}` : "N/A"}
+                                </Typography>
+                            </Grid>
+
+                            {/* Driver Details */}
+                            <Grid item xs={12}>
+                                <Typography variant="subtitle2" sx={{ color: "primary.main", fontWeight: "bold", borderBottom: "1px solid #f0f0f0", pb: 1, mb: 1, mt: 2 }}>
+                                    DRIVER ASSIGNMENT
+                                </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    label="Driver Name"
+                                    fullWidth
+                                    value={confirmBookingDetails.Driver.name}
+                                    error={confirmError.for === "driverName"}
+                                    helperText={confirmError.for === "driverName" && confirmError.text}
+                                    onChange={(e) => setConfirmBookingDetails(prev => ({
+                                        ...prev,
+                                        Driver: { ...prev.Driver, name: e.target.value }
+                                    }))}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    label="Driver Phone"
+                                    fullWidth
+                                    value={confirmBookingDetails.Driver.phone}
+                                    error={confirmError.for === "driverPhone"}
+                                    helperText={confirmError.for === "driverPhone" && confirmError.text}
+                                    onChange={(e) => setConfirmBookingDetails(prev => ({
+                                        ...prev,
+                                        Driver: { ...prev.Driver, phone: formatPhoneNumber(e.target.value) }
+                                    }))}
+                                />
+                            </Grid>
+
+                            {/* Vehicle Details */}
+                            <Grid item xs={12}>
+                                <Typography variant="subtitle2" sx={{ color: "primary.main", fontWeight: "bold", borderBottom: "1px solid #f0f0f0", pb: 1, mb: 1, mt: 2 }}>
+                                    VEHICLE DETAILS
+                                </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    label="Vehicle/Van Name"
+                                    fullWidth
+                                    value={confirmBookingDetails.vehicleDetails.vehicle}
+                                    error={confirmError.for === "vehicle"}
+                                    helperText={confirmError.for === "vehicle" && confirmError.text}
+                                    onChange={(e) => setConfirmBookingDetails(prev => ({
+                                        ...prev,
+                                        vehicleDetails: { ...prev.vehicleDetails, vehicle: e.target.value }
+                                    }))}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    label="Plate Number"
+                                    fullWidth
+                                    value={confirmBookingDetails.vehicleDetails.vehicleNumber}
+                                    error={confirmError.for === "vehicleNumber"}
+                                    helperText={confirmError.for === "vehicleNumber" && confirmError.text}
+                                    onChange={(e) => setConfirmBookingDetails(prev => ({
+                                        ...prev,
+                                        vehicleDetails: { ...prev.vehicleDetails, vehicleNumber: e.target.value }
+                                    }))}
+                                />
+                            </Grid>
+
+                            {/* Financial Details */}
+                            <Grid item xs={12}>
+                                <Typography variant="subtitle2" sx={{ color: "primary.main", fontWeight: "bold", borderBottom: "1px solid #f0f0f0", pb: 1, mb: 1, mt: 2 }}>
+                                    PRICING DETAILS
+                                </Typography>
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    label="Amount Offered (฿)"
+                                    type="number"
+                                    fullWidth
+                                    value={confirmBookingDetails.AmountOffered}
+                                    error={confirmError.for === "amount"}
+                                    helperText={confirmError.for === "amount" && confirmError.text}
+                                    onChange={(e) => setConfirmBookingDetails(prev => ({
+                                        ...prev,
+                                        AmountOffered: e.target.value
+                                    }))}
+                                />
+                            </Grid>
+                            <Grid item xs={12} sm={6}>
+                                <TextField
+                                    label="Commission (฿)"
+                                    type="number"
+                                    fullWidth
+                                    value={confirmBookingDetails.comission}
+                                    error={confirmError.for === "comission"}
+                                    helperText={confirmError.for === "comission" && confirmError.text}
+                                    onChange={(e) => setConfirmBookingDetails(prev => ({
+                                        ...prev,
+                                        comission: e.target.value
+                                    }))}
+                                />
+                            </Grid>
+                        </Grid>
+                    </DialogContent>
+
+                    <DialogActions sx={{ p: 2.5, borderTop: "1px solid #eee" }}>
+                        <Button onClick={() => setOpenConfirmModal(false)} color="inherit">Cancel</Button>
+                        <Button onClick={handleConfirmMobileBooking} variant="contained" color="success">Confirm Booking</Button>
+                    </DialogActions>
+                </Box>
+            </Dialog>
         </div>
     );
 };

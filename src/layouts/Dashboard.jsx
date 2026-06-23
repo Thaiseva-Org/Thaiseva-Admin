@@ -91,6 +91,8 @@ function Dashboard(props) {
   const scrollRef = React.useRef(null);
   const { dispatch } = useContext(AdminChatContext);
 
+  const isSuspended = !!userData?.isSuspended;
+
   // Scroll to top of main container on route change
   React.useLayoutEffect(() => {
     if (scrollRef.current) {
@@ -105,14 +107,6 @@ function Dashboard(props) {
     setQueryText(text);
     setActiveStatus(i);
   };
-
-  if (userData?.isSuspended) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center text-red-500 text-xl font-bold">
-        <h3 className="text-xl">Your account has been banned permanently.</h3>
-      </div>
-    );
-  }
 
   let partnerNavRoutes = [
     {
@@ -645,6 +639,14 @@ function Dashboard(props) {
   //     </List>
   //   </div>
   // );
+
+  if (isSuspended) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center text-red-500 text-xl font-bold">
+        <h3 className="text-xl">Your account has been banned permanently.</h3>
+      </div>
+    );
+  }
 
   const newdrawer = (
     <div className="bg-[var(--primary-bg)] bg-white text-[var(--drawer-inactive-color)] dashboard-menu mb-5">

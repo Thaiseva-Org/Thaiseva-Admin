@@ -102,7 +102,9 @@ const AddedRooms = () => {
     numberOfReviews,
     noOfGuest,
     status,
-    id
+    id,
+    hasExtraBed,
+    extraBedPrice
   ) {
     return {
       packageName,

@@ -123,7 +123,14 @@ const Bookings = () => {
     const rawStatus = booking.bookingStatus || booking.status || "";
     const upperStatus = String(rawStatus).toUpperCase();
 
-    if (upperStatus === "PENDING") return "Pending";
+    if (
+      upperStatus === "PENDING" ||
+      upperStatus === "AWAITING_PAYMENT" ||
+      upperStatus === "PENDING_VERIFICATION" ||
+      upperStatus === "PAYMENT_PENDING"
+    ) {
+      return "Pending";
+    }
     if (upperStatus === "ACCEPTED" || upperStatus === "CONFIRMED") return "Accepted";
     if (
       upperStatus === "CANCELED" ||

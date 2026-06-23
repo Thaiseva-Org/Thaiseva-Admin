@@ -1,4 +1,4 @@
-import { useContext } from "react";
+import { useContext, useMemo } from "react";
 import { useState } from "react";
 import { useEffect } from "react";
 import { MdVisibility, MdInfo } from "react-icons/md";
@@ -343,7 +343,10 @@ const RoomBookings = () => {
 
     // Process only Pending bookings from selection
     const rawData = isRealTime ? roomBookings : matchedBookings;
-    const targets = rawData.filter(b => selectedBookings.includes(b.bookingId || b.id) && (b.status === "Pending" || b.bookingStatus === "PENDING"));
+    const targets = rawData.filter((b) => {
+      const status = normalizeBookingStatus(b);
+      return selectedBookings.includes(b.bookingId || b.id) && status === "Pending";
+    });
 
     setLoading(true);
     let count = 0;
@@ -389,10 +392,10 @@ const RoomBookings = () => {
       if (amount > 0 && (booking.hotelUid || booking.hotelId)) {
         const hotelId = booking.hotelUid || booking.hotelId;
         // Intentionally fire-and-forget these to speed up
-        updateHourlyEarnings(amount, "Hotels");
-        updateHourlyEarnings(amount, "Hotels", hotelId);
-        updateMonthlyEarnings(amount, "Hotels");
-        updateMonthlyEarnings(amount, "Hotels", hotelId);
+        await updateHourlyEarnings(amount, "Hotels");
+        await updateHourlyEarnings(amount, "Hotels", hotelId);
+        await updateMonthlyEarnings(amount, "Hotels");
+        await updateMonthlyEarnings(amount, "Hotels", hotelId);
       }
 
       if (booking.userId) {
@@ -420,7 +423,24 @@ const RoomBookings = () => {
     { property: "action", label: "Action", width: "10%" },
   ];
 
-  // creating single row
+  const normalizeBookingStatus = (booking = {}) => {
+    const rawStatus = booking.bookingStatus || booking.status || "";
+    const upper = String(rawStatus).toUpperCase();
+
+    if (
+      upper === "PENDING" ||
+      upper === "AWAITING_PAYMENT" ||
+      upper === "PENDING_VERIFICATION" ||
+      upper === "PAYMENT_PENDING"
+    ) {
+      return "Pending";
+    }
+    if (upper === "ACCEPTED" || upper === "CONFIRMED") return "Accepted";
+    if (upper === "CANCELED" || upper === "CANCELLED" || upper === "REJECTED" || upper === "DENIED") return "Canceled";
+
+    return booking.status || rawStatus || "Pending";
+  };
+
   // creating single row
   function createData(booking) {
     const checkInRaw = booking.checkInDate || booking.checkIn;
@@ -434,17 +454,6 @@ const RoomBookings = () => {
     const checkOutDate = checkOutRaw?.seconds
       ? new Date(checkOutRaw.seconds * 1000 + checkOutRaw.nanoseconds / 1000000)
       : new Date(checkOutRaw);
-
-    // Normalize Status
-    let status = booking.status;
-    const rawStatus = booking.bookingStatus || booking.status;
-    if (typeof rawStatus === 'string') {
-      const upper = rawStatus.toUpperCase();
-      if (upper === 'PENDING') status = 'Pending';
-      else if (upper === 'ACCEPTED' || upper === 'CONFIRMED') status = 'Accepted';
-      else if (upper === 'CANCELED' || upper === 'CANCELLED' || upper === 'REJECTED' || upper === 'DENIED') status = 'Canceled';
-      else status = rawStatus; // Fallback
-    }
 
     return {
       ...booking,
@@ -470,7 +479,7 @@ const RoomBookings = () => {
       amount: booking.amountTHB || booking.amount,
       orderedAt: orderedAtRaw,
       roomNumbers: booking.roomNumbers,
-      status: status,
+      status: normalizeBookingStatus(booking),
       packageId: booking.packageId,
       bookingId: booking.id || booking.bookingId,
       managerPhone: booking.managerPhone,
@@ -508,6 +517,19 @@ const RoomBookings = () => {
       return createData(booking);
     });
   };
+
+  const sourceBookings = isRealTime ? roomBookings : matchedBookings;
+
+  const bookingStats = useMemo(() => {
+    const visibleBookings = rows(sourceBookings) || [];
+
+    return {
+      total: visibleBookings.length,
+      accepted: visibleBookings.filter((booking) => booking.status === "Accepted").length,
+      pending: visibleBookings.filter((booking) => booking.status === "Pending").length,
+      declined: visibleBookings.filter((booking) => booking.status === "Canceled").length,
+    };
+  }, [sourceBookings, searchQuery]);
 
   // Status Timeline Component
   const BookingTimeline = ({ booking }) => {
@@ -778,9 +800,7 @@ const RoomBookings = () => {
               <p className="text-primary-100 text-sm font-medium mb-1">
                 Total Bookings
               </p>
-              <p className="text-3xl font-bold">
-                {(isRealTime ? roomBookings : matchedBookings).length}
-              </p>
+              <p className="text-3xl font-bold">{bookingStats.total}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <span className="text-3xl">📅</span>
@@ -788,19 +808,16 @@ const RoomBookings = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg">
+        <div
+          onClick={() => setTabValue(1)}
+          className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-success-100 text-sm font-medium mb-1">
                 Accepted
               </p>
-              <p className="text-3xl font-bold">
-                {
-                  (isRealTime ? roomBookings : matchedBookings).filter(
-                    (b) => b.status === "Accepted"
-                  ).length
-                }
-              </p>
+              <p className="text-3xl font-bold">{bookingStats.accepted}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <span className="text-3xl">✅</span>
@@ -808,19 +825,16 @@ const RoomBookings = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-warning-500 to-warning-600 rounded-xl p-6 text-white shadow-lg">
+        <div
+          onClick={() => setTabValue(0)}
+          className="bg-gradient-to-br from-warning-500 to-warning-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-warning-100 text-sm font-medium mb-1">
                 Pending
               </p>
-              <p className="text-3xl font-bold">
-                {
-                  (isRealTime ? roomBookings : matchedBookings).filter(
-                    (b) => b.status === "Pending"
-                  ).length
-                }
-              </p>
+              <p className="text-3xl font-bold">{bookingStats.pending}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <span className="text-3xl">⏳</span>

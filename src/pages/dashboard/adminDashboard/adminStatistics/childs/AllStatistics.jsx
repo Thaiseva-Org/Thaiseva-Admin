@@ -1,5 +1,6 @@
 import { useContext, useMemo, useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -84,6 +85,7 @@ const AllStatistics = () => {
     setToDate,
     filterRange,
     loading,
+    error,
   } = useContext(StatisticsContext);
   const [chartType, setChartType] = useState("Bar");
 
@@ -120,6 +122,12 @@ const AllStatistics = () => {
 
   return (
     <Box sx={{ pb: 4 }}>
+      {error ? (
+        <Alert severity="warning" sx={{ mb: 3, borderRadius: 3 }}>
+          {error}
+        </Alert>
+      ) : null}
+
       <Paper
         elevation={0}
         sx={{

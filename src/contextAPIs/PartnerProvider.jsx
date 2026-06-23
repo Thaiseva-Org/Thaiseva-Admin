@@ -220,26 +220,22 @@ const PartnerProvider = ({ children }) => {
 
   // loading all hotels
   useEffect(() => {
-    const loadHotels = async () => {
-      setLoadingPartnerData(true);
-      const unSub = onSnapshot(
-        hotelsCollection,
-        (result) => {
-          if (result) {
-            const list = result.docs.map((doc) => doc.data());
-            setHotels(list);
-            setLoadingPartnerData(false);
-          }
-        },
-        handleSnapshotError("Hotels", () => setHotels([]))
-      );
+    if (!(isAdmin || isSubAdmin)) return;
 
-      return () => {
-        unSub();
-      };
-    };
+    setLoadingPartnerData(true);
+    const unSub = onSnapshot(
+      hotelsCollection,
+      (result) => {
+        if (result) {
+          const list = result.docs.map((doc) => doc.data());
+          setHotels(list);
+          setLoadingPartnerData(false);
+        }
+      },
+      handleSnapshotError("Hotels", () => setHotels([]))
+    );
 
-    (isAdmin || isSubAdmin) && loadHotels();
+    return () => unSub();
   }, [isAdmin, isSubAdmin]);
 
   // loading all restaurants
@@ -284,45 +280,36 @@ const PartnerProvider = ({ children }) => {
 
   // rooms for individual hotel owner room service
   useEffect(() => {
-    const loadData = (user, hotelPackages) => {
-      const unSub = onSnapshot(
-        // query(hotelPackages, where("hotelUid", "==", user.uid)),
-        query(hotelPackages, where("hotelUid", "==", user.uid)),
-        (result) => {
-          const list = result.docs.map((doc) => doc.data());
-          setMyRooms(list);
-        },
-        handleSnapshotError("My rooms", () => setMyRooms([]))
-      );
+    if (!(isPartner && userData?.serviceCategory === "Hotel" && user)) return;
 
-      return () => {
-        unSub();
-      };
-    };
-    isPartner &&
-      userData?.serviceCategory === "Hotel" &&
-      loadData(user, hotelPackageDetails);
+    const unSub = onSnapshot(
+      query(hotelPackageDetails, where("hotelUid", "==", user.uid)),
+      (result) => {
+        const list = result.docs.map((doc) => doc.data());
+        setMyRooms(list);
+      },
+      handleSnapshotError("My rooms", () => setMyRooms([]))
+    );
+
+    return () => unSub();
   }, [user, isPartner, userData]);
 
   // loading all room's services data
   useEffect(() => {
-    const loadData = () => {
-      setLoadingData(true);
-      const unSub = onSnapshot(
-        query(hotelPackageDetails, orderBy("updatedAt", "desc")),
-        (result) => {
-          const list = result.docs.map((doc) => doc.data());
-          setRooms(list);
-          setLoadingData(false);
-        },
-        handleSnapshotError("Room services", () => setRooms([]))
-      );
+    if (!(isAdmin || isSubAdmin)) return;
 
-      return () => {
-        unSub();
-      };
-    };
-    (isAdmin || isSubAdmin) && loadData();
+    setLoadingData(true);
+    const unSub = onSnapshot(
+      query(hotelPackageDetails, orderBy("updatedAt", "desc")),
+      (result) => {
+        const list = result.docs.map((doc) => doc.data());
+        setRooms(list);
+        setLoadingData(false);
+      },
+      handleSnapshotError("Room services", () => setRooms([]))
+    );
+
+    return () => unSub();
   }, [isAdmin, isSubAdmin]);
 
   // menu for individual restaurant
@@ -350,191 +337,172 @@ const PartnerProvider = ({ children }) => {
 
   // loading all room bookings
   useEffect(() => {
-    const loadBookings = () => {
-      setLoadingData(true);
-      const unSub = onSnapshot(
-        query(
-          roomBookingCollection,
-          where("createdAt", ">=", hotelBookingLookback),
-          orderBy("createdAt", "desc")
-        ),
-        (result) => {
-          const list = result.docs.map((doc) => {
-            return { ...doc.data(), bookingId: doc.id };
-          });
-          setRoomBookings(list);
-          setLoadingData(false);
-        },
-        handleSnapshotError("Room bookings", () => setRoomBookings([]))
-      );
+    if (!(isAdmin || isSubAdmin)) return;
 
-      return () => {
-        unSub();
-      };
-    };
+    setLoadingData(true);
+    const unSub = onSnapshot(
+      query(
+        roomBookingCollection,
+        where("createdAt", ">=", hotelBookingLookback),
+        orderBy("createdAt", "desc")
+      ),
+      (result) => {
+        const list = result.docs.map((doc) => {
+          return { ...doc.data(), bookingId: doc.id };
+        });
+        setRoomBookings(list);
+        setLoadingData(false);
+      },
+      handleSnapshotError("Room bookings", () => setRoomBookings([]))
+    );
 
-    (isAdmin || isSubAdmin) && loadBookings();
+    return () => unSub();
   }, [isAdmin, isSubAdmin, refetch, rowsPerPage, page]);
 
   // loading individual room bookings
   useEffect(() => {
-    const loadBookings = (userData) => {
-      const unSub = onSnapshot(
-        query(
-          roomBookingCollection,
-          where("hotelUid", "==", userData?.uid),
-          where("createdAt", ">=", hotelBookingLookback),
-          orderBy("createdAt", "desc")
-        ),
-        (result) => {
-          const list = result.docs.map((doc) => {
-            return { ...doc.data(), bookingId: doc.id };
-          });
-          setMyRoomBookings(list);
-          setLoadingData(false);
-        },
-        handleSnapshotError("My room bookings", () => setMyRoomBookings([]))
-      );
+    if (!(isPartner && userData?.serviceCategory === "Hotel" && user)) return;
 
-      return () => {
-        unSub();
-      };
-    };
+    const unSub = onSnapshot(
+      query(
+        roomBookingCollection,
+        where("hotelUid", "==", user.uid),
+        where("createdAt", ">=", hotelBookingLookback),
+        orderBy("createdAt", "desc")
+      ),
+      (result) => {
+        const list = result.docs.map((doc) => {
+          return { ...doc.data(), bookingId: doc.id };
+        });
+        setMyRoomBookings(list);
+        setLoadingData(false);
+      },
+      handleSnapshotError("My room bookings", () => setMyRoomBookings([]))
+    );
 
-    isPartner && userData?.serviceCategory === "Hotel" && loadBookings(user);
+    return () => unSub();
   }, [isPartner, userData, user]);
 
   // loading all car bookings
   useEffect(() => {
-    const loadData = () => {
-      setLoadingData(true);
-      const unSub = onSnapshot(
-        query(
-          carBookingsCollection,
-          where("timestamp", ">=", last24Hours),
-          orderBy("timestamp", "desc")
-        ),
-        (result) => {
-          const list = result.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data,
-            };
-          });
+    if (!(isAdmin || isSubAdmin)) return;
 
-          setCarBookings(list);
-          setLoadingData(false);
-        },
-        handleSnapshotError("Car bookings", () => setCarBookings([]))
-      );
+    setLoadingData(true);
+    const unSub = onSnapshot(
+      query(
+        carBookingsCollection,
+        where("timestamp", ">=", last24Hours),
+        orderBy("timestamp", "desc")
+      ),
+      (result) => {
+        const list = result.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+          };
+        });
 
-      return () => {
-        unSub();
-      };
-    };
-    (isAdmin || isSubAdmin) && loadData();
+        setCarBookings(list);
+        setLoadingData(false);
+      },
+      handleSnapshotError("Car bookings", () => setCarBookings([]))
+    );
+
+    return () => unSub();
   }, [isAdmin, isSubAdmin]);
 
   // loading all self drive bookings
   useEffect(() => {
-    const loadData = () => {
-      setLoadingData(true);
-      const unSub = onSnapshot(
-        query(
-          selfDriveBookingCollection,
-          where("time", ">=", last24Hours),
-          orderBy("time", "desc")
-        ),
-        (result) => {
-          const list = result.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              name: data?.username?.trim(),
-              ...data,
-            };
-          });
+    if (!(isAdmin || isSubAdmin)) return;
 
-          setSelfDriveBookings(list);
-          setLoadingData(false);
-        },
-        handleSnapshotError("Self-drive bookings", () => setSelfDriveBookings([]))
-      );
+    setLoadingData(true);
+    const unSub = onSnapshot(
+      query(
+        selfDriveBookingCollection,
+        where("time", ">=", last24Hours),
+        orderBy("time", "desc")
+      ),
+      (result) => {
+        const list = result.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data?.username?.trim(),
+            ...data,
+          };
+        });
 
-      return () => {
-        unSub();
-      };
-    };
-    (isAdmin || isSubAdmin) && loadData();
+        setSelfDriveBookings(list);
+        setLoadingData(false);
+      },
+      handleSnapshotError("Self-drive bookings", () => setSelfDriveBookings([]))
+    );
+
+    return () => unSub();
   }, [isAdmin, isSubAdmin]);
 
   // loading all travel bookings
   useEffect(() => {
-    const loadData = () => {
-      setLoadingData(true);
-      const unSub = onSnapshot(
-        query(
-          travelBookingCollection
-        ),
-        (result) => {
-          const list = result.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              name: data?.guestDetails?.name
-                ?.replace("not_present", "")
-                .trim(),
-              ...data,
-            };
-          });
-          // Sort client-side (latest first)
-          list.sort((a, b) => {
-            const timeA = a.orderedAt?.seconds || a.createdAt?.seconds || a.timestamp?.seconds || 0;
-            const timeB = b.orderedAt?.seconds || b.createdAt?.seconds || b.timestamp?.seconds || 0;
-            return timeB - timeA; // Descending order (newest first)
-          });
-          setTravelBookings(list);
-          setLoadingData(false);
-        },
-        handleSnapshotError("Travel bookings", () => setTravelBookings([]))
-      );
+    if (!(isAdmin || isSubAdmin)) return;
 
-      return () => {
-        unSub();
-      };
-    };
-    (isAdmin || isSubAdmin) && loadData();
+    setLoadingData(true);
+    const unSub = onSnapshot(
+      query(travelBookingCollection),
+      (result) => {
+        const list = result.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data?.guestDetails?.name
+              ?.replace("not_present", "")
+              .trim(),
+            ...data,
+          };
+        });
+        // Sort client-side (latest first)
+        list.sort((a, b) => {
+          const timeA = a.orderedAt?.seconds || a.createdAt?.seconds || a.timestamp?.seconds || 0;
+          const timeB = b.orderedAt?.seconds || b.createdAt?.seconds || b.timestamp?.seconds || 0;
+          return timeB - timeA; // Descending order (newest first)
+        });
+        setTravelBookings(list);
+        setLoadingData(false);
+      },
+      handleSnapshotError("Travel bookings", () => setTravelBookings([]))
+    );
+
+    return () => unSub();
   }, [isAdmin, isSubAdmin]);
 
   // loading all van bookings
   useEffect(() => {
-    const loadData = () => {
-      setLoadingData(true);
-      // Van bookings (Manual) - Check last 24 hours or just recent
-      const unSub = onSnapshot(
-        query(
-          vanBookingsCollection,
-          where("createdAt", ">=", last24Hours.toISOString()), // createdAt is usually ISO string in manual bookings
-          orderBy("createdAt", "desc")
-        ),
-        (result) => {
-          const list = result.docs.map((doc) => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data,
-              source: 'manual'
-            };
-          });
-          setVanBookings(list);
-          setLoadingData(false);
-        },
-        handleSnapshotError("Van bookings", () => setVanBookings([]))
-      );
-      return () => unSub();
-    };
-    (isAdmin || isSubAdmin) && loadData();
+    if (!(isAdmin || isSubAdmin)) return;
+
+    setLoadingData(true);
+    // Van bookings (Manual) - Check last 24 hours or just recent
+    const unSub = onSnapshot(
+      query(
+        vanBookingsCollection,
+        where("createdAt", ">=", last24Hours.toISOString()),
+        orderBy("createdAt", "desc")
+      ),
+      (result) => {
+        const list = result.docs.map((doc) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            source: "manual",
+          };
+        });
+        setVanBookings(list);
+        setLoadingData(false);
+      },
+      handleSnapshotError("Van bookings", () => setVanBookings([]))
+    );
+
+    return () => unSub();
   }, [isAdmin, isSubAdmin]);
 
   // loading all partner's payments
@@ -555,146 +523,127 @@ const PartnerProvider = ({ children }) => {
   // }, [isAdmin, refetch]);
 
   useEffect(() => {
-    const getChats = async () => {
-      const unsub = onSnapshot(
-        doc(db, "chatRooms", "CustomerSupport"),
-        async (docSnap) => {
-          const data = docSnap.data();
+    if (!(isAdmin || isSubAdmin)) return;
 
-          if (!data) {
-            setChatCount(0);
-            return;
-          }
+    const unsub = onSnapshot(
+      doc(db, "chatRooms", "CustomerSupport"),
+      async (docSnap) => {
+        const data = docSnap.data();
 
-          // Filter out restaurant chats by checking user data
-          const unreadChats = Object.values(data).filter((chat) => chat.isRead === false);
+        if (!data) {
+          setChatCount(0);
+          return;
+        }
 
-          // Fetch user data to check if they are restaurants
-          const userChecks = await Promise.all(
-            unreadChats.map(async (chat) => {
-              const uid = chat?.userInfo?.uid;
-              if (!uid) return true; // Include if no uid
+        const unreadChats = Object.values(data).filter((chat) => chat.isRead === false);
 
-              try {
-                const userDocRef = doc(db, "users", uid);
-                const userDoc = await getDoc(userDocRef);
+        const userChecks = await Promise.all(
+          unreadChats.map(async (chat) => {
+            const uid = chat?.userInfo?.uid;
+            if (!uid) return true;
 
-                if (userDoc.exists()) {
-                  const userData = userDoc.data();
-                  const isRestaurant =
-                    userData.serviceCategory === "Restaurant" ||
-                    userData.role === "Restaurant" ||
-                    chat?.userInfo?.serviceCategory === "Restaurant" ||
-                    chat?.userInfo?.role === "Restaurant";
+            try {
+              const userDocRef = doc(db, "users", uid);
+              const userDoc = await getDoc(userDocRef);
 
-                  return !isRestaurant; // Return true if NOT a restaurant (i.e., is a customer)
-                }
-              } catch (error) {
-                console.warn("Could not fetch chat user (permissions):", error.message);
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const isRestaurant =
+                  userData.serviceCategory === "Restaurant" ||
+                  userData.role === "Restaurant" ||
+                  chat?.userInfo?.serviceCategory === "Restaurant" ||
+                  chat?.userInfo?.role === "Restaurant";
+
+                return !isRestaurant;
               }
-              return true; // Include by default if error
-            })
-          );
+            } catch (error) {
+              console.warn("Could not fetch chat user (permissions):", error.message);
+            }
+            return true;
+          })
+        );
 
-          // Count only non-restaurant unread chats
-          const customerUnreadCount = userChecks.filter(Boolean).length;
-          setChatCount(customerUnreadCount);
-        },
-        handleSnapshotError("Customer chats", () => setChatCount(0))
-      );
+        const customerUnreadCount = userChecks.filter(Boolean).length;
+        setChatCount(customerUnreadCount);
+      },
+      handleSnapshotError("Customer chats", () => setChatCount(0))
+    );
 
-      return () => {
-        unsub();
-      };
-    };
-
-    (isAdmin || isSubAdmin) && getChats();
+    return () => unsub();
   }, [isAdmin, isSubAdmin]);
 
   // Count restaurant chat messages separately
   useEffect(() => {
-    const getRestaurantChats = async () => {
-      const unsub = onSnapshot(
-        doc(db, "chatRooms", "CustomerSupport"),
-        async (docSnap) => {
-          const data = docSnap.data();
+    if (!(isAdmin || isSubAdmin)) return;
 
-          if (!data) {
-            setRestaurantChatCount(0);
-            return;
-          }
+    const unsub = onSnapshot(
+      doc(db, "chatRooms", "CustomerSupport"),
+      async (docSnap) => {
+        const data = docSnap.data();
 
-          // Filter to get only restaurant chats
-          const unreadChats = Object.values(data).filter((chat) => chat.isRead === false);
+        if (!data) {
+          setRestaurantChatCount(0);
+          return;
+        }
 
-          // Fetch user data to check if they are restaurants
-          const restaurantChecks = await Promise.all(
-            unreadChats.map(async (chat) => {
-              const uid = chat?.userInfo?.uid;
-              if (!uid) return false; // Exclude if no uid
+        const unreadChats = Object.values(data).filter((chat) => chat.isRead === false);
 
-              try {
-                const userDocRef = doc(db, "users", uid);
-                const userDoc = await getDoc(userDocRef);
+        const restaurantChecks = await Promise.all(
+          unreadChats.map(async (chat) => {
+            const uid = chat?.userInfo?.uid;
+            if (!uid) return false;
 
-                if (userDoc.exists()) {
-                  const userData = userDoc.data();
-                  const isRestaurant =
-                    userData.serviceCategory === "Restaurant" ||
-                    userData.role === "Restaurant" ||
-                    chat?.userInfo?.serviceCategory === "Restaurant" ||
-                    chat?.userInfo?.role === "Restaurant";
+            try {
+              const userDocRef = doc(db, "users", uid);
+              const userDoc = await getDoc(userDocRef);
 
-                  return isRestaurant; // Return true if IS a restaurant
-                }
-              } catch (error) {
-                console.warn("Could not fetch chat user for restaurant (permissions):", error.message);
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                const isRestaurant =
+                  userData.serviceCategory === "Restaurant" ||
+                  userData.role === "Restaurant" ||
+                  chat?.userInfo?.serviceCategory === "Restaurant" ||
+                  chat?.userInfo?.role === "Restaurant";
+
+                return isRestaurant;
               }
-              return false; // Exclude by default if error
-            })
-          );
+            } catch (error) {
+              console.warn("Could not fetch chat user for restaurant (permissions):", error.message);
+            }
+            return false;
+          })
+        );
 
-          // Count only restaurant unread chats
-          const restaurantUnreadCount = restaurantChecks.filter(Boolean).length;
-          setRestaurantChatCount(restaurantUnreadCount);
-        },
-        handleSnapshotError("Restaurant chats", () => setRestaurantChatCount(0))
-      );
+        const restaurantUnreadCount = restaurantChecks.filter(Boolean).length;
+        setRestaurantChatCount(restaurantUnreadCount);
+      },
+      handleSnapshotError("Restaurant chats", () => setRestaurantChatCount(0))
+    );
 
-      return () => {
-        unsub();
-      };
-    };
-
-    (isAdmin || isSubAdmin) && getRestaurantChats();
+    return () => unsub();
   }, [isAdmin, isSubAdmin]);
 
   // Count hotel chat messages separately
   useEffect(() => {
-    const getHotelChats = async () => {
-      const unsub = onSnapshot(
-        doc(db, "chatRooms", "HotelSupport"),
-        async (docSnap) => {
-          const data = docSnap.data();
+    if (!(isAdmin || isSubAdmin)) return;
 
-          if (!data) {
-            setHotelChatCount(0);
-            return;
-          }
+    const unsub = onSnapshot(
+      doc(db, "chatRooms", "HotelSupport"),
+      async (docSnap) => {
+        const data = docSnap.data();
 
-          // Count unread hotel chats
-          const unreadCount = Object.values(data).filter((chat) => chat.isRead === false).length;
-          setHotelChatCount(unreadCount);
-        },
-        handleSnapshotError("Hotel chats", () => setHotelChatCount(0))
-      );
+        if (!data) {
+          setHotelChatCount(0);
+          return;
+        }
 
-      return () => {
-        unsub();
-      };
-    };
+        const unreadCount = Object.values(data).filter((chat) => chat.isRead === false).length;
+        setHotelChatCount(unreadCount);
+      },
+      handleSnapshotError("Hotel chats", () => setHotelChatCount(0))
+    );
 
-    (isAdmin || isSubAdmin) && getHotelChats();
+    return () => unsub();
   }, [isAdmin, isSubAdmin]);
 
   const partnersInfo = {

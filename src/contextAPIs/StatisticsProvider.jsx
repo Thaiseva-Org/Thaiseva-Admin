@@ -13,7 +13,7 @@ const getTodayKey = () => {
 
 const getDefaultFromKey = () => {
   const today = new Date();
-  today.setDate(today.getDate() - 29);
+  today.setDate(today.getDate() - 59);
   return new Date(today.getTime() - today.getTimezoneOffset() * 60000)
     .toISOString()
     .split("T")[0];
@@ -60,7 +60,8 @@ const emptyStatistics = {
 };
 
 const StatisticsProvider = ({ children }) => {
-  const { isAdmin } = useContext(AuthContext);
+  const { isAdmin, isSubAdmin } = useContext(AuthContext);
+  const canViewStatistics = isAdmin || isSubAdmin;
   const [allStatistics, setAllStatistics] = useState(emptyStatistics);
   const [selectedView, setSelectedView] = useState("Days");
   const [fromDate, setFromDate] = useState(getDefaultFromKey);
@@ -68,19 +69,36 @@ const StatisticsProvider = ({ children }) => {
   const [appliedFromDate, setAppliedFromDate] = useState(getDefaultFromKey);
   const [appliedToDate, setAppliedToDate] = useState(getTodayKey);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const loadAllStatistics = async () => {
       setLoading(true);
-      const data = await createStatData(selectedView, appliedFromDate, appliedToDate);
-      setAllStatistics(data);
-      setLoading(false);
+      setError("");
+
+      try {
+        const data = await createStatData(selectedView, appliedFromDate, appliedToDate);
+        setAllStatistics(data);
+
+        const hasRevenue = Number(data?.totals?.totalRevenue) > 0;
+        const hasSeries = Array.isArray(data?.date) && data.date.length > 0;
+
+        if (!hasRevenue && !hasSeries && data?.loadError) {
+          setError(data.loadError);
+        }
+      } catch (loadError) {
+        console.error("Failed to load statistics:", loadError);
+        setAllStatistics(emptyStatistics);
+        setError("Unable to load statistics. Please check your permissions and try again.");
+      } finally {
+        setLoading(false);
+      }
     };
 
-    if (isAdmin) {
+    if (canViewStatistics) {
       loadAllStatistics();
     }
-  }, [appliedFromDate, appliedToDate, isAdmin, selectedView]);
+  }, [appliedFromDate, appliedToDate, canViewStatistics, selectedView]);
 
   const filterRange = async () => {
     const normalizedRange = normalizeRange(fromDate, toDate);
@@ -103,6 +121,7 @@ const StatisticsProvider = ({ children }) => {
         setToDate,
         filterRange,
         loading,
+        error,
       }}
     >
       {children}

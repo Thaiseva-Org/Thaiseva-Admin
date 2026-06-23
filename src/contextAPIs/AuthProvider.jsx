@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from "react";
-import { app, usersCollection, db } from "../firebase/firebase.config";
+import { app, db } from "../firebase/firebase.config";
 import {
   createUserWithEmailAndPassword,
   getAuth,
@@ -49,7 +49,12 @@ const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
         setUser(currentUser);
-        setLoading(false);
+        setLoading(true);
+        setUserData({});
+        setIsAdmin(false);
+        setIsPatner(false);
+        setIsSubAdmin(false);
+        setIsVerifiedPartner(false);
 
         // HARDCODED FALLBACK: Grant admin rights immediately based on email to bypass Firestore locks
         if (currentUser.email === "admin@gmail.com" || currentUser.email === "thaiseva_admin@gmail.com") {
@@ -65,6 +70,7 @@ const AuthProvider = ({ children }) => {
           setIsPatner(false);
           setIsSubAdmin(false);
           setIsVerifiedPartner(false);
+          setLoading(false);
         } else {
           try {
             const userDocRef = doc(db, "users", currentUser.uid);
@@ -80,9 +86,13 @@ const AuthProvider = ({ children }) => {
               setIsVerifiedPartner(
                 userData?.role === "Partner" && userData?.status === "Verified"
               );
+            } else {
+              setUserData({});
             }
           } catch (error) {
             console.error("Error fetching user data:", error);
+          } finally {
+            setLoading(false);
           }
         }
       } else {
@@ -131,6 +141,7 @@ const AuthProvider = ({ children }) => {
     validatePassword,
     isPartner,
     isSubAdmin,
+    isLoading: loading,
   };
 
   return (

@@ -32,11 +32,6 @@ const TravelServices = lazy(() =>
 const AddSightseeingPackage = lazy(() =>
   import("./dashboard/adminDashboard/ourServices/travelServices/AddSightseeingPackage")
 );
-const SightseeingExcelUploadPage = lazy(() =>
-  import(
-    "./dashboard/adminDashboard/ourServices/travelServices/SightseeingExcelUploadPage"
-  )
-);
 const LocalServices = lazy(() =>
   import("./dashboard/adminDashboard/ourServices/localServices/LocalServices")
 );
@@ -61,11 +56,6 @@ const HotelRoomsPage = lazy(() =>
 );
 const AddHotelForm = lazy(() =>
   import("./dashboard/adminDashboard/ourPartners/hotels/AddHotelForm")
-);
-const ExcelUploadPage = lazy(() =>
-  import(
-    "./dashboard/adminDashboard/ourPartners/hotels/ExcelUploadPage"
-  )
 );
 const Vans = lazy(() =>
   import("./dashboard/adminDashboard/ourPartners/vans/Vans")
@@ -247,7 +237,6 @@ export {
   RoomServices,
   TravelServices,
   AddSightseeingPackage,
-  SightseeingExcelUploadPage,
   LocalServices,
   CarServices,
   SelfDriveServices,
@@ -256,7 +245,6 @@ export {
   // Our Partners export
   Hotels,
   AddHotelForm,
-  ExcelUploadPage,
   LocalPartners,
   Drivers,
   Restaurants,

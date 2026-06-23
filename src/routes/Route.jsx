@@ -32,7 +32,6 @@ import {
   RestaurantChat,
   Login,
   PartnerOnboarding,
-  HotelOnboarding,
   MyServices,
   PartnerProfile,
   Support,
@@ -44,8 +43,6 @@ import {
   NotFound,
   HotelRoomsPage,
   AddHotelForm,
-  ExcelUploadPage,
-  SightseeingExcelUploadPage,
   Vans,
   VanBookings,
   Blogs,
@@ -251,14 +248,6 @@ export const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
-      {
-        path: "/dashboard/travel-services/excel-upload",
-        element: (
-          <AdminRoute>
-            <SightseeingExcelUploadPage />
-          </AdminRoute>
-        ),
-      },
       // {
       //   path: "/dashboard/food-services",
       //   element: (
@@ -377,14 +366,6 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <AddHotelForm />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "/dashboard/hotels/excel-upload",
-        element: (
-          <AdminRoute>
-            <ExcelUploadPage />
           </AdminRoute>
         ),
       },

@@ -1,4 +1,3 @@
-import React from 'react';
 import {
     Dialog,
     DialogContent,
@@ -7,20 +6,12 @@ import {
     Typography,
     Box,
     Paper,
-    useTheme,
-    Slide // Added Slide import
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useNavigate } from 'react-router-dom';
 
-const Transition = React.forwardRef(function Transition(props, ref) {
-    return <Slide direction="up" ref={ref} {...props} />;
-});
-
 const AddSightseeingSelectionModal = ({ open, onClose }) => {
-    const theme = useTheme();
     const navigate = useNavigate();
 
     const handleManualEntry = () => {
@@ -28,16 +19,10 @@ const AddSightseeingSelectionModal = ({ open, onClose }) => {
         navigate('/dashboard/travel-services/add');
     };
 
-    const handleExcelEntry = () => {
-        onClose();
-        navigate('/dashboard/travel-services/excel-upload');
-    };
-
     return (
         <Dialog
             open={open}
             onClose={onClose}
-            TransitionComponent={Transition} // Added Transition
             maxWidth="md"
             fullWidth
             PaperProps={{
@@ -122,53 +107,6 @@ const AddSightseeingSelectionModal = ({ open, onClose }) => {
                         </Typography>
                     </Paper>
 
-                    {/* Excel Automation Card */}
-                    <Paper
-                        elevation={0}
-                        sx={{
-                            p: 5,
-                            border: '2px solid #e2e8f0',
-                            borderRadius: '20px',
-                            width: '320px',
-                            textAlign: 'center',
-                            cursor: 'pointer',
-                            backgroundColor: '#fff',
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                                borderColor: '#22c55e',
-                                boxShadow: '0 20px 40px -12px rgba(34, 197, 94, 0.15)',
-                                transform: 'translateY(-4px)',
-                            },
-                        }}
-                        onClick={handleExcelEntry}
-                    >
-                        <Box
-                            sx={{
-                                width: '80px',
-                                height: '80px',
-                                borderRadius: '50%',
-                                bgcolor: '#f0fdf4', // Green-50
-                                color: '#22c55e', // Green-500
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                mx: 'auto',
-                                mb: 3,
-                                transition: 'transform 0.3s ease',
-                                '.MuiPaper-root:hover &': {
-                                    transform: 'scale(1.1)',
-                                },
-                            }}
-                        >
-                            <UploadFileIcon sx={{ fontSize: '40px' }} />
-                        </Box>
-                        <Typography variant="h5" sx={{ fontWeight: 700, mb: 1.5, color: '#1e293b' }}>
-                            Excel Automation
-                        </Typography>
-                        <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                            Bulk upload multiple packages instantly using a standard .xlsx file.
-                        </Typography>
-                    </Paper>
                 </Box>
             </DialogContent>
         </Dialog>
