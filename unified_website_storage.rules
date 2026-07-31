@@ -1,0 +1,60 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ==========================================
+    // HELPER FUNCTIONS
+    // ==========================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Fetch user profile data from Firestore to evaluate roles
+    function getUserData() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      let data = getUserData();
+      return request.auth != null && (
+        data.role == 'Admin' ||
+        data.role == 'admin' ||
+        data.role == 'Sub Admin' ||
+        (data.isMasterAdmin != null && data.isMasterAdmin == true)
+      );
+    }
+
+    function isRestaurantAdmin() {
+      let data = getUserData();
+      return request.auth != null && (
+        data.isRestaurantAdmin != null && data.isRestaurantAdmin == true
+      );
+    }
+
+    // ==========================================
+    // FILE-SPECIFIC RULES
+    // ==========================================
+
+    // 1. Restaurant profile images (banners, logos)
+    match /restaurantImages/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() && (isAdmin() || isRestaurantAdmin());
+    }
+
+    // 2. Food item images
+    match /images/{itemId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && (isAdmin() || isRestaurantAdmin());
+    }
+
+    // 3. All other paths — public read, authenticated write
+    //    Covers: blog images, hotel images, service images, chat media,
+    //    user profile photos, partner documents, etc.
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+  }
+}

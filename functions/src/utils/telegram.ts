@@ -1,15 +1,18 @@
 import * as logger from "firebase-functions/logger";
 
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms: number) => {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+};
 
 export async function sendTelegramNotification(message: string, retries = 3) {
-  // Read from environment inside the function scope so it works with Firebase v2 .env auto-loading
+  // Read inside the function so Firebase v2 .env auto-loading works.
   const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
   const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
     logger.error(
-      "[Telegram] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing. Ensure functions/.env contains these variables.",
+      "[Telegram] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID is missing. " +
+        "Ensure functions/.env contains these variables.",
     );
     return false;
   }
@@ -24,7 +27,7 @@ export async function sendTelegramNotification(message: string, retries = 3) {
 
   const attemptSend = async (attempt: number): Promise<boolean> => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeout = setTimeout(() => controller.abort(), 10000);
 
     try {
       const response = await fetch(url, {
@@ -33,7 +36,7 @@ export async function sendTelegramNotification(message: string, retries = 3) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeout);
@@ -46,17 +49,21 @@ export async function sendTelegramNotification(message: string, retries = 3) {
         } catch {
           errorData = errorRaw;
         }
-        
-        logger.error(`[Telegram] Failed to send notification (attempt ${attempt}/${retries})`, {
-          status: response.status,
-          error: errorData,
-        });
+
+        logger.error(
+          "[Telegram] Failed to send notification " +
+            `(attempt ${attempt}/${retries})`,
+          {
+            status: response.status,
+            error: errorData,
+          },
+        );
 
         if (response.status === 429 || response.status >= 500) {
           // Retry on rate limit or server error
           throw new Error(`Telegram API returned ${response.status}`);
         }
-        
+
         // Don't retry on 4xx client errors (e.g., bad token, invalid chat ID)
         return false;
       }
@@ -65,7 +72,10 @@ export async function sendTelegramNotification(message: string, retries = 3) {
       return true;
     } catch (error) {
       clearTimeout(timeout);
-      logger.error(`[Telegram] Error executing fetch (attempt ${attempt}/${retries})`, error);
+      logger.error(
+        `[Telegram] Error executing fetch (attempt ${attempt}/${retries})`,
+        error,
+      );
       throw error;
     }
   };
@@ -77,10 +87,12 @@ export async function sendTelegramNotification(message: string, retries = 3) {
       if (!success && i === 1) return false; // Fail fast on 4xx
     } catch (error) {
       if (i === retries) {
-        logger.error(`[Telegram] Exhausted all ${retries} retries for message.`);
+        logger.error(
+          `[Telegram] Exhausted all ${retries} retries for message.`,
+        );
         return false;
       }
-      const backoffDelay = Math.pow(2, i - 1) * 1000; // 1s, 2s, 4s...
+      const backoffDelay = Math.pow(2, i - 1) * 1000;
       logger.info(`[Telegram] Retrying in ${backoffDelay}ms...`);
       await sleep(backoffDelay);
     }

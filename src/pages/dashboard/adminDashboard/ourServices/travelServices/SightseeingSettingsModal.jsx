@@ -15,6 +15,7 @@ import { db } from "../../../../../firebase/firebase.config";
 
 const SightseeingSettingsModal = ({ open, onClose }) => {
     const [limit, setLimit] = useState(200);
+    const [dailyLimit, setDailyLimit] = useState(20);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -31,6 +32,7 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
                 setLimit(docSnap.data().globalWeeklyLimit || 200);
+                setDailyLimit(docSnap.data().globalDailyLimit || 20);
             }
         } catch (error) {
             console.error("Error fetching settings:", error);
@@ -43,6 +45,7 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
         try {
             await setDoc(doc(db, "settings", "sightseeingConfig"), {
                 globalWeeklyLimit: parseInt(limit),
+                globalDailyLimit: parseInt(dailyLimit),
                 updatedAt: new Date()
             }, { merge: true });
             onClose();
@@ -74,6 +77,16 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
                             value={limit}
                             onChange={(e) => setLimit(e.target.value)}
                             helperText="This limit applies to all packages unless specifically overridden."
+                            InputProps={{ inputProps: { min: 1 } }}
+                            sx={{ mb: 2 }}
+                        />
+                        <TextField
+                            label="Global Daily Tour-Date Limit"
+                            type="number"
+                            fullWidth
+                            value={dailyLimit}
+                            onChange={(e) => setDailyLimit(e.target.value)}
+                            helperText="Max sightseeing bookings per tour date. Auto-accept stops when this is reached."
                             InputProps={{ inputProps: { min: 1 } }}
                         />
                     </Box>

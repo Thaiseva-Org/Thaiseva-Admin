@@ -4,6 +4,16 @@ import DoneRoundedIcon from "@mui/icons-material/DoneRounded";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import PersonIcon from "@mui/icons-material/Person";
+import PaymentsIcon from "@mui/icons-material/Payments";
+import EmailIcon from "@mui/icons-material/Email";
+import PhoneIcon from "@mui/icons-material/Phone";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import CreditCardIcon from "@mui/icons-material/CreditCard";
+import LuggageIcon from "@mui/icons-material/Luggage";
+import TourIcon from "@mui/icons-material/Tour";
+import DirectionsBusIcon from "@mui/icons-material/DirectionsBus";
+import LocationOnIcon from "@mui/icons-material/LocationOn";
 import {
   Box,
   Button,
@@ -16,27 +26,37 @@ import {
   TablePagination,
   TextField,
   Typography,
-  Divider,
   Chip,
   Tabs,
   Tab,
-  Stepper,
-  Step,
-  StepLabel,
-  Tooltip,
-  ToggleButton,
-  ToggleButtonGroup
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from "@mui/material";
-import { MdEdit, MdDelete, MdVisibility, MdInfo } from "react-icons/md";
-import { ViewList, ViewModule } from "@mui/icons-material";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { useContext, useEffect, useState } from "react";
+import { MdDelete, MdVisibility, MdInfo } from "react-icons/md";
+import {
+  ViewList,
+  CalendarMonth,
+  Search,
+  Circle,
+  CheckCircle,
+  VerifiedUser as VerifiedUserIcon,
+} from "@mui/icons-material";
+import PaymentStatusBadge from "../../../../../components/bookings/PaymentStatusBadge";
+import {
+  VerifyPaymentIconButton,
+  VerifyPaymentModalButton,
+} from "../../../../../components/bookings/VerifyPaymentButton";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { useContext, useEffect, useMemo, useState } from "react";
 import LoadingContent from "../../../../../components/LoadingContent";
 import PageHeading from "../../../../../components/PageHeading";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
 import { useNotifications } from "../../../../../contextAPIs/NotificationsProvider";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import {
+  db,
   travelBookingCollection,
   travelServicesDetailsCollection,
 } from "../../../../../firebase/firebase.config";
@@ -50,10 +70,34 @@ import {
 } from "../../../../../services/Earning";
 import {
   calculateDiscountPrice,
+  deleteNotification,
   formatPhoneNumber,
+  getDate,
   getDateAndTime,
+  successNotification,
 } from "../../../../../utils/utils";
-import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
+import {
+  getBookingPickupRequest,
+  getBookingSpecialNotes,
+} from "../../../../../utils/bookingNotes";
+import {
+  canConfirmSightseeing,
+  getSightseeingPaymentMethod,
+  getSightseeingPaymentStatusInfo,
+  getSightseeingStatusLabel,
+  isOnsiteSightseeingPayment,
+  isPaymentVerified,
+  isSightseeingAccepted,
+  isSightseeingCanceled,
+  isSightseeingOnsiteQueue,
+  isSightseeingPending,
+  isSightseeingPendingReview,
+  isSightseeingRevenueEligible,
+  isThaiQrSightseeingPayment,
+  needsSightseeingPaymentVerification,
+  requiresDeferredSightseeingPaymentVerification,
+} from "../../../../../utils/bookingStatus";
+import { backfillCreatedAt, toDate } from "../../../../../utils/bookingTimestamps";
 
 const TravelBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
@@ -75,9 +119,88 @@ const TravelBookings = () => {
   const [endDate, setEndDate] = useState("");
   const [isRealTime, setIsRealTime] = useState(true);
   const [tabValue, setTabValue] = useState(0);
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = useState("list");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBookings, setSelectedBookings] = useState([]);
+  const [verifyingPaymentId, setVerifyingPaymentId] = useState(null);
   const [openCapacityModal, setOpenCapacityModal] = useState(false);
   const [dailyLimit, setDailyLimit] = useState(20);
+  const [savingDailyLimit, setSavingDailyLimit] = useState(false);
+  const [calendarPackage, setCalendarPackage] = useState("All");
+  const [calendarDate, setCalendarDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+
+  const sourceBookings = isRealTime ? travelBookings : matchedBookings;
+
+  const fetchDailyLimit = async () => {
+    try {
+      const settingsSnap = await getDoc(doc(db, "settings", "sightseeingConfig"));
+      if (settingsSnap.exists()) {
+        setDailyLimit(settingsSnap.data().globalDailyLimit || 20);
+      }
+    } catch (error) {
+      console.error("Error loading daily sightseeing limit:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchDailyLimit();
+  }, []);
+
+  useEffect(() => {
+    if (openCapacityModal) {
+      fetchDailyLimit();
+    }
+  }, [openCapacityModal]);
+
+  const handleSaveDailyLimit = async (nextLimit) => {
+    const parsedLimit = Number(nextLimit);
+    if (!parsedLimit || parsedLimit < 1) return;
+
+    setSavingDailyLimit(true);
+    try {
+      await setDoc(
+        doc(db, "settings", "sightseeingConfig"),
+        {
+          globalDailyLimit: parsedLimit,
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
+      setDailyLimit(parsedLimit);
+    } catch (error) {
+      console.error("Error saving daily limit:", error);
+      alert("Failed to save daily limit.");
+    } finally {
+      setSavingDailyLimit(false);
+    }
+  };
+
+  const isNext7DaysBooking = (booking) => {
+    if (isSightseeingCanceled(booking)) return false;
+
+    const serviceDate = toDate(booking.pickUpTime || booking.arrivalDate);
+    if (!serviceDate) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const next7 = new Date(today);
+    next7.setDate(today.getDate() + 7);
+    next7.setHours(23, 59, 59, 999);
+
+    return serviceDate >= today && serviceDate <= next7;
+  };
+
+  const filterByTab = (row, tab) => {
+    const booking = row.rawData || row;
+    if (tab === 0) return isSightseeingPendingReview(booking);
+    if (tab === 1) return isSightseeingOnsiteQueue(booking);
+    if (tab === 2) return isSightseeingRevenueEligible(booking);
+    if (tab === 3) return isSightseeingCanceled(booking);
+    if (tab === 4) return isNext7DaysBooking(booking);
+    return true;
+  };
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -90,8 +213,12 @@ const TravelBookings = () => {
 
   const handleDateRangeSubmit = (event) => {
     event.preventDefault();
-    if (endDate == "") {
+    if (endDate === "") {
       alert("Please select both start and end!!");
+      return;
+    }
+    if (new Date(startDate) > new Date(endDate)) {
+      alert("Start Date cannot be after End Date!!");
       return;
     }
     setPage(0);
@@ -131,79 +258,219 @@ const TravelBookings = () => {
     setPage(0);
   };
 
-  // Bookings table header
-  let columns = [
-    { property: "guestName", label: "Guest Name", width: "15%" },
-    { property: "phone", label: "Phone", width: "15%" },
-    { property: "packageTitle", label: "Travel Details", width: "15%" },
-    { property: "orderedAt", label: "Booking time", width: "18%" },
-    { property: "price", label: "Price", width: "11%" },
-    { property: "status", label: "Status", width: "11%" },
-    { property: "action", label: "Action", width: "15%" },
+  const columns = [
+    { property: "packageTitle", label: "Package", width: "16%" },
+    { property: "guestName", label: "Guest", width: "14%" },
+    { property: "phone", label: "Phone", width: "11%" },
+    { property: "tourDate", label: "Tour Date", width: "12%" },
+    { property: "orderedAt", label: "Booked On", width: "14%" },
+    { property: "amount", label: "Amount", width: "10%" },
+    { property: "paymentStatus", label: "Payment", width: "11%" },
+    { property: "action", label: "Action", width: "12%" },
   ];
 
-  // creating single row
-  function createData(
-    guestName,
-    phone,
-    packageTitle,
-    orderedAt,
-    price,
-    status,
-    orderId,
-    packageId,
-    isBookingConfirmed,
-    fullData
-  ) {
+  function createData(booking) {
+    const guestName =
+      booking?.fullName ||
+      booking?.guestDetails?.name?.replace("not_present", "").trim() ||
+      booking?.name ||
+      "N/A";
+    const serviceDate = toDate(booking.pickUpTime || booking.arrivalDate);
+
     return {
+      ...booking,
       guestName,
-      phone,
-      packageTitle,
-      orderedAt,
-      price,
-      status,
-      orderId,
-      packageId,
-      isBookingConfirmed,
-      fullData
+      name: guestName,
+      phone:
+        booking?.guestPhone ||
+        booking?.guestDetails?.phoneNumber ||
+        booking?.phone ||
+        "N/A",
+      email:
+        booking?.guestEmail ||
+        booking?.email ||
+        booking?.guestDetails?.email ||
+        "N/A",
+      packageTitle: booking?.title || booking?.packageName || "Unknown Package",
+      tourDate: serviceDate ? getDate(serviceDate) : "N/A",
+      amount: booking?.price || booking?.totalAmount || 0,
+      orderedAt: backfillCreatedAt(booking),
+      statusLabel: getSightseeingStatusLabel(booking),
+      bookingId: booking.id || booking.orderId,
+      packageId: booking.dataid || booking.packageId,
+      paymentMethod: getSightseeingPaymentMethod(booking) || "ONSITE",
+      passengers:
+        booking?.noOfPassengers ||
+        (booking?.adults || 0) + (booking?.children || 0) ||
+        "N/A",
+      specialNotes: getBookingSpecialNotes(booking),
+      pickupRequest: getBookingPickupRequest(booking),
+      rawData: booking,
     };
   }
 
-  // calling createData function with partner's data
   const rows = (bookings) => {
-    return bookings?.map((booking) => {
-      // Handle both data structures (Old vs New)
-      const guestName = booking?.fullName || booking?.guestDetails?.name?.replace("not_present", "").trim() || booking?.name || "N/A";
-      const phone = booking?.guestPhone || booking?.guestDetails?.phoneNumber || booking?.phone || "N/A";
-      const email = booking?.guestEmail || booking?.email || booking?.guestDetails?.email || "N/A";
-      const title = booking?.title || booking?.packageName || "Unknown Package";
-      const orderTime = booking?.orderedAt || booking?.createdAt || booking?.timestamp;
-      const priceVal = booking?.price || booking?.totalAmount || 0;
-      // Status might be missing in new data, default to "Not Reviewed"
-      const statusVal = booking?.status || "Not Reviewed";
+    const search = searchQuery.toLowerCase();
+    return bookings
+      ?.filter((booking) => {
+        if (!search) return true;
+        const guestName = (
+          booking?.fullName ||
+          booking?.guestDetails?.name ||
+          ""
+        )
+          .replace("not_present", "")
+          .trim()
+          .toLowerCase();
+        const packageTitle = (
+          booking?.title ||
+          booking?.packageName ||
+          ""
+        ).toLowerCase();
+        const phone = String(
+          booking?.guestPhone ||
+            booking?.guestDetails?.phoneNumber ||
+            booking?.phone ||
+            ""
+        ).toLowerCase();
+        const bookingId = String(booking?.id || booking?.orderId || "").toLowerCase();
 
-      return createData(
-        guestName,
-        phone,
-        title,
-        orderTime,
-        priceVal,
-        statusVal,
-        booking.id || booking.orderId,
-        booking.dataid || booking.packageId,
-        booking.isBookingConfirmed,
-        { ...booking, email, hotelName: booking.hotelName || booking.hotel?.hotelName || (typeof booking.hotel === 'string' ? booking.hotel : null) || "N/A" } // ensure email/hotelName are passed
-      );
-    });
+        return (
+          guestName.includes(search) ||
+          packageTitle.includes(search) ||
+          phone.includes(search) ||
+          bookingId.includes(search)
+        );
+      })
+      ?.map((booking) => createData(booking));
   };
 
-  // setting booking details to the state
-  const handleViewBookingDetails = async (id) => {
-    // console.log(id);
-    const snapshot = await getDoc(doc(travelBookingCollection, id));
-    if (snapshot.exists()) {
-      const existingData = snapshot.data();
-      setBookingDetails({ ...bookingDetails, ...existingData, id: snapshot.id });
+  const bookingStats = useMemo(() => {
+    const visibleBookings = rows(sourceBookings) || [];
+    return {
+      total: visibleBookings.length,
+      pending: visibleBookings.filter((row) =>
+        isSightseeingPendingReview(row.rawData)
+      ).length,
+      onsite: visibleBookings.filter((row) =>
+        isSightseeingOnsiteQueue(row.rawData)
+      ).length,
+      paidAccepted: visibleBookings.filter((row) =>
+        isSightseeingRevenueEligible(row.rawData)
+      ).length,
+    };
+  }, [sourceBookings, searchQuery]);
+
+  const handleSelectAll = (event, currentRows) => {
+    if (event.target.checked) {
+      setSelectedBookings(currentRows.map((row) => row.bookingId));
+    } else {
+      setSelectedBookings([]);
+    }
+  };
+
+  const handleSelectOne = (event, id) => {
+    const selectedIndex = selectedBookings.indexOf(id);
+    let newSelected = [];
+
+    if (selectedIndex === -1) {
+      newSelected = newSelected.concat(selectedBookings, id);
+    } else if (selectedIndex === 0) {
+      newSelected = newSelected.concat(selectedBookings.slice(1));
+    } else if (selectedIndex === selectedBookings.length - 1) {
+      newSelected = newSelected.concat(selectedBookings.slice(0, -1));
+    } else if (selectedIndex > 0) {
+      newSelected = newSelected.concat(
+        selectedBookings.slice(0, selectedIndex),
+        selectedBookings.slice(selectedIndex + 1)
+      );
+    }
+    setSelectedBookings(newSelected);
+  };
+
+  const buildSightseeingAcceptUpdate = (bookingData, extra = {}) => {
+    const payload = {
+      status: "Accepted",
+      isBookingConfirmed: true,
+      ...extra,
+    };
+
+    const isThaiQr = isThaiQrSightseeingPayment(bookingData);
+    if (requiresDeferredSightseeingPaymentVerification(bookingData)) {
+      payload.paymentVerificationStatus =
+        bookingData.paymentVerificationStatus || "UNVERIFIED";
+      payload.paymentVerificationNote =
+        bookingData.paymentVerificationNote ||
+        (isThaiQr
+          ? "Accepted for Thai QR payment. Awaiting admin verification."
+          : "Accepted for onsite payment. Awaiting admin verification.");
+      payload.paymentMethod =
+        getSightseeingPaymentMethod(bookingData) ||
+        (isThaiQr ? "THAI_QR" : "ONSITE");
+    } else if (isPaymentVerified(bookingData)) {
+      payload.paymentVerificationStatus = "VERIFIED";
+      payload.isPaymentDone = true;
+    }
+
+    return payload;
+  };
+
+  const handleBulkApprove = async () => {
+    if (!confirm(`Approve ${selectedBookings.length} selected bookings?`)) return;
+
+    const targets = rows(sourceBookings).filter(
+      (row) =>
+        selectedBookings.includes(row.bookingId) &&
+        (isSightseeingPendingReview(row.rawData) ||
+          (isSightseeingPending(row.rawData) &&
+            (isOnsiteSightseeingPayment(row.rawData) ||
+              isThaiQrSightseeingPayment(row.rawData))))
+    );
+
+    setLoading(true);
+    let count = 0;
+    for (const row of targets) {
+      if (canConfirmSightseeing(row.rawData)) {
+        await updateDoc(
+          doc(travelBookingCollection, row.bookingId),
+          buildSightseeingAcceptUpdate(row.rawData)
+        );
+        if (isPaymentVerified(row.rawData)) {
+          await recordSightseeingEarnings(row.bookingId, row.rawData);
+        }
+        count++;
+      }
+    }
+    setLoading(false);
+    setSelectedBookings([]);
+    successNotification(`Successfully approved ${count} bookings.`);
+  };
+
+  const handleBulkDecline = async () => {
+    if (!confirm(`Decline ${selectedBookings.length} selected bookings?`)) return;
+
+    const targets = rows(sourceBookings).filter((row) =>
+      selectedBookings.includes(row.bookingId)
+    );
+
+    setLoading(true);
+    for (const row of targets) {
+      await updateDoc(doc(travelBookingCollection, row.bookingId), {
+        status: "Canceled",
+      });
+    }
+    setLoading(false);
+    setSelectedBookings([]);
+    deleteNotification(`Declined ${targets.length} bookings.`);
+  };
+
+  const handleViewBookingDetails = (id) => {
+    const booking = rows(sourceBookings).find((item) => item.bookingId === id);
+    if (booking) {
+      setBookingDetails({
+        ...booking,
+        Provider: booking.Provider || { name: "", phone: "" },
+      });
       setOpenBookingDetailsModal(true);
     }
   };
@@ -246,18 +513,42 @@ const TravelBookings = () => {
     }
   };
 
+  const recordSightseeingEarnings = async (id, bookingData) => {
+    if (bookingData?.earningsRecorded) return;
+
+    const priceVal = bookingData?.price || bookingData?.totalAmount;
+    if (!priceVal) return;
+
+    await updateHourlyEarnings(priceVal, "Sightseeing");
+    const providerPhone = bookingData?.Provider?.phone;
+    if (providerPhone) {
+      await updateHourlyEarnings(priceVal, "Sightseeing", providerPhone);
+    }
+    await updateMonthlyEarnings(priceVal, "Sightseeing");
+    if (providerPhone) {
+      await updateMonthlyEarnings(priceVal, "Sightseeing", providerPhone);
+    }
+
+    await updateDoc(doc(travelBookingCollection, id), {
+      earningsRecorded: true,
+    });
+  };
+
   const handleConfirmBooking = async (id, bookingData) => {
+    if (!canConfirmSightseeing(bookingData)) {
+      alert("Only pending bookings can be confirmed.");
+      return;
+    }
+
     if (confirm("Do you want to confirm this booking immediately?")) {
-      await updateDoc(doc(travelBookingCollection, id), {
-        status: "Accepted",
-        isBookingConfirmed: true
-      }).then(async () => {
+      await updateDoc(
+        doc(travelBookingCollection, id),
+        buildSightseeingAcceptUpdate(bookingData)
+      ).then(async () => {
         alert("Booking confirmed successfully!");
 
-        const priceVal = bookingData?.price || bookingData?.totalAmount;
-        if (priceVal) {
-          await updateHourlyEarnings(priceVal, "Sightseeing");
-          await updateMonthlyEarnings(priceVal, "Sightseeing");
+        if (isPaymentVerified(bookingData)) {
+          await recordSightseeingEarnings(id, bookingData);
         }
 
         const gName = bookingData?.guestDetails?.name || bookingData?.fullName;
@@ -310,37 +601,30 @@ const TravelBookings = () => {
   };
 
   const handleAccept = async (id) => {
-    // console.log(id);
     setError({ for: "", text: "" });
-    // Validation removed as per request to 'accept as it comes'
-    // if (bookingDetails.Provider.name.trim().length < 1) { ... }
+
+    if (!canConfirmSightseeing(bookingDetails)) {
+      alert("Only pending bookings can be confirmed.");
+      return;
+    }
+
     if (confirm("Do you want to proceed with confirming this booking?")) {
-      await updateDoc(doc(travelBookingCollection, id), {
-        ...bookingDetails,
-        status: "Accepted",
-        isBookingConfirmed: true,
-      }).then(async () => {
+      await updateDoc(
+        doc(travelBookingCollection, id),
+        buildSightseeingAcceptUpdate(bookingDetails, {
+          Provider: bookingDetails.Provider,
+          adminReview: bookingDetails.adminReview || "",
+        })
+      ).then(async () => {
         alert("Booking confirmed successfully!.");
         setOpenBookingDetailsModal(false);
         setBookingDetails({
           Provider: { name: "", phone: "" },
           adminReview: "",
-          // Driver: { name: "", phone: "" },
-          // vehicleDetails: { vehicle: "", vehicleNumber: "" },
         });
-        const priceVal = bookingDetails?.price || bookingDetails?.totalAmount;
-        await updateHourlyEarnings(priceVal, "Sightseeing");
-        await updateHourlyEarnings(
-          priceVal,
-          "Sightseeing",
-          bookingDetails?.Provider?.phone
-        );
-        await updateMonthlyEarnings(priceVal, "Sightseeing");
-        await updateMonthlyEarnings(
-          priceVal,
-          "Sightseeing",
-          bookingDetails?.Provider?.phone
-        );
+        if (isPaymentVerified(bookingDetails)) {
+          await recordSightseeingEarnings(id, bookingDetails);
+        }
         const gName = bookingDetails?.guestDetails?.name || bookingDetails?.fullName;
         const bTitle = bookingDetails?.title || bookingDetails?.packageName;
 
@@ -353,51 +637,296 @@ const TravelBookings = () => {
     }
   };
 
-  // custom text field for common data
-  const textField = (label, value, is12) => {
-    return (
-      <Grid item xs={12} sm={label === "Description" || is12 ? 12 : 6}>
-        <Box
-          sx={{
-            p: 2,
-            border: '1px solid',
-            borderColor: 'divider',
-            borderRadius: 2,
-            bgcolor: 'background.paper',
-            height: '100%',
-            transition: 'all 0.2s',
-            '&:hover': {
-              borderColor: 'primary.light',
-              boxShadow: 1
-            }
-          }}
+  const handleVerifyPayment = async (id, bookingData) => {
+    if (!confirm("Mark this sightseeing payment as verified?")) return;
+
+    setVerifyingPaymentId(id);
+
+    try {
+      const existingConfirmation = bookingData.paymentConfirmation;
+      const updateData = {
+        paymentVerificationStatus: "VERIFIED",
+        paymentVerificationNote: "Verified by admin",
+        isPaymentDone: true,
+        paymentVerifiedAt: new Date(),
+      };
+
+      if (existingConfirmation && typeof existingConfirmation === "object") {
+        updateData.paymentConfirmation = {
+          ...existingConfirmation,
+          status: "paid",
+        };
+      }
+
+      await updateDoc(doc(travelBookingCollection, id), updateData);
+      await recordSightseeingEarnings(id, bookingData);
+
+      setBookingDetails((prev) => ({
+        ...prev,
+        paymentVerificationStatus: "VERIFIED",
+        isPaymentDone: true,
+        earningsRecorded: true,
+      }));
+
+      successNotification("Payment verified successfully!");
+
+      const gName = bookingData?.guestDetails?.name || bookingData?.fullName;
+      const bTitle = bookingData?.title || bookingData?.packageName;
+      const uId = bookingData?.userId || bookingData?.uId;
+
+      if (uId) {
+        await CreateNewNotificationToUser(
+          "Sightseeing payment verified!",
+          `Hey ${gName}! your payment for ${bTitle} has been verified.`,
+          uId
+        );
+      }
+    } catch (error) {
+      console.error("Error verifying sightseeing payment:", error);
+      alert("Failed to verify payment.");
+    } finally {
+      setVerifyingPaymentId(null);
+    }
+  };
+
+  const renderDetailItem = (
+    label,
+    value,
+    icon,
+    isFullWidth = false,
+    colorClass = "text-primary-600 bg-primary-50"
+  ) => (
+    <Grid item xs={12} sm={isFullWidth ? 12 : 6}>
+      <div className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-neutral-50 transition-all duration-200 border border-transparent hover:border-neutral-200 group">
+        <div
+          className={`mt-0.5 p-2 rounded-lg ${colorClass} group-hover:scale-110 transition-transform duration-200 shadow-sm`}
         >
-          <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ mb: 0.5, display: 'block', letterSpacing: '0.05em' }}>
-            {label.toUpperCase()}
-          </Typography>
-          <Typography variant="body1" color="text.primary" fontWeight={500}>
-            {label.includes("Price") && "฿"}
+          {icon}
+        </div>
+        <div>
+          <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">
+            {label}
+          </p>
+          <p className="text-neutral-900 font-medium text-[15px] leading-snug">
             {value}
-            {label.includes("Period") && " days"}
-            {label === "Discount" && "%"}
-          </Typography>
-        </Box>
-      </Grid>
+          </p>
+        </div>
+      </div>
+    </Grid>
+  );
+
+  const BookingTimeline = ({ booking }) => {
+    const getTimelineDate = (value) => {
+      const date = toDate(value);
+      return date ? date.toLocaleDateString() : "";
+    };
+
+    const confirmed =
+      isSightseeingAccepted(booking.rawData || booking) ||
+      booking.isBookingConfirmed;
+    const paid = isSightseeingRevenueEligible(booking.rawData || booking);
+    const serviceDate = toDate(
+      booking.pickUpTime || booking.arrivalDate || booking.tourDate
+    );
+
+    const steps = [
+      {
+        label: "Booked",
+        date: getTimelineDate(booking.orderedAt),
+        completed: true,
+      },
+      {
+        label: "Confirmed",
+        date: "",
+        completed: confirmed,
+      },
+      {
+        label: "Payment",
+        date: "",
+        completed: paid,
+      },
+      {
+        label: "Tour Day",
+        date: serviceDate ? getDate(serviceDate) : "",
+        completed:
+          serviceDate &&
+          new Date() >= serviceDate &&
+          confirmed,
+      },
+    ];
+
+    return (
+      <div className="w-full py-6">
+        <div className="flex items-center justify-between relative">
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-neutral-200 -z-0" />
+          <div
+            className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-success-500 -z-0 transition-all duration-500"
+            style={{
+              width: `${
+                ((steps.filter((s) => s.completed).length - 1) /
+                  (steps.length - 1)) *
+                100
+              }%`,
+            }}
+          />
+          {steps.map((step, index) => (
+            <div
+              key={index}
+              className="flex flex-col items-center relative z-10 bg-white px-2"
+            >
+              {step.completed ? (
+                <CheckCircle className="text-success-500 text-3xl bg-white rounded-full" />
+              ) : (
+                <Circle className="text-neutral-300 text-3xl bg-white rounded-full" />
+              )}
+              <span
+                className={`text-xs font-bold mt-2 ${
+                  step.completed ? "text-neutral-800" : "text-neutral-400"
+                }`}
+              >
+                {step.label}
+              </span>
+              {step.date && (
+                <span className="text-[10px] text-neutral-500 font-medium">
+                  {step.date}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     );
   };
 
-  const headingTextField = (label, icon) => {
+  const CalendarView = ({ bookings }) => {
+    const uniquePackages = [
+      ...new Set(bookings.map((b) => b.packageTitle)),
+    ].sort();
+    const calendarBookings =
+      calendarPackage === "All"
+        ? bookings
+        : bookings.filter((b) => b.packageTitle === calendarPackage);
+
+    const baseDate = new Date(calendarDate);
+    const daysToShow = 14;
+    const dates = Array.from({ length: daysToShow }, (_, i) => {
+      const d = new Date(baseDate);
+      d.setDate(baseDate.getDate() + i);
+      return d;
+    });
+
     return (
-      <Grid item xs={12}>
-        <Box sx={{ mt: 3, mb: 2, pb: 1, borderBottom: '1px dashed', borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6" color="primary.main" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {icon && <span>{icon}</span>}
-            {label}
-          </Typography>
-        </Box>
-      </Grid>
+      <div className="bg-white rounded-xl shadow-lg border border-neutral-200 p-4">
+        <div className="flex gap-4 mb-6 items-center flex-wrap">
+          <FormControl size="small" className="min-w-[220px]">
+            <InputLabel>Filter Package</InputLabel>
+            <Select
+              value={calendarPackage}
+              label="Filter Package"
+              onChange={(e) => setCalendarPackage(e.target.value)}
+            >
+              <MenuItem value="All">All Packages</MenuItem>
+              {uniquePackages.map((pkg) => (
+                <MenuItem key={pkg} value={pkg}>
+                  {pkg}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <input
+            type="date"
+            value={calendarDate}
+            onChange={(e) => setCalendarDate(e.target.value)}
+            className="px-3 py-2 border border-neutral-300 rounded-lg text-sm"
+          />
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px] border-collapse">
+            <thead>
+              <tr>
+                <th className="p-3 text-left text-xs font-bold text-neutral-500 uppercase border-b">
+                  Package
+                </th>
+                {dates.map((date) => (
+                  <th
+                    key={date.toISOString()}
+                    className="p-2 text-center text-[10px] font-bold text-neutral-500 border-b min-w-[72px]"
+                  >
+                    {date.toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {uniquePackages
+                .filter(
+                  (pkg) => calendarPackage === "All" || pkg === calendarPackage
+                )
+                .map((pkg) => (
+                  <tr key={pkg} className="border-b border-neutral-100">
+                    <td className="p-3 text-sm font-semibold text-neutral-800 sticky left-0 bg-white">
+                      {pkg}
+                    </td>
+                    {dates.map((date) => {
+                      const dateKey = date.toISOString().split("T")[0];
+                      const dayBookings = calendarBookings.filter((b) => {
+                        const tourDate = toDate(
+                          b.rawData?.pickUpTime || b.rawData?.arrivalDate
+                        );
+                        if (!tourDate) return false;
+                        return (
+                          tourDate.toISOString().split("T")[0] === dateKey &&
+                          b.packageTitle === pkg &&
+                          !isSightseeingCanceled(b.rawData)
+                        );
+                      });
+
+                      return (
+                        <td key={dateKey} className="p-1 text-center align-top">
+                          {dayBookings.map((b) => (
+                            <div
+                              key={b.bookingId}
+                              onClick={() => handleViewBookingDetails(b.bookingId)}
+                              className={`text-[10px] px-1.5 py-1 mb-1 rounded cursor-pointer font-medium ${
+                                isSightseeingRevenueEligible(b.rawData)
+                                  ? "bg-emerald-100 text-emerald-800"
+                                  : isSightseeingOnsiteQueue(b.rawData)
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-blue-100 text-blue-800"
+                              }`}
+                            >
+                              {b.guestName?.split(" ")[0] || "Guest"}
+                            </div>
+                          ))}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     );
   };
+
+  const packageTextField = (label, value, is12) => (
+    <Grid item xs={12} sm={label === "Description" || is12 ? 12 : 6}>
+      <div className="flex gap-2">
+        <p>
+          <span className="font-bold">{label}: </span>
+          {label.includes("Price") && "฿"}
+          {value}
+          {label.includes("Period") && " days"}
+          {label === "Discount" && "%"}
+        </p>
+      </div>
+    </Grid>
+  );
 
   return (
     <div className="animate-fade-in">
@@ -408,26 +937,29 @@ const TravelBookings = () => {
       />
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-primary-100 text-sm font-medium mb-1">
+                Total Bookings
+              </p>
+              <p className="text-3xl font-bold">{bookingStats.total}</p>
+            </div>
+            <div className="bg-white/20 p-3 rounded-lg">
+              <span className="text-3xl">🎫</span>
+            </div>
+          </div>
+        </div>
+
         <div
           onClick={() => setTabValue(0)}
           className="bg-gradient-to-br from-warning-500 to-warning-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-warning-100 text-sm font-medium mb-1">
-                Review (Pending)
-              </p>
-              <p className="text-3xl font-bold">
-                {
-                  (isRealTime ? travelBookings : matchedBookings).filter(
-                    (b) => {
-                      const s = (b.status || "Not Reviewed").toLowerCase();
-                      return ["not reviewed", "pending", "in progress", "reviewed"].includes(s);
-                    }
-                  ).length
-                }
-              </p>
+              <p className="text-warning-100 text-sm font-medium mb-1">Pending</p>
+              <p className="text-3xl font-bold">{bookingStats.pending}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <span className="text-3xl">⏳</span>
@@ -437,58 +969,76 @@ const TravelBookings = () => {
 
         <div
           onClick={() => setTabValue(1)}
-          className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
+          className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-success-100 text-sm font-medium mb-1">
-                Done (Accepted)
-              </p>
-              <p className="text-3xl font-bold">
-                {
-                  (isRealTime ? travelBookings : matchedBookings).filter(
-                    (b) => {
-                      const s = (b.status || "").toLowerCase();
-                      return ["accepted", "confirmed", "done"].includes(s);
-                    }
-                  ).length
-                }
-              </p>
+              <p className="text-orange-100 text-sm font-medium mb-1">Onsite</p>
+              <p className="text-3xl font-bold">{bookingStats.onsite}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">✅</span>
+              <span className="text-3xl">💳</span>
             </div>
           </div>
         </div>
 
         <div
           onClick={() => setTabValue(2)}
-          className="bg-gradient-to-br from-danger-500 to-danger-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
+          className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-danger-100 text-sm font-medium mb-1">
-                Reject (Canceled)
+              <p className="text-success-100 text-sm font-medium mb-1">
+                Paid & Accepted
               </p>
-              <p className="text-3xl font-bold">
-                {
-                  (isRealTime ? travelBookings : matchedBookings).filter(
-                    (b) => {
-                      const s = (b.status || "").toLowerCase();
-                      return ["canceled", "cancelled", "rejected"].includes(s);
-                    }
-                  ).length
-                }
-              </p>
+              <p className="text-3xl font-bold">{bookingStats.paidAccepted}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">❌</span>
+              <span className="text-3xl">✅</span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* View Toggle & Search */}
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
+        <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-neutral-200 shadow-sm">
+          <button
+            onClick={() => setViewMode("list")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center ${
+              viewMode === "list"
+                ? "bg-primary-50 text-primary-700 shadow-sm"
+                : "text-neutral-500 hover:bg-neutral-50"
+            }`}
+          >
+            <ViewList className="mr-2 !text-lg" /> List View
+          </button>
+          <button
+            onClick={() => setViewMode("calendar")}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center ${
+              viewMode === "calendar"
+                ? "bg-primary-50 text-primary-700 shadow-sm"
+                : "text-neutral-500 hover:bg-neutral-50"
+            }`}
+          >
+            <CalendarMonth className="mr-2 !text-lg" /> Calendar View
+          </button>
+        </div>
 
+        <div className="relative w-full md:w-auto md:min-w-[300px]">
+          <input
+            type="text"
+            placeholder="Search guest, package, phone, ID..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-neutral-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 !text-xl" />
+        </div>
+      </div>
 
       {/* Date Filter Section */}
       <div className="bg-white rounded-xl shadow-lg border border-neutral-200 p-5 mb-6 hover:shadow-xl transition-shadow duration-300">
@@ -599,8 +1149,13 @@ const TravelBookings = () => {
                 min="1"
                 value={dailyLimit}
                 onChange={(e) => setDailyLimit(Number(e.target.value))}
-                className="w-16 text-center text-sm font-bold border-b-2 border-primary-500 focus:outline-none"
+                onBlur={(e) => handleSaveDailyLimit(e.target.value)}
+                disabled={savingDailyLimit}
+                className="w-16 text-center text-sm font-bold border-b-2 border-primary-500 focus:outline-none disabled:opacity-60"
               />
+              {savingDailyLimit && (
+                <span className="text-xs text-gray-500">Saving...</span>
+              )}
             </div>
             <IconButton onClick={() => setOpenCapacityModal(false)} size="small" className="hover:bg-gray-200 transition-colors">
               <CloseRoundedIcon />
@@ -624,33 +1179,31 @@ const TravelBookings = () => {
                 {(() => {
                   // aggregation logic
                   const dailyCounts = {};
-                  const allBookings = isRealTime ? travelBookings : matchedBookings;
 
-                  allBookings.forEach(b => {
-                    // Get Service Date
-                    const puTime = b.pickUpTime || b.arrivalDate || b.timestamp || b.orderedAt;
-                    // Fallback to timestamp if pickup not set, though pickup is accurate for capacity
-                    if (!puTime) return;
+                  (rows(sourceBookings) || []).forEach((b) => {
+                    const dateObj = toDate(
+                      b.rawData?.pickUpTime ||
+                        b.rawData?.arrivalDate ||
+                        b.pickUpTime ||
+                        b.arrivalDate ||
+                        backfillCreatedAt(b.rawData || b)
+                    );
+                    if (!dateObj) return;
 
-                    let dateObj;
-                    if (puTime.seconds) dateObj = new Date(puTime.seconds * 1000);
-                    else dateObj = new Date(puTime);
-
-                    if (isNaN(dateObj.getTime())) return;
-
-                    const dateKey = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
+                    const dateKey = dateObj.toISOString().split("T")[0];
 
                     if (!dailyCounts[dateKey]) {
                       dailyCounts[dateKey] = { total: 0, confirmed: 0, pending: 0 };
                     }
 
-                    // Count statuses
-                    const status = (b.status || "not reviewed").toLowerCase();
-                    if (["canceled", "cancelled", "rejected"].includes(status)) return; // Exclude rejected
+                    if (isSightseeingCanceled(b.rawData)) return;
 
                     dailyCounts[dateKey].total++;
 
-                    if (["accepted", "confirmed", "done"].includes(status)) {
+                    if (
+                      isSightseeingRevenueEligible(b.rawData) ||
+                      isSightseeingOnsiteQueue(b.rawData)
+                    ) {
                       dailyCounts[dateKey].confirmed++;
                     } else {
                       dailyCounts[dateKey].pending++;
@@ -667,7 +1220,7 @@ const TravelBookings = () => {
                   if (sortedDays.length === 0) {
                     return (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-gray-400">
+                        <td colSpan={6} className="p-8 text-center text-gray-400">
                           No upcoming bookings found.
                         </td>
                       </tr>
@@ -726,736 +1279,712 @@ const TravelBookings = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Tabs */}
-      {viewMode === 'list' && (
-        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} aria-label="bookingTabs">
-            <Tab label="Pending" />
-            <Tab label="Done" />
-            <Tab label="Rejected" />
-            <Tab label="Next 7 Days" />
-          </Tabs>
-        </Box>
-      )}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+        <Tabs value={tabValue} onChange={handleTabChange} aria-label="booking status tabs">
+          <Tab label="Pending" />
+          <Tab label="Onsite" />
+          <Tab label="Paid & Accepted" />
+          <Tab label="Declined" />
+          <Tab label="Next 7 Days" />
+        </Tabs>
+      </Box>
 
-      {viewMode === 'board' ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full min-h-[500px] pb-6">
-          {/* Pending Column */}
-          <div className="bg-white rounded-xl shadow-lg border border-neutral-200 flex flex-col h-full bg-gradient-to-b from-white to-neutral-50 overflow-hidden">
-            <div className="p-4 border-b border-warning-100 bg-warning-50 flex justify-between items-center sticky top-0 z-10">
-              <h3 className="font-bold text-neutral-700 flex items-center gap-2"><span className="text-warning-500 text-xl">⏳</span> Pending / Review</h3>
-              <span className="bg-warning-100 text-warning-700 px-2 py-0.5 rounded-full text-sm font-bold shadow-sm">
-                {(isRealTime ? travelBookings : matchedBookings).filter(b => ["not reviewed", "pending", "in progress", "reviewed"].includes((b.status || "").toLowerCase())).length}
-              </span>
-            </div>
-            <div className="p-4 flex-grow overflow-y-auto space-y-4 custom-scrollbar">
-              {(isRealTime ? travelBookings : matchedBookings)
-                .filter(b => ["not reviewed", "pending", "in progress", "reviewed"].includes((b.status || "").toLowerCase()))
-                .map((row, i) => (
-                  <div key={i} className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="font-semibold text-neutral-800">{row.title || row.packageName || "N/A"}</span>
-                      <Chip label={row.status || "Pending"} size="small" color="warning" variant="outlined" />
-                    </div>
-                    <div className="text-sm text-neutral-600 space-y-1 mb-4">
-                      <p>👤 {row.guestDetails?.name?.replace("not_present", "").trim() || row.fullName || "N/A"}</p>
-                      <p>📅 {getDateAndTime(row.orderedAt || row.createdAt || row.timestamp)}</p>
-                      <p>💰 ฿{(row.price || row.totalAmount || 0).toLocaleString()}</p>
-                      {row.isBookingConfirmed && (
-                        <p className="text-success-600 font-semibold text-xs mt-1 flex items-center gap-1">
-                          <span className="bg-success-100 p-0.5 rounded-full">✓</span> Booking Confirmed
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2 border-t pt-3 mt-2">
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        color="error"
-                        onClick={() => isRealTime && handleDelete(row.id, row)}
-                        startIcon={<CloseRoundedIcon />}
-                        fullWidth
-                        sx={{ textTransform: 'none' }}
-                      >
-                        Reject
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        color="success"
-                        onClick={() => isRealTime && handleViewBookingDetails(row.id)}
-                        startIcon={<DoneRoundedIcon />}
-                        fullWidth
-                        sx={{ textTransform: 'none' }}
-                      >
-                        Process
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* Done Column */}
-          <div className="bg-white rounded-xl shadow-lg border border-neutral-200 flex flex-col h-full bg-gradient-to-b from-white to-neutral-50 overflow-hidden">
-            <div className="p-4 border-b border-success-100 bg-success-50 flex justify-between items-center sticky top-0 z-10">
-              <h3 className="font-bold text-neutral-700 flex items-center gap-2"><span className="text-success-500 text-xl">✅</span> Done / Accepted</h3>
-              <span className="bg-success-100 text-success-700 px-2 py-0.5 rounded-full text-sm font-bold shadow-sm">
-                {(isRealTime ? travelBookings : matchedBookings).filter(b => ["accepted", "confirmed", "done"].includes((b.status || "").toLowerCase())).length}
-              </span>
-            </div>
-            <div className="p-4 flex-grow overflow-y-auto space-y-4 custom-scrollbar">
-              {(isRealTime ? travelBookings : matchedBookings)
-                .filter(b => ["accepted", "confirmed", "done"].includes((b.status || "").toLowerCase()))
-                .map((row, i) => (
-                  <div key={i} className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="font-semibold text-neutral-800">{row.title || row.packageName || "N/A"}</span>
-                      <Chip label="Accepted" size="small" color="success" />
-                    </div>
-                    <div className="text-sm text-neutral-600 space-y-1">
-                      <p>👤 {row.guestDetails?.name?.replace("not_present", "").trim() || row.fullName || "N/A"}</p>
-                      <p>📅 {getDateAndTime(row.orderedAt || row.createdAt || row.timestamp)}</p>
-                      <p>💰 ฿{(row.price || row.totalAmount || 0).toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* Rejected Column */}
-          <div className="bg-white rounded-xl shadow-lg border border-neutral-200 flex flex-col h-full bg-gradient-to-b from-white to-neutral-50 overflow-hidden">
-            <div className="p-4 border-b border-danger-100 bg-danger-50 flex justify-between items-center sticky top-0 z-10">
-              <h3 className="font-bold text-neutral-700 flex items-center gap-2"><span className="text-danger-500 text-xl">❌</span> Rejected</h3>
-              <span className="bg-danger-100 text-danger-700 px-2 py-0.5 rounded-full text-sm font-bold shadow-sm">
-                {(isRealTime ? travelBookings : matchedBookings).filter(b => ["canceled", "cancelled", "rejected"].includes((b.status || "").toLowerCase())).length}
-              </span>
-            </div>
-            <div className="p-4 flex-grow overflow-y-auto space-y-4 custom-scrollbar">
-              {(isRealTime ? travelBookings : matchedBookings)
-                .filter(b => ["canceled", "cancelled", "rejected"].includes((b.status || "").toLowerCase()))
-                .map((row, i) => (
-                  <div key={i} className="bg-white p-4 rounded-xl border border-neutral-200 shadow-sm hover:shadow-md transition-shadow opacity-75 hover:opacity-100">
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="font-semibold text-neutral-800">{row.title || row.packageName || "N/A"}</span>
-                      <Chip label={row.status} size="small" color="error" variant="outlined" />
-                    </div>
-                    <div className="text-sm text-neutral-600 space-y-1">
-                      <p>👤 {row.guestDetails?.name?.replace("not_present", "").trim() || row.fullName || "N/A"}</p>
-                      <p>📅 {getDateAndTime(row.orderedAt || row.createdAt || row.timestamp)}</p>
-                      <p>💰 ฿{(row.price || row.totalAmount || 0).toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </div>
+      {viewMode === "calendar" ? (
+        <CalendarView bookings={rows(sourceBookings) || []} />
       ) : (
-        <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden">
-          {loading ? (
-            <LoadingContent />
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
-                    <tr>
-                      {columns?.map((column) => (
-                        <th
-                          key={column.property}
-                          className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider"
-                          style={{ width: column.width }}
-                        >
-                          {column.label}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-200">
-                    {(() => {
-                      const allBookings = isRealTime ? travelBookings : matchedBookings;
-                      const filteredBookings = allBookings.filter((b) => {
-                        const status = b.status || "Not Reviewed";
-                        const lowerStatus = status.toLowerCase();
-
-                        if (tabValue === 0) return ["not reviewed", "pending", "in progress", "reviewed"].includes(lowerStatus);
-                        if (tabValue === 1) return ["accepted", "confirmed", "done"].includes(lowerStatus);
-                        if (tabValue === 2) return ["canceled", "cancelled", "rejected"].includes(lowerStatus);
-                        if (tabValue === 3) {
-                          // Next 7 Days logic: Active bookings only
-                          if (["canceled", "cancelled", "rejected"].includes(lowerStatus)) return false;
-
-                          const puTime = b.pickUpTime || b.arrivalDate;
-                          if (!puTime) return false;
-
-                          let date;
-                          if (puTime.seconds) {
-                            date = new Date(puTime.seconds * 1000);
-                          } else {
-                            date = new Date(puTime);
-                          }
-
-                          if (isNaN(date.getTime())) return false;
-
-                          const now = new Date();
-                          now.setHours(0, 0, 0, 0);
-                          const next7 = new Date(now);
-                          next7.setDate(now.getDate() + 7);
-                          next7.setHours(23, 59, 59, 999);
-
-                          return date >= now && date <= next7;
-                        }
-                        return false;
-                      });
-
-                      if (filteredBookings.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan={10} className="px-6 py-12 text-center">
-                              <div className="flex flex-col items-center justify-center gap-3">
-                                <span className="text-6xl opacity-50">📅</span>
-                                <p className="text-neutral-500 font-medium">
-                                  No {tabValue === 0 ? "Not Reviewed" : tabValue === 1 ? "In Progress" : tabValue === 2 ? "Done" : tabValue === 3 ? "Upcoming (Next 7 Days)" : "Rejected"} Sightseeing Bookings Found
-                                </p>
-                                <p className="text-neutral-400 text-sm">
-                                  Bookings will appear here when available
-                                </p>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      return rows(filteredBookings)?.map((row, i) => {
-                        const date = (row["orderedAt"] || row["createdAt"] || row["timestamp"])
-                          ? new Date(
-                            (row["orderedAt"]?.seconds || row["createdAt"]?.seconds || row["timestamp"]?.seconds || 0) * 1000 +
-                            (row["orderedAt"]?.nanoseconds || row["createdAt"]?.nanoseconds || row["timestamp"]?.nanoseconds || 0) / 1000000
-                          )
-                          : new Date();
-
-                        return (
-                          <tr
-                            key={i}
-                            className="hover:bg-primary-50 transition-colors duration-200"
-                          >
-                            {columns.map((column) => {
-                              const value = row[column.property];
-
-                              return (
-                                <td
-                                  key={column.property}
-                                  className="px-6 py-4 text-center"
-                                >
-                                  {value === "Pending" ||
-                                    value === "Accepted" ||
-                                    value === "Canceled" ||
-                                    value === "In Progress" ||
-                                    value === "Reviewed" ||
-                                    value === "Not Reviewed" ||
-                                    value === "Confirmed" ||
-                                    value === "Rejected" ? (
-                                    <span
-                                      className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${(value === "Pending" || value === "Not Reviewed" || value === "In Progress" || value === "Reviewed")
-                                        ? "bg-warning-100 text-warning-700 border border-warning-300"
-                                        : (value === "Accepted" || value === "Confirmed" || value === "Done")
-                                          ? "bg-success-100 text-success-700 border border-success-300"
-                                          : "bg-danger-100 text-danger-700 border border-danger-300"
-                                        }`}
-                                    >
-                                      {(value === "Accepted" || value === "Confirmed" || value === "Done") && "✓ "}
-                                      {(value === "Pending" || value === "Not Reviewed" || value === "In Progress" || value === "Reviewed") && "⏳ "}
-                                      {(value === "Canceled" || value === "Rejected") && "✗ "}
-                                      {value === "Not Reviewed" ? "Pending" : value === "Confirmed" ? "Accepted" : value}
-                                    </span>
-                                  ) : column.property === "orderedAt" ? (
-                                    <span className="text-neutral-600">
-                                      {getDateAndTime(date)}
-                                    </span>
-                                  ) : column.property === "roomNumbers" ? (
-                                    <div className="flex items-center justify-center flex-wrap gap-1">
-                                      {value?.map((item, idx) => (
-                                        <span
-                                          key={idx}
-                                          className="bg-primary-500 text-white px-2 py-1 rounded text-xs font-medium"
-                                        >
-                                          {item}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  ) : column.property === "action" ? (
-                                    <div className="flex gap-2 justify-center items-center">
-                                      {/* View Booking Details (Eye) */}
-                                      <Tooltip title="View Booking Details">
-                                        <IconButton
-                                          onClick={() => isRealTime && handleViewBookingDetails(row.orderId)}
-                                          disabled={!isRealTime}
-                                          sx={{
-                                            color: '#3b82f6',
-                                            '&:hover': { bgcolor: '#eff6ff' },
-                                            '&.Mui-disabled': { opacity: 0.5 },
-                                            transition: 'all 0.2s'
-                                          }}
-                                        >
-                                          <MdVisibility size={20} />
-                                        </IconButton>
-                                      </Tooltip>
-
-                                      {/* View Package Info (Info) */}
-                                      {row.packageId && (
-                                        <Tooltip title="View Package Details">
-                                          <IconButton
-                                            onClick={() => handleViewPackageDetails(row.packageId)}
-                                            sx={{
-                                              color: '#9333ea',
-                                              '&:hover': { bgcolor: '#f3e8ff' },
-                                              transition: 'all 0.2s'
-                                            }}
-                                          >
-                                            <MdInfo size={20} />
-                                          </IconButton>
-                                        </Tooltip>
-                                      )}
-
-                                      {/* Pending Actions: Accept/Reject */}
-                                      {(row.status === "Not Reviewed" || row.status === "Pending" || row.status === "In Progress" || row.status === "Reviewed" || !row.status) && (
-                                        <>
-                                          <Tooltip title="Accept Booking">
-                                            <button
-                                              onClick={() => isRealTime && handleConfirmBooking(row.orderId, row.fullData)}
-                                              className="p-1.5 rounded-full bg-success-500 text-white hover:bg-success-600 hover:scale-110 transition-all duration-200 shadow-sm disabled:opacity-50"
-                                              disabled={!isRealTime}
-                                            >
-                                              <DoneRoundedIcon sx={{ fontSize: 18 }} />
-                                            </button>
-                                          </Tooltip>
-                                          <Tooltip title="Reject Booking">
-                                            <button
-                                              onClick={() => isRealTime && handleDelete(row.orderId, row.fullData)}
-                                              className="p-1.5 rounded-full bg-danger-500 text-white hover:bg-danger-600 hover:scale-110 transition-all duration-200 shadow-sm disabled:opacity-50"
-                                              disabled={!isRealTime}
-                                            >
-                                              <CloseRoundedIcon sx={{ fontSize: 18 }} />
-                                            </button>
-                                          </Tooltip>
-                                        </>
-                                      )}
-
-                                      {/* Delete/Cancel for other statuses */}
-                                      {(row.status === "Accepted" || row.status === "Confirmed" || row.status === "Done") && (
-                                        <Tooltip title="Reject Booking">
-                                          <IconButton
-                                            onClick={() => isRealTime && handleDelete(row.orderId, row.fullData)}
-                                            sx={{
-                                              color: '#ef4444',
-                                              '&:hover': { bgcolor: '#fef2f2' },
-                                              transition: 'all 0.2s'
-                                            }}
-                                            disabled={!isRealTime}
-                                          >
-                                            <MdDelete size={20} />
-                                          </IconButton>
-                                        </Tooltip>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-neutral-700 font-medium">
-                                      {value}
-                                    </span>
-                                  )}
-                                </td>
-                              );
-                            })
-                            }
-                          </tr>
-                        );
-                      })
-                    })()}
-                  </tbody>
-                </table>
+        <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden relative">
+          {selectedBookings.length > 0 && (
+            <div className="absolute top-0 left-0 w-full bg-primary-50 p-2 z-20 flex items-center justify-between border-b border-primary-100 animate-fade-in">
+              <div className="flex items-center gap-4 pl-4">
+                <span className="font-bold text-primary-800">
+                  {selectedBookings.length} Selected
+                </span>
               </div>
-
-              {/* Pagination */}
-              {!isRealTime && (
-                <div className="border-t border-neutral-200 bg-neutral-50 px-6 py-4">
-                  <TablePagination
-                    rowsPerPageOptions={[10, 25, 100]}
-                    component="div"
-                    count={totalPages}
-                    rowsPerPage={rowsPerPage}
-                    page={page}
-                    onPageChange={handleChangePage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
-                    sx={{
-                      "& .MuiTablePagination-toolbar": {
-                        color: "var(--text-primary)",
-                      },
-                      "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
-                      {
-                        margin: 0,
-                        fontWeight: 500,
-                      },
-                      "& .MuiTablePagination-select": {
-                        borderRadius: "8px",
-                        backgroundColor: "white",
-                        border: "1px solid #e5e7eb",
-                        padding: "4px 8px",
-                      },
-                      "& .MuiTablePagination-actions button": {
-                        borderRadius: "8px",
-                        "&:hover": {
-                          backgroundColor: "var(--primary-bg-light)",
-                        },
-                      },
-                    }}
-                  />
-                </div>
-              )}
-            </>
+              <div className="flex gap-2 pr-4">
+                {(tabValue === 0 || tabValue === 1) && (
+                  <button
+                    onClick={handleBulkApprove}
+                    className="bg-success-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-success-700 transition-colors shadow-sm"
+                  >
+                    Approve Selected
+                  </button>
+                )}
+                {(tabValue === 0 || tabValue === 1 || tabValue === 2) && (
+                  <button
+                    onClick={handleBulkDecline}
+                    className="bg-danger-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-danger-700 transition-colors shadow-sm"
+                  >
+                    {tabValue === 0 ? "Decline Selected" : "Cancel Selected"}
+                  </button>
+                )}
+              </div>
+            </div>
           )}
+
+          <div className="overflow-x-auto">
+            {loading ? (
+              <LoadingContent variant="skeleton" />
+            ) : (
+              <table className="w-full">
+                <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
+                  <tr>
+                    <th className="px-4 py-4 w-[50px]">
+                      {tabValue !== 3 && (
+                        <input
+                          type="checkbox"
+                          className="rounded border-white/30 text-primary-600 focus:ring-white/50 w-4 h-4 cursor-pointer"
+                          onChange={(e) => {
+                            const currentRows = (rows(sourceBookings) || []).filter(
+                              (row) => filterByTab(row, tabValue)
+                            );
+                            handleSelectAll(e, currentRows);
+                          }}
+                          checked={
+                            selectedBookings.length > 0 &&
+                            selectedBookings.length ===
+                              (rows(sourceBookings) || []).filter((row) =>
+                                filterByTab(row, tabValue)
+                              ).length
+                          }
+                        />
+                      )}
+                    </th>
+                    {columns.map((column) => (
+                      <th
+                        key={column.property}
+                        className="px-6 py-4 text-center text-sm font-semibold uppercase tracking-wider"
+                        style={{ width: column.width }}
+                      >
+                        {column.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-200">
+                  {(rows(sourceBookings) || [])
+                    .filter((row) => filterByTab(row, tabValue))
+                    .slice(
+                      page * rowsPerPage,
+                      page * rowsPerPage + parseInt(rowsPerPage, 10)
+                    )
+                    .map((row, i) => {
+                      const isSelected =
+                        selectedBookings.indexOf(row.bookingId) !== -1;
+
+                      return (
+                        <tr
+                          key={i}
+                          className={`hover:bg-primary-50 transition-colors duration-200 ${
+                            isSelected ? "bg-primary-50" : ""
+                          }`}
+                        >
+                          <td className="px-4 py-4 text-center">
+                            {tabValue !== 3 && (
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={(event) =>
+                                  handleSelectOne(event, row.bookingId)
+                                }
+                                className="rounded border-neutral-300 text-primary-600 focus:ring-primary-500 w-4 h-4 cursor-pointer"
+                              />
+                            )}
+                          </td>
+                          {columns.map((column) => {
+                            const value = row[column.property];
+                            let dateDisplay = "N/A";
+                            if (column.property === "orderedAt" && row.orderedAt) {
+                              const orderedAt = row.orderedAt;
+                              const dateObj = orderedAt?.seconds
+                                ? new Date(
+                                    orderedAt.seconds * 1000 +
+                                      (orderedAt.nanoseconds || 0) / 1000000
+                                  )
+                                : new Date(orderedAt);
+                              dateDisplay = getDateAndTime(dateObj);
+                            }
+
+                            return (
+                              <td
+                                key={column.property}
+                                className="px-6 py-4 text-center"
+                              >
+                                {column.property === "orderedAt" ? (
+                                  <span className="text-sm text-neutral-600">
+                                    {dateDisplay}
+                                  </span>
+                                ) : column.property === "paymentStatus" ? (
+                                  <PaymentStatusBadge
+                                    statusInfo={getSightseeingPaymentStatusInfo(
+                                      row.rawData
+                                    )}
+                                  />
+                                ) : column.property === "action" ? (
+                                  <div className="flex gap-2 justify-center items-center">
+                                    <button
+                                      onClick={() =>
+                                        handleViewBookingDetails(row.bookingId)
+                                      }
+                                      className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-lg transition-colors"
+                                      title="View Booking Details"
+                                    >
+                                      <MdVisibility size={20} />
+                                    </button>
+
+                                    {row.packageId && (
+                                      <button
+                                        onClick={() =>
+                                          handleViewPackageDetails(row.packageId)
+                                        }
+                                        className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-700 rounded-lg transition-colors"
+                                        title="View Package Details"
+                                      >
+                                        <MdInfo size={20} />
+                                      </button>
+                                    )}
+
+                                    {(isSightseeingPendingReview(row.rawData) ||
+                                      (isSightseeingPending(row.rawData) &&
+                                        (isOnsiteSightseeingPayment(
+                                          row.rawData
+                                        ) ||
+                                          isThaiQrSightseeingPayment(
+                                            row.rawData
+                                          )))) && (
+                                      <>
+                                        <button
+                                          onClick={() =>
+                                            handleConfirmBooking(
+                                              row.bookingId,
+                                              row.rawData
+                                            )
+                                          }
+                                          className="p-2 rounded-full bg-success-500 text-white hover:bg-success-600 hover:scale-110 transition-all duration-200"
+                                          title={
+                                            isThaiQrSightseeingPayment(row.rawData)
+                                              ? "Accept Thai QR Booking"
+                                              : isOnsiteSightseeingPayment(row.rawData)
+                                                ? "Accept Onsite Booking"
+                                                : "Approve Request"
+                                          }
+                                        >
+                                          <DoneRoundedIcon className="scale-90" />
+                                        </button>
+                                        <button
+                                          onClick={() =>
+                                            handleDelete(
+                                              row.bookingId,
+                                              row.rawData
+                                            )
+                                          }
+                                          className="p-2 rounded-full bg-danger-500 text-white hover:bg-danger-600 hover:scale-110 transition-all duration-200"
+                                          title="Decline Booking"
+                                        >
+                                          <CloseRoundedIcon className="scale-90" />
+                                        </button>
+                                      </>
+                                    )}
+
+                                    {needsSightseeingPaymentVerification(
+                                      row.rawData
+                                    ) &&
+                                      (isAdmin || isSubAdmin) && (
+                                        <VerifyPaymentIconButton
+                                          onClick={() =>
+                                            handleVerifyPayment(
+                                              row.bookingId,
+                                              row.rawData
+                                            )
+                                          }
+                                          loading={
+                                            verifyingPaymentId === row.bookingId
+                                          }
+                                        />
+                                      )}
+                                  </div>
+                                ) : column.property === "amount" ? (
+                                  <span className="font-semibold text-success-600">
+                                    ฿{Number(value || 0).toLocaleString()}
+                                  </span>
+                                ) : column.property === "packageTitle" ? (
+                                  <div className="text-sm">
+                                    <p className="font-semibold text-neutral-800">
+                                      {value}
+                                    </p>
+                                    {row.autoAccepted && (
+                                      <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-bold">
+                                        Auto
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-sm text-neutral-700">
+                                    {value}
+                                  </span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  {(rows(sourceBookings) || []).filter((row) =>
+                    filterByTab(row, tabValue)
+                  ).length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="px-6 py-12">
+                        <div className="flex flex-col items-center justify-center text-neutral-400">
+                          <span className="text-6xl mb-4">🎫</span>
+                          <p className="text-lg font-medium text-neutral-500">
+                            No Sightseeing Bookings Found
+                          </p>
+                          <p className="text-sm text-neutral-400 mt-2">
+                            There are no bookings for the selected filter.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <div className="border-t border-neutral-200 bg-neutral-50 px-6 py-4">
+            <TablePagination
+              rowsPerPageOptions={[10, 25, 100]}
+              component="div"
+              count={
+                (rows(sourceBookings) || []).filter((row) =>
+                  filterByTab(row, tabValue)
+                ).length
+              }
+              rowsPerPage={parseInt(rowsPerPage, 10)}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{
+                "& .MuiTablePagination-toolbar": {
+                  color: "var(--text-primary)",
+                },
+                "& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows":
+                  {
+                    margin: 0,
+                    fontWeight: 500,
+                  },
+                "& .MuiTablePagination-select": {
+                  borderRadius: "8px",
+                  backgroundColor: "white",
+                  border: "1px solid #e5e7eb",
+                  padding: "4px 8px",
+                },
+                "& .MuiTablePagination-actions button": {
+                  borderRadius: "8px",
+                  "&:hover": {
+                    backgroundColor: "var(--primary-bg-light)",
+                  },
+                },
+              }}
+            />
+          </div>
         </div>
       )}
 
-      {/* View Booking details and confirm booking modal */}
+
+      {/* View Booking details modal */}
       <Dialog
         open={openBookingDetailsModal}
-        onClose={() => {
-          setOpenBookingDetailsModal(false);
-          setBookingDetails({
-            Provider: { name: "", phone: "" },
-            // Driver: { name: "", phone: "" },
-            // vehicleDetails: { vehicle: "", vehicleNumber: "" },
-          });
-          setError({ for: "", text: "" });
-        }}
+        onClose={() => setOpenBookingDetailsModal(false)}
         aria-labelledby="responsive-dialog-title"
+        maxWidth="lg"
         fullWidth
-        maxWidth="md"
+        PaperProps={{
+          style: { borderRadius: 24, padding: 0, backgroundColor: "#F8FAFC" },
+        }}
       >
-        <Box>
-          <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">
-            <div className="flex items-center gap-2">
-              <span>{bookingDetails.title} Booking</span>
-              <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${bookingDetails?.status === "Accepted"
-                  ? "bg-success-100 text-success-700"
-                  : bookingDetails?.status === "Canceled" || bookingDetails?.status === "Rejected"
-                    ? "bg-danger-100 text-danger-700"
-                    : "bg-warning-100 text-warning-700"
-                  }`}
-              >
-                {bookingDetails?.status === "Accepted" ? "Done" : (bookingDetails?.status === "Canceled" || bookingDetails?.status === "Rejected" ? "Rejected" : "Pending")}
+        <DialogTitle
+          sx={{
+            m: 0,
+            p: 3,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            background: "linear-gradient(135deg, #fff 0%, #f1f5f9 100%)",
+            borderBottom: "1px solid #e2e8f0",
+          }}
+          id="customized-dialog-title"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-white rounded-xl shadow-sm text-primary-600 border border-neutral-100">
+              <TourIcon />
+            </div>
+            <div>
+              <span className="block font-extrabold text-xl text-slate-800 tracking-tight">
+                Booking Details
+              </span>
+              <span className="block text-xs font-medium text-slate-500 mt-0.5">
+                ID: {bookingDetails?.bookingId || bookingDetails?.id}
               </span>
             </div>
-          </DialogTitle>
-          <IconButton
-            aria-label="close"
-            onClick={() => {
-              setOpenBookingDetailsModal(false);
-              setBookingDetails({
-                Provider: { name: "", phone: "" },
-                // Driver: { name: "", phone: "" },
-                // vehicleDetails: { vehicle: "", vehicleNumber: "" },
-                adminReview: "",
-              });
-              setError({ for: "", text: "" });
-            }}
-            sx={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              color: "gray",
-            }}
+          </div>
+          <span
+            className={`px-4 py-1.5 rounded-full text-sm font-bold shadow-sm border ${
+              isSightseeingRevenueEligible(bookingDetails.rawData || bookingDetails)
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : isSightseeingCanceled(bookingDetails.rawData || bookingDetails)
+                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                  : isSightseeingOnsiteQueue(bookingDetails.rawData || bookingDetails)
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-orange-50 text-orange-700 border-orange-200"
+            }`}
           >
-            <CloseIcon />
-          </IconButton>
+            {getSightseeingStatusLabel(bookingDetails.rawData || bookingDetails)}
+          </span>
+        </DialogTitle>
+        <IconButton
+          aria-label="close"
+          onClick={() => setOpenBookingDetailsModal(false)}
+          sx={{
+            position: "absolute",
+            right: 16,
+            top: 16,
+            color: "neutral.400",
+            "&:hover": { color: "neutral.600", bgcolor: "neutral.100" },
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
 
-          {/* modal body */}
-          <DialogContent dividers sx={{ p: { xs: 2, md: 2 } }}>
-            {/* Status Stepper */}
-            <Box sx={{ width: '100%', mb: 4, mt: 2 }}>
-              <Stepper
-                activeStep={
-                  (bookingDetails?.status === 'Accepted' || bookingDetails?.status === 'Canceled' || bookingDetails?.status === 'Rejected') ? 1 : 0
-                }
-                alternativeLabel
-              >
-                {['Booking Received', 'Booking Confirmed'].map((label, index) => {
-                  const isFailed = (bookingDetails?.status === 'Canceled' || bookingDetails?.status === 'Rejected') && index === 1;
-                  const isCompleted = bookingDetails?.status === 'Accepted' && index === 1;
+        <DialogContent sx={{ p: 3, bgcolor: "#f8fafc" }}>
+          <div className="mb-6 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+            <h4 className="font-bold text-slate-700 mb-2 text-sm uppercase tracking-wider">
+              Booking Status
+            </h4>
+            <BookingTimeline booking={bookingDetails} />
+          </div>
 
-                  return (
-                    <Step key={label}>
-                      <StepLabel error={isFailed}>
-                        {isFailed ? "Booking Rejected" : isCompleted ? "Booking Confirmed" : label}
-                      </StepLabel>
-                    </Step>
-                  );
-                })}
-              </Stepper>
-            </Box>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 h-full flex flex-col">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                  <LuggageIcon fontSize="small" />
+                </div>
+                <h3 className="font-bold text-base text-slate-800">Tour Information</h3>
+              </div>
+              <Grid container spacing={1}>
+                {renderDetailItem(
+                  "Package",
+                  bookingDetails?.packageTitle ||
+                    bookingDetails?.title ||
+                    bookingDetails?.packageName ||
+                    "N/A",
+                  <TourIcon fontSize="small" />,
+                  false,
+                  "text-blue-600 bg-blue-50"
+                )}
+                {renderDetailItem(
+                  "Tour Date",
+                  bookingDetails?.tourDate || "N/A",
+                  <CalendarMonthIcon fontSize="small" />,
+                  false,
+                  "text-blue-600 bg-blue-50"
+                )}
+                {renderDetailItem(
+                  "Pick Up Time",
+                  (() => {
+                    const pickUp = toDate(bookingDetails?.pickUpTime);
+                    return pickUp
+                      ? pickUp.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "N/A";
+                  })(),
+                  <CalendarMonthIcon fontSize="small" />,
+                  false,
+                  "text-blue-600 bg-blue-50"
+                )}
+                {renderDetailItem(
+                  "Pickup Request",
+                  bookingDetails?.pickupRequest ||
+                    getBookingPickupRequest(
+                      bookingDetails.rawData || bookingDetails
+                    ) ||
+                    "N/A",
+                  <LocationOnIcon fontSize="small" />,
+                  true,
+                  "text-blue-600 bg-blue-50"
+                )}
+                {renderDetailItem(
+                  "Passengers",
+                  bookingDetails?.passengers || "N/A",
+                  <PersonIcon fontSize="small" />,
+                  false,
+                  "text-blue-600 bg-blue-50"
+                )}
+              </Grid>
+            </div>
 
-            <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
-              {/* Container for Layout */}
-              <Grid container spacing={4}>
-                {/* Left Column: Customer & Trip Details */}
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ p: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 4, height: '100%', bgcolor: '#f8fafc', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                    <Typography variant="h6" fontWeight={700} color="primary.main" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <span className="text-2xl">👤</span> Customer & Trip Info
-                    </Typography>
-                    <Grid container spacing={3}>
-                      {textField("Guest Name", (bookingDetails?.guestDetails?.name?.replace("not_present", "").trim()) || bookingDetails?.fullName, true)}
-                      {textField("Guest Phone", bookingDetails?.guestDetails?.phoneNumber || bookingDetails?.phone, true)}
-                      {textField("Email", bookingDetails?.guestDetails?.email || bookingDetails?.email, true)}
-                      {textField("Price", bookingDetails?.price || bookingDetails?.totalAmount, true)}
-                      {textField("Number of Guests", bookingDetails?.noOfPassengers || bookingDetails?.adults + (bookingDetails?.children || 0), true)}
-                      {getBookingSpecialNotes(bookingDetails) && textField("Special Notes", getBookingSpecialNotes(bookingDetails), true)}
-                    </Grid>
-                  </Box>
-                </Grid>
+            <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 h-full flex flex-col">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                  <PersonIcon fontSize="small" />
+                </div>
+                <h3 className="font-bold text-base text-slate-800">Guest Information</h3>
+              </div>
+              <Grid container spacing={1}>
+                {renderDetailItem(
+                  "Guest Name",
+                  bookingDetails?.guestName || bookingDetails?.name || "N/A",
+                  <PersonIcon fontSize="small" />,
+                  false,
+                  "text-purple-600 bg-purple-50"
+                )}
+                {renderDetailItem(
+                  "Phone",
+                  bookingDetails?.phone || "N/A",
+                  <PhoneIcon fontSize="small" />,
+                  false,
+                  "text-purple-600 bg-purple-50"
+                )}
+                {renderDetailItem(
+                  "Email",
+                  bookingDetails?.email || "N/A",
+                  <EmailIcon fontSize="small" />,
+                  false,
+                  "text-purple-600 bg-purple-50"
+                )}
+                {bookingDetails?.specialNotes &&
+                  renderDetailItem(
+                    "Special Notes",
+                    bookingDetails.specialNotes,
+                    <MdInfo fontSize="small" />,
+                    true,
+                    "text-purple-600 bg-purple-50"
+                  )}
+              </Grid>
+            </div>
 
-                {/* Right Column: Schedule & Provider Details */}
-                <Grid item xs={12} md={6}>
-                  <Box sx={{ p: 3, border: '1px solid', borderColor: 'grey.200', borderRadius: 4, height: '100%', bgcolor: '#fdf4ff', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-                    <Typography variant="h6" fontWeight={700} color="secondary.main" sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <span className="text-2xl">📅</span> Schedule & Provider
-                    </Typography>
-                    <Grid container spacing={3}>
-                      {textField("Package Name", bookingDetails?.title || bookingDetails?.packageName, true)}
-                      {textField("Booking Confirmed", bookingDetails?.isBookingConfirmed ? "True" : "False", true)}
-                      {textField("Pick Up Date", (bookingDetails?.pickUpTime || bookingDetails?.arrivalDate) ? new Date(bookingDetails.pickUpTime ? bookingDetails.pickUpTime.seconds * 1000 : bookingDetails.arrivalDate).toLocaleDateString() : "No date", true)}
-                      {textField("Pick Up Time", bookingDetails?.pickUpTime ? new Date(bookingDetails.pickUpTime.seconds * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "N/A", true)}
-
-                      <Grid item xs={12}>
-                        <Box sx={{ mt: 2, p: 2, bgcolor: 'white', borderRadius: 3, border: '1px dashed', borderColor: 'secondary.light' }}>
-                          <Typography variant="subtitle2" color="secondary" fontWeight={600} gutterBottom sx={{ textTransform: 'uppercase', letterSpacing: 1, fontSize: '0.75rem' }}>
-                            Assign Provider
-                          </Typography>
-                          <Grid container spacing={2}>
-                            <Grid item xs={12}>
-                              <TextField
-                                label="Provider Name"
-                                size="medium"
-                                placeholder="Enter provider name"
-                                value={bookingDetails?.Provider?.name}
-                                onChange={(e) => setBookingDetails(p => ({ ...p, Provider: { ...p.Provider, name: e.target.value } }))}
-                                fullWidth
-                                InputProps={{
-                                  startAdornment: <span className="mr-2 text-gray-400">🚕</span>,
-                                }}
-                              />
-                            </Grid>
-                            <Grid item xs={12}>
-                              <TextField
-                                label="Provider Phone"
-                                size="medium"
-                                placeholder="Enter provider phone"
-                                value={bookingDetails?.Provider?.phone}
-                                onChange={(e) => setBookingDetails(p => ({ ...p, Provider: { ...p.Provider, phone: formatPhoneNumber(e.target.value) } }))}
-                                fullWidth
-                                InputProps={{
-                                  startAdornment: <span className="mr-2 text-gray-400">📞</span>,
-                                }}
-                              />
-                            </Grid>
-                          </Grid>
-                        </Box>
-                      </Grid>
-                    </Grid>
-                  </Box>
+            <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 h-full flex flex-col">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                  <PaymentsIcon fontSize="small" />
+                </div>
+                <h3 className="font-bold text-base text-slate-800">Payment Details</h3>
+              </div>
+              <Grid container spacing={1}>
+                {renderDetailItem(
+                  "Amount (THB)",
+                  `฿${Number(bookingDetails?.amount || 0).toLocaleString()}`,
+                  <AttachMoneyIcon fontSize="small" />,
+                  false,
+                  "text-emerald-600 bg-emerald-50"
+                )}
+                {renderDetailItem(
+                  "Payment Method",
+                  bookingDetails?.paymentMethod || "ONSITE",
+                  <CreditCardIcon fontSize="small" />,
+                  false,
+                  "text-emerald-600 bg-emerald-50"
+                )}
+                <Grid item xs={12} sm={6}>
+                  <div className="flex items-start gap-2 p-2.5 rounded-xl hover:bg-neutral-50 transition-all duration-200 border border-transparent hover:border-neutral-200 group">
+                    <div className="text-emerald-600 mt-0.5 p-2 bg-emerald-50 rounded-lg group-hover:scale-110 transition-transform duration-200 shadow-sm">
+                      <VerifiedUserIcon fontSize="small" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">
+                        Payment Status
+                      </p>
+                      <PaymentStatusBadge
+                        statusInfo={getSightseeingPaymentStatusInfo(
+                          bookingDetails.rawData || bookingDetails
+                        )}
+                        className="mt-0.5"
+                      />
+                    </div>
+                  </div>
                 </Grid>
               </Grid>
+            </div>
 
-              {/* Driver Details */}
-              {/* {headingTextField("Driver Details")} */}
-
-              {/* <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Driver Name"
-                  type="text"
-                  placeholder=""
-                  defaultValue={bookingDetails?.Driver?.name}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  helperText={
-                    error?.for === "driverName" && (
-                      <span className="text-red-500">{error.text}</span>
-                    )
-                  }
-                  onChange={(e) =>
-                    setBookingDetails((p) => ({
-                      ...p,
-                      Driver: { ...p.Driver, name: e.target.value },
-                    }))
-                  }
-                  fullWidth
-                />
-              </Grid> */}
-
-              {/* <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Driver Phone"
-                  type="text"
-                  placeholder=""
-                  defaultValue={bookingDetails?.Driver?.phone}
-                  helperText={
-                    error?.for === "driverPhone" && (
-                      <span className="text-red-500">{error.text}</span>
-                    )
-                  }
-                  onChange={(e) =>
-                    setBookingDetails((p) => ({
-                      ...p,
-                      Driver: { ...p.Driver, phone: e.target.value },
-                    }))
-                  }
-                  fullWidth
-                />
-              </Grid> */}
-
-              {/* Vehicle Details */}
-              {/* {headingTextField("Vehicle Details")} */}
-
-              {/* <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Vehicle Name"
-                  type="text"
-                  placeholder=""
-                  defaultValue={bookingDetails?.vehicleDetails?.vehicle}
-                  helperText={
-                    error?.for === "vehicle" && (
-                      <span className="text-red-500">{error.text}</span>
-                    )
-                  }
-                  onChange={(e) =>
-                    setBookingDetails((p) => ({
-                      ...p,
-                      vehicleDetails: {
-                        ...p.vehicleDetails,
-                        vehicle: e.target.value,
-                      },
-                    }))
-                  }
-                  fullWidth
-                />
-              </Grid> */}
-
-              {/* <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Vehicle Number"
-                  type="text"
-                  placeholder=""
-                  defaultValue={bookingDetails?.vehicleDetails?.vehicleNumber}
-                  helperText={
-                    error?.for === "vehicleNumber" && (
-                      <span className="text-red-500">{error.text}</span>
-                    )
-                  }
-                  onChange={(e) =>
-                    setBookingDetails((p) => ({
-                      ...p,
-                      vehicleDetails: {
-                        ...p.vehicleDetails,
-                        vehicleNumber: e.target.value,
-                      },
-                    }))
-                  }
-                  fullWidth
-                />
-              </Grid> */}
-
-              {/* Progress Stepper used to indicate status workflow */}
-
-
-              {/* Admin Review Section - Blue Themed */}
-              <Grid item xs={12}>
-                <Box sx={{
-                  p: 3,
-                  border: '1px solid',
-                  borderColor: 'primary.main',
-                  borderRadius: 2,
-                  bgcolor: 'primary.50',
-                  position: 'relative',
-                  overflow: 'hidden'
-                }}>
-                  <div className="absolute top-0 right-0 p-2 opacity-10">
-                    <span className="text-6xl">📝</span>
-                  </div>
-                  <Typography variant="h6" color="primary.main" fontWeight={700} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <span>📝</span> Admin Review
-                  </Typography>
-
-                  {(bookingDetails?.status === "Accepted" || !isRealTime) ? (
-                    <Typography variant="body1" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>
-                      {bookingDetails?.adminReview ? `"${bookingDetails.adminReview}"` : "No review notes provided."}
-                    </Typography>
-                  ) : (
+            <div className="bg-white p-5 rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-slate-100 h-full flex flex-col">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-slate-50">
+                <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                  <DirectionsBusIcon fontSize="small" />
+                </div>
+                <h3 className="font-bold text-base text-slate-800">Provider Assignment</h3>
+              </div>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Provider Name"
+                    size="small"
+                    value={bookingDetails?.Provider?.name || ""}
+                    onChange={(e) =>
+                      setBookingDetails((p) => ({
+                        ...p,
+                        Provider: { ...p.Provider, name: e.target.value },
+                      }))
+                    }
+                    fullWidth
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Provider Phone"
+                    size="small"
+                    value={bookingDetails?.Provider?.phone || ""}
+                    onChange={(e) =>
+                      setBookingDetails((p) => ({
+                        ...p,
+                        Provider: {
+                          ...p.Provider,
+                          phone: formatPhoneNumber(e.target.value),
+                        },
+                      }))
+                    }
+                    fullWidth
+                  />
+                </Grid>
+                {(isSightseeingPendingReview(bookingDetails.rawData || bookingDetails) ||
+                  (isSightseeingPending(bookingDetails.rawData || bookingDetails) &&
+                    (isOnsiteSightseeingPayment(
+                      bookingDetails.rawData || bookingDetails
+                    ) ||
+                      isThaiQrSightseeingPayment(
+                        bookingDetails.rawData || bookingDetails
+                      )))) && (
+                  <Grid item xs={12}>
                     <TextField
-                      label="Add Review Note"
+                      label="Admin Review Note"
                       multiline
                       rows={3}
                       value={bookingDetails?.adminReview || ""}
-                      onChange={(e) => setBookingDetails(prev => ({ ...prev, adminReview: e.target.value }))}
-                      fullWidth
-                      placeholder="Enter your observations or required actions..."
-                      variant="outlined"
-                      sx={{ bgcolor: 'white' }}
-                    />
-                  )}
-                </Box>
-              </Grid>
-
-              {/* Action Buttons */}
-              <Grid item xs={12} sx={{ mt: 2, display: 'flex', gap: 2, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                {isRealTime && bookingDetails?.status !== "Accepted" && bookingDetails?.status !== "Canceled" && (
-                  <>
-                    <button
-                      onClick={() => handleAccept(bookingDetails.id || bookingDetails.orderId)}
-                      className="bg-success-500 hover:bg-success-600 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-md flex items-center gap-2"
-                    >
-                      <span>✅</span> Accept & Confirm
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm("Are you sure you want to reject this booking?")) {
-                          handleDelete(bookingDetails.id || bookingDetails.orderId);
-                          setOpenBookingDetailsModal(false);
-                        }
-                      }}
-                      className="bg-danger-500 hover:bg-danger-600 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-md flex items-center gap-2"
-                    >
-                      <span>❌</span> Reject
-                    </button>
-                  </>
-                )}
-
-                {isRealTime && bookingDetails?.status === "Accepted" && (
-                  <button
-                    onClick={() => {
-                      if (confirm("Are you sure you want to reject this confirmed booking?")) {
-                        handleDelete(bookingDetails.id || bookingDetails.orderId);
-                        setOpenBookingDetailsModal(false);
+                      onChange={(e) =>
+                        setBookingDetails((prev) => ({
+                          ...prev,
+                          adminReview: e.target.value,
+                        }))
                       }
-                    }}
-                    className="bg-danger-500 hover:bg-danger-600 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-md flex items-center gap-2"
-                  >
-                    <span>❌</span> Reject
-                  </button>
-                )}
-
-                {isRealTime && bookingDetails?.status === "Accepted" && (
-                  <button
-                    onClick={() => handleUpdateProvider(bookingDetails.id || bookingDetails.orderId)}
-                    className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-2 rounded-lg font-medium transition-colors shadow-md flex items-center gap-2"
-                  >
-                    <span>💾</span> Update Provider Info
-                  </button>
+                      fullWidth
+                      placeholder="Add review notes before accepting..."
+                    />
+                  </Grid>
                 )}
               </Grid>
-            </Grid>
-          </DialogContent>
-        </Box>
+            </div>
+          </div>
+        </DialogContent>
+
+        <DialogActions sx={{ p: 3, borderTop: "1px solid #e5e5e5", bgcolor: "white", gap: 1, flexWrap: "wrap" }}>
+          {isRealTime &&
+            (isSightseeingPendingReview(bookingDetails.rawData || bookingDetails) ||
+              (isSightseeingPending(bookingDetails.rawData || bookingDetails) &&
+                (isOnsiteSightseeingPayment(
+                  bookingDetails.rawData || bookingDetails
+                ) ||
+                  isThaiQrSightseeingPayment(
+                    bookingDetails.rawData || bookingDetails
+                  )))) && (
+              <>
+                <Button
+                  variant="contained"
+                  onClick={() =>
+                    handleAccept(bookingDetails.bookingId || bookingDetails.id)
+                  }
+                  sx={{
+                    borderRadius: "10px",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    bgcolor: "#10b981",
+                    "&:hover": { bgcolor: "#059669" },
+                  }}
+                >
+                  {isThaiQrSightseeingPayment(
+                    bookingDetails.rawData || bookingDetails
+                  )
+                    ? "Accept Thai QR Booking"
+                    : isOnsiteSightseeingPayment(
+                          bookingDetails.rawData || bookingDetails
+                        )
+                      ? "Accept Onsite Booking"
+                      : "Accept & Confirm"}
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={() => {
+                    if (confirm("Reject this booking?")) {
+                      handleDelete(
+                        bookingDetails.bookingId || bookingDetails.id,
+                        bookingDetails.rawData || bookingDetails
+                      );
+                      setOpenBookingDetailsModal(false);
+                    }
+                  }}
+                  sx={{
+                    borderRadius: "10px",
+                    textTransform: "none",
+                    fontWeight: 600,
+                    bgcolor: "#ef4444",
+                    "&:hover": { bgcolor: "#dc2626" },
+                  }}
+                >
+                  Decline
+                </Button>
+              </>
+            )}
+
+          {(isAdmin || isSubAdmin) &&
+            needsSightseeingPaymentVerification(
+              bookingDetails.rawData || bookingDetails
+            ) && (
+              <VerifyPaymentModalButton
+                onClick={() =>
+                  handleVerifyPayment(
+                    bookingDetails.bookingId || bookingDetails.id,
+                    bookingDetails.rawData || bookingDetails
+                  )
+                }
+                loading={
+                  verifyingPaymentId ===
+                  (bookingDetails.bookingId || bookingDetails.id)
+                }
+              />
+            )}
+
+          {isRealTime && isSightseeingAccepted(bookingDetails.rawData || bookingDetails) && (
+            <Button
+              variant="outlined"
+              onClick={() =>
+                handleUpdateProvider(bookingDetails.bookingId || bookingDetails.id)
+              }
+              sx={{ borderRadius: "10px", textTransform: "none", fontWeight: 600 }}
+            >
+              Update Provider
+            </Button>
+          )}
+
+          <Button
+            variant="outlined"
+            onClick={() => setOpenBookingDetailsModal(false)}
+            sx={{
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 600,
+              color: "neutral.600",
+              borderColor: "neutral.300",
+              px: 3,
+              "&:hover": {
+                borderColor: "neutral.400",
+                bgcolor: "neutral.50",
+                color: "neutral.800",
+              },
+            }}
+          >
+            Close Details
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* view package details modal */}
@@ -1463,26 +1992,50 @@ const TravelBookings = () => {
         open={openPackageDetailsModal}
         onClose={() => setOpenPackageDetailsModal(false)}
         aria-labelledby="responsive-dialog-title"
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          style: { borderRadius: 24, padding: 0, backgroundColor: "#F8FAFC" },
+        }}
       >
-        <Box sx={{ lg: { width: "800" } }}>
-          <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">
-            Package : {packageDetails?.title}
-          </DialogTitle>
+        <DialogTitle
+          sx={{
+            m: 0,
+            p: 3,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            background: "linear-gradient(135deg, #fff 0%, #f1f5f9 100%)",
+            borderBottom: "1px solid #e2e8f0",
+          }}
+          id="customized-dialog-title"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-2.5 bg-white rounded-xl shadow-sm text-purple-600 border border-neutral-100">
+              <LuggageIcon />
+            </div>
+            <div>
+              <span className="block font-extrabold text-xl text-slate-800 tracking-tight">
+                Package Details
+              </span>
+              <span className="block text-xs font-medium text-slate-500 mt-0.5">
+                {packageDetails?.title}
+              </span>
+            </div>
+          </div>
           <IconButton
             aria-label="close"
             onClick={() => setOpenPackageDetailsModal(false)}
             sx={{
-              position: "absolute",
-              right: 0,
-              top: 0,
-              color: "gray",
+              color: "neutral.400",
+              "&:hover": { color: "neutral.600", bgcolor: "neutral.100" },
             }}
           >
             <CloseIcon />
           </IconButton>
+        </DialogTitle>
 
-          {/* modal body */}
-          <DialogContent dividers sx={{ p: { xs: 2, md: 2 } }}>
+        <DialogContent sx={{ p: 3 }}>
             <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
               {/* Cover Photo */}
               <Grid item xs={12} sm={6}>
@@ -1495,18 +2048,11 @@ const TravelBookings = () => {
                 )}
               </Grid>
               <Grid item xs={12} sm={6}>
-                {textField("Package Name", packageDetails?.title, true)}
-
-                {textField("Location", packageDetails?.location, true)}
-
-                {/* Price */}
-                {textField("Price", packageDetails?.price, true)}
-
-                {/* Discount */}
-                {textField("Discount", packageDetails?.discount, true)}
-
-                {/* Discount Price*/}
-                {textField(
+                {packageTextField("Package Name", packageDetails?.title, true)}
+                {packageTextField("Location", packageDetails?.location, true)}
+                {packageTextField("Price", packageDetails?.price, true)}
+                {packageTextField("Discount", packageDetails?.discount, true)}
+                {packageTextField(
                   "Discount Price",
                   calculateDiscountPrice(
                     packageDetails?.price,
@@ -1514,21 +2060,12 @@ const TravelBookings = () => {
                   ),
                   true
                 )}
-                {/* Number Of Guests */}
-                {/* {textField(
-                  "Number Of Guests",
-                  // packageDetails?.numberOfGuests,
-                  packageDetails?.NumberOfPassengers,
-                  true
-                )} */}
-
-                {/* Period */}
-                {textField("Period", packageDetails?.period, true)}
+                {packageTextField("Period", packageDetails?.period, true)}
               </Grid>
             </Grid>
             <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
               {/* Description */}
-              {textField("Description", packageDetails?.description)}
+              {packageTextField("Description", packageDetails?.description)}
 
               {/* Add Amenities */}
               {packageDetails?.amenities?.length > 0 && (
@@ -1610,23 +2147,22 @@ const TravelBookings = () => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions>
-            <Button
-              variant="contained"
-              type="submit"
-              autoFocus
-              sx={{
-                bgcolor: "var(--button-bg-color)",
-                color: "white",
-                hover: "none",
-              }}
-              className="add-new-btn"
-              onClick={() => setOpenPackageDetailsModal(false)}
-            >
-              Close
-            </Button>
-          </DialogActions>
-        </Box>
+        <DialogActions sx={{ p: 3, borderTop: "1px solid #e5e5e5", bgcolor: "white" }}>
+          <Button
+            variant="outlined"
+            onClick={() => setOpenPackageDetailsModal(false)}
+            sx={{
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 600,
+              color: "neutral.600",
+              borderColor: "neutral.300",
+              px: 3,
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
       </Dialog>
     </div >
   );

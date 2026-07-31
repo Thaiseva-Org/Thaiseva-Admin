@@ -16,6 +16,7 @@ import {
   travelBookingCollection,
   vanBookingsCollection,
 } from "../firebase/firebase.config.js";
+import { isHotelRevenueEligible } from "../utils/bookingStatus.js";
 
 const SERVICE_TYPES = ["Cars", "SelfDrive", "Sightseeing", "Hotels", "Vans"];
 
@@ -212,6 +213,53 @@ function bucketBookingRevenue(bookings, dateKeys, dateFields) {
   return dateKeys.map((dateKey) => buckets.get(dateKey) || 0);
 }
 
+function bucketTransportRealizedCommission(bookings, dateKeys, dateFields) {
+  const buckets = new Map(dateKeys.map((dateKey) => [dateKey, 0]));
+  const add = (value, date) => {
+    if (!date) return;
+    const key = toDateKey(startOfDay(date));
+    if (buckets.has(key)) buckets.set(key, buckets.get(key) + value);
+  };
+
+  bookings.forEach((booking) => {
+    const rate = Math.max(
+      0,
+      Math.min(100, Number(booking.commissionPercentage ?? booking.comission) || 0)
+    ) / 100;
+    const payments = Array.isArray(booking.paymentTransactions)
+      ? booking.paymentTransactions
+      : [];
+    const refunds = Array.isArray(booking.refundTransactions)
+      ? booking.refundTransactions
+      : [];
+
+    if (payments.length || refunds.length) {
+      payments.forEach((payment) => add(
+        Math.max(0, Number(payment.amount) || 0) * rate,
+        toTimestamp(payment.receivedDate || payment.createdAt)
+      ));
+      refunds.forEach((refund) => add(
+        -Math.max(0, Number(refund.amount) || 0) * rate,
+        toTimestamp(refund.receivedDate || refund.createdAt)
+      ));
+      return;
+    }
+
+    // Compatibility for older paid records that predate transaction history.
+    const explicitlyPaid = String(booking.paymentStatus || "").toLowerCase() === "paid" ||
+      booking.isPaymentDone === true || booking.isPaymentClear === true;
+    const received = Math.max(0, Number(booking.amountReceived) || 0);
+    if (!explicitlyPaid && received <= 0) return;
+    const refunded = Math.max(0, Number(booking.amountRefunded) || 0);
+    add(
+      Math.max(0, (received || getBookingAmount(booking)) - refunded) * rate,
+      getBookingDate(booking, dateFields)
+    );
+  });
+
+  return dateKeys.map((dateKey) => buckets.get(dateKey) || 0);
+}
+
 async function getBookingRevenueInRange(type, fromDate = "", toDate = "") {
   const { from, to } = normalizeDateRange(fromDate, toDate);
   const dateKeys = getDateKeysInRange(from, to);
@@ -225,11 +273,13 @@ async function getBookingRevenueInRange(type, fromDate = "", toDate = "") {
 
     switch (type) {
       case "Hotels":
-        bookings = await fetchBookingsInRange(roomBookingCollection, [
-          "createdAt",
-          "orderedAt",
-          "timestamp",
-        ], from, to);
+        bookings = await fetchBookingsInRange(
+          roomBookingCollection,
+          ["checkInDate", "checkIn", "createdAt", "orderedAt", "timestamp"],
+          from,
+          to
+        );
+        bookings = bookings.filter(isHotelRevenueEligible);
         break;
       case "Sightseeing":
         bookings = await fetchBookingsInRange(travelBookingCollection, [
@@ -270,22 +320,39 @@ async function getBookingRevenueInRange(type, fromDate = "", toDate = "") {
           isVanTransportBooking
         );
         bookings = [...manualVans, ...mobileVans];
-        break;
+        return {
+          values: bucketTransportRealizedCommission(bookings, dateKeys, [
+            "bookingDate",
+            "createdAt",
+            "orderedAt",
+            "timestamp",
+            "time",
+          ]),
+          permissionError: null,
+        };
       }
       default:
         bookings = [];
     }
 
     return {
-      values: bucketBookingRevenue(bookings, dateKeys, [
+      values: ["Cars", "SelfDrive"].includes(type)
+        ? bucketTransportRealizedCommission(bookings, dateKeys, [
+          "createdAt",
+          "orderedAt",
+          "timestamp",
+          "time",
+          "bookingDate",
+        ])
+        : bucketBookingRevenue(bookings, dateKeys, [
+        "checkInDate",
+        "checkIn",
         "createdAt",
         "orderedAt",
         "timestamp",
         "time",
         "bookingDate",
-        "checkInDate",
-        "checkIn",
-      ]),
+        ]),
       permissionError: null,
     };
   } catch (error) {
@@ -467,9 +534,8 @@ async function createStatData(view = "Days", fromDate = "", toDate = "") {
     const dailySeriesEntries = await Promise.all(
       SERVICE_TYPES.map(async (type) => {
         const bookingResult = await getBookingRevenueInRange(type, from, to);
-        const bookingTotal = sumSeries(bookingResult.values);
 
-        if (bookingTotal > 0) {
+        if (!bookingResult.permissionError) {
           return [type, bookingResult];
         }
 

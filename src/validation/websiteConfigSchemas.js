@@ -3,7 +3,9 @@ import { z } from "zod";
 export const faqSchema = z.object({
   question: z.string().min(5, "Question must be at least 5 characters long"),
   answer: z.string().min(10, "Answer must be at least 10 characters long"),
-  category: z.string().min(1, "Please select a category"),
+  category: z.enum(["general", "payment", "booking", "account"], {
+    errorMap: () => ({ message: "Please select a valid category" }),
+  }),
 });
 
 export const testimonialSchema = z.object({

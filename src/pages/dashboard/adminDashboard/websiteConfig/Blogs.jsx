@@ -207,20 +207,26 @@ const Blogs = () => {
                 });
                 Swal.fire({ icon: 'success', title: 'Updated', timer: 1000, showConfirmButton: false });
             } else {
-                const publishedBlog = {
+                const isDraft = currentBlog.status === "Draft";
+                const blogPayload = {
                     ...currentBlog,
-                    status: "Published",
-                };
-
-                await addDoc(collection(db, "BlogDB"), {
-                    ...publishedBlog,
                     metaTitle,
                     metaDescription,
                     readTime,
-                    publishedDate: serverTimestamp(),
                     createdAt: serverTimestamp(),
+                };
+
+                if (!isDraft) {
+                    blogPayload.publishedDate = serverTimestamp();
+                }
+
+                await addDoc(collection(db, "BlogDB"), blogPayload);
+                Swal.fire({
+                    icon: "success",
+                    title: isDraft ? "Draft Saved" : "Published",
+                    timer: 1000,
+                    showConfirmButton: false,
                 });
-                Swal.fire({ icon: 'success', title: 'Published', timer: 1000, showConfirmButton: false });
             }
             setOpenModal(false);
             fetchBlogs();
@@ -475,8 +481,11 @@ const Blogs = () => {
                                         value={currentBlog.status}
                                         onChange={handleChange}
                                         fullWidth
-                                        disabled={!isUpdate}
-                                        helperText={!isUpdate ? "New posts are published automatically." : ""}
+                                        helperText={
+                                            !isUpdate
+                                                ? "Choose Draft to save without publishing."
+                                                : ""
+                                        }
                                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
                                     >
                                         <MenuItem value="Draft">Draft</MenuItem>
@@ -573,7 +582,11 @@ const Blogs = () => {
                             "&:hover": { bgcolor: "var(--primary-700)", boxShadow: '0 6px 20px rgba(37, 99, 235, 0.23)' }
                         }}
                     >
-                        {isUpdate ? 'Update Article' : 'Publish Article'}
+                        {isUpdate
+                            ? "Update Article"
+                            : currentBlog.status === "Draft"
+                              ? "Save Draft"
+                              : "Publish Article"}
                     </Button>
                 </DialogActions>
             </Dialog>

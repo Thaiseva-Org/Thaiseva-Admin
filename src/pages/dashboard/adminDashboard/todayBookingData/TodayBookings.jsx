@@ -19,9 +19,7 @@ import {
   TextField,
   CircularProgress,
   Dialog,
-  DialogTitle,
   DialogContent,
-  DialogActions,
   AppBar,
   Toolbar
 } from "@mui/material";
@@ -31,7 +29,6 @@ import FileDownloadIcon from "@mui/icons-material/FileDownload";
 import RemoveRedEyeIcon from "@mui/icons-material/RemoveRedEye";
 import {
   CalendarMonth,
-  MonetizationOn,
   Delete,
   Category,
   FilterList,
@@ -45,22 +42,21 @@ import {
   handleClear,
 } from "../../../../services/DailyRecords";
 import { ensureInvoiceIdForBooking } from "../../../../services/invoiceService";
+import { getBookingPickupRequest } from "../../../../utils/bookingNotes";
+import { normalizeHotelBookingStatus } from "../../../../utils/bookingStatus";
 
-import { PartnerContext } from "../../../../contextAPIs/PartnerProvider";
 import { AuthContext } from "../../../../contextAPIs/AuthProvider";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { logo, newlogo1 } from "../../../../assets";
+import { logo } from "../../../../assets";
 
 const TodayBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
-  const { contactInfo } = useContext(PartnerContext);
 
   // State
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
-  const [lastDocs, setLastDocs] = useState([]);
   const [refetch, setRefetch] = useState(true);
   const [startDate, setStartDate] = useState(() => {
     // Default to 1 week ago to ensure recent bookings (e.g. yesterday) are visible by default
@@ -86,7 +82,9 @@ const TodayBookings = () => {
     matchedRequirements,
     (currentRequirements, updatedId) => {
       return currentRequirements.map((req) =>
-        req.id === updatedId ? { ...req, isPaymentClear: true } : req
+        req.id === updatedId
+          ? { ...req, isPaymentClear: true, isPaymentDone: true }
+          : req
       );
     }
   );
@@ -199,7 +197,8 @@ const TodayBookings = () => {
         y += 15;
         drawField("Passengers", raw.guestDetails?.noOfPassengers || raw.noOfPeople || 1, 14, y);
         if (raw.pickUpTime) drawField("Pick-Up Time", raw.pickUpTime, 60, y);
-        if (raw.pickupLocation) drawField("Location", raw.pickupLocation, 110, y);
+        const pickupRequest = getBookingPickupRequest(raw);
+        if (pickupRequest) drawField("Pickup Request", pickupRequest, 110, y);
 
         // Invoice ID
         if (row.customerInvoiceId) {
@@ -310,7 +309,7 @@ const TodayBookings = () => {
         y += 10;
         // Wrapping text for locations
         doc.setFontSize(9); doc.setTextColor(...COLORS.slate500); doc.text("Pickup", 14, y);
-        doc.setTextColor(...COLORS.slate800); doc.text(String(raw.pickupLocation || raw.pickup || "-"), 14, y + 5, { maxWidth: 80 });
+        doc.setTextColor(...COLORS.slate800); doc.text(String(getBookingPickupRequest(raw) || "-"), 14, y + 5, { maxWidth: 80 });
 
         doc.setTextColor(...COLORS.slate500); doc.text("Drop", 110, y);
         doc.setTextColor(...COLORS.slate800); doc.text(String(raw.dropLocation || raw.drop || "-"), 110, y + 5, { maxWidth: 80 });
@@ -504,7 +503,12 @@ const TodayBookings = () => {
         time: item?.timestamp || item?.time || item?.orderedAt || item?.createdAt || new Date(),
         amount: item?.amountTHB || item?.amountINR || item?.AmountOffered || item?.amount || item?.price || "0",
         commission: "0",
-        status: item?.status === "pending" ? "Pending" : item?.status || "Pending",
+        status:
+          category === "Room Bookings"
+            ? normalizeHotelBookingStatus(item)
+            : item?.status === "pending"
+              ? "Pending"
+              : item?.status || "Pending",
         adults: item?.adults !== undefined ? item.adults : (item?.guestDetails?.adults || 0),
         children: item?.children !== undefined ? item.children : (item?.guestDetails?.children || 0),
       };
@@ -554,7 +558,7 @@ const TodayBookings = () => {
             item?.guestPhone || defaults.guestPhone,
             bDate,
             price, defaults.commission,
-            category, defaults.status, `${item?.pickupLocation || "?"} -> ${item?.dropLocation || "?"}`, item?.customerInvoiceId
+            category, defaults.status, `${getBookingPickupRequest(item) || "?"} -> ${item?.dropLocation || item?.drop || "?"}`, item?.customerInvoiceId
           ),
           source: item?.source, // Important for Mobile Van support
           rawData: item
@@ -590,21 +594,22 @@ const TodayBookings = () => {
         const price = item?.totalAmount || item?.price || defaults.amount;
         const titleVal = item?.title || item?.packageName || "-";
 
-        const bookingTime = item?.timestamp ? new Date(item.timestamp.seconds * 1000).getTime() :
-          (item?.orderedAt ? new Date(item.orderedAt.seconds * 1000).getTime() : defaults.time);
+        const bookingTime =
+          item?.timestamp || item?.orderedAt || item?.createdAt || defaults.time;
 
-        // Ensure provider has a value to prevent PDF errors
         const providerName = item?.Provider?.name || "Thaiseva";
         const providerPhone = item?.Provider?.phone || "-";
 
         return {
           ...createData(
-            item?.orderId || defaults.id, defaults.paymentClear,
+            defaults.id, defaults.paymentClear,
             providerName, providerPhone,
             guestName, guestPhone,
             bookingTime, price, defaults.commission,
             category, defaults.status, titleVal, item?.customerInvoiceId
-          ), rawData: item
+          ),
+          orderId: item?.orderId,
+          rawData: item
         };
       }
       return createData("-", "-", "-", "-", "-", "0", "0", "0", category);
@@ -651,14 +656,12 @@ const TodayBookings = () => {
         queryCategory,
         startDate,
         endDate,
-        lastDocs,
-        setLastDocs,
         rowsPerPage,
         page
       );
     }
     return () => { mounted = false; };
-  }, [queryCategory, refetch, page, rowsPerPage, isAdmin, isSubAdmin, startDate, endDate, setLastDocs]);
+  }, [queryCategory, refetch, page, rowsPerPage, isAdmin, isSubAdmin, startDate, endDate]);
 
   // --- CSV Export Logic ---
   const headers = [

@@ -221,7 +221,7 @@ export const Travellinks = [
   },
   {
     url: "/dashboard/vans",
-    lable: "Van Management",
+    lable: "Taxi & Van Management",
     icon: <DirectionsBusIcon />,
   },
   {

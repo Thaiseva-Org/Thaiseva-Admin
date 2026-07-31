@@ -59,6 +59,10 @@ const managePartnersCollection = collection(db, "manage_partners");
 const generalPartnersCollection = collection(db, "general_partners");
 const vanCompaniesCollection = collection(db, "vanCompanies");
 const vanBookingsCollection = collection(db, "vanBookings");
+const transportCompaniesCollection = collection(db, "transportCompanies");
+const transportDriversCollection = collection(db, "transportDrivers");
+const transportVehiclesCollection = collection(db, "transportVehicles");
+const transportEarningsCollection = collection(db, "transportEarnings");
 const deletionRequestsCollection = collection(db, "DeletionRequests");
 const contactMessagesCollection = collection(db, "ContactMessages");
 
@@ -72,9 +76,9 @@ const faqCollection = collection(db, "FaqDB");
 
 // Use the 'firebase' instance created above to call functions
 const deleteUserFromAuth = httpsCallable(
-  getFunctions(app),
+  getFunctions(app, "asia-east2"),
   "deleteUserFunction"
-); // Use httpsCallable
+);
 
 const storage = getStorage();
 
@@ -117,6 +121,10 @@ export {
   generalPartnersCollection,
   vanCompaniesCollection,
   vanBookingsCollection,
+  transportCompaniesCollection,
+  transportDriversCollection,
+  transportVehiclesCollection,
+  transportEarningsCollection,
   deletionRequestsCollection,
   storage,
   contactMessagesCollection,

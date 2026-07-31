@@ -1,32 +1,47 @@
 import { initializeApp } from "firebase-admin/app";
-import { autoAcceptSightseeingBookings } from "./triggers/bookingTriggers";
+import {
+  autoAcceptSightseeingBookings,
+  onSightseeingBookingStatusChange,
+} from "./triggers/sightseeingTriggers";
+import {
+  forceHotelBookingPending,
+  onHotelBookingStatusChangeV3,
+} from "./triggers/hotelTriggers";
+import {
+  onCarBookingCreated,
+  onCarBookingStatusChange,
+  onVanBookingCreated,
+  onVanBookingStatusChange,
+  onSelfDriveBookingCreated,
+  onSelfDriveBookingStatusChange,
+} from "./triggers/transportTriggers";
+import { deleteUserFunction } from "./accountDeletion";
+import {
+  initializeLegacyTransportBooking,
+  createManualVanBooking,
+  seedTransportDemoData,
+  manageTransportBooking,
+  manageTransportResource,
+} from "./transportWorkflow";
 
 initializeApp();
 
 exports.autoAcceptSightseeingBookingsV2 = autoAcceptSightseeingBookings;
-
-import { forceHotelBookingPending, onHotelBookingStatusChangeV3 } from "./triggers/hotelTriggers";
 exports.forceHotelBookingPending = forceHotelBookingPending;
 exports.onHotelBookingStatusChangeV3 = onHotelBookingStatusChangeV3;
-
-import { onSightseeingBookingStatusChange } from "./triggers/bookingTriggers";
 exports.onSightseeingBookingStatusChange = onSightseeingBookingStatusChange;
-
-import {
-    onCarBookingCreated,
-    onCarBookingStatusChange,
-    onVanBookingCreated,
-    onVanBookingStatusChange,
-    onSelfDriveBookingCreated,
-    onSelfDriveBookingStatusChange
-} from "./triggers/transportTriggers";
-
 exports.onCarBookingCreated = onCarBookingCreated;
 exports.onCarBookingStatusChange = onCarBookingStatusChange;
 exports.onVanBookingCreated = onVanBookingCreated;
 exports.onVanBookingStatusChange = onVanBookingStatusChange;
 exports.onSelfDriveBookingCreated = onSelfDriveBookingCreated;
 exports.onSelfDriveBookingStatusChange = onSelfDriveBookingStatusChange;
+exports.deleteUserFunction = deleteUserFunction;
+exports.manageTransportBooking = manageTransportBooking;
+exports.manageTransportResource = manageTransportResource;
+exports.initializeLegacyTransportBooking = initializeLegacyTransportBooking;
+exports.createManualVanBooking = createManualVanBooking;
+exports.seedTransportDemoData = seedTransportDemoData;
 
 
 // exports.sendEmail = onRequest(async (req, res) => {

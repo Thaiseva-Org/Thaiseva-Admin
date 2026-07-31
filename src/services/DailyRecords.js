@@ -6,8 +6,6 @@ import {
   doc,
   updateDoc,
   limit,
-  startAfter,
-  getCountFromServer,
   getDoc,
 } from "firebase/firestore";
 import {
@@ -18,6 +16,53 @@ import {
   vanBookingsCollection,
 } from "../firebase/firebase.config";
 import { generateInvoiceIds, INVOICE_TYPES } from "../utils/invoiceGenerator";
+
+const SIGHTSEEING_PENDING_STATUSES = [
+  "Pending",
+  "pending",
+  "PENDING",
+  "Not Reviewed",
+  "not reviewed",
+  "NOT REVIEWED",
+  "In Progress",
+  "in progress",
+  "IN PROGRESS",
+  "Reviewed",
+  "reviewed",
+  "REVIEWED",
+  "Awaiting Payment",
+  "awaiting payment",
+  "AWAITING PAYMENT",
+  "Pending Verification",
+  "pending verification",
+  "PENDING_VERIFICATION",
+  "Payment Pending",
+  "payment pending",
+  "PAYMENT_PENDING",
+];
+
+const SIGHTSEEING_ACTIVE_STATUSES = [
+  "Accepted",
+  "Confirmed",
+  "Done",
+  "accepted",
+  "confirmed",
+  "done",
+  "ACCEPTED",
+  "CONFIRMED",
+  "DONE",
+  ...SIGHTSEEING_PENDING_STATUSES,
+];
+
+const normalizeStatus = (value) => String(value || "").trim().toLowerCase();
+
+const isSightseeingDashboardStatus = (value) => {
+  const normalized = normalizeStatus(value);
+  if (!normalized) return true;
+  return SIGHTSEEING_ACTIVE_STATUSES.some(
+    (status) => normalizeStatus(status) === normalized
+  );
+};
 
 // Helper to resolve collection based on category
 // Helper to resolve collection based on category
@@ -34,7 +79,6 @@ const getCollectionAndTimestamp = (category, startDate, endDate) => {
 
   // Trim category to avoid matching issues
   const cat = category ? String(category).trim() : "";
-  console.log("DailyRecords: Resolving collection for category:", cat);
 
   if (cat === "Taxi Bookings") {
     collectionRef = carBookingsCollection;
@@ -46,24 +90,150 @@ const getCollectionAndTimestamp = (category, startDate, endDate) => {
     collectionRef = roomBookingCollection;
     timestampField = "createdAt";
   } else if (cat === "Van Bookings") {
-    console.log("DailyRecords: Matched Van Bookings - Using vanBookingsCollection");
     collectionRef = vanBookingsCollection;
     timestampField = "bookingDate";
-    // For Van Bookings, we store date as string "YYYY-MM-DDTHH:mm"
     return {
       collectionRef,
       timestampField,
       todayStart: `${startDate}T00:00`,
-      todayEnd: `${endDate}T23:59`
+      todayEnd: `${endDate}T23:59:59`,
     };
   } else {
-    console.log("DailyRecords: Defaulting to Sightseeing for category:", cat);
     // Default to Sightseeing
     collectionRef = travelBookingCollection;
     timestampField = "orderedAt";
   }
 
   return { collectionRef, timestampField, todayStart, todayEnd };
+};
+
+const CATEGORY_DATE_FIELDS = {
+  "Room Bookings": ["createdAt", "orderedAt", "timestamp", "checkInDate", "checkIn"],
+  "Sightseeing Bookings": ["orderedAt", "createdAt", "timestamp"],
+  "Taxi Bookings": ["timestamp", "orderedAt", "createdAt"],
+  "Selfdrive Bookings": ["time", "timestamp", "createdAt", "orderedAt"],
+  "Van Bookings": ["bookingDate", "createdAt"],
+};
+
+const toDateValue = (value) => {
+  if (!value) return null;
+  if (typeof value.toDate === "function") return value.toDate();
+  if (value.seconds) {
+    return new Date(value.seconds * 1000 + (value.nanoseconds || 0) / 1000000);
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const toLocalDateKey = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getDateRange = (startDate, endDate) => {
+  const start = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T23:59:59.999`);
+  return { start, end };
+};
+
+const isWithinRange = (value, start, end) => {
+  const date = toDateValue(value);
+  return date && date >= start && date <= end;
+};
+
+const bookingMatchesRange = (booking, fields, start, end) =>
+  fields.some((field) => isWithinRange(booking[field], start, end));
+
+const getBookingDateValue = (booking, fields) => {
+  for (const field of fields) {
+    const date = toDateValue(booking[field]);
+    if (date) return date.getTime();
+  }
+  return 0;
+};
+
+const fetchCollectionInRange = async (collectionRef, fields, start, end) => {
+  const docsMap = new Map();
+  const startKey = toLocalDateKey(start);
+  const endKey = toLocalDateKey(end);
+
+  await Promise.all(
+    fields.flatMap((field) => {
+      const attempts = [
+        query(collectionRef, where(field, ">=", start), where(field, "<=", end)),
+        query(
+          collectionRef,
+          where(field, ">=", startKey),
+          where(field, "<=", `${endKey}\uf8ff`)
+        ),
+      ];
+
+      return attempts.map(async (queryToUse) => {
+        try {
+          const snapshot = await getDocs(queryToUse);
+          snapshot.docs.forEach((snapshotDoc) => {
+            docsMap.set(snapshotDoc.id, {
+              id: snapshotDoc.id,
+              ...snapshotDoc.data(),
+            });
+          });
+        } catch (error) {
+          console.warn(
+            `Booking date query skipped for ${field}:`,
+            error?.code || error?.message
+          );
+        }
+      });
+    })
+  );
+
+  return Array.from(docsMap.values()).filter((booking) =>
+    bookingMatchesRange(booking, fields, start, end)
+  );
+};
+
+const isVanBooking = (booking) =>
+  String(booking.transportType || "").toLowerCase().includes("van");
+
+const fetchAllBookingsForCategory = async (category, startDate, endDate) => {
+  const { start, end } = getDateRange(startDate, endDate);
+  const fields = CATEGORY_DATE_FIELDS[category] || CATEGORY_DATE_FIELDS["Sightseeing Bookings"];
+  let bookings;
+
+  if (category === "Van Bookings") {
+    const mobileFields = CATEGORY_DATE_FIELDS["Taxi Bookings"];
+    const [manualBookings, mobileBookings] = await Promise.all([
+      fetchCollectionInRange(vanBookingsCollection, fields, start, end),
+      fetchCollectionInRange(carBookingsCollection, mobileFields, start, end),
+    ]);
+    bookings = [
+      ...manualBookings.map((booking) => ({ ...booking, source: "manual" })),
+      ...mobileBookings
+        .filter(isVanBooking)
+        .map((booking) => ({ ...booking, source: "mobile" })),
+    ];
+  } else {
+    const collectionRef =
+      category === "Room Bookings"
+        ? roomBookingCollection
+        : category === "Taxi Bookings"
+          ? carBookingsCollection
+          : category === "Selfdrive Bookings"
+            ? selfDriveBookingCollection
+            : travelBookingCollection;
+    bookings = await fetchCollectionInRange(collectionRef, fields, start, end);
+
+    if (category === "Taxi Bookings") {
+      bookings = bookings.filter((booking) => !isVanBooking(booking));
+    }
+  }
+
+  return bookings.sort(
+    (a, b) => getBookingDateValue(b, fields) - getBookingDateValue(a, fields)
+  );
 };
 
 export const todayBooking = async (
@@ -74,28 +244,8 @@ export const todayBooking = async (
   endDate
 ) => {
   setLoading(true);
-  const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
-
-  let statuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
-  if (category?.trim() === "Van Bookings") {
-    statuses.push("Pending");
-    statuses.push("pending");
-  }
-
-  const queryToUse = query(
-    collectionRef,
-    where("status", "in", statuses),
-    where(timestampField, ">=", todayStart),
-    where(timestampField, "<=", todayEnd),
-    orderBy(timestampField, "desc")
-  );
-
   try {
-    const result = await getDocs(queryToUse);
-    const list = result.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    const list = await fetchAllBookingsForCategory(category, startDate, endDate);
     setData(list);
     return list;
   } catch (error) {
@@ -107,63 +257,63 @@ export const todayBooking = async (
 };
 
 export const handleClear = async (category, id, source = null) => {
-  let col;
-  let serviceType;
-  const cat = category?.trim();
+  try {
+    let col;
+    let serviceType;
+    const cat = category?.trim();
 
-  if (cat === "Taxi Bookings") {
-    col = carBookingsCollection;
-    serviceType = INVOICE_TYPES.TAXI;
-  } else if (cat === "Selfdrive Bookings") {
-    col = selfDriveBookingCollection;
-    serviceType = INVOICE_TYPES.SAFE_DRIVE;
-  } else if (cat === "Room Bookings") {
-    col = roomBookingCollection;
-    serviceType = INVOICE_TYPES.ROOM;
-  } else if (cat === "Van Bookings") {
-    if (source === 'mobile') {
+    if (cat === "Taxi Bookings") {
       col = carBookingsCollection;
-    } else {
-      col = vanBookingsCollection;
-    }
-    serviceType = INVOICE_TYPES.VAN;
-  } else {
-    col = travelBookingCollection;
-    serviceType = INVOICE_TYPES.SIGHTSEEING;
-  }
-
-  const OrderRef = doc(col, id);
-  const docSnap = await getDoc(OrderRef);
-
-  if (docSnap.exists()) {
-    const data = docSnap.data();
-    let updates = { isPaymentClear: true };
-
-    // Generate Invoice ID if missing
-    if (!data.customerInvoiceId || !data.partnerInvoiceId) {
-      try {
-        const { customerId, partnerId } = await generateInvoiceIds(serviceType);
-        updates = {
-          ...updates,
-          customerInvoiceId: customerId,
-          partnerInvoiceId: partnerId,
-          // Legacy fallback - keeping invoiceId consistent with partnerId if possible, or just don't overwrite if it means something else.
-          // Usually 'id' is doc ID. 'invoiceId' might be expected by some legacy views. 
-          // Let's set it to partnerId to be safe, as Invoices.jsx does.
-          invoiceId: partnerId
-        };
-      } catch (err) {
-        console.error("Failed to generate invoice ID during clean:", err);
+      serviceType = INVOICE_TYPES.TAXI;
+    } else if (cat === "Selfdrive Bookings") {
+      col = selfDriveBookingCollection;
+      serviceType = INVOICE_TYPES.SAFE_DRIVE;
+    } else if (cat === "Room Bookings") {
+      col = roomBookingCollection;
+      serviceType = INVOICE_TYPES.ROOM;
+    } else if (cat === "Van Bookings") {
+      if (source === "mobile") {
+        col = carBookingsCollection;
+      } else {
+        col = vanBookingsCollection;
       }
+      serviceType = INVOICE_TYPES.VAN;
+    } else {
+      col = travelBookingCollection;
+      serviceType = INVOICE_TYPES.SIGHTSEEING;
     }
 
-    await updateDoc(OrderRef, updates);
-  } else {
-    // Fallback if fetch fails (shouldn't happen if ID is valid)
-    await updateDoc(OrderRef, { isPaymentClear: true });
-  }
+    const OrderRef = doc(col, id);
+    const docSnap = await getDoc(OrderRef);
 
-  return true;
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      let updates = { isPaymentClear: true, isPaymentDone: true };
+
+      if (!data.customerInvoiceId || !data.partnerInvoiceId) {
+        try {
+          const { customerId, partnerId } = await generateInvoiceIds(serviceType);
+          updates = {
+            ...updates,
+            customerInvoiceId: customerId,
+            partnerInvoiceId: partnerId,
+            invoiceId: partnerId,
+          };
+        } catch (err) {
+          console.error("Failed to generate invoice ID during clear:", err);
+        }
+      }
+
+      await updateDoc(OrderRef, updates);
+    } else {
+      await updateDoc(OrderRef, { isPaymentClear: true, isPaymentDone: true });
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error clearing payment status:", error);
+    throw error;
+  }
 };
 
 export const fetchBookingsTotalPages = async (
@@ -172,119 +322,9 @@ export const fetchBookingsTotalPages = async (
   endDate,
   category
 ) => {
-  const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
-
-  // Common Constraints
-  let statuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
-  if (category?.trim() === "Van Bookings") {
-    statuses.push("Pending");
-    statuses.push("pending");
-    statuses.push("PENDING");
-  } else if (!category?.trim().includes("Room")) {
-    // Taxi / Sightseeing / SelfDrive - usually we want these statuses. 
-    // Room bookings logic is handled separately usually, but for count we stick to accepted unless specified.
-    // If user wants everything, we might need to broaden this.
-  }
-
-  const dateConstraints = [
-    where(timestampField, ">=", todayStart),
-    where(timestampField, "<=", todayEnd),
-  ];
-
-  // Conditionally add status constraint if not Room Bookings (Rooms track payment status separately)
-  if (category !== "Room Bookings") {
-    dateConstraints.unshift(where("status", "in", statuses));
-  }
-
   try {
-    if (category === "Van Bookings") {
-      // 1. Manual Vans (Uses String Date)
-      const qManual = query(vanBookingsCollection, ...dateConstraints);
-      const manualSnap = await getDocs(qManual);
-
-      // 2. Mobile Vans (Uses Timestamp - Needs Date Object)
-      const dateStart = new Date(todayStart);
-      const dateEnd = new Date(todayEnd);
-
-      const qMobile = query(
-        carBookingsCollection,
-        where("status", "in", statuses),
-        where("timestamp", ">=", dateStart),
-        where("timestamp", "<=", dateEnd)
-      );
-      const mobileSnap = await getDocs(qMobile);
-      const mobileVansCount = mobileSnap.docs.filter(d => d.data().transportType?.toLowerCase().includes('van')).length;
-
-      setTotalPages(manualSnap.size + mobileVansCount);
-
-    } else if (category === "Taxi Bookings") {
-      // Filter out Vans
-      const q = query(
-        carBookingsCollection,
-        where("status", "in", statuses),
-        where("timestamp", ">=", todayStart),
-        where("timestamp", "<=", todayEnd)
-      );
-      const snap = await getDocs(q);
-      const taxiCount = snap.docs.filter(d => !d.data().transportType?.toLowerCase().includes('van')).length;
-
-      setTotalPages(taxiCount);
-
-    } else if (category === "Room Bookings" || category === "Sightseeing Bookings") {
-      // Room/Sightseeing: Use multi-field logic for consistent count
-      const fields = category === "Room Bookings"
-        ? ["createdAt", "orderedAt", "timestamp", "checkInDate", "checkIn"]
-        : ["orderedAt", "createdAt", "timestamp"];
-
-      const validStatuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
-
-      const promises = fields.map(async field => {
-        let start = todayStart;
-        let end = todayEnd;
-
-        // For string-based fields, ensure we use string comparison
-        if (field === "checkInDate" || field === "checkIn") {
-          const sDate = new Date(todayStart).toISOString().split('T')[0];
-          const eDate = new Date(todayEnd).toISOString().split('T')[0];
-
-          // We'll run TWO queries for these fields to be safe (one for Date/Timestamp, one for String)
-          const qDate = query(collectionRef, where(field, ">=", todayStart), where(field, "<=", todayEnd));
-          const qString = query(collectionRef, where(field, ">=", sDate), where(field, "<=", eDate));
-
-          const [sDateSnap, sStringSnap] = await Promise.all([getDocs(qDate), getDocs(qString)]);
-          return [...sDateSnap.docs, ...sStringSnap.docs];
-        }
-
-        const q = query(
-          collectionRef,
-          where(field, ">=", todayStart),
-          where(field, "<=", todayEnd)
-        );
-        const snap = await getDocs(q);
-        return snap.docs;
-      });
-
-      const results = await Promise.all(promises);
-      const uniqueIds = new Set();
-      results.flat().forEach(doc => {
-        const data = doc.data();
-        let isMatch = false;
-        if (category === "Room Bookings") {
-          const rawStatus = data.bookingStatus || data.status || "";
-          if (["ACCEPTED", "CONFIRMED", "DONE"].includes(rawStatus.toUpperCase())) isMatch = true;
-        } else {
-          isMatch = validStatuses.includes(data.status);
-        }
-        if (isMatch) uniqueIds.add(doc.id);
-      });
-      setTotalPages(uniqueIds.size);
-
-    } else {
-      // Standard Count
-      const q = query(collectionRef, ...dateConstraints);
-      const pages = await getCountFromServer(q);
-      setTotalPages(Math.ceil(pages.data().count));
-    }
+    const bookings = await fetchAllBookingsForCategory(category, startDate, endDate);
+    setTotalPages(bookings.length);
   } catch (error) {
     console.error("Error fetching total pages:", error);
     setTotalPages(0);
@@ -297,15 +337,15 @@ export const fetchTodayBooking = async (
   category,
   startDate,
   endDate,
-  lastDoc = [],
-  setLastDocs = () => { },
   pageSize = null,
   page = 0
 ) => {
   setLoading(true);
   const { collectionRef, timestampField, todayStart, todayEnd } = getCollectionAndTimestamp(category, startDate, endDate);
 
-  const validStatuses = ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
+  const validStatuses = category?.trim() === "Sightseeing Bookings"
+    ? SIGHTSEEING_ACTIVE_STATUSES
+    : ["Accepted", "Confirmed", "Done", "accepted", "confirmed", "done", "ACCEPTED", "CONFIRMED", "DONE"];
   if (category?.trim()?.includes("Van")) {
     validStatuses.push("Pending");
     validStatuses.push("pending");
@@ -325,10 +365,12 @@ export const fetchTodayBooking = async (
   };
 
   try {
-    let list = [];
+    // This path returns every booking in the selected range, regardless of status,
+    // and supports all timestamp fields used by legacy and current records.
+    let list = await fetchAllBookingsForCategory(category, startDate, endDate);
 
     // --- CASE 1: Van Bookings (Merge Manual + Mobile Vans) ---
-    if (category === "Van Bookings") {
+    if (!list && category === "Van Bookings") {
       // 1. Manual
       const qManual = query(
         vanBookingsCollection,
@@ -359,7 +401,7 @@ export const fetchTodayBooking = async (
 
     }
     // --- CASE 2: Taxi Bookings (Exclude Vans) ---
-    else if (category === "Taxi Bookings") {
+    else if (!list && category === "Taxi Bookings") {
       const q = query(
         carBookingsCollection,
         where("status", "in", validStatuses),
@@ -375,7 +417,7 @@ export const fetchTodayBooking = async (
       list = sortDocs(list);
     }
     // --- CASE 3: Room / Sightseeing (Existing Complex Login) ---
-    else if (category === "Sightseeing Bookings" || category === "Room Bookings") {
+    else if (!list && (category === "Sightseeing Bookings" || category === "Room Bookings")) {
       // ... Keeps existing logic for merging timestamp fields ...
       // We can reuse the existing performQuery logic structure but simplified for brevity in this replacement block 
       // or just copy the working logic from before.
@@ -415,7 +457,7 @@ export const fetchTodayBooking = async (
 
       const promises = fieldsToQuery.map(async f => {
         try {
-          return await performQuery(f, category !== "Room Bookings");
+          return await performQuery(f, category !== "Room Bookings" && category !== "Sightseeing Bookings");
         } catch (e) {
           return await performQuery(f, false);
         }
@@ -435,7 +477,9 @@ export const fetchTodayBooking = async (
           if (['ACCEPTED', 'CONFIRMED', 'DONE'].includes(upper)) isMatch = true;
         } else {
           // Basic Status Check
-          isMatch = validStatuses.includes(data.status);
+          isMatch = category === "Sightseeing Bookings"
+            ? isSightseeingDashboardStatus(data.status)
+            : validStatuses.includes(data.status);
         }
 
         if (isMatch) docsMap.set(doc.id, { id: doc.id, ...data });
@@ -445,7 +489,7 @@ export const fetchTodayBooking = async (
 
     }
     // --- CASE 4: Standard Fallback (SelfDrive) ---
-    else {
+    else if (!list) {
       const q = query(
         collectionRef,
         where("status", "in", validStatuses),

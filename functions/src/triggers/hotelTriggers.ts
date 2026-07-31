@@ -2,35 +2,16 @@ import {
   onDocumentCreated,
   onDocumentUpdated,
 } from "firebase-functions/v2/firestore";
-import { getFirestore } from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import { sendTelegramNotification } from "../utils/telegram";
-
-const isMissingHotelName = (hotelName: unknown) => {
-  if (typeof hotelName !== "string") return true;
-
-  const normalizedName = hotelName.trim().toLowerCase();
-  return !normalizedName || normalizedName === "hotel";
-};
-
-const getHotelNameByUid = async (hotelUid?: string) => {
-  if (!hotelUid) return null;
-
-  const hotelSnapshot = await getFirestore()
-    .collection("HotelDB")
-    .doc(hotelUid)
-    .get();
-
-  if (!hotelSnapshot.exists) return null;
-
-  const hotelData = hotelSnapshot.data() || {};
-  return (
-    hotelData.hotelInformation?.hotelName ||
-    hotelData.hotel?.hotelName ||
-    hotelData.hotelName ||
-    null
-  );
-};
+import { icon } from "../utils/bookingNotification";
+import {
+  buildHotelPendingEnforcementUpdate,
+  formatHotelStatusTelegramMessage,
+  formatNewHotelTelegramMessage,
+  resolveHotelBookingMetadata,
+} from "../utils/hotelBooking";
+import { requiresHotelManualApproval } from "../utils/hotelPayment";
 
 export const forceHotelBookingPending = onDocumentCreated(
   {
@@ -42,67 +23,39 @@ export const forceHotelBookingPending = onDocumentCreated(
     if (!snapshot) return;
 
     const bookingData = snapshot.data();
-    const isPaidBooking =
-      bookingData.isPaymentDone === true ||
-      bookingData.paymentConfirmation?.status === "paid" ||
-      bookingData.paymentVerificationStatus === "VERIFIED";
-    const isConfirmedBooking =
-      bookingData.isBookingConfirmed === true ||
-      String(bookingData.bookingStatus || "").toUpperCase() === "CONFIRMED" ||
-      String(bookingData.status || "").toUpperCase() === "CONFIRMED";
-    const hotelName = await getHotelNameByUid(bookingData.hotelUid);
-    const shouldSaveHotelName =
-      hotelName && isMissingHotelName(bookingData.hotelName);
-    const updateData: Record<string, unknown> = {};
+    const bookingId = event.params.bookingId;
+    const metadata = await resolveHotelBookingMetadata(bookingData);
 
-    const name = bookingData.customerName || bookingData.name || bookingData.firstName || "Unknown Customer";
-    const finalHotelName = shouldSaveHotelName ? hotelName : (bookingData.hotelName || "Unknown Hotel");
-    const checkIn = bookingData.checkInDate || bookingData.checkIn || "Unknown";
-    const checkOut = bookingData.checkOutDate || bookingData.checkOut || "Unknown";
-    const amount = bookingData.totalAmount || bookingData.price || "N/A";
+    await sendTelegramNotification(
+      formatNewHotelTelegramMessage(bookingData, metadata),
+    );
 
-    const message = `<b>🏨 New Hotel Booking</b>\n` +
-                    `🆔 <code>${event.params.bookingId}</code>\n` +
-                    `👤 ${name}\n` +
-                    `🏢 ${finalHotelName}\n` +
-                    `📅 ${checkIn} - ${checkOut}\n` +
-                    `💰 ฿${amount}`;
+    const updateData = buildHotelPendingEnforcementUpdate(
+      bookingData,
+      metadata,
+    );
 
-    await sendTelegramNotification(message);
-
-    if (shouldSaveHotelName) {
-      updateData.hotelName = hotelName;
-    }
-
-    if (isPaidBooking && isConfirmedBooking) {
+    if (!requiresHotelManualApproval(bookingData)) {
       if (Object.keys(updateData).length > 0) {
         await snapshot.ref.update(updateData);
       }
 
       logger.info(
-        `Hotel Booking ${event.params.bookingId} is paid and confirmed. ` +
-          "Skipping Pending enforcement.",
+        `[Hotel] Booking ${bookingId} is paid and confirmed. ` +
+          "Skipping pending enforcement.",
       );
       return;
     }
 
-    if (
-      bookingData.status !== "Pending" ||
-      bookingData.isBookingConfirmed !== false
-    ) {
+    if (updateData.status === "Pending") {
       logger.info(
-        "Enforcing manual approval for Hotel Booking " +
-          `${event.params.bookingId}. Resetting to Pending.`,
+        `[Hotel] Enforcing manual approval for booking ${bookingId}.`,
       );
+      await snapshot.ref.update(updateData);
+      return;
+    }
 
-      await snapshot.ref.update({
-        ...updateData,
-        status: "Pending",
-        bookingStatus: "PENDING",
-        isBookingConfirmed: false,
-        autoAccepted: false,
-      });
-    } else if (Object.keys(updateData).length > 0) {
+    if (Object.keys(updateData).length > 0) {
       await snapshot.ref.update(updateData);
     }
   },
@@ -119,40 +72,34 @@ export const onHotelBookingStatusChangeV3 = onDocumentUpdated(
 
     if (!before || !after) return;
 
-    const statusBefore = before.status || before.bookingStatus;
-    const statusAfter = after.status || after.bookingStatus;
+    const normalizeStatus = (data: Record<string, unknown>) =>
+      String(data.bookingStatus || data.status || "").toUpperCase();
+
+    const statusBefore = normalizeStatus(before);
+    const statusAfter = normalizeStatus(after);
 
     if (statusBefore === statusAfter) return;
 
     logger.info(
-      `Hotel Booking ${event.params.bookingId} status changed: ` +
+      `[Hotel] Booking ${event.params.bookingId} status: ` +
         `${statusBefore} -> ${statusAfter}`,
     );
 
-    const name = after.customerName || after.name || after.firstName || "Unknown Customer";
-    const finalHotelName = after.hotelName || "Unknown Hotel";
-
-    if (statusAfter === "Accepted" || statusAfter === "ACCEPTED") {
-      logger.info("Sending Telegram Notification: Booking Accepted");
+    if (statusAfter === "ACCEPTED" || statusAfter === "CONFIRMED") {
       await sendTelegramNotification(
-        `<b>✅ Hotel Booking Accepted</b>\n` +
-        `🆔 <code>${event.params.bookingId}</code>\n` +
-        `👤 ${name}\n` +
-        `🏢 ${finalHotelName}`
+        formatHotelStatusTelegramMessage(
+          `${icon.accepted} Hotel Booking Accepted`,
+          after,
+        ),
       );
     }
 
-    if (
-      statusAfter === "Canceled" ||
-      statusAfter === "CANCELED" ||
-      statusAfter === "Cancelled"
-    ) {
-      logger.info("Sending Telegram Notification: Booking Canceled");
+    if (statusAfter === "CANCELED" || statusAfter === "CANCELLED") {
       await sendTelegramNotification(
-        `<b>❌ Hotel Booking Cancelled</b>\n` +
-        `🆔 <code>${event.params.bookingId}</code>\n` +
-        `👤 ${name}\n` +
-        `🏢 ${finalHotelName}`
+        formatHotelStatusTelegramMessage(
+          `${icon.cancelled} Hotel Booking Cancelled`,
+          after,
+        ),
       );
     }
   },

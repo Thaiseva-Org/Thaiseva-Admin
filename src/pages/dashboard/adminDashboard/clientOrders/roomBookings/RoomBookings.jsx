@@ -38,13 +38,13 @@ import NumbersIcon from "@mui/icons-material/Numbers";
 import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import CreditCardIcon from "@mui/icons-material/CreditCard";
 import BedroomParentIcon from "@mui/icons-material/BedroomParent";
-import { ViewList, CalendarMonth, Search, Circle, CheckCircle, FileDownload as FileDownloadIcon, RemoveRedEye as RemoveRedEyeIcon } from "@mui/icons-material";
-import { Tooltip, Select, MenuItem, FormControl, InputLabel, CircularProgress, AppBar, Toolbar } from "@mui/material";
-
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
-import { logo } from "../../../../../assets";
-import { ensureInvoiceIdForBooking } from "../../../../../services/invoiceService";
+import { ViewList, CalendarMonth, Search, Circle, CheckCircle, VerifiedUser as VerifiedUserIcon } from "@mui/icons-material";
+import { Select, MenuItem, FormControl, InputLabel } from "@mui/material";
+import PaymentStatusBadge from "../../../../../components/bookings/PaymentStatusBadge";
+import {
+  VerifyPaymentIconButton,
+  VerifyPaymentModalButton,
+} from "../../../../../components/bookings/VerifyPaymentButton";
 
 import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 import {
@@ -74,14 +74,24 @@ import {
 } from "../../../../../services/Earning";
 import { useNotifications } from "../../../../../contextAPIs/NotificationsProvider";
 import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
+import {
+  normalizeHotelBookingStatus,
+  isHotelWaitingForPayment,
+  isHotelRevenueEligible,
+  getHotelPaymentStatusInfo,
+  needsHotelPaymentVerification,
+  isHotelCanceled,
+  isHotelPaymentVerified,
+  isStripeHotelPayment,
+  isThaiQrHotelPayment,
+} from "../../../../../utils/bookingStatus";
+import { backfillCreatedAt } from "../../../../../utils/bookingTimestamps";
 
 const RoomBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
   const { roomBookings, hotels, contactInfo } = useContext(PartnerContext);
   const [matchedBookings, setMatchedBookings] = useState([]);
-  const [processingInvoiceId, setProcessingInvoiceId] = useState(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewPdfUrl, setPreviewPdfUrl] = useState(null);
+  const [verifyingPaymentId, setVerifyingPaymentId] = useState(null);
   const [openPackageDetailsModal, setOpenPackageDetailsModal] = useState(false);
   const [openBookingDetailsModal, setOpenBookingDetailsModal] = useState(false);
   const [bookingDetails, setBookingDetails] = useState({});
@@ -111,152 +121,99 @@ const RoomBookings = () => {
     setPage(0);
   };
 
-  const generatePdfBlob = async (row) => {
-    try {
-      const doc = new jsPDF();
-      const raw = row.rawData || {};
-      const category = "Room Bookings";
+  const isNext7DaysBooking = (row) => {
+    const rawDate = row.checkInDate || row.checkIn;
+    if (!rawDate) return false;
 
-      const COLORS = {
-        primary: [30, 58, 138],
-        darkBg: [15, 23, 42],
-        slate800: [30, 41, 59],
-        slate600: [71, 85, 105],
-        slate500: [100, 116, 139],
-        slate100: [241, 245, 249],
-        emerald: [16, 185, 129],
-      };
+    let dateObj;
+    if (rawDate.seconds) dateObj = new Date(rawDate.seconds * 1000);
+    else dateObj = new Date(rawDate);
 
-      const drawBrandHeader = (title) => {
-        doc.setFillColor(...COLORS.primary);
-        doc.rect(0, 0, 210, 45, 'F');
-        try {
-          doc.setFillColor(255, 255, 255);
-          doc.roundedRect(14, 8, 50, 24, 2, 2, 'F');
-          doc.addImage(logo, 'JPEG', 15, 9, 48, 22);
-        } catch (e) {
-          doc.setFontSize(10); doc.setTextColor(255, 255, 255); doc.text("THAISEVA", 15, 20);
-        }
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text(title.toUpperCase(), 196, 18, { align: "right" });
-        const status = raw.status || "Pending";
-        const isSuccess = status.toLowerCase() === 'accepted' || status.toLowerCase() === 'confirmed';
-        doc.setFillColor(...(isSuccess ? COLORS.emerald : [200, 200, 200]));
-        doc.roundedRect(176, 25, 20, 6, 2, 2, 'F');
-        doc.setFontSize(8);
-        doc.text(status.toUpperCase(), 186, 29, { align: "center" });
-      };
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const next7 = new Date(today);
+    next7.setDate(today.getDate() + 7);
+    next7.setHours(23, 59, 59, 999);
 
-      const drawSectionTitle = (text, y) => {
-        doc.setFontSize(10);
-        doc.setTextColor(...COLORS.primary);
-        doc.setFont("helvetica", "bold");
-        doc.text(text.toUpperCase(), 14, y);
-        doc.setDrawColor(...COLORS.slate100);
-        doc.line(14, y + 2, 196, y + 2);
-      };
-
-      const drawField = (label, value, x, y) => {
-        if (!value || value === "-" || value === "0" || value === "") return;
-        doc.setFontSize(9);
-        doc.setTextColor(...COLORS.slate500);
-        doc.setFont("helvetica", "normal");
-        doc.text(label, x, y);
-        doc.setTextColor(...COLORS.slate800);
-        doc.setFont("helvetica", "bold");
-        doc.text(String(value), x, y + 5);
-      };
-
-      drawBrandHeader("Hotel Confirmation");
-      let y = 60;
-      drawSectionTitle("Reservation Details", y);
-      y += 10;
-      const displayId = row.customerInvoiceId || raw.bookingId || row.bookingId || row.id;
-      drawField("Booking ID", displayId, 14, y);
-      drawField("Booked On", row.orderedAt ? new Date(row.orderedAt.seconds ? row.orderedAt.seconds * 1000 : row.orderedAt).toLocaleDateString() : "-", 60, y);
-      drawField("Hotel Name", row.hotelName, 110, y);
-
-      y += 20;
-      drawSectionTitle("Guest Information", y);
-      y += 10;
-      drawField("Primary Guest", row.name, 14, y);
-      drawField("Contact", row.phone, 60, y);
-      if (row.nationality) drawField("Nationality", row.nationality, 160, y);
-
-      y += 20;
-      drawSectionTitle("Stay Details", y);
-      y += 10;
-      drawField("Check-In", row.checkIn, 14, y);
-      drawField("Check-Out", row.checkOut, 60, y);
-      if (row.nights) drawField("Duration", `${row.nights} Night(s)`, 110, y);
-      drawField("Guests", `${row.adults || 0} Adults, ${row.children || 0} Children`, 160, y);
-
-      y += 20;
-      drawSectionTitle("Room Allocation", y);
-      y += 10;
-      const rooms = raw.roomDetails || [{ roomName: row.roomName || "Standard Room", count: row.noOfRooms || 1 }];
-      autoTable(doc, {
-        startY: y,
-        head: [['Room Type', 'Qty', 'Assigned Rooms']],
-        body: rooms.map(r => [r.roomName, r.count || 1, row.roomNumbers || "On Arrival"]),
-        theme: 'grid',
-        headStyles: { fillColor: COLORS.slate100, textColor: COLORS.slate600, fontSize: 8 },
-        styles: { fontSize: 9, textColor: COLORS.slate800 }
-      });
-
-      return doc.output('blob');
-    } catch (error) {
-      console.error("Error generating PDF:", error);
-      throw error;
-    }
+    return (
+      dateObj >= today &&
+      dateObj <= next7 &&
+      !isHotelCanceled(row)
+    );
   };
 
-  const handlePreviewInvoice = async (row) => {
-    if (processingInvoiceId) return;
-    setProcessingInvoiceId(row.bookingId || row.id);
+  const filterByTab = (row, tab) => {
+    if (tab === 0) return row.status === "Pending";
+    if (tab === 1) return isHotelWaitingForPayment(row);
+    if (tab === 2) return isHotelRevenueEligible(row);
+    if (tab === 3) return row.status === "Canceled";
+    if (tab === 4) return isNext7DaysBooking(row);
+    return true;
+  };
+
+  const recordHotelEarnings = async (booking) => {
+    if (booking.earningsRecorded) return;
+
+    const amount = Number(booking.amountTHB || booking.amount || 0);
+    if (amount <= 0) return;
+
+    const hotelId = booking.hotelUid || booking.hotelId;
+    await updateHourlyEarnings(amount, "Hotels");
+    if (hotelId) await updateHourlyEarnings(amount, "Hotels", hotelId);
+    await updateMonthlyEarnings(amount, "Hotels");
+    if (hotelId) await updateMonthlyEarnings(amount, "Hotels", hotelId);
+
+    await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), {
+      earningsRecorded: true,
+    });
+  };
+
+  const handleVerifyPayment = async (booking) => {
+    if (!confirm("Verify payment for this booking?")) return;
+
+    const bookingId = booking.bookingId || booking.id;
+    setVerifyingPaymentId(bookingId);
+
     try {
-      const updatedRow = await ensureInvoiceIdForBooking("Room Bookings", row.bookingId || row.id, row.rawData);
-      const rowWithInvoice = { ...row, customerInvoiceId: updatedRow.customerInvoiceId };
-      const blob = await generatePdfBlob(rowWithInvoice);
-      const url = URL.createObjectURL(blob);
-      setPreviewPdfUrl(url);
-      setPreviewOpen(true);
+      const existingConfirmation =
+        booking.paymentConfirmation || booking.rawData?.paymentConfirmation;
+      const updateData = {
+        paymentVerificationStatus: "VERIFIED",
+        isPaymentDone: true,
+        paidAt: new Date().toISOString(),
+      };
+
+      if (existingConfirmation && typeof existingConfirmation === "object") {
+        updateData.paymentConfirmation = {
+          ...existingConfirmation,
+          status: "paid",
+        };
+      }
+
+      await updateDoc(doc(roomBookingCollection, bookingId), updateData);
+      await recordHotelEarnings(booking);
+
+      setBookingDetails((prev) => ({
+        ...prev,
+        paymentVerificationStatus: "VERIFIED",
+        isPaymentDone: true,
+        earningsRecorded: true,
+      }));
+
+      if (booking.userId) {
+        CreateNewNotificationToUser(
+          "Payment verified!",
+          `Your payment for the room booking at ${booking.hotelName || "the hotel"} has been verified.`,
+          booking.userId
+        );
+      }
+
+      successNotification("Payment verified successfully!");
     } catch (error) {
-      console.error("Error previewing PDF:", error);
-      alert("Failed to preview invoice.");
+      console.error("Error verifying payment:", error);
+      alert("Failed to verify payment.");
     } finally {
-      setProcessingInvoiceId(null);
-    }
-  };
-
-  const handleDownloadInvoice = async (row) => {
-    if (processingInvoiceId) return;
-    setProcessingInvoiceId(row.bookingId || row.id);
-    try {
-      const updatedRow = await ensureInvoiceIdForBooking("Room Bookings", row.bookingId || row.id, row.rawData);
-      const rowWithInvoice = { ...row, customerInvoiceId: updatedRow.customerInvoiceId };
-      const blob = await generatePdfBlob(rowWithInvoice);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Invoice_${updatedRow.customerInvoiceId || row.bookingId || row.id}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error downloading PDF:", error);
-      alert("Failed to download invoice.");
-    } finally {
-      setProcessingInvoiceId(null);
-    }
-  };
-
-  const handleClosePreview = () => {
-    setPreviewOpen(false);
-    if (previewPdfUrl) {
-      URL.revokeObjectURL(previewPdfUrl);
-      setPreviewPdfUrl(null);
+      setVerifyingPaymentId(null);
     }
   };
 
@@ -379,29 +336,29 @@ const RoomBookings = () => {
   };
 
   const confirmBookingInternal = async (booking) => {
+    const createdAtBackfill = backfillCreatedAt(booking);
     const updatedDoc = {
       status: "Accepted",
       bookingStatus: "ACCEPTED",
       isBookingConfirmed: true,
+      ...(createdAtBackfill && !booking.createdAt
+        ? { createdAt: createdAtBackfill }
+        : {}),
     };
 
     try {
       await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), updatedDoc);
 
-      const amount = Number(booking.amountTHB || booking.amount || 0);
-      if (amount > 0 && (booking.hotelUid || booking.hotelId)) {
-        const hotelId = booking.hotelUid || booking.hotelId;
-        // Intentionally fire-and-forget these to speed up
-        await updateHourlyEarnings(amount, "Hotels");
-        await updateHourlyEarnings(amount, "Hotels", hotelId);
-        await updateMonthlyEarnings(amount, "Hotels");
-        await updateMonthlyEarnings(amount, "Hotels", hotelId);
-      }
-
       if (booking.userId) {
+        const paymentMessage = isStripeHotelPayment(booking)
+          ? "Your payment has been received and your stay is confirmed."
+          : isThaiQrHotelPayment(booking)
+            ? "Your booking is approved. We will verify your Thai QR payment shortly."
+            : "Your room booking has been approved.";
+
         CreateNewNotificationToUser(
-          "Room booking confirmed!",
-          `Your room booking at ${booking.hotelName || 'the hotel'} has been automatically confirmed!`,
+          "Room booking approved!",
+          `Your room booking at ${booking.hotelName || "the hotel"} has been approved. ${paymentMessage}`,
           booking.userId
         );
       }
@@ -419,27 +376,11 @@ const RoomBookings = () => {
     { property: "noOfRooms", label: "Rooms", width: "5%" },
     { property: "checkIn", label: "Check in", width: "14%" },
     { property: "amount", label: "Amount", width: "10%" },
-    { property: "userInvoice", label: "Invoice", width: "12%" },
+    { property: "paymentStatus", label: "Payment Status", width: "12%" },
     { property: "action", label: "Action", width: "10%" },
   ];
 
-  const normalizeBookingStatus = (booking = {}) => {
-    const rawStatus = booking.bookingStatus || booking.status || "";
-    const upper = String(rawStatus).toUpperCase();
-
-    if (
-      upper === "PENDING" ||
-      upper === "AWAITING_PAYMENT" ||
-      upper === "PENDING_VERIFICATION" ||
-      upper === "PAYMENT_PENDING"
-    ) {
-      return "Pending";
-    }
-    if (upper === "ACCEPTED" || upper === "CONFIRMED") return "Accepted";
-    if (upper === "CANCELED" || upper === "CANCELLED" || upper === "REJECTED" || upper === "DENIED") return "Canceled";
-
-    return booking.status || rawStatus || "Pending";
-  };
+  const normalizeBookingStatus = normalizeHotelBookingStatus;
 
   // creating single row
   function createData(booking) {
@@ -458,7 +399,9 @@ const RoomBookings = () => {
     return {
       ...booking,
       isBookingConfirmed: booking.isBookingConfirmed,
-      isPaymentDone: booking.isPaymentDone,
+      isPaymentDone: isHotelPaymentVerified(booking),
+      paymentVerificationStatus: booking.paymentVerificationStatus,
+      paymentConfirmation: booking.paymentConfirmation,
       hotelName: (() => {
         const primary = booking.hotelName || "";
         const nested = booking.hotel?.hotelName || "";
@@ -525,8 +468,13 @@ const RoomBookings = () => {
 
     return {
       total: visibleBookings.length,
-      accepted: visibleBookings.filter((booking) => booking.status === "Accepted").length,
       pending: visibleBookings.filter((booking) => booking.status === "Pending").length,
+      waitingForPayment: visibleBookings.filter((booking) =>
+        isHotelWaitingForPayment(booking)
+      ).length,
+      accepted: visibleBookings.filter((booking) =>
+        isHotelRevenueEligible(booking)
+      ).length,
       declined: visibleBookings.filter((booking) => booking.status === "Canceled").length,
     };
   }, [sourceBookings, searchQuery]);
@@ -793,7 +741,7 @@ const RoomBookings = () => {
       />
 
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
@@ -804,23 +752,6 @@ const RoomBookings = () => {
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <span className="text-3xl">📅</span>
-            </div>
-          </div>
-        </div>
-
-        <div
-          onClick={() => setTabValue(1)}
-          className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-success-100 text-sm font-medium mb-1">
-                Accepted
-              </p>
-              <p className="text-3xl font-bold">{bookingStats.accepted}</p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">✅</span>
             </div>
           </div>
         </div>
@@ -838,6 +769,40 @@ const RoomBookings = () => {
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <span className="text-3xl">⏳</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setTabValue(1)}
+          className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-orange-100 text-sm font-medium mb-1">
+                Waiting for Payment
+              </p>
+              <p className="text-3xl font-bold">{bookingStats.waitingForPayment}</p>
+            </div>
+            <div className="bg-white/20 p-3 rounded-lg">
+              <span className="text-3xl">💳</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => setTabValue(2)}
+          className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-success-100 text-sm font-medium mb-1">
+                Paid & Accepted
+              </p>
+              <p className="text-3xl font-bold">{bookingStats.accepted}</p>
+            </div>
+            <div className="bg-white/20 p-3 rounded-lg">
+              <span className="text-3xl">✅</span>
             </div>
           </div>
         </div>
@@ -946,7 +911,8 @@ const RoomBookings = () => {
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
         <Tabs value={tabValue} onChange={handleTabChange} aria-label="booking status tabs">
           <Tab label="Pending" />
-          <Tab label="Accepted" />
+          <Tab label="Waiting for Payment" />
+          <Tab label="Paid & Accepted" />
           <Tab label="Declined" />
           <Tab label="Next 7 Days" />
         </Tabs>
@@ -974,12 +940,12 @@ const RoomBookings = () => {
                       Approve Selected
                     </button>
                   )}
-                  {(tabValue === 0 || tabValue === 1) && (
+                  {(tabValue === 0 || tabValue === 1 || tabValue === 2) && (
                     <button
                       onClick={handleBulkDecline}
                       className="bg-danger-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-danger-700 transition-colors shadow-sm"
                     >
-                      {tabValue === 1 ? "Cancel Selected" : "Decline Selected"}
+                      {tabValue === 0 ? "Decline Selected" : "Cancel Selected"}
                     </button>
                   )}
                 </div>
@@ -994,42 +960,19 @@ const RoomBookings = () => {
                   <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
                     <tr>
                       <th className="px-4 py-4 w-[50px]">
-                        {tabValue !== 2 && (
+                        {tabValue !== 3 && (
                           <input
                             type="checkbox"
                             className="rounded border-white/30 text-primary-600 focus:ring-white/50 w-4 h-4 cursor-pointer"
                             onChange={(e) => {
-                              // Get current visible rows
-                              const currentRows = rows(isRealTime ? roomBookings : matchedBookings).filter((row) => {
-                                if (tabValue === 0) return row.status === "Pending";
-                                if (tabValue === 1) return row.status === "Accepted";
-                                if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
-                                // .. other filters
-                                return true;
-                              });
+                              const currentRows = rows(isRealTime ? roomBookings : matchedBookings).filter((row) =>
+                                filterByTab(row, tabValue)
+                              );
                               handleSelectAll(e, currentRows);
                             }}
-                            checked={selectedBookings.length > 0 && selectedBookings.length === rows(isRealTime ? roomBookings : matchedBookings).filter((row) => {
-                              if (tabValue === 0) return row.status === "Pending";
-                              if (tabValue === 1) return row.status === "Accepted";
-                              if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
-                              if (tabValue === 3) {
-                                const rawDate = row.checkInDate || row.checkIn;
-                                if (!rawDate) return false;
-                                let dateObj;
-                                if (rawDate.seconds) dateObj = new Date(rawDate.seconds * 1000);
-                                else dateObj = new Date(rawDate);
-
-                                const today = new Date();
-                                today.setHours(0, 0, 0, 0);
-                                const next7 = new Date(today);
-                                next7.setDate(today.getDate() + 7);
-                                next7.setHours(23, 59, 59, 999);
-
-                                return dateObj >= today && dateObj <= next7 && row.status !== 'Canceled' && row.status !== 'Denied';
-                              }
-                              return true;
-                            }).length}
+                            checked={selectedBookings.length > 0 && selectedBookings.length === rows(isRealTime ? roomBookings : matchedBookings).filter((row) =>
+                              filterByTab(row, tabValue)
+                            ).length}
                           />
                         )}
                       </th>
@@ -1046,27 +989,7 @@ const RoomBookings = () => {
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
                     {rows(isRealTime ? roomBookings : matchedBookings)
-                      .filter((row) => {
-                        if (tabValue === 0) return row.status === "Pending";
-                        if (tabValue === 1) return row.status === "Accepted";
-                        if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
-                        if (tabValue === 3) {
-                          const rawDate = row.checkInDate || row.checkIn;
-                          if (!rawDate) return false;
-                          let dateObj;
-                          if (rawDate.seconds) dateObj = new Date(rawDate.seconds * 1000);
-                          else dateObj = new Date(rawDate);
-
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const next7 = new Date(today);
-                          next7.setDate(today.getDate() + 7);
-                          next7.setHours(23, 59, 59, 999);
-
-                          return dateObj >= today && dateObj <= next7 && row.status !== 'Canceled' && row.status !== 'Denied';
-                        }
-                        return true;
-                      })
+                      .filter((row) => filterByTab(row, tabValue))
                       .slice(isRealTime ? page * rowsPerPage : 0, isRealTime ? page * rowsPerPage + parseInt(rowsPerPage, 10) : undefined)
                       .map(
                         (row, i) => {
@@ -1077,7 +1000,7 @@ const RoomBookings = () => {
                               className={`hover:bg-primary-50 transition-colors duration-200 ${isSelected ? 'bg-primary-50' : ''}`}
                             >
                               <td className="px-4 py-4 text-center">
-                                {tabValue !== 2 && (
+                                {tabValue !== 3 && (
                                   <input
                                     type="checkbox"
                                     checked={isSelected}
@@ -1120,42 +1043,15 @@ const RoomBookings = () => {
                                           <span className="text-neutral-400 text-xs">-</span>
                                         )}
                                       </div>
-                                    ) : column.property === "userInvoice" ? (
-                                      <div className="flex justify-center items-center gap-1">
-                                        <Tooltip title="Preview Invoice">
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handlePreviewInvoice(row)}
-                                            disabled={processingInvoiceId === (row.bookingId || row.id)}
-                                            sx={{ color: '#3b82f6', bgcolor: '#eff6ff', '&:hover': { bgcolor: '#dbeafe' } }}
-                                          >
-                                            {processingInvoiceId === (row.bookingId || row.id) ? (
-                                              <CircularProgress size={16} color="inherit" />
-                                            ) : (
-                                              <RemoveRedEyeIcon fontSize="small" />
-                                            )}
-                                          </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Download Invoice">
-                                          <IconButton
-                                            size="small"
-                                            onClick={() => handleDownloadInvoice(row)}
-                                            disabled={processingInvoiceId === (row.bookingId || row.id)}
-                                            sx={{ color: '#10b981', bgcolor: '#ecfdf5', '&:hover': { bgcolor: '#d1fae5' } }}
-                                          >
-                                            {processingInvoiceId === (row.bookingId || row.id) ? (
-                                              <CircularProgress size={16} color="inherit" />
-                                            ) : (
-                                              <FileDownloadIcon fontSize="small" />
-                                            )}
-                                          </IconButton>
-                                        </Tooltip>
-                                      </div>
+                                    ) : column.property === "paymentStatus" ? (
+                                      <PaymentStatusBadge
+                                        statusInfo={getHotelPaymentStatusInfo(row)}
+                                      />
                                     ) : column.property === "action" ? (
                                       <div className="flex gap-2 justify-center items-center">
-                                        {row["status"] === 3 && (
+                                        {row.status === "Canceled" && (
                                           <button
-                                            onClick={() => handleDelete(row.id)}
+                                            onClick={() => handleDelete(row.bookingId || row.id)}
                                             className="p-2 bg-danger-100 hover:bg-danger-200 text-danger-700 rounded-lg transition-colors"
                                             title="Delete booking"
                                           >
@@ -1186,7 +1082,7 @@ const RoomBookings = () => {
                                             <button
                                               onClick={() => handleConfirmBooking(row)}
                                               className="p-2 rounded-full bg-success-500 text-white hover:bg-success-600 hover:scale-110 transition-all duration-200"
-                                              title="Accept Booking"
+                                              title="Approve Request"
                                             >
                                               <DoneRoundedIcon className="scale-90" />
                                             </button>
@@ -1199,6 +1095,17 @@ const RoomBookings = () => {
                                             </button>
                                           </>
                                         )}
+
+                                        {needsHotelPaymentVerification(row) &&
+                                          (isAdmin || isSubAdmin) && (
+                                            <VerifyPaymentIconButton
+                                              onClick={() => handleVerifyPayment(row)}
+                                              loading={
+                                                verifyingPaymentId ===
+                                                (row.bookingId || row.id)
+                                              }
+                                            />
+                                          )}
                                       </div>
                                     ) : column.property === "amount" ? (
                                       <span className="font-semibold text-success-600">
@@ -1220,7 +1127,9 @@ const RoomBookings = () => {
                           );
                         }
                       )}
-                    {(isRealTime ? roomBookings : matchedBookings).length === 0 && (
+                    {rows(isRealTime ? roomBookings : matchedBookings).filter((row) =>
+                      filterByTab(row, tabValue)
+                    ).length === 0 && (
                       <tr>
                         <td colSpan={9} className="px-6 py-12">
                           <div className="flex flex-col items-center justify-center text-neutral-400">
@@ -1247,28 +1156,10 @@ const RoomBookings = () => {
                 rowsPerPageOptions={[10, 25, 100]}
                 component="div"
                 count={isRealTime ?
-                  rows(roomBookings).filter((row) => {
-                    if (tabValue === 0) return row.status === "Pending";
-                    if (tabValue === 1) return row.status === "Accepted";
-                    if (tabValue === 2) return row.status === "Canceled" || row.status === "Denied";
-                    if (tabValue === 3) {
-                      const rawDate = row.checkInDate || row.checkIn;
-                      if (!rawDate) return false;
-                      let dateObj;
-                      if (rawDate.seconds) dateObj = new Date(rawDate.seconds * 1000);
-                      else dateObj = new Date(rawDate);
-
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const next7 = new Date(today);
-                      next7.setDate(today.getDate() + 7);
-                      next7.setHours(23, 59, 59, 999);
-
-                      return dateObj >= today && dateObj <= next7 && row.status !== 'Canceled' && row.status !== 'Denied';
-                    }
-                    return true;
-                  }).length
-                  : totalPages}
+                  rows(isRealTime ? roomBookings : matchedBookings).filter((row) =>
+                    filterByTab(row, tabValue)
+                  ).length
+                  : rows(matchedBookings).filter((row) => filterByTab(row, tabValue)).length || totalPages}
                 rowsPerPage={parseInt(rowsPerPage, 10)}
                 page={page}
                 onPageChange={handleChangePage}
@@ -1406,13 +1297,14 @@ const RoomBookings = () => {
                 <Grid item xs={12} sm={6}>
                   <div className="flex items-start gap-2 p-2.5 rounded-xl hover:bg-neutral-50 transition-all duration-200 border border-transparent hover:border-neutral-200 group">
                     <div className="text-emerald-600 mt-0.5 p-2 bg-emerald-50 rounded-lg group-hover:scale-110 transition-transform duration-200 shadow-sm">
-                      <DoneRoundedIcon fontSize="small" />
+                      <VerifiedUserIcon fontSize="small" />
                     </div>
                     <div>
                       <p className="text-[11px] font-bold text-neutral-500 uppercase tracking-wider mb-0.5">Payment Status</p>
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold mt-0.5 ${bookingDetails?.isPaymentDone ? "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-600/20" : "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20"}`}>
-                        {bookingDetails?.isPaymentDone ? "PAID" : "UNPAID"}
-                      </span>
+                      <PaymentStatusBadge
+                        statusInfo={getHotelPaymentStatusInfo(bookingDetails)}
+                        className="mt-0.5"
+                      />
                     </div>
                   </div>
                 </Grid>
@@ -1454,7 +1346,13 @@ const RoomBookings = () => {
             )}
           </div>
         </DialogContent>
-        <DialogActions sx={{ p: 3, borderTop: '1px solid #e5e5e5', bgcolor: 'white' }}>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #e5e5e5', bgcolor: 'white', gap: 1 }}>
+          {(isAdmin || isSubAdmin) && needsHotelPaymentVerification(bookingDetails) && (
+            <VerifyPaymentModalButton
+              onClick={() => handleVerifyPayment(bookingDetails)}
+              loading={verifyingPaymentId === bookingDetails?.bookingId}
+            />
+          )}
           <Button
             variant="outlined"
             onClick={() => setOpenBookingDetailsModal(false)}
@@ -1604,60 +1502,6 @@ const RoomBookings = () => {
             }}
           >
             Close Package Details
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {/* PDF Preview Dialog */}
-      <Dialog
-        open={previewOpen}
-        onClose={handleClosePreview}
-        maxWidth="lg"
-        fullWidth
-        PaperProps={{
-          sx: { height: '90vh', borderRadius: 4 }
-        }}
-      >
-        <AppBar sx={{ position: 'relative', bgcolor: '#1e3a8a' }}>
-          <Toolbar>
-            <Typography sx={{ ml: 2, flex: 1, fontWeight: 700 }} variant="h6" component="div">
-              Invoice Preview
-            </Typography>
-            <IconButton edge="start" color="inherit" onClick={handleClosePreview} aria-label="close">
-              <CloseIcon />
-            </IconButton>
-          </Toolbar>
-        </AppBar>
-        <DialogContent sx={{ p: 0, overflow: 'hidden', bgcolor: '#525659' }}>
-          {previewPdfUrl ? (
-            <iframe
-              src={previewPdfUrl}
-              width="100%"
-              height="100%"
-              style={{ border: 'none' }}
-              title="PDF Preview"
-            />
-          ) : (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: 'white' }}>
-              <CircularProgress color="inherit" />
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 2, bgcolor: 'white' }}>
-          <Button onClick={handleClosePreview} variant="outlined" sx={{ borderRadius: 2 }}>
-            Close
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<FileDownloadIcon />}
-            onClick={() => {
-              const link = document.createElement('a');
-              link.href = previewPdfUrl;
-              link.download = `Invoice_Preview.pdf`;
-              link.click();
-            }}
-            sx={{ borderRadius: 2, bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}
-          >
-            Download PDF
           </Button>
         </DialogActions>
       </Dialog>

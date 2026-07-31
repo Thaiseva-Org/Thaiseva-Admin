@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
-import { db, deletionRequestsCollection } from "../../../../firebase/firebase.config";
+import {
+  db,
+  deleteUserFromAuth,
+  deletionRequestsCollection,
+} from "../../../../firebase/firebase.config";
 import PageHeading from "../../../../components/PageHeading";
 import LoadingContent from "../../../../components/LoadingContent";
 import { format } from "timeago.js";
 import Swal from "sweetalert2";
-import ActionButtons from "../../../../components/ActionButtons";
-
 const DeletionRequests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,53 @@ const DeletionRequests = () => {
   useEffect(() => {
     fetchRequests();
   }, []);
+
+  const handleAcceptDeletion = async (request) => {
+    if (!request?.uid) {
+      Swal.fire("Error!", "This request has no user ID (uid).", "error");
+      return;
+    }
+
+    try {
+      const result = await Swal.fire({
+        title: "Accept deletion request?",
+        html:
+          "This will approve the request and remove the user's <b>Firebase login only</b>.<br/><br/>" +
+          "Bookings and other Firestore records are <b>not</b> deleted.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#d33",
+        cancelButtonColor: "#3085d6",
+        confirmButtonText: "Yes, accept and delete",
+      });
+
+      if (!result.isConfirmed) {
+        return;
+      }
+
+      setLoading(true);
+      await deleteUserFromAuth({
+        uid: request.uid,
+        requestId: request.id,
+      });
+
+      Swal.fire(
+        "Accepted!",
+        "The deletion request was approved and the login account was deleted. User data was kept in Firestore.",
+        "success"
+      );
+      fetchRequests();
+    } catch (error) {
+      console.error("Error accepting deletion request:", error);
+      Swal.fire(
+        "Error!",
+        error?.message || "Failed to approve the deletion request.",
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCancelAutoDeletion = async (id) => {
     try {
@@ -169,12 +218,20 @@ const DeletionRequests = () => {
                     </td>
                     <td className="py-3 px-4 xl:px-6 text-center">
                       {!isCancelled && !isCompleted ? (
-                        <button
-                          onClick={() => handleCancelAutoDeletion(req.id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm transition-colors cursor-pointer"
-                        >
-                          Cancel
-                        </button>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleAcceptDeletion(req)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded text-sm transition-colors cursor-pointer"
+                          >
+                            Accept Deletion
+                          </button>
+                          <button
+                            onClick={() => handleCancelAutoDeletion(req.id)}
+                            className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-1.5 rounded text-sm transition-colors cursor-pointer"
+                          >
+                            Cancel Request
+                          </button>
+                        </div>
                       ) : (
                         <span className="text-xs text-gray-500 italic">Action unavailable</span>
                       )}

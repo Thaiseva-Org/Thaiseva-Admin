@@ -39,10 +39,8 @@ import {
   hotelPackageDetails,
   roomBookingCollection,
 } from "../../../../../firebase/firebase.config";
-import {
-  updateHourlyEarnings,
-  updateMonthlyEarnings,
-} from "../../../../../services/Earning";
+import { normalizeHotelBookingStatus } from "../../../../../utils/bookingStatus";
+import { backfillCreatedAt } from "../../../../../utils/bookingTimestamps";
 import {
   calculateDiscountPrice,
   deleteNotification,
@@ -65,23 +63,7 @@ const TodayArriving = () => {
   const [roomNumber, setRoomNumber] = useState("");
   const [error, setError] = useState("");
 
-  const normalizeBookingStatus = (booking = {}) => {
-    const rawStatus = booking.bookingStatus || booking.status || "";
-    const upperStatus = String(rawStatus).toUpperCase();
-
-    if (upperStatus === "PENDING") return "Pending";
-    if (upperStatus === "ACCEPTED" || upperStatus === "CONFIRMED") return "Accepted";
-    if (
-      upperStatus === "CANCELED" ||
-      upperStatus === "CANCELLED" ||
-      upperStatus === "REJECTED" ||
-      upperStatus === "DENIED"
-    ) {
-      return "Canceled";
-    }
-
-    return rawStatus || "-";
-  };
+  const normalizeBookingStatus = normalizeHotelBookingStatus;
 
   const normalizeDate = (value) => {
     if (!value || value === "-") return null;
@@ -257,35 +239,27 @@ const TodayArriving = () => {
       return setError("Rooms provided are less than required!");
     }
     if (confirm("Check details twice before confirming")) {
+      const createdAtBackfill = backfillCreatedAt(bookingDetails);
       const updatedDoc = {
         status: "Accepted",
         bookingStatus: "ACCEPTED",
         isBookingConfirmed: true,
         managerPhone: data.managerPhone,
         roomNumbers: data.roomNumbers,
+        ...(createdAtBackfill && !bookingDetails.createdAt
+          ? { createdAt: createdAtBackfill }
+          : {}),
       };
       await updateDoc(
         doc(roomBookingCollection, bookingDetails.bookingId),
         updatedDoc
       ).then(async () => {
         setOpenBookingDetailsModal(false);
-        successNotification("Booking is confirmed successfully");
-        await updateHourlyEarnings(bookingDetails?.amountTHB || bookingDetails?.amount, "Hotels");
-        await updateHourlyEarnings(
-          bookingDetails?.amountTHB || bookingDetails?.amount,
-          "Hotels",
-          bookingDetails?.hotelUid
-        );
-        await updateMonthlyEarnings(bookingDetails?.amountTHB || bookingDetails?.amount, "Hotels");
-        await updateMonthlyEarnings(
-          bookingDetails?.amountTHB || bookingDetails?.amount,
-          "Hotels",
-          bookingDetails?.hotelUid
-        );
+        successNotification("Booking approved. Awaiting guest payment.");
         setData({ managerPhone: "", roomNumbers: [] });
         await CreateNewNotificationToUser(
-          "Room booking confirm!",
-          `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is confirmed!`,
+          "Room booking approved!",
+          `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is approved. Please complete payment.`,
           bookingDetails?.userId
         );
       });
@@ -303,6 +277,8 @@ const TodayArriving = () => {
     if (confirm("Are you sure to cancel this booking?")) {
       const updatedDoc = {
         status: "Canceled",
+        bookingStatus: "CANCELED",
+        isBookingConfirmed: false,
       };
 
       await updateDoc(

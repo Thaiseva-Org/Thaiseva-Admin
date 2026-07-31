@@ -554,7 +554,7 @@ const Hotels = () => {
                                 </span>
                               ) : column.id === "totalRoomsAvailable" ? (
                                 <span className="inline-flex items-center justify-center min-w-[3rem] px-2 h-8 font-bold text-sm text-neutral-700">
-                                  {row.totalCapacity}
+                                  {row.totalRoomsAvailable ?? 0}/{row.totalCapacity ?? 0}
                                 </span>
                               ) : column.id === "action" ? (
                                 <div className="flex items-center justify-center gap-2">

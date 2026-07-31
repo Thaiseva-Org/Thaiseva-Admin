@@ -54,3 +54,77 @@ export const getBookingSpecialNotes = (booking = {}) => {
 
   return "";
 };
+
+const PICKUP_FIELD_KEYS = [
+  "pickUpLocation",
+  "pickupLocation",
+  "pickupRequest",
+  "pickup",
+  "pickupPoint",
+  "pickUpPoint",
+  "pickupAddress",
+  "pickUpAddress",
+  "pickupHotel",
+  "pickUpHotel",
+  "hotelPickup",
+];
+
+const isMeaningfulPickup = (value) =>
+  typeof value === "string" && value.trim().length > 0;
+
+const wantsHotelPickup = (booking = {}) =>
+  booking.pickupFromHotel === true ||
+  booking.reqHotel === true ||
+  booking.pickupDropDetails?.pickupFromHotel === true;
+
+const getNestedPickupRequest = (booking = {}) => {
+  const details =
+    booking.pickupDropDetails || booking.pickupDetails || booking.logistics;
+
+  if (!details || typeof details !== "object") return "";
+
+  for (const key of PICKUP_FIELD_KEYS) {
+    if (isMeaningfulPickup(details[key])) {
+      return details[key].trim();
+    }
+  }
+
+  if (details.pickupFromHotel === true) {
+    const hotelName = details.hotelName || details.pickupHotel;
+    return hotelName ? `Hotel pickup: ${hotelName}` : "Pickup from hotel";
+  }
+
+  return "";
+};
+
+export const getBookingPickupRequest = (booking = {}) => {
+  for (const key of PICKUP_FIELD_KEYS) {
+    if (isMeaningfulPickup(booking[key])) {
+      return booking[key].trim();
+    }
+  }
+
+  for (const nested of [
+    booking.guestDetails,
+    booking.customerDetails,
+    booking.bookingDetails,
+  ]) {
+    if (!nested) continue;
+    for (const key of PICKUP_FIELD_KEYS) {
+      if (isMeaningfulPickup(nested[key])) {
+        return nested[key].trim();
+      }
+    }
+  }
+
+  const nestedPickup = getNestedPickupRequest(booking);
+  if (nestedPickup) return nestedPickup;
+
+  if (wantsHotelPickup(booking)) {
+    const hotelName =
+      booking.hotelName || booking.pickupHotel || booking.pickUpHotel;
+    return hotelName ? `Hotel pickup: ${hotelName}` : "Pickup from hotel";
+  }
+
+  return "";
+};

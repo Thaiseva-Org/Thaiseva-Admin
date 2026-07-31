@@ -9,8 +9,7 @@ import {
 import { generateInvoiceIds, INVOICE_TYPES } from "../utils/invoiceGenerator";
 
 export const ensureInvoiceIdForBooking = async (category, id, currentData) => {
-    // If we already have the ID, return data as-is
-    if (currentData.customerInvoiceId) {
+    if (currentData.customerInvoiceId && currentData.partnerInvoiceId) {
         return currentData;
     }
 
