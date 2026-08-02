@@ -1,5 +1,5 @@
 import CloseIcon from "@mui/icons-material/Close";
-import { MdVisibility, MdEdit, MdDelete, MdMeetingRoom, MdAdd } from "react-icons/md"; // Icons
+import { MdVisibility, MdEdit, MdDelete, MdMeetingRoom, MdAdd, MdEventAvailable } from "react-icons/md"; // Icons
 import AddHotelForm from "./AddHotelForm"; // Import Form
 import {
   Button,
@@ -558,8 +558,21 @@ const Hotels = () => {
                                 </span>
                               ) : column.id === "action" ? (
                                 <div className="flex items-center justify-center gap-2">
-                                  {/* View */}
-
+                                  <IconButton
+                                    onClick={() =>
+                                      navigate(
+                                        `/dashboard/hotel-room-availability/${row.uid}`
+                                      )
+                                    }
+                                    sx={{
+                                      color: "#0ea5e9",
+                                      "&:hover": { bgcolor: "#f0f9ff" },
+                                      transition: "all 0.2s",
+                                    }}
+                                    title="Manage Room Availability"
+                                  >
+                                    <MdEventAvailable size={20} />
+                                  </IconButton>
 
                                   {/* Edit */}
                                   <IconButton
@@ -661,6 +674,27 @@ const Hotels = () => {
                         </CardContent>
                         <div className="border-t border-gray-100 p-3 flex justify-between items-center bg-gray-50">
                           <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Tooltip title="Manage Room Availability">
+                              <IconButton
+                                size="small"
+                                onClick={() =>
+                                  navigate(
+                                    `/dashboard/hotel-room-availability/${row.uid}`
+                                  )
+                                }
+                                sx={{
+                                  color: "#0ea5e9",
+                                  bgcolor: "white",
+                                  border: "1px solid #f3f4f6",
+                                  "&:hover": {
+                                    bgcolor: "#f0f9ff",
+                                    borderColor: "#7dd3fc",
+                                  },
+                                }}
+                              >
+                                <MdEventAvailable />
+                              </IconButton>
+                            </Tooltip>
                             <Tooltip title="Edit">
                               <IconButton size="small" onClick={() => handleEditHotel(row.fullData)} sx={{ color: '#f59e0b', bgcolor: 'white', border: '1px solid #f3f4f6', '&:hover': { bgcolor: '#fffbeb', borderColor: '#fcd34d' } }}>
                                 <MdEdit />

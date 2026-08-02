@@ -10,6 +10,19 @@ The official administrative and partner management portal for **Thaiseva**. This
 
 ---
 
+## 📚 Booking API (website & app)
+
+**Share this one file only:**
+
+### [documentation/THAISEVA_BOOKING_API.md](./documentation/THAISEVA_BOOKING_API.md)
+
+Complete guide: auth, all endpoints, hotel / package / transport, Stripe, notifications, examples, errors, testing.
+
+**Base URL:** `https://asia-east2-<PROJECT_ID>.cloudfunctions.net/<FunctionName>`  
+**Auth:** `Authorization: Bearer <Firebase ID token>`
+
+---
+
 ## 🌟 Core Modules & Features
 
 ### 📦 1. Booking Operations Manager
@@ -177,6 +190,7 @@ Below is a detailed guide on the primary Firestore database collections and docu
     ```typescript
     interface RoomRecord {
       roomName: string;
+      totalRooms: number; // inventory for availability (default 5)
       maxGuests: number;
       numberOfBeds: number;
       photos: string[];
@@ -187,6 +201,12 @@ Below is a detailed guide on the primary Firestore database collections and docu
       };
     }
     ```
+*   **Room Availability (admin):** Hotel Related → **Room Availability**
+    *   Hub: `/dashboard/hotel-room-availability` (main statistics)
+    *   Detail: `/dashboard/hotel-room-availability/:hotelId` (calendar, auto-book, extra/block)
+    *   Service: `src/services/HotelAvailability.js` (Firestore client)
+    *   Storage: `HotelDB/{hotelId}/availability`, optional `hotelRoomInventory`
+    *   Docs: `documentation/HOTEL_AVAILABILITY_API.md`
 
 ### 3. Bookings (`hotelBookingData`, `travelBookingDetails`, `dineInBookings`)
 *   **`hotelBookingData`**: Accommodation orders.

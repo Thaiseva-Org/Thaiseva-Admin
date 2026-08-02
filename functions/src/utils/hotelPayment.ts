@@ -54,9 +54,9 @@ export const isStripeHotelPayment = (booking: BookingData = {}) => {
   const paymentMethod = upper(getHotelPaymentMethod(booking));
 
   return (
-    Boolean(booking.stripeSessionId || booking.stripePaymentIntentId) ||
     paymentMethod.includes("STRIPE") ||
-    paymentMethod.includes("CARD")
+    paymentMethod.includes("CARD") ||
+    Boolean(booking.stripeSessionId || booking.stripePaymentIntentId)
   );
 };
 
@@ -73,12 +73,12 @@ export const isHotelPaymentVerified = (booking: BookingData = {}) => {
       | { status?: string }
       | undefined;
 
+    // Session id alone is not paid — require real paid markers
     return (
       booking.isPaymentDone === true ||
       paymentConfirmation?.status === "paid" ||
       booking.isPaymentClear === true ||
-      verificationStatus === "VERIFIED" ||
-      Boolean(booking.stripeSessionId || booking.stripePaymentIntentId)
+      verificationStatus === "VERIFIED"
     );
   }
 

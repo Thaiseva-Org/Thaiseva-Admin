@@ -23,6 +23,13 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.*
+!.env.example
+**/.env
+**/functions/.env
+functions/.env
+functions/.env.*
+!functions/.env.example
 
 # Local / temporary logs and artifacts
 build_err.txt
@@ -59,4 +66,9 @@ src/components/IconButton.jsx
 src/components/Secured.jsx
 src/components/AddRequirementIcon.jsx
 src/components/NotificationOffers.jsx
+
+
+# Local agent/session artifacts
+agent-tools/
+terminals/
 

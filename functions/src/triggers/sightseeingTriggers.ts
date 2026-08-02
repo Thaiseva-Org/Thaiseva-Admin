@@ -14,6 +14,11 @@ import {
   buildSightseeingAutoAcceptPaymentFields,
   canAutoAcceptSightseeingPayment,
 } from "../utils/sightseeingPayment";
+import {
+  moneyText,
+  notifyCustomer,
+  resolveCustomerUid,
+} from "../utils/customerNotify";
 
 let db: admin.firestore.Firestore;
 
@@ -144,40 +149,93 @@ export const onSightseeingBookingStatusChange = onDocumentUpdated(
 
     if (!before || !after) return;
 
-    const statusBefore = before.status;
-    const statusAfter = after.status;
+    const bookingId = event.params.bookingId;
+    const statusBefore = String(before.status || before.bookingStatus || "");
+    const statusAfter = String(after.status || after.bookingStatus || "");
+    const stBefore = statusBefore.toUpperCase();
+    const stAfter = statusAfter.toUpperCase();
+    const uid = resolveCustomerUid(after);
 
-    if (statusBefore === statusAfter) return;
+    // Payment verified
+    const paidBefore =
+      before.isPaymentDone === true ||
+      String(before.paymentVerificationStatus || "").toUpperCase() ===
+        "VERIFIED";
+    const paidAfter =
+      after.isPaymentDone === true ||
+      String(after.paymentVerificationStatus || "").toUpperCase() ===
+        "VERIFIED";
+    if (!paidBefore && paidAfter) {
+      const amt = moneyText(after);
+      await notifyCustomer({
+        userId: uid,
+        title: "Tour payment confirmed",
+        message:
+          `Your sightseeing payment was confirmed` +
+          (amt ? ` (${amt})` : "") +
+          ". Open My Bookings for details.",
+        type: "sightseeing-booking",
+        bookingId,
+        bookingCollection: "travelBookingDetails",
+        eventKey: `sight_${bookingId}_paid`,
+        data: {
+          status: after.status,
+          isPaymentDone: true,
+        },
+      });
+    }
+
+    if (stBefore === stAfter) return;
 
     if (
       after.autoAccepted &&
-      (statusAfter === "Accepted" || statusAfter === "ACCEPTED")
+      (stAfter === "ACCEPTED" || stAfter === "CONFIRMED")
     ) {
+      // Still notify customer (they need app/web update); skip only extra Telegram noise
       logger.info(
-        `[Sightseeing] Skipping accepted notification for ${event.params.bookingId} ` +
-          "(auto-accepted).",
+        `[Sightseeing] Auto-accepted ${bookingId} — customer notify only.`,
       );
+      await notifyCustomer({
+        userId: uid,
+        title: "Tour booking confirmed",
+        message: "Your sightseeing booking was confirmed.",
+        type: "sightseeing-booking",
+        bookingId,
+        bookingCollection: "travelBookingDetails",
+        eventKey: `sight_${bookingId}_status_${stAfter}`,
+        data: {status: after.status, autoAccepted: true},
+      });
       return;
     }
 
     logger.info(
-      `[Sightseeing] Booking ${event.params.bookingId} status: ` +
+      `[Sightseeing] Booking ${bookingId} status: ` +
         `${statusBefore} -> ${statusAfter}`,
     );
 
-    if (statusAfter === "Accepted" || statusAfter === "ACCEPTED") {
+    if (stAfter === "ACCEPTED" || stAfter === "CONFIRMED") {
       await sendTelegramNotification(
         formatSightseeingTelegramMessage(
           `${icon.accepted} Sightseeing Booking Accepted`,
           after,
         ),
       );
+      await notifyCustomer({
+        userId: uid,
+        title: "Tour booking accepted",
+        message: "Your sightseeing booking was accepted.",
+        type: "sightseeing-booking",
+        bookingId,
+        bookingCollection: "travelBookingDetails",
+        eventKey: `sight_${bookingId}_status_${stAfter}`,
+        data: {status: after.status},
+      });
     }
 
     if (
-      statusAfter === "Canceled" ||
-      statusAfter === "CANCELED" ||
-      statusAfter === "Cancelled"
+      stAfter === "CANCELED" ||
+      stAfter === "CANCELLED" ||
+      stAfter.includes("CANCEL")
     ) {
       await sendTelegramNotification(
         formatSightseeingTelegramMessage(
@@ -185,6 +243,16 @@ export const onSightseeingBookingStatusChange = onDocumentUpdated(
           after,
         ),
       );
+      await notifyCustomer({
+        userId: uid,
+        title: "Tour booking canceled",
+        message: "Your sightseeing booking was canceled.",
+        type: "sightseeing-booking",
+        bookingId,
+        bookingCollection: "travelBookingDetails",
+        eventKey: `sight_${bookingId}_status_CANCELED`,
+        data: {status: after.status},
+      });
     }
   },
 );

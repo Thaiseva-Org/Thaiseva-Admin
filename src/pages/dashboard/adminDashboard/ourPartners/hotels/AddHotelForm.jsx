@@ -156,6 +156,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     const [editingRoomId, setEditingRoomId] = useState(null);
     const initialRoomState = {
         roomName: "",
+        totalRooms: 5, // default 5 rooms per type for auto-booking (editable)
         maxAdults: "",
         maxChildren: "",
         numberOfBeds: "",
@@ -229,7 +230,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             setValue("address", h.address || "");
             setValue("country", h.country || "");
             setValue("description", h.description || "");
-            setValue("totalRooms", h.totalRooms || "");
+            setValue("totalRooms", h.totalRooms ?? 5);
             setValue("policies", h.policies || "");
 
             setLogoURL(h.images?.logo || h.logoURL || "");
@@ -370,7 +371,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             toast.error("Please fill in Room Name and Base Price");
             return;
         }
-
         const priceAfterDiscount = Number(newRoom.pricing.basePrice) * (1 - (Number(newRoom.pricing.discountPercent) || 0) / 100);
         const defaultCapacity = getDefaultRoomCapacity(newRoom);
         const resolvedMaxAdults = newRoom.maxAdults === "" ? defaultCapacity.maxAdults : Number(newRoom.maxAdults);
@@ -384,11 +384,18 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
         const totalBeds = (newRoom.bedDetails || []).reduce((acc, curr) => acc + (Number(curr.count) || 0), 0) || Number(newRoom.numberOfBeds) || 0;
         const typeSummary = (newRoom.bedDetails || []).map(b => `${b.count} ${b.type}`).join(", ") || newRoom.bedType || "King";
+        // Default 5 rooms per type for auto-booking (editable)
+        const inventoryQty = Math.max(1, Math.floor(Number(newRoom.totalRooms) || 5));
 
         const finalRoom = {
-            id: editingRoomId || Date.now(),
+            // Always string id — numeric ids break Firestore paths / queries
+            id: editingRoomId
+                ? String(editingRoomId)
+                : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
             ...newRoom,
             packageName: newRoom.roomName,
+            totalRooms: inventoryQty,
+            quantity: inventoryQty,
             amenities: newRoom.amenities || [],
             maxAdults: resolvedMaxAdults,
             maxChildren: resolvedMaxChildren,
@@ -435,6 +442,17 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
         setSubmissionError("");
 
         try {
+            const existingAvailabilityConfig =
+                initialData?.availabilityConfig ||
+                initialData?.hotel?.availabilityConfig;
+            const availabilityConfig = {
+                autoBookingEnabled: true,
+                defaultRoomInventory: 5,
+                notifyOnFull: true,
+                notifyOnFreed: true,
+                timezone: "Asia/Bangkok",
+                ...(existingAvailabilityConfig || {}),
+            };
             const finalPayload = {
                 hotel: {
                     hotelId: isEdit ? (initialData.hotel?.hotelId || initialData.uid) : (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7)),
@@ -445,7 +463,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     currency: "THB",
                     startingPrice: manualStartingPrice ? Number(manualStartingPrice) : (roomTypes.length > 0 ? Math.min(...roomTypes.map(r => r.pricing?.pricePerNightAfterDiscount || 0)) : 0),
                     discount: Number(hotelDiscount) || 0,
-                    totalRooms: Number(data.totalRooms) || 0,
+                    totalRooms: Number(data.totalRooms) || 5,
                     address: addressInputValue || data.address || "",
                     description: data.description || "",
                     policies: data.policies || "",
@@ -488,6 +506,22 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
             } else {
                 await setDoc(hotelDocRef, finalPayload);
+            }
+
+            // Availability lives beside rooms under this hotel. For an edited
+            // hotel, only migrate legacy inline settings when they are present;
+            // an existing availability/config document remains untouched.
+            if (!isEdit || existingAvailabilityConfig) {
+                await setDoc(
+                    doc(db, "HotelDB", hotelIdForSubColl, "availability", "config"),
+                    {
+                        ...availabilityConfig,
+                        recordType: "config",
+                        hotelUid: hotelIdForSubColl,
+                        updatedAt: serverTimestamp(),
+                    },
+                    { merge: true }
+                );
             }
 
             // Save Rooms to Sub-collection
@@ -626,6 +660,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                         <Controller
                             name="totalRooms"
                             control={control}
+                            defaultValue={5}
                             rules={{ required: "Total Rooms is required" }}
                             render={({ field }) => (
                                 <TextField
@@ -915,6 +950,12 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                     </div>
                                 </div>
                                 <div>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Rooms (inventory)</label>
+                                    <div className="mt-1 bg-sky-50 rounded-xl px-3 py-2 text-sky-900 font-bold border border-sky-100">
+                                        {room.totalRooms ?? room.quantity ?? "—"}
+                                    </div>
+                                </div>
+                                <div>
                                     <label className="text-xs font-bold text-gray-500 uppercase">Max Adults</label>
                                     <div className="mt-1 bg-gray-50 rounded-xl px-3 py-2 text-gray-900 font-bold border border-gray-100">
                                         {room.maxAdults ?? 0}
@@ -1150,6 +1191,18 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                         fullWidth
                                         value={newRoom.pricing.basePrice}
                                         onChange={(e) => setNewRoom({ ...newRoom, pricing: { ...newRoom.pricing, basePrice: e.target.value === "" ? "" : Number(e.target.value) } })}
+                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                    />
+                                </div>
+                                <div className="md:col-span-3">
+                                    <TextField
+                                        label="No. of rooms"
+                                        type="number"
+                                        fullWidth
+                                        required
+                                        helperText="Inventory for this type"
+                                        value={newRoom.totalRooms}
+                                        onChange={(e) => setNewRoom({ ...newRoom, totalRooms: e.target.value === "" ? "" : Number(e.target.value) })}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                     />
                                 </div>

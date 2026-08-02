@@ -39,6 +39,13 @@ const travelServicesDetailsCollection = collection(
 );
 const hotelPackages = collection(db, "hotelPackages");
 const hotelPackageDetails = collection(db, "hotelPackageDetails");
+// Legacy compatibility only. New records use
+// HotelDB/{hotelId}/availability/{availabilityId}.
+const hotelAvailabilityAdjustments = collection(
+  db,
+  "hotelAvailabilityAdjustments"
+);
+const hotelRoomInventory = collection(db, "hotelRoomInventory");
 const roomBookingCollection = collection(db, "hotelBookingData");
 const foodMenuCollection = collection(db, "foodMenu");
 const travelBookingCollection = collection(db, "travelBookingDetails");
@@ -107,6 +114,8 @@ export {
   hotelPackages,
   roomBookingCollection,
   hotelPackageDetails,
+  hotelAvailabilityAdjustments,
+  hotelRoomInventory,
   foodMenuCollection,
   settingsCollection,
   chatRoomsCollection,

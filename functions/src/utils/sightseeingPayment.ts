@@ -112,10 +112,11 @@ export const isOnsiteSightseeingPayment = (booking: BookingData = {}) => {
 export const isStripeSightseeingPayment = (booking: BookingData = {}) => {
   const paymentMethod = upper(getSightseeingPaymentMethod(booking));
 
+  // Intent only — session id alone is NOT proof of payment
   return (
-    Boolean(booking.stripeSessionId || booking.stripePaymentIntentId) ||
     paymentMethod.includes("STRIPE") ||
-    (paymentMethod.includes("CARD") && hasOnlineSightseeingPaymentProof(booking))
+    paymentMethod.includes("CARD") ||
+    Boolean(booking.stripeSessionId || booking.stripePaymentIntentId)
   );
 };
 
@@ -127,12 +128,12 @@ export const isSightseeingPaymentVerified = (booking: BookingData = {}) => {
   }
 
   if (isStripeSightseeingPayment(booking)) {
+    // Require real paid markers — not just a Checkout session id
     return (
       booking.isPaymentDone === true ||
       booking.paymentConfirmation?.status === "paid" ||
       booking.isPaymentClear === true ||
-      verificationStatus === "VERIFIED" ||
-      Boolean(booking.stripeSessionId || booking.stripePaymentIntentId)
+      verificationStatus === "VERIFIED"
     );
   }
 

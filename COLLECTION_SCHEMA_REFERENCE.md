@@ -50,7 +50,12 @@ Collections used for retrieving website content, service listings, and configura
 {
   "id": "String (Room Type ID)",
   "roomName": "String",
+  "packageName": "String",
+  "totalRooms": "Number (inventory for auto-book; default 5)",
+  "quantity": "Number (alias of totalRooms)",
   "maxGuests": "Number",
+  "maxAdults": "Number",
+  "maxChildren": "Number",
   "numberOfBeds": "Number",
   "bedType": "String",
   "bedDetails": [
@@ -83,6 +88,49 @@ Collections used for retrieving website content, service listings, and configura
   }
 }
 ```
+
+#### `availability` (subcollection under `HotelDB`)
+
+**Config path:** `HotelDB/{hotelId}/availability/config`
+
+```json
+{
+  "recordType": "config",
+  "hotelUid": "String",
+  "bookingOpenFrom": "String | null (YYYY-MM-DD)",
+  "bookingOpenTo": "String | null",
+  "timezone": "Asia/Bangkok",
+  "autoBookingEnabled": "Boolean (default true)",
+  "defaultRoomInventory": "Number (default 5)",
+  "notifyOnFull": "Boolean",
+  "notifyOnFreed": "Boolean"
+}
+```
+
+**Adjustment path:** `HotelDB/{hotelId}/availability/{adjustmentId}`
+
+**Purpose:** Temporary extra rooms or blocks for date ranges (admin Room Availability UI).
+
+```json
+{
+  "hotelUid": "String",
+  "packageId": "String (room type id)",
+  "recordType": "adjustment",
+  "type": "extra | blocked",
+  "delta": "Number",
+  "startDate": "YYYY-MM-DD",
+  "endDate": "YYYY-MM-DD",
+  "reason": "String",
+  "note": "String",
+  "active": "Boolean",
+  "roomTypeName": "String",
+  "createdAt": "Timestamp"
+}
+```
+
+### `hotelRoomInventory` (optional night ledger)
+**Path:** `hotelRoomInventory/{hotelUid}_{packageId}/nights/{YYYY-MM-DD}`  
+Used by optional Cloud Functions; admin UI computes remaining live without requiring these docs.
 
 ---
 

@@ -83,7 +83,8 @@ The following schema analysis is based on the **Sightseeing Packages** and **Hot
 | :--- | :--- |
 | `hotelId` / `uid` | **Routing**: Used for unique URL generation. |
 | `location` (Lat/Lng) | **Google Maps**: Coordinates for placing the map pin. |
-| `totalRooms` | **Inventory**: Used to calculate "Is Sold Out?" logic (if real-time). |
+| `totalRooms` | **Inventory**: Hotel-level capacity; per-type `rooms.totalRooms` used by admin Room Availability calendar. |
+| `availability/config` subcollection doc | **Admin / future app**: auto-book ON/OFF, default 5 rooms/type, bookable window (see `HOTEL_AVAILABILITY_API.md`). |
 | `status` | **Search Filter**: Ensure only "Verified" hotels are shown. |
 
 ### 🔒 Admin Only (Strictly Private)

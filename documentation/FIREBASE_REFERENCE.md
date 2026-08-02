@@ -152,12 +152,20 @@ File: **`storage.rules`**
 
 ---
 
+## Customer booking APIs (website / app)
+
+**Single guide to share:** [`THAISEVA_BOOKING_API.md`](./THAISEVA_BOOKING_API.md)
+
+Cloud Functions HTTPS (`asia-east2`): create/pay, transport quote fetch, notifications inbox `notifications/users/{userId}`.
+
 ## Related app routes
 
 | Route | Firebase usage |
 |-------|----------------|
 | `/dashboard/admin-statistics` | Bookings + `MasterEarnings` via `Earning.js` |
 | `/dashboard/room-bookings` | `hotelBookingData` |
+| `/dashboard/hotel-room-availability` | `HotelDB`, `availability`, rooms, `hotelBookingData` (stats + calendar) |
+| `/dashboard/hotel-room-availability/:hotelId` | Same + per-type inventory (`totalRooms`), `availability/config` |
 | `/dashboard/travel-bookings` | `travelBookingDetails` |
 | `/dashboard/van-bookings` | `vanBookings`, `car_bookings` |
 
@@ -176,5 +184,6 @@ File: **`storage.rules`**
 
 ## Change log (permissions)
 
+- **2026-08-02** — Hotel Room Availability: admin UI + rules for `HotelDB/{hotelId}/availability`, `hotelRoomInventory`, `hotelInventoryAuditLogs`; hub stats; Firestore client service (no callables required for admin). Website: `checkHotelAvailability` public HTTPS + CORS; soft hold + create callables. See `documentation/HOTEL_AVAILABILITY_API.md` and `documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`.
 - **2026-06-22** — Merged app-wide rules (orders, cart, T2T, chat, etc.) with admin portal rules; added `MasterEarnings` read/create/update; deployed to `gothai-ffea1`.
 - **2026-06-22** — Statistics switched to aggregate from booking collections with `MasterEarnings` fallback.

@@ -42,6 +42,8 @@ import {
   Clubs,
   NotFound,
   HotelRoomsPage,
+  HotelRoomAvailabilityPage,
+  HotelRoomAvailabilityHub,
   AddHotelForm,
   Vans,
   VanBookings,
@@ -374,6 +376,30 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <HotelRoomsPage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/hotels/:hotelId/availability",
+        element: (
+          <AdminRoute>
+            <HotelRoomAvailabilityPage />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/hotel-room-availability",
+        element: (
+          <AdminRoute>
+            <HotelRoomAvailabilityHub />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/hotel-room-availability/:hotelId",
+        element: (
+          <AdminRoute>
+            <HotelRoomAvailabilityPage />
           </AdminRoute>
         ),
       },

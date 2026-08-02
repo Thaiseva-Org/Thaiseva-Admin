@@ -23,6 +23,32 @@ import {
   manageTransportBooking,
   manageTransportResource,
 } from "./transportWorkflow";
+import {
+  getHotelAvailability,
+  getHotelAvailabilityCalendar,
+  manageHotelAvailability,
+  releaseHotelInventory,
+} from "./hotelAvailabilityWorkflow";
+import {
+  checkHotelAvailability,
+  createHotelBookingWithAvailability,
+  acceptHotelBookingWithAvailability,
+  startHotelBookingHold,
+  completeHotelBookingHold,
+  releaseHotelBookingHold,
+  expireHotelBookingHolds,
+} from "./hotelBookingWithAvailability";
+import {createHotelBooking} from "./bookingCheckout/hotelBooking";
+import {createSightseeingBooking} from "./bookingCheckout/sightseeingBooking";
+import {
+  createCarBooking,
+  createVanBooking,
+  createSelfDriveBooking,
+  getTransportBooking,
+} from "./bookingCheckout/transportBooking";
+import {createCheckoutSession} from "./bookingCheckout/payExisting";
+import {stripeWebhook} from "./payments/stripeWebhook";
+import {verifySession} from "./payments/verifySession";
 
 initializeApp();
 
@@ -42,6 +68,34 @@ exports.manageTransportResource = manageTransportResource;
 exports.initializeLegacyTransportBooking = initializeLegacyTransportBooking;
 exports.createManualVanBooking = createManualVanBooking;
 exports.seedTransportDemoData = seedTransportDemoData;
+
+// Hotel room availability — ADMIN PORTAL ONLY (Admin / Sub Admin)
+exports.getHotelAvailability = getHotelAvailability;
+exports.getHotelAvailabilityCalendar = getHotelAvailabilityCalendar;
+exports.manageHotelAvailability = manageHotelAvailability;
+exports.releaseHotelInventory = releaseHotelInventory;
+
+// Website / app hotel booking with inventory (auto-accept vs pending)
+exports.checkHotelAvailability = checkHotelAvailability;
+exports.createHotelBookingWithAvailability = createHotelBookingWithAvailability;
+// Admin manual accept with capacity check + night ledger reserve
+exports.acceptHotelBookingWithAvailability = acceptHotelBookingWithAvailability;
+// Soft hold: start (lock) → complete (book) → release (unlock) + TTL expire
+exports.startHotelBookingHold = startHotelBookingHold;
+exports.completeHotelBookingHold = completeHotelBookingHold;
+exports.releaseHotelBookingHold = releaseHotelBookingHold;
+exports.expireHotelBookingHolds = expireHotelBookingHolds;
+
+// Website/app booking create APIs (HTTPS + CORS) — paymentMethod: STRIPE | THAI_QR | ONSITE
+exports.createHotelBooking = createHotelBooking;
+exports.createSightseeingBooking = createSightseeingBooking;
+exports.createCarBooking = createCarBooking;
+exports.createVanBooking = createVanBooking;
+exports.createSelfDriveBooking = createSelfDriveBooking;
+exports.getTransportBooking = getTransportBooking;
+exports.createCheckoutSession = createCheckoutSession;
+exports.verifySession = verifySession;
+exports.stripeWebhook = stripeWebhook;
 
 
 // exports.sendEmail = onRequest(async (req, res) => {

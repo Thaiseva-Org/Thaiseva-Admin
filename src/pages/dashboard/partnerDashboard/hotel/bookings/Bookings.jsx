@@ -253,11 +253,22 @@ const Bookings = () => {
       return setError("Rooms provided are less than required!");
     }
     if (confirm("Check details twice before confirming")) {
+      try {
+        const { acceptHotelBookingWithAvailability } = await import(
+          "../../../../../services/HotelBookingAccept"
+        );
+        await acceptHotelBookingWithAvailability(bookingDetails.bookingId);
+      } catch (acceptErr) {
+        console.error("[PartnerConfirm] Accept/reserve failed", acceptErr);
+        const msg =
+          acceptErr?.message ||
+          "Not enough rooms free for these dates. Cannot accept.";
+        setError(String(msg).replace(/^FirebaseError:\s*/i, ""));
+        return;
+      }
+
       const createdAtBackfill = backfillCreatedAt(bookingDetails);
       const updatedDoc = {
-        status: "Accepted",
-        bookingStatus: "ACCEPTED",
-        isBookingConfirmed: true,
         comission: Number(userData.comission || 0),
         managerPhone: data.managerPhone,
         roomNumbers: data.roomNumbers,

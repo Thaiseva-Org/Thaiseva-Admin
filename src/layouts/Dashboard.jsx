@@ -751,11 +751,21 @@ function Dashboard(props) {
             <div className="text-[var(--drawer-heading-color)] border-b-2 mt-4 mb-2 border-[var(--drawer-heading-color)] pl-2 text-lg font-bold  py-1 z-10 overflow-hidden">
               Hotel Related
             </div>
-            {hotellinks?.map((route, i) => (
+            {hotellinks?.map((route, i) => {
+              const isActive =
+                location.pathname === route.url ||
+                (route.url === "/dashboard/hotel-room-availability" &&
+                  location.pathname.startsWith(
+                    "/dashboard/hotel-room-availability"
+                  )) ||
+                (route.url === "/dashboard/hotels" &&
+                  location.pathname.startsWith("/dashboard/hotels/") &&
+                  !location.pathname.includes("/availability"));
+              return (
               <Link to={route.url} key={i}>
                 <ListItem
                   sx={{ py: 1.5, mb: 0.5 }}
-                  className={`justify-between relative py-3 px-4 pl-5 hover:bg-[var(--drawer-hover-color)] ${location.pathname === route.url ? "sidebar-active-tab" : ""
+                  className={`justify-between relative py-3 px-4 pl-5 hover:bg-[var(--drawer-hover-color)] ${isActive ? "sidebar-active-tab" : ""
                     }`}
                   onClick={
                     route?.url === "/dashboard/hotel-chat"
@@ -778,7 +788,8 @@ function Dashboard(props) {
                   )}
                 </ListItem>
               </Link>
-            ))}
+              );
+            })}
 
             <div className="text-[var(--drawer-heading-color)] border-b-2 mt-4 mb-2 border-[var(--drawer-heading-color)] pl-2 text-lg font-bold  py-1 z-10 overflow-hidden">
               Travel Related

@@ -184,6 +184,11 @@ export const newprimaryLinks = [
 
 export const hotellinks = [
   { url: "/dashboard/hotels", lable: "Hotels", icon: <ApartmentIcon /> },
+  {
+    url: "/dashboard/hotel-room-availability",
+    lable: "Room Availability",
+    icon: <LocalHotelIcon />,
+  },
   // {
   //   url: "/dashboard/room-services",
   //   lable: "Room Services",

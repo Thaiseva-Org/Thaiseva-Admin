@@ -221,6 +221,8 @@ Current admin-created shape:
 }
 ```
 
+Room availability admin UI: `documentation/HOTEL_AVAILABILITY_API.md`.
+
 Legacy hotel onboarding shape still appears in repo:
 
 ```json
@@ -270,10 +272,14 @@ Current admin-created shape:
 
 ```json
 {
-  "id": "string | number",
+  "id": "string (prefer string UUID; avoid numeric Date.now ids)",
   "roomName": "string",
   "packageName": "string",
+  "totalRooms": "number (inventory; default 5 for auto-book)",
+  "quantity": "number (optional alias)",
   "maxGuests": "number",
+  "maxAdults": "number",
+  "maxChildren": "number",
   "numberOfBeds": "number",
   "bedType": "string",
   "bedDetails": [
@@ -320,6 +326,11 @@ Notes:
 
 - Readers often accept `name` or `roomName`.
 - Older room-related code also uses `packageName`.
+
+### `HotelDB/{hotelId}/availability`
+Purpose: keep all hotel-specific availability settings and adjustments beside the hotel and its rooms.
+
+The `config` document stores `autoBookingEnabled`, bookable dates, notifications, timezone, and the default room inventory. Other documents store temporary `extra` or `blocked` adjustments for a room type and date range. See `documentation/HOTEL_AVAILABILITY_API.md`.
 
 ### `hotelPackages`
 Purpose: older room package records.
@@ -592,7 +603,15 @@ Common fields used by the admin app:
   "userId": "string",
   "managerPhone": "string",
   "roomNumbers": ["string"],
-  "source": "string"
+  "source": "string",
+  "packageId": "string (room type id — used for availability reserved count)",
+  "inventoryReserved": "boolean (optional — server reserve path)",
+  "inventoryReleased": "boolean (optional — cancel release once)",
+  "autoAccepted": "boolean",
+  "acceptanceMethod": "automatic | manual",
+  "pendingReason": "string",
+  "pendingReasonCode": "string",
+  "roomAssignmentStatus": "pending | assigned"
 }
 ```
 
@@ -600,6 +619,7 @@ Notes:
 
 - Admin pages normalize status from both `status` and `bookingStatus`.
 - Readers support both `checkInDate/checkOutDate` and `checkIn/checkOut`.
+- Room Availability calendar counts accepted bookings as reserved nights when `packageId` matches the room type.
 
 ### `car_bookings`
 Purpose: taxi/car booking orders.
@@ -972,6 +992,8 @@ Full collection list currently exported by the app:
 - `hotelPackages`
 - `hotelPackageDetails`
 - `hotelBookingData`
+- `hotelRoomInventory`
+- `hotelInventoryAuditLogs`
 - `foodMenu`
 - `travelBookingDetails`
 - `self_driving_bookings`

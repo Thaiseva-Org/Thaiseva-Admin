@@ -1,0 +1,717 @@
+# Thaiseva Booking API — Single Integration Guide
+
+**Share this file only** with website and mobile developers.
+
+| | |
+|--|--|
+| **Region** | `asia-east2` |
+| **Protocol** | HTTPS `POST` + JSON (unless noted) |
+| **Auth** | Firebase ID token: `Authorization: Bearer <token>` |
+| **Updated** | 2026-08-03 |
+
+---
+
+## Table of contents
+
+1. [What this API does](#1-what-this-api-does)
+2. [Base URL](#2-base-url)
+3. [Authentication](#3-authentication)
+4. [Payment methods](#4-payment-methods)
+5. [All endpoints](#5-all-endpoints)
+6. [Common request / response](#6-common-request--response)
+7. [Hotel booking](#7-hotel-booking)
+8. [Sightseeing / package booking](#8-sightseeing--package-booking)
+9. [Transport (car / van / self-drive)](#9-transport-car--van--self-drive)
+10. [Pay later (My Bookings)](#10-pay-later-my-bookings)
+11. [Stripe return & webhook](#11-stripe-return--webhook)
+12. [Customer notifications (app + website)](#12-customer-notifications-app--website)
+13. [Error codes](#13-error-codes)
+14. [Client code examples](#14-client-code-examples)
+15. [Testing checklist](#15-testing-checklist)
+16. [Quick rules for developers](#16-quick-rules-for-developers)
+
+---
+
+## 1. What this API does
+
+The **server** creates bookings, calculates prices (hotel & tours), creates Stripe payment links where allowed, and notifies the user when something changes.
+
+| Service | Who sets price | Online card (Stripe) |
+|---------|----------------|----------------------|
+| **Hotel** | Server (room × nights) | Yes + Thai QR |
+| **Sightseeing package** | Server (package rates) | Yes + Thai QR + Onsite |
+| **Car / van / self-drive** | **Admin** (later) | **No Stripe** |
+
+**Transport:** user submits a request → admin sets amount in admin portal → app/website fetches booking or receives a notification.
+
+---
+
+## 2. Base URL
+
+```text
+https://asia-east2-<FIREBASE_PROJECT_ID>.cloudfunctions.net/<FunctionName>
+```
+
+Example:
+
+```text
+https://asia-east2-gothai-ffea1.cloudfunctions.net/createHotelBooking
+```
+
+Replace `gothai-ffea1` with your Firebase project ID if different.
+
+---
+
+## 3. Authentication
+
+1. User signs in with **Firebase Auth**.
+2. Get token:
+
+```js
+const idToken = await firebase.auth().currentUser.getIdToken();
+```
+
+3. Send on every customer API call:
+
+```http
+POST /createHotelBooking
+Authorization: Bearer <idToken>
+Content-Type: application/json
+```
+
+| Rule | Detail |
+|------|--------|
+| Required | Yes (except public `checkHotelAvailability` and Stripe `stripeWebhook`) |
+| `userId` in body | Must equal token UID, or **omit** it (server uses UID) |
+| Missing/invalid token | `401` `UNAUTHENTICATED` |
+| Wrong userId | `403` `USER_MISMATCH` |
+
+---
+
+## 4. Payment methods
+
+Send as `paymentMethod` (aliases like `CARD`, `PROMPTPAY`, `OFFLINE` are accepted).
+
+| Value | Hotel | Package | Transport |
+|-------|-------|---------|-----------|
+| `STRIPE` | Checkout URL if payment is due | Checkout first; booking after pay | **Rejected** (`TRANSPORT_NO_STRIPE`) |
+| `THAI_QR` | Save unpaid; admin verifies | Save unpaid; admin verifies | Preference only (no charge) |
+| `ONSITE` | **Rejected** | Confirmed; pay later offline | Preference only (no charge) |
+
+Default for hotel/package if omitted: **`STRIPE`**.
+
+---
+
+## 5. All endpoints
+
+### Customer HTTPS (fetch)
+
+| Function | Purpose |
+|----------|---------|
+| `checkHotelAvailability` | Public pre-check: free rooms / messages |
+| `createHotelBooking` | Create hotel booking + optional `stripeUrl` |
+| `createSightseeingBooking` | Package booking (Stripe / QR / onsite) |
+| `createCarBooking` | Car/taxi request (no Stripe) |
+| `createVanBooking` | Van request (no Stripe) |
+| `createSelfDriveBooking` | Self-drive request (no Stripe) |
+| `getTransportBooking` | Get transport status + admin amount |
+| `createCheckoutSession` | Stripe pay for **existing** hotel/package booking |
+| `verifySession` | After Stripe success redirect |
+| `stripeWebhook` | Stripe → server (do not call from app) |
+
+### Hotel holds (Firebase Callable — optional)
+
+| Function | Purpose |
+|----------|---------|
+| `startHotelBookingHold` | Soft-lock rooms while user fills the form |
+| `completeHotelBookingHold` | Finish hold → booking (or use `createHotelBooking` + `holdId`) |
+| `releaseHotelBookingHold` | Unlock if user leaves |
+
+Callable example:
+
+```js
+const startHold = httpsCallable(functions, "startHotelBookingHold");
+await startHold({ hotelId, packageId, checkIn, checkOut, rooms: 1 });
+```
+
+---
+
+## 6. Common request / response
+
+### Success
+
+```json
+{
+  "success": true,
+  "paymentMethod": "STRIPE",
+  "bookingId": "abc123",
+  "bookingCollection": "hotelBookingData",
+  "amount": 3000,
+  "currency": "thb",
+  "stripeUrl": "https://checkout.stripe.com/c/pay/cs_...",
+  "stripeSessionId": "cs_test_...",
+  "status": "Accepted",
+  "bookingStatus": "ACCEPTED",
+  "payNow": true,
+  "message": "Redirect the guest to stripeUrl to complete payment."
+}
+```
+
+### Error
+
+```json
+{
+  "success": false,
+  "error": "Human-readable message",
+  "reasonCode": "INVALID_ARGUMENT"
+}
+```
+
+### What the client should do
+
+| Situation | Action |
+|-----------|--------|
+| `success` + `stripeUrl` | Redirect: `location.href = stripeUrl` |
+| `success` + no `stripeUrl` | Show success / pending / QR UI using `message` |
+| Transport `amount: null` | Show “Waiting for price from admin” |
+| `success: false` | Show `error`; use `reasonCode` for logic |
+
+---
+
+## 7. Hotel booking
+
+### Flow
+
+```text
+1. (Optional) checkHotelAvailability
+2. (Optional) startHotelBookingHold when room/dates chosen
+3. User enters guest details + payment method
+4. POST createHotelBooking  { holdId?, paymentMethod, ... }
+5. If stripeUrl → open Stripe
+6. Success page → POST verifySession
+7. Listen for notifications (section 12)
+```
+
+### `POST createHotelBooking`
+
+**Body**
+
+| Field | Required | Notes |
+|-------|----------|--------|
+| `hotelId` or `hotelUid` | Yes | Hotel document id |
+| `packageId` / `roomId` / `roomName` | Yes | Room type |
+| `checkIn` / `checkInDate` | Yes | `YYYY-MM-DD` |
+| `checkOut` / `checkOutDate` | Yes | After check-in |
+| `rooms` | No | Default 1 |
+| `adults`, `children` | No | |
+| `extraBed` | No | boolean |
+| `fullName`, `guestEmail`, `guestPhone` | Recommended | |
+| `paymentMethod` | No | `STRIPE` or `THAI_QR` (not ONSITE) |
+| `holdId` | No | From soft hold |
+| `successUrl`, `cancelUrl` | For Stripe | Allowed hosts only |
+| `customerQrPaymentConfirmed` | For QR | boolean |
+
+**Example**
+
+```json
+{
+  "hotelId": "HOTEL_ID",
+  "packageId": "ROOM_TYPE_ID",
+  "checkIn": "2026-09-10",
+  "checkOut": "2026-09-12",
+  "rooms": 1,
+  "adults": 2,
+  "children": 0,
+  "fullName": "John Doe",
+  "guestEmail": "john@example.com",
+  "guestPhone": "+66812345678",
+  "paymentMethod": "STRIPE",
+  "holdId": "optional_hold_id",
+  "successUrl": "https://thaiseva.com/booking/success?session_id={CHECKOUT_SESSION_ID}",
+  "cancelUrl": "https://thaiseva.com/booking/cancel"
+}
+```
+
+**Behaviour**
+
+- Price is calculated on the **server** (do not send total to charge).
+- Instant rooms may be accepted; remainder may stay **pending**.
+- `payNow: true` + `stripeUrl` → charge the payable (instant) amount.
+- Pending-only stay → booking saved, often no Stripe URL yet.
+- Collection: `hotelBookingData`.
+
+---
+
+## 8. Sightseeing / package booking
+
+### `POST createSightseeingBooking`
+
+**Body**
+
+| Field | Required | Notes |
+|-------|----------|--------|
+| `packageId` | Yes | From `sightseeingPackagesDetails` |
+| `arrivalDate` / `travelDate` | Yes | `YYYY-MM-DD` |
+| `fullName` | Yes | |
+| `adults` | No | Default 1 (max 50) |
+| `children` | No | Default 0 |
+| `guestEmail`, `guestPhone` | Recommended | |
+| `departureDate` | No | Defaults to arrival |
+| `pickUpLocation`, `specialRequests` | No | |
+| `paymentMethod` | No | STRIPE / THAI_QR / ONSITE |
+| `customerQrPaymentConfirmed` | QR | boolean |
+| `successUrl`, `cancelUrl` | Stripe | |
+
+**Example**
+
+```json
+{
+  "packageId": "PACKAGE_ID",
+  "adults": 2,
+  "children": 1,
+  "arrivalDate": "2026-09-15",
+  "fullName": "Jane Doe",
+  "guestEmail": "jane@example.com",
+  "guestPhone": "+66812345678",
+  "paymentMethod": "STRIPE",
+  "successUrl": "https://thaiseva.com/booking/success?session_id={CHECKOUT_SESSION_ID}",
+  "cancelUrl": "https://thaiseva.com/booking/cancel"
+}
+```
+
+### By payment method
+
+| Method | What happens |
+|--------|----------------|
+| **STRIPE** | Returns `stripeUrl`. Booking is created **after** successful payment (`verifySession` or webhook). `bookingId` may be `null` until then. |
+| **THAI_QR** | Booking created immediately, unpaid, pending admin verification. |
+| **ONSITE** | Booking created, often confirmed; pay later offline. |
+
+**Pricing (server):**  
+`adultPrice × adults + childPrice × children`  
+(If child price missing → 50% of adult price.)
+
+Collection: `travelBookingDetails`.
+
+---
+
+## 9. Transport (car / van / self-drive)
+
+**No Stripe.** Admin sets the price; the client only creates a request and later fetches the quote.
+
+### Create
+
+| Endpoint | Collection |
+|----------|------------|
+| `POST createCarBooking` | `car_bookings` |
+| `POST createVanBooking` | `vanBookings` |
+| `POST createSelfDriveBooking` | `self_driving_bookings` |
+
+**Body (all three)**
+
+| Field | Required |
+|-------|----------|
+| `customerName` | Yes |
+| `customerPhone` | Yes |
+| `pickup` | Yes |
+| `destination` | Yes |
+| `customerEmail` | Recommended |
+| `travelAt` | Recommended (ISO date/time) |
+| `notes` | No |
+| `requestedAmount` | No — **hint only**, not the bill |
+
+**Example**
+
+```json
+{
+  "customerName": "John Doe",
+  "customerPhone": "+66812345678",
+  "customerEmail": "john@example.com",
+  "pickup": "Suvarnabhumi Airport",
+  "destination": "Pattaya",
+  "travelAt": "2026-09-20T10:00:00+07:00",
+  "notes": "Flight TG123"
+}
+```
+
+**Create response**
+
+```json
+{
+  "success": true,
+  "bookingId": "...",
+  "bookingCollection": "car_bookings",
+  "status": "Pending",
+  "amount": null,
+  "amountStatus": "AWAITING_ADMIN_QUOTE",
+  "stripeUrl": null,
+  "payNow": false,
+  "message": "Transport request saved. Admin will set the price..."
+}
+```
+
+If client sends `paymentMethod: "STRIPE"` → **400** `TRANSPORT_NO_STRIPE`.
+
+### Fetch after admin sets price
+
+```http
+POST /getTransportBooking
+```
+
+```json
+{
+  "bookingId": "BOOKING_ID",
+  "bookingKind": "car"
+}
+```
+
+`bookingKind`: `car` | `van` | `selfDrive` (optional if the id is unique).
+
+**After admin quoted**
+
+```json
+{
+  "success": true,
+  "bookingId": "...",
+  "amount": 1800,
+  "AmountOffered": 1800,
+  "amountStatus": "QUOTED",
+  "status": "Accepted",
+  "message": "Admin has set the amount for this booking."
+}
+```
+
+### Transport timeline
+
+```text
+User → createCarBooking
+     → amount null, Pending
+
+Admin → sets AmountOffered / accepts in admin portal
+
+Server → writes notification to notifications/users/{uid}
+
+User → notification and/or getTransportBooking → show amount
+```
+
+---
+
+## 10. Pay later (My Bookings)
+
+Only **hotel** and **sightseeing**. Transport cannot use this.
+
+```http
+POST /createCheckoutSession
+```
+
+```json
+{
+  "bookingId": "...",
+  "bookingCollection": "hotelBookingData",
+  "successUrl": "https://thaiseva.com/booking/success?session_id={CHECKOUT_SESSION_ID}",
+  "cancelUrl": "https://thaiseva.com/booking/cancel"
+}
+```
+
+| `bookingCollection` / `bookingType` | Meaning |
+|-------------------------------------|---------|
+| `hotel` / `hotelBookingData` | Hotel |
+| `sightseeing` / `package` / `travelBookingDetails` | Package |
+| car / van / selfDrive | **Rejected** |
+
+Hotel must already be accepted/confirmed (or inventory reserved) before pay is allowed.  
+Package amount is **recalculated from catalog** (cannot underpay with a fake stored amount).
+
+---
+
+## 11. Stripe return & webhook
+
+### After redirect from Stripe
+
+```http
+POST /verifySession
+Authorization: Bearer <idToken>
+```
+
+```json
+{ "sessionId": "cs_..." }
+```
+
+Use the `session_id` query param from `successUrl`.
+
+### Webhook (server only)
+
+- URL: `.../stripeWebhook`
+- Not called by website/app.
+- Marks booking paid / creates package booking if the user never returns to the success page.
+
+### Success / cancel URLs
+
+Must be on an **allowed host** (e.g. `thaiseva.com`, project `*.web.app`, localhost).  
+Use Stripe placeholder when needed:
+
+```text
+https://yoursite.com/booking/success?session_id={CHECKOUT_SESSION_ID}
+```
+
+---
+
+## 12. Customer notifications (app + website)
+
+When a booking is updated (status, payment, or transport price), the backend writes:
+
+```text
+notifications/users/{userId}/{notificationId}
+```
+
+### Fields
+
+| Field | Description |
+|-------|-------------|
+| `title` | Short title |
+| `message` / `desc` | Body (both set — use either) |
+| `type` | `hotel-booking` \| `sightseeing-booking` \| `transport-booking` |
+| `bookingId` | Related booking |
+| `bookingCollection` | e.g. `car_bookings` |
+| `read` / `isRead` | Unread flags |
+| `timestamp` | Sort order |
+| `finalAmount` / `AmountOffered` | Often set when transport price is ready |
+
+### When they fire
+
+| Service | Events |
+|---------|--------|
+| Transport | Created, status change, **admin sets price**, payment recorded |
+| Hotel | Accepted / confirmed / canceled, payment verified |
+| Sightseeing | Accepted / confirmed / canceled, payment verified |
+
+### Listen in app/website
+
+```js
+import { collection, onSnapshot, orderBy, query, limit } from "firebase/firestore";
+
+function watchNotifications(db, uid, onItems) {
+  const q = query(
+    collection(db, "notifications", "users", uid),
+    orderBy("timestamp", "desc"),
+    limit(50),
+  );
+  return onSnapshot(q, (snap) => {
+    onItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  });
+}
+```
+
+On transport “price ready”, call `getTransportBooking` or refresh My Bookings.
+
+---
+
+## 13. Error codes
+
+| reasonCode | Meaning |
+|------------|---------|
+| `UNAUTHENTICATED` | Missing or invalid token |
+| `USER_MISMATCH` | Body `userId` ≠ token uid |
+| `INVALID_ARGUMENT` | Missing/invalid fields |
+| `NOT_FOUND` | Hotel / package / booking missing |
+| `PACKAGE_NOT_FOUND` | Invalid packageId |
+| `ONSITE_NOT_SUPPORTED_FOR_HOTEL` | Hotel cannot use onsite |
+| `TRANSPORT_NO_STRIPE` | Transport cannot use Stripe |
+| `NOT_ACCEPTED` | Hotel not ready for payment |
+| `ALREADY_PAID` | Already paid |
+| `CANCELED` | Booking canceled |
+| `INVALID_AMOUNT` / `INVALID_PRICE` | Amount/price problem |
+| `STRIPE_ERROR` | Could not create Checkout |
+| `RATE_LIMITED` | Too many requests |
+| `FORBIDDEN` | Not owner of booking/session |
+
+---
+
+## 14. Client code examples
+
+### Generic POST helper
+
+```js
+async function bookingApi(functionName, body, idToken) {
+  const base = "https://asia-east2-gothai-ffea1.cloudfunctions.net";
+  const res = await fetch(`${base}/${functionName}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!res.ok || data.success === false) {
+    const err = new Error(data.error || res.statusText);
+    err.reasonCode = data.reasonCode;
+    throw err;
+  }
+  return data;
+}
+```
+
+### Hotel + Stripe
+
+```js
+const data = await bookingApi(
+  "createHotelBooking",
+  {
+    hotelId,
+    packageId,
+    checkIn,
+    checkOut,
+    rooms: 1,
+    fullName,
+    guestEmail,
+    guestPhone,
+    paymentMethod: "STRIPE",
+    holdId, // optional
+    successUrl: "https://thaiseva.com/booking/success?session_id={CHECKOUT_SESSION_ID}",
+    cancelUrl: "https://thaiseva.com/booking/cancel",
+  },
+  idToken,
+);
+
+if (data.stripeUrl) {
+  window.location.href = data.stripeUrl;
+} else {
+  // pending / QR / no charge yet
+  showMessage(data.message);
+}
+```
+
+### Package + Stripe
+
+```js
+const data = await bookingApi(
+  "createSightseeingBooking",
+  {
+    packageId,
+    adults: 2,
+    children: 0,
+    arrivalDate: "2026-09-15",
+    fullName,
+    guestEmail,
+    guestPhone,
+    paymentMethod: "STRIPE",
+    successUrl: "https://thaiseva.com/booking/success?session_id={CHECKOUT_SESSION_ID}",
+    cancelUrl: "https://thaiseva.com/booking/cancel",
+  },
+  idToken,
+);
+if (data.stripeUrl) window.location.href = data.stripeUrl;
+```
+
+### Success page
+
+```js
+const params = new URLSearchParams(window.location.search);
+const sessionId = params.get("session_id");
+if (sessionId) {
+  const result = await bookingApi("verifySession", { sessionId }, idToken);
+  // result.paid, result.bookingId
+}
+```
+
+### Transport
+
+```js
+const created = await bookingApi(
+  "createCarBooking",
+  {
+    customerName: "John",
+    customerPhone: "+66...",
+    pickup: "Airport",
+    destination: "City",
+    travelAt: "2026-09-20T10:00:00+07:00",
+  },
+  idToken,
+);
+// created.bookingId, amount is null
+
+// Later (or after notification):
+const quote = await bookingApi(
+  "getTransportBooking",
+  { bookingId: created.bookingId, bookingKind: "car" },
+  idToken,
+);
+// quote.amount, quote.amountStatus
+```
+
+---
+
+## 15. Testing checklist
+
+- [ ] Hotel STRIPE: create → redirect → test card `4242 4242 4242 4242` → `verifySession` → paid  
+- [ ] Hotel THAI_QR: create → no `stripeUrl` → pending verification  
+- [ ] Package STRIPE: checkout first → booking after pay  
+- [ ] Package ONSITE: booking created, unpaid/confirmed  
+- [ ] Transport: create → `amount: null` → admin quotes → `getTransportBooking` shows amount  
+- [ ] Transport + STRIPE body → `TRANSPORT_NO_STRIPE`  
+- [ ] My Bookings: `createCheckoutSession` for unpaid hotel/package only  
+- [ ] Notification appears under `notifications/users/{uid}` after admin update  
+- [ ] Missing token → 401  
+
+---
+
+## 16. Quick rules for developers
+
+1. **Always** send Firebase Bearer token (except public availability check).  
+2. **Never** set `isPaymentDone` from the client.  
+3. **Never** trust client-calculated totals for hotel/package charges.  
+4. **Hotel/package card** → follow `stripeUrl` when returned.  
+5. **Transport** → no Stripe; wait for admin amount + notifications / `getTransportBooking`.  
+6. **Listen** to `notifications/users/{uid}` for live updates.  
+7. Success/cancel URLs must use **allowed** production or localhost hosts.
+
+---
+
+## End-to-end diagrams
+
+### Hotel + Stripe
+
+```text
+App → createHotelBooking(STRIPE)
+API → booking + stripeUrl
+App → Stripe Checkout
+User pays
+Stripe webhook / verifySession → paid
+API → notification to user
+```
+
+### Package + Stripe
+
+```text
+App → createSightseeingBooking(STRIPE)
+API → stripeUrl only (no booking yet)
+App → Stripe
+Pay → webhook or verifySession creates travelBookingDetails
+API → notification
+```
+
+### Transport
+
+```text
+App → createCarBooking
+API → Pending, amount null
+Admin → sets price
+API → notification "Price ready"
+App → getTransportBooking → show amount
+```
+
+---
+
+## Who does what
+
+| Layer | Responsibility |
+|-------|----------------|
+| **Website / app** | UI, Firebase login, call APIs, Stripe redirect, listen notifications |
+| **These Cloud Functions** | Validate, price, save booking, Stripe session, webhook, user inbox |
+| **Admin portal** | Accept bookings, set transport price, verify Thai QR |
+| **Stripe** | Card payment page |
+
+---
+
+*This is the single integration document for Thaiseva booking APIs. No other file is required for day-to-day website/app integration.*

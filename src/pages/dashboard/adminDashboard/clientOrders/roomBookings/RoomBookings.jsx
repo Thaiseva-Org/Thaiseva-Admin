@@ -327,7 +327,7 @@ const RoomBookings = () => {
       await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), {
         status: "Canceled",
         bookingStatus: "CANCELED",
-        isBookingConfirmed: false,
+        // Trigger releases inventory when inventoryReserved; keep payment fields unchanged
       });
     }
     setLoading(false);
@@ -336,25 +336,19 @@ const RoomBookings = () => {
   };
 
   const confirmBookingInternal = async (booking) => {
-    const createdAtBackfill = backfillCreatedAt(booking);
-    const updatedDoc = {
-      status: "Accepted",
-      bookingStatus: "ACCEPTED",
-      isBookingConfirmed: true,
-      ...(createdAtBackfill && !booking.createdAt
-        ? { createdAt: createdAtBackfill }
-        : {}),
-    };
-
     try {
-      await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), updatedDoc);
+      // Server: re-check capacity every night + reserve night ledger (prevents overbooking)
+      const { acceptHotelBookingWithAvailability } = await import(
+        "../../../../../services/HotelBookingAccept"
+      );
+      await acceptHotelBookingWithAvailability(booking.bookingId || booking.id);
 
       if (booking.userId) {
         const paymentMessage = isStripeHotelPayment(booking)
           ? "Your payment has been received and your stay is confirmed."
           : isThaiQrHotelPayment(booking)
             ? "Your booking is approved. We will verify your Thai QR payment shortly."
-            : "Your room booking has been approved.";
+            : "Your room booking has been approved. You can complete payment from My Bookings.";
 
         CreateNewNotificationToUser(
           "Room booking approved!",
@@ -365,6 +359,23 @@ const RoomBookings = () => {
       return true;
     } catch (e) {
       console.error("[ManualConfirm] Confirm failed", e);
+      // Callable HttpsError: prefer details / message body over Firebase wrapper text
+      const raw =
+        (typeof e?.details === "string" && e.details) ||
+        (typeof e?.message === "string" && e.message) ||
+        (typeof e?.code === "string" && e.code) ||
+        "Not enough rooms free for the full stay.";
+      let friendly = String(raw)
+        .replace(/^Firebase:\s*/i, "")
+        .replace(/^FirebaseError:\s*/i, "")
+        .replace(/\s*\(functions\/[a-z-]+\)\s*$/i, "")
+        .trim();
+      if (!friendly || /internal/i.test(friendly)) {
+        friendly = "Could not accept — rooms may be full for these dates.";
+      }
+      if (typeof window !== "undefined") {
+        window.alert(friendly);
+      }
       return false;
     }
   };
@@ -655,10 +666,10 @@ const RoomBookings = () => {
 
   const handleCancelBooking = async (booking) => {
     if (confirm("Are you sure to decline this booking?")) {
+      // Status-only cancel → onHotelBookingStatusChangeV3 unlocks reserved rooms
       const updatedDoc = {
         status: "Canceled",
         bookingStatus: "CANCELED",
-        isBookingConfirmed: false,
       };
 
       await updateDoc(

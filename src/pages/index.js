@@ -54,6 +54,12 @@ const Hotels = lazy(() =>
 const HotelRoomsPage = lazy(() =>
   import("./dashboard/adminDashboard/ourPartners/hotels/HotelRoomsPage")
 );
+const HotelRoomAvailabilityPage = lazy(() =>
+  import("./dashboard/adminDashboard/ourPartners/hotels/HotelRoomAvailabilityPage")
+);
+const HotelRoomAvailabilityHub = lazy(() =>
+  import("./dashboard/adminDashboard/ourPartners/hotels/HotelRoomAvailabilityHub")
+);
 const AddHotelForm = lazy(() =>
   import("./dashboard/adminDashboard/ourPartners/hotels/AddHotelForm")
 );
@@ -303,6 +309,8 @@ export {
   PartnerDashboard,
   NotFound,
   HotelRoomsPage,
+  HotelRoomAvailabilityPage,
+  HotelRoomAvailabilityHub,
   Vans,
   VanBookings,
 

@@ -257,12 +257,12 @@ export const isHotelPaymentVerified = (booking = {}) => {
   }
 
   if (isStripeHotelPayment(booking)) {
+    // Checkout session id alone is not proof of payment
     return (
       booking.isPaymentDone === true ||
       booking.paymentConfirmation?.status === "paid" ||
       booking.isPaymentClear === true ||
-      verificationStatus === "VERIFIED" ||
-      Boolean(booking.stripeSessionId || booking.stripePaymentIntentId)
+      verificationStatus === "VERIFIED"
     );
   }
 

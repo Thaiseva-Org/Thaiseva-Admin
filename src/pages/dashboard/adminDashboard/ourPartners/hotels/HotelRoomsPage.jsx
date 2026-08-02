@@ -58,7 +58,7 @@ const HotelRoomsPage = () => {
 
     return (
         <div className="animate-fade-in space-y-6">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
                 <Button
                     startIcon={<ArrowBackIcon />}
                     onClick={() => navigate("/dashboard/hotels")}
