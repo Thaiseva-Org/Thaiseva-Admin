@@ -166,30 +166,40 @@ const fetchBookings = async (
 
   try {
     const result = await getDocs(queryToUse);
-    let list = result.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
+    let list = result.docs.map((snap) => ({
+      ...(snap.data() || {}),
+      id: snap.id, // keep doc id last so it is never overwritten
     }));
 
     // Client-side filtering and sorting for sightseeing bookings
     if (isSightseeingBooking) {
-      // Filter by date range
+      const toMs = (value) => {
+        if (!value) return null;
+        if (typeof value.toMillis === "function") return value.toMillis();
+        if (typeof value.seconds === "number") {
+          return value.seconds * 1000 + Math.floor((value.nanoseconds || 0) / 1e6);
+        }
+        if (value instanceof Date) return value.getTime();
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+      };
+
+      // Filter by date range (orderedAt / createdAt / timestamp)
       list = list.filter((booking) => {
-        const timestamp = booking.orderedAt || booking.createdAt || booking.timestamp;
-        if (!timestamp) return false;
-
-        const bookingDate = timestamp.seconds
-          ? new Date(timestamp.seconds * 1000)
-          : new Date(timestamp);
-
-        return bookingDate >= todayStart && bookingDate <= todayEnd;
+        const ms = toMs(
+          booking.orderedAt || booking.createdAt || booking.timestamp
+        );
+        if (ms == null) return false;
+        return ms >= todayStart.getTime() && ms <= todayEnd.getTime();
       });
 
       // Sort by timestamp (latest first)
       list.sort((a, b) => {
-        const timeA = a.orderedAt?.seconds || a.createdAt?.seconds || a.timestamp?.seconds || 0;
-        const timeB = b.orderedAt?.seconds || b.createdAt?.seconds || b.timestamp?.seconds || 0;
-        return timeB - timeA; // Descending order (newest first)
+        const timeA =
+          toMs(a.orderedAt || a.createdAt || a.timestamp) || 0;
+        const timeB =
+          toMs(b.orderedAt || b.createdAt || b.timestamp) || 0;
+        return timeB - timeA;
       });
 
       // Apply pagination client-side

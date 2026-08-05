@@ -1,6 +1,6 @@
 # Hotel Room Availability — Admin Portal
 
-**Last updated:** 2026-08-02
+**Last updated:** 2026-08-05
 
 **Cloud Functions request/response API:**  
 [`HOTEL_AVAILABILITY_FUNCTIONS_API.md`](./HOTEL_AVAILABILITY_FUNCTIONS_API.md)  
@@ -17,8 +17,8 @@ Admin staff manage **room inventory by night** so:
 
 **Room types are created only in Add/Edit Hotel** — not recreated on the availability page.
 
-**Admin UI** uses Firestore only (no callables).  
-**Website / app** APIs are live — see [`HOTEL_AVAILABILITY_FUNCTIONS_API.md`](./HOTEL_AVAILABILITY_FUNCTIONS_API.md)  
+**Admin UI** — **reads** via Firestore; **writes** (extra / block / qty / release / unlock) go through **admin Cloud Functions** so the night ledger stays aligned with website booking.  
+**Website / app** APIs: [`HOTEL_AVAILABILITY_FUNCTIONS_API.md`](./HOTEL_AVAILABILITY_FUNCTIONS_API.md)  
 (`check` = HTTPS `fetch`; hold/create/accept = callables).
 
 ---
@@ -39,7 +39,8 @@ Admin staff manage **room inventory by night** so:
 |------|------|
 | `src/pages/.../hotels/HotelRoomAvailabilityHub.jsx` | Hub + main statistics |
 | `src/pages/.../hotels/HotelRoomAvailabilityPage.jsx` | Hotel calendar + settings |
-| `src/services/HotelAvailability.js` | Firestore client logic |
+| `src/services/HotelAvailability.js` | Calendar reads (Firestore) + write callables |
+| `src/services/HotelBookingAccept.js` | Accept pending / partial bookings |
 | `src/utils/RouteLinks.jsx` | `hotellinks` entry |
 
 ---
@@ -163,17 +164,23 @@ Admin UI currently **computes remaining live** (does not require the ledger).
 
 ## Service API (`src/services/HotelAvailability.js`)
 
-All operations use the **Firebase client SDK** (Admin must be signed in; rules enforce Admin).
+| Mode | How |
+|------|-----|
+| **Reads** (calendar, stay preview) | Firestore client (Admin / partner rules) |
+| **Writes** (config, qty, extra, block, release, unlock) | Prefer `httpsCallable` → `manageHotelAvailability` / `releaseHotelInventory` / `unlockHotelRoomLock` so night ledger stays correct |
+
+Dates are normalized as **`YYYY-MM-DD` in `Asia/Bangkok`**. Calendar capacity merges **night ledger** with **active date adjustments** (extras always surface even if ledger is stale).
 
 | Export | Purpose |
 |--------|---------|
-| `getHotelAvailabilityCalendar` | Nights + adjustments + config |
+| `getHotelAvailabilityCalendar` | Nights + adjustments + config (+ ledger merge) |
 | `getHotelAvailability` | Stay preview (admin) |
 | `setBookableWindow` | Auto-book, default qty, dates, notify |
 | `setTotalRooms` | Update room type inventory |
 | `addExtraRooms` / `blockRooms` | Date-range adjustments |
 | `endAvailabilityAdjustment` | Deactivate adjustment |
-| `releaseHotelInventory` | Client flag on booking (ops) |
+| `releaseHotelInventory` | Ops release booking inventory (callable) |
+| `unlockHotelRoomLock` | Force-free hold / booking / manual stay |
 | `availabilityColour` / `colourClasses` | Calendar colours |
 
 ---
@@ -191,13 +198,14 @@ Full request/response API: **[`HOTEL_AVAILABILITY_FUNCTIONS_API.md`](./HOTEL_AVA
 | `completeHotelBookingHold` | Callable | `httpsCallable` | Booking done → keep rooms booked |
 | `releaseHotelBookingHold` | Callable | `httpsCallable` | Left without booking → unlock |
 | `expireHotelBookingHolds` | Scheduler | n/a | Every 5 min; expire holds |
-| `acceptHotelBookingWithAvailability` | Callable | `httpsCallable` | Admin accept + reserve |
+| `acceptHotelBookingWithAvailability` | Callable | `httpsCallable` | Admin **or hotel partner** accept + reserve (partial → `amountDue`) |
 | `getHotelAvailability` | Callable | Admin | Optional ops preview |
 | `getHotelAvailabilityCalendar` | Callable | Admin | Optional calendar |
 | `manageHotelAvailability` | Callable | Admin | Config / extra / block (server path) |
 | `releaseHotelInventory` | Callable | Admin | Ops release |
+| `unlockHotelRoomLock` | Callable | Admin | Force unlock hold / booking / stay nights |
 | `forceHotelBookingPending` | Trigger | n/a | Pending + Telegram |
-| `onHotelBookingStatusChangeV3` | Trigger | n/a | Cancel → release if reserved |
+| `onHotelBookingStatusChangeV3` | Trigger | n/a | Cancel / reject / denied → release if reserved |
 
 ### Check URL (website)
 
@@ -260,8 +268,11 @@ Deploy:
 ```bash
 cd functions && npm run build
 firebase deploy --only "functions:checkHotelAvailability,functions:startHotelBookingHold,functions:completeHotelBookingHold,functions:releaseHotelBookingHold,functions:expireHotelBookingHolds,functions:createHotelBookingWithAvailability,functions:acceptHotelBookingWithAvailability"
+firebase deploy --only "functions:getHotelAvailability,functions:getHotelAvailabilityCalendar,functions:manageHotelAvailability,functions:releaseHotelInventory,functions:unlockHotelRoomLock"
 firebase deploy --only firestore:rules,firestore:indexes
 ```
+
+**Callable CORS:** browser callables use `cors: true` + Gen2 **`invoker: "public"`** (unauthenticated Cloud Run invoker). Firebase Auth + role checks still run inside the function.
 
 ---
 
@@ -291,6 +302,7 @@ If the console asks for indexes:
 |------------|--------|
 | `hotelBookingData` | `hotelUid` ASC, `packageId` ASC |
 | `hotelBookingHolds` | `status` ASC, `holdUntil` ASC (expire job) |
+| `hotelBookingHolds` | `status` ASC, `inventoryReserved` ASC (ops / repair) |
 
 Also listed in `firestore.indexes.json`.
 
@@ -301,9 +313,12 @@ Also listed in `firestore.indexes.json`.
 1. **`checkHotelAvailability`** — public HTTPS `fetch` (messaging only)  
 2. **Soft hold** — `start` → `complete` / `release` (callables)  
 3. **Or** `createHotelBookingWithAvailability` without hold  
-4. Instant free rooms → Accepted + reserve; else Pending  
+4. Instant free rooms → Accepted + reserve; partial free → instant Accepted + remainder Pending  
+5. Guest counts enforced when room `maxAdults` / `maxChildren` set (`GUEST_CAPACITY`)  
+6. Booking ids include check-out date (idempotent per stay length)  
+7. After accept (incl. partial), unpaid balance uses `amountDue` + `createCheckoutSession`  
 
-Admin portal does not implement the customer checkout UI.
+Admin portal does not implement the customer checkout UI. Ops repair scripts live under `functions/scripts/`.
 
 ---
 

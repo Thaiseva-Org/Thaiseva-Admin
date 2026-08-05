@@ -27,6 +27,7 @@ import DeleteButton from "../../../../../components/DeleteButton";
 import LoadingContent from "../../../../../components/LoadingContent";
 import UpdateButton from "../../../../../components/UpdateButton";
 import {
+    db,
     hotelPackageDetails,
     hotelPackages,
     storage,
@@ -52,7 +53,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         location: {},
         period: "",
         bookingInfo: {},
-        numberOfGuests: "",
+        maxAdults: "",
+        maxChildren: "",
         address: "",
         ratings: "",
         numberOfReviews: "",
@@ -78,6 +80,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         handleSubmit,
         reset,
         register,
+        setValue,
         watch,
         formState: { errors },
     } = useForm();
@@ -101,26 +104,46 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
     }, [hotelUid]);
 
     let columns = [
-        { property: "packageName", label: "Package Name", width: "20%" },
-        { property: "price", label: "Price", width: "15%" },
+        { property: "packageName", label: "Package Name", width: "18%" },
+        { property: "price", label: "Price", width: "12%" },
         { property: "discount", label: "Discount", width: "10%" },
-        { property: "discountPrice", label: "Discount Price", width: "15%" },
-        { property: "noOfGuest", label: "Guests", width: "10%" },
+        { property: "discountPrice", label: "Discount Price", width: "12%" },
+        { property: "maxAdults", label: "Adults", width: "10%" },
+        { property: "maxChildren", label: "Children", width: "10%" },
         { property: "extraBedPrice", label: "Extra Bed", width: "10%" },
         { property: "action", label: "Action", width: "15%" },
     ];
 
     const handleDelete = async (id) => {
         if (confirm("Are you sure to delete this package?")) {
-            await deleteDoc(doc(hotelPackages, id));
-            await deleteDoc(doc(hotelPackageDetails, id)).then(() => {
+            try {
+                await deleteDoc(doc(hotelPackages, id)).catch(() => { });
+                await deleteDoc(doc(hotelPackageDetails, id));
+                if (hotelUid) {
+                    await deleteDoc(doc(db, "HotelDB", hotelUid, "rooms", id)).catch(() => { });
+                }
                 alert("The package is deleted successfully.");
-            });
+            } catch (e) {
+                console.error(e);
+                alert("Failed to delete package.");
+            }
         }
     };
 
     const handleCloseModal = () => {
-        reset();
+        reset({
+            packageName: "",
+            price: "",
+            address: "",
+            description: "",
+            discount: "",
+            period: "",
+            maxAdults: "",
+            maxChildren: "",
+            totalRooms: "",
+            extraBedPrice: 0,
+            hasExtraBed: false,
+        });
         setRoomDetails({
             id: "",
             packageName: "",
@@ -130,7 +153,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             location: {},
             period: "",
             bookingInfo: {},
-            numberOfGuests: "",
+            maxAdults: "",
+            maxChildren: "",
             address: "",
             ratings: "",
             numberOfReviews: "",
@@ -155,10 +179,12 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             description,
             discount,
             period,
-            numberOfGuests,
+            maxAdults,
+            maxChildren,
             totalRooms,
             extraBedPrice,
-            hasExtraBed
+            hasExtraBed,
+            address,
         } = data;
 
         let id;
@@ -168,6 +194,9 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         } else {
             id = uuid();
         }
+
+        const adults = Math.max(0, parseInt(maxAdults, 10) || 0);
+        const children = Math.max(0, parseInt(maxChildren, 10) || 0);
 
         const packageInfo = {
             id,
@@ -184,11 +213,17 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             numberOfReviews: 0,
         };
 
+        const inventoryQty = Math.max(1, parseInt(totalRooms, 10) || 5);
         const packageDetails = {
             ...packageInfo,
             description,
-            numberOfGuests: parseInt(numberOfGuests),
-            totalRooms: parseInt(totalRooms) || 5,
+            maxAdults: adults,
+            maxChildren: children,
+            // Keep legacy total for older booking/package readers
+            numberOfGuests: adults + children,
+            totalRooms: inventoryQty,
+            quantity: inventoryQty,
+            roomName: packageName,
             amenities: arrayData?.amenities,
             pictures: arrayData?.pictures,
             location: hotelLocation,
@@ -196,6 +231,19 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             duration: 30,
             extraBedPrice: hasExtraBed ? parseFloat(extraBedPrice || 0) : 0,
             hasExtraBed: !!hasExtraBed,
+            allowExtraBed: !!hasExtraBed,
+            policies: {
+                extraBed: hasExtraBed ? "Available" : "",
+                extraBedPrice: hasExtraBed ? parseFloat(extraBedPrice || 0) : 0,
+            },
+            pricing: {
+                basePrice: parseFloat(price) || 0,
+                discountPercent: parseFloat(discount) || 0,
+                pricePerNightAfterDiscount: calculateDiscountPrice(
+                    parseFloat(price) || 0,
+                    parseFloat(discount) || 0
+                ),
+            },
             pricingOverrides: pricingOverrides,
             status: "Approved", // Default status as per requirement
             updatedAt: serverTimestamp(),
@@ -205,18 +253,39 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             packageDetails.createdAt = serverTimestamp();
         }
 
-        // await setDoc(doc(hotelPackages, id), packageInfo);
-        await setDoc(doc(hotelPackageDetails, id), packageDetails, { merge: true }).then(() => {
-            successNotification(
-                `The Package is ${roomDetails?.packageName ? "updated" : "added"
-                } successfully`
+        // Dual-write: HotelDB rooms (availability/booking) + legacy package details
+        await setDoc(doc(hotelPackageDetails, id), packageDetails, { merge: true });
+        if (hotelUid) {
+            await setDoc(
+                doc(db, "HotelDB", hotelUid, "rooms", id),
+                {
+                    ...packageDetails,
+                    id,
+                    hotelUid,
+                    packageName,
+                    roomName: packageName,
+                },
+                { merge: true }
             );
-        });
+        }
+        successNotification(
+            `The Package is ${roomDetails?.packageName ? "updated" : "added"
+            } successfully`
+        );
 
         handleCloseModal();
     };
 
     const handleEditRoom = (room) => {
+        const adults =
+            room.maxAdults !== undefined && room.maxAdults !== null && room.maxAdults !== ""
+                ? room.maxAdults
+                : (room.numberOfGuests ?? "");
+        const children =
+            room.maxChildren !== undefined && room.maxChildren !== null && room.maxChildren !== ""
+                ? room.maxChildren
+                : 0;
+
         setRoomDetails({
             id: room.id,
             packageName: room.packageName,
@@ -226,7 +295,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             discount: room.discount,
             location: room.location,
             period: room.period,
-            numberOfGuests: room.numberOfGuests,
+            maxAdults: adults,
+            maxChildren: children,
             ratings: room.ratings,
             numberOfReviews: room.numberOfReviews,
             totalRooms: room.totalRooms,
@@ -246,7 +316,8 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             description: room.description,
             discount: room.discount,
             period: room.period,
-            numberOfGuests: room.numberOfGuests,
+            maxAdults: adults,
+            maxChildren: children,
             totalRooms: room.totalRooms,
             extraBedPrice: room.extraBedPrice || 0,
             hasExtraBed: room.hasExtraBed || false,
@@ -341,34 +412,37 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         setArrayData((p) => ({ ...p, pictures: newPictures }));
     };
 
-    const textField = (label, name, placeholder, defaultValue) => {
+    const textField = (label, name, placeholder) => {
+        const isNumber = ["price", "discount", "maxAdults", "maxChildren", "period", "extraBedPrice", "totalRooms"].includes(name);
+        const registration = register(name, { required: true });
+        const value = watch(name);
         return (
             <Grid item xs={12} sm={name === "description" ? 12 : 6}>
                 <TextField
                     label={label}
-                    type={
-                        ["price", "discount", "numberOfGuests", "period", "extraBedPrice"].includes(name)
-                            ? "number"
-                            : "text"
-                    }
+                    type={isNumber ? "number" : "text"}
                     inputProps={{
-                        min: ["discount"].includes(name)
+                        min: ["discount", "maxAdults", "maxChildren"].includes(name)
                             ? 0
-                            : ["price", "numberOfGuests", "period", "extraBedPrice"].includes(name)
+                            : ["price", "period", "extraBedPrice", "totalRooms"].includes(name)
                                 ? 1
                                 : undefined,
-                        max: ["discount", "numberOfGuests"].includes(name)
-                            ? 100
-                            : undefined,
+                        max: name === "discount" ? 100 : undefined,
                     }}
-                    defaultValue={defaultValue}
+                    value={value ?? ""}
+                    name={registration.name}
+                    inputRef={registration.ref}
+                    onBlur={registration.onBlur}
+                    onChange={(e) => {
+                        registration.onChange(e);
+                        setValue(name, e.target.value, { shouldValidate: true, shouldDirty: true });
+                    }}
                     placeholder={placeholder}
                     multiline={name === "description"}
                     fullWidth
-                    {...register(name, { required: true })}
                     rows={name === "description" ? 3 : undefined}
                 />
-                {errors?.name && (
+                {errors?.[name] && (
                     <span className="text-red-500">{label} is required</span>
                 )}
             </Grid>
@@ -442,6 +516,10 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                                                             (column.property === "price" && `฿ ${value}`) ||
                                                             (column.property === "discount" &&
                                                                 `${value} %`) ||
+                                                            (column.property === "maxAdults" &&
+                                                                (row.maxAdults ?? row.numberOfGuests ?? "-")) ||
+                                                            (column.property === "maxChildren" &&
+                                                                (row.maxChildren ?? 0)) ||
                                                             (column.property === "ratings" &&
                                                                 (value != 0 ? `${value}` : "-")) ||
                                                             (column.property === "numberOfReviews" &&
@@ -457,7 +535,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                                 })}
                                 {myRooms.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center">
+                                        <TableCell colSpan={8} align="center">
                                             No rooms found. Add a room to get started.
                                         </TableCell>
                                     </TableRow>
@@ -497,42 +575,43 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                             {textField(
                                 "Package Name",
                                 "packageName",
-                                "Package Name",
-                                roomDetails?.packageName
+                                "Package Name"
                             )}
 
-                            {textField("Price", "price", "Price", roomDetails?.price)}
+                            {textField("Price", "price", "Price")}
 
-                            {textField("Address", "address", "Address", roomDetails?.address)}
+                            {textField("Address", "address", "Address")}
 
                             {textField(
                                 "Discount",
                                 "discount",
-                                "Discount in %",
-                                roomDetails?.discount
+                                "Discount in %"
                             )}
 
                             {textField(
                                 "Description",
                                 "description",
-                                "Type Package Description...",
-                                roomDetails?.description
+                                "Type Package Description..."
                             )}
 
-                            {textField("Period", "period", "Period", roomDetails?.period)}
+                            {textField("Period", "period", "Period")}
 
                             {textField(
-                                "Number Of Guests",
-                                "numberOfGuests",
-                                "Number Of Guests",
-                                roomDetails?.numberOfGuests
+                                "Adults",
+                                "maxAdults",
+                                "e.g. 2"
+                            )}
+
+                            {textField(
+                                "Children",
+                                "maxChildren",
+                                "e.g. 1"
                             )}
 
                             {textField(
                                 "Total Rooms Available",
                                 "totalRooms",
-                                "Total inventory count",
-                                roomDetails?.totalRooms
+                                "Total inventory count"
                             )}
 
                             {/* Extra Bed Option */}
@@ -556,8 +635,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                             {hasExtraBed && textField(
                                 "Extra Bed Price",
                                 "extraBedPrice",
-                                "Eg: 50",
-                                roomDetails?.extraBedPrice
+                                "Eg: 50"
                             )}
 
                             <Grid item xs={12}>

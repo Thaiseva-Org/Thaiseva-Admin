@@ -114,13 +114,18 @@ export const onHotelBookingStatusChangeV3 = onDocumentUpdated(
     const statusAfter = normalizeStatus(after);
     const bookingId = event.params.bookingId;
 
-    // Release inventory when moving into canceled (idempotent)
-    const becameCanceled =
-      (statusAfter === "CANCELED" || statusAfter === "CANCELLED") &&
-      statusBefore !== "CANCELED" &&
-      statusBefore !== "CANCELLED";
+    // Release inventory when moving into canceled / rejected (idempotent)
+    const terminalStatuses = new Set([
+      "CANCELED",
+      "CANCELLED",
+      "REJECTED",
+      "DENIED",
+    ]);
+    const wasTerminal = terminalStatuses.has(statusBefore);
+    const becameTerminal =
+      terminalStatuses.has(statusAfter) && !wasTerminal;
 
-    if (becameCanceled && after.inventoryReserved === true) {
+    if (becameTerminal && after.inventoryReserved === true) {
       try {
         const fields = bookingInventoryFields(after);
         const result = await releaseRoomsInTransaction(getFirestore(), {

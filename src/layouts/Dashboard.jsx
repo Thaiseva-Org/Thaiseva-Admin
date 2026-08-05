@@ -28,7 +28,7 @@ import { logo } from "../assets";
 import { AdminChatContext } from "../contextAPIs/AdminChatProvider";
 import { AuthContext } from "../contextAPIs/AuthProvider";
 import { PartnerContext } from "../contextAPIs/PartnerProvider";
-import { normalizeHotelBookingStatus } from "../utils/bookingStatus";
+import { isHotelPending } from "../utils/bookingStatus";
 import { AdminDashboard, PartnerDashboard } from "../pages";
 import AdminRoute from "../routes/AdminRoute";
 import PartnerRoute from "../routes/PartnerRoute";
@@ -778,12 +778,10 @@ function Dashboard(props) {
                   {route.url === "/dashboard/hotel-chat" && hotelChatCount > 0 && (
                     <Badge color="primary" badgeContent={`${hotelChatCount}`} />
                   )}
-                  {route.url === "/dashboard/room-bookings" && roomBookings.filter((item) => normalizeHotelBookingStatus(item) === "Pending").length > 0 && (
+                  {route.url === "/dashboard/room-bookings" && roomBookings.filter(isHotelPending).length > 0 && (
                     <Badge
                       color="primary"
-                      badgeContent={`${roomBookings.filter((item) => normalizeHotelBookingStatus(item) === "Pending")
-                        .length
-                        }`}
+                      badgeContent={`${roomBookings.filter(isHotelPending).length}`}
                     />
                   )}
                 </ListItem>

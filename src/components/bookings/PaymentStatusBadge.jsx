@@ -13,9 +13,13 @@ const STATUS_ICONS = {
 
 const resolveStatusKey = (label = "") => {
   const normalized = String(label).toLowerCase();
-  if (normalized === "verified") return "verified";
-  if (normalized === "onsite") return "onsite";
-  if (normalized === "unverified") return "unverified";
+  if (normalized.includes("verified") && !normalized.includes("unverified") && !normalized.includes("pending")) {
+    return "verified";
+  }
+  if (normalized.includes("onsite") || normalized.includes("thai qr") || normalized.includes("pending")) {
+    return normalized.includes("onsite") ? "onsite" : "unverified";
+  }
+  if (normalized === "unverified" || normalized.includes("unverified")) return "unverified";
   return "unpaid";
 };
 

@@ -10,6 +10,18 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Safe role lookup — never call get().data on a missing doc (that errors and
+    // denies the whole rule, even when OR'd with true).
+    function userRole() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', '')
+        : (
+          exists(/databases/$(database)/documents/Users/$(request.auth.uid))
+            ? get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.get('role', '')
+            : ''
+        );
+    }
+
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.token.email in [
@@ -17,9 +29,7 @@ service cloud.firestore {
           "thaiseva_admin@gmail.com"
         ] ||
         request.auth.token.admin == true ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Admin" ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin" ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "Sub Admin"
+        userRole() in ["Admin", "admin", "Sub Admin"]
       );
     }
 
@@ -405,11 +415,8 @@ service cloud.firestore {
     }
 
     match /HotelDB/{hotelId}/availability/{availabilityId} {
-      allow read: if isAdmin() ||
-        (isAuthenticated() && request.auth.uid == hotelId) ||
-        // public read of config/adjustments for availability UI messaging is optional;
-        // keep partner + admin write, read open for calendar consumers
-        true;
+      // Public read (do not call isAdmin() here — missing users/{uid} must not deny)
+      allow read: if true;
       allow write: if isAdmin() ||
         (isAuthenticated() && request.auth.uid == hotelId);
     }

@@ -7,7 +7,7 @@
 | **Region** | `asia-east2` |
 | **Protocol** | HTTPS `POST` + JSON (unless noted) |
 | **Auth** | Firebase ID token: `Authorization: Bearer <token>` |
-| **Updated** | 2026-08-03 |
+| **Updated** | 2026-08-05 |
 
 ---
 
@@ -235,9 +235,12 @@ await startHold({ hotelId, packageId, checkIn, checkOut, rooms: 1 });
 **Behaviour**
 
 - Price is calculated on the **server** (do not send total to charge).
-- Instant rooms may be accepted; remainder may stay **pending**.
+- Instant rooms may be accepted; remainder may stay **pending** (`path`: `auto` | `pending` | `partial`).
 - `payNow: true` + `stripeUrl` → charge the payable (instant) amount.
-- Pending-only stay → booking saved, often no Stripe URL yet.
+- Pending-only stay → booking saved, often no Stripe URL yet; Stripe opens after **accept**.
+- **Guest capacity:** if the room type has `maxAdults` / `maxChildren`, over-capacity fails with reason `GUEST_CAPACITY` (extra-bed caps apply when extra bed is requested and allowed).
+- Stable booking ids include **check-out** so different stay lengths do not collide.
+- After partial accept, remaining balance is on **`amountDue`** (pay via `createCheckoutSession`).
 - Collection: `hotelBookingData`.
 
 ---
@@ -283,7 +286,7 @@ await startHold({ hotelId, packageId, checkIn, checkOut, rooms: 1 });
 
 | Method | What happens |
 |--------|----------------|
-| **STRIPE** | Returns `stripeUrl`. Booking is created **after** successful payment (`verifySession` or webhook). `bookingId` may be `null` until then. |
+| **STRIPE** | Returns `stripeUrl`. Booking is created **after** successful payment (`verifySession` or webhook). On pay, status becomes **Accepted** (`autoAccepted`). `bookingId` may be `null` until then. |
 | **THAI_QR** | Booking created immediately, unpaid, pending admin verification. |
 | **ONSITE** | Booking created, often confirmed; pay later offline. |
 
@@ -419,8 +422,14 @@ POST /createCheckoutSession
 | `sightseeing` / `package` / `travelBookingDetails` | Package |
 | car / van / selfDrive | **Rejected** |
 
-Hotel must already be accepted/confirmed (or inventory reserved) before pay is allowed.  
-Package amount is **recalculated from catalog** (cannot underpay with a fake stored amount).
+**Hotel pay rules**
+
+- Pure **pending** (not accepted, no inventory reserved, no instant rooms) → **rejected** until accept.
+- **Partial** (instant rooms accepted + pending remainder) → pay allowed for the accepted portion.
+- Charge amount prefers **`amountDue`** when set (top-up after partial accept); otherwise full unpaid total.
+- After successful pay: `amountDue` cleared, hotel stays **Accepted**.
+
+Package amount is **recalculated from catalog** (cannot underpay with a fake stored amount). Stripe-paid packages become **Accepted** automatically.
 
 ---
 

@@ -102,9 +102,20 @@ export const autoAcceptSightseeingBookings = onDocumentCreated(
           `daily ${capacity.dailyCount}/${capacity.dailyLimit}.`,
       );
 
-      if (capacity.weeklyOk && capacity.dailyOk) {
+      const paymentAlreadyDone =
+        bookingData.isPaymentDone === true ||
+        String(bookingData.paymentVerificationStatus || "").toUpperCase() ===
+          "VERIFIED" ||
+        String(bookingData.paymentConfirmation?.status || "").toLowerCase() ===
+          "paid";
+
+      // Paid Stripe (or any already-verified payment): always accept.
+      // Never rewrite status back to "Pending" — that hid bookings from Paid tab.
+      if (paymentAlreadyDone || (capacity.weeklyOk && capacity.dailyOk)) {
+        const overCapacity = paymentAlreadyDone && !(capacity.weeklyOk && capacity.dailyOk);
         logger.info(
-          `[Sightseeing] Auto-accepting booking ${bookingId}.`,
+          `[Sightseeing] Auto-accepting booking ${bookingId}` +
+            (overCapacity ? " (paid; over capacity warning)." : "."),
         );
 
         await snapshot.ref.update({
@@ -112,6 +123,16 @@ export const autoAcceptSightseeingBookings = onDocumentCreated(
           isBookingConfirmed: true,
           autoAccepted: true,
           acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+          ...(overCapacity ?
+            {
+              capacityWarning:
+                !capacity.weeklyOk && !capacity.dailyOk ?
+                  "weekly and daily limits reached" :
+                  !capacity.weeklyOk ?
+                    "weekly limit reached" :
+                    "daily tour-date limit reached",
+            } :
+            {}),
           ...buildSightseeingAutoAcceptPaymentFields(bookingData),
         });
 
@@ -129,11 +150,16 @@ export const autoAcceptSightseeingBookings = onDocumentCreated(
         `[Sightseeing] Capacity blocked (${limitReason}) for ${bookingId}.`,
       );
 
+      // Only unpaid Thai QR / onsite / review paths may sit in Pending.
+      // Do not demote Confirmed/Accepted paid docs.
       if (
+        !paymentAlreadyDone &&
         bookingData.status !== "Pending" &&
-        bookingData.status !== "Review In Progress"
+        bookingData.status !== "Review In Progress" &&
+        bookingData.status !== "Accepted" &&
+        bookingData.status !== "Confirmed"
       ) {
-        await snapshot.ref.update({ status: "Pending" });
+        await snapshot.ref.update({status: "Pending"});
       }
     } catch (error) {
       logger.error("[Sightseeing] autoAcceptSightseeingBookings failed:", error);

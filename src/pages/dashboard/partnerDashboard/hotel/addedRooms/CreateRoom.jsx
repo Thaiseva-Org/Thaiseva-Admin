@@ -22,6 +22,7 @@ import { v4 as uuid } from "uuid";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import {
+  db,
   hotelPackageDetails,
   storage,
 } from "../../../../../firebase/firebase.config";
@@ -46,7 +47,8 @@ const CreateRoom = () => {
     // location: {},
     // period: "",
     bookingInfo: {},
-    numberOfGuests: "",
+    maxAdults: "",
+    maxChildren: "",
     // address: "",
     ratings: "",
     numberOfReviews: "",
@@ -97,7 +99,8 @@ const CreateRoom = () => {
         description,
         discount,
         // period,
-        numberOfGuests,
+        maxAdults,
+        maxChildren,
         // address,
         extraBedPrice,
         hasExtraBed,
@@ -110,6 +113,9 @@ const CreateRoom = () => {
       } else {
         id = uuid();
       }
+
+      const adults = Math.max(0, parseInt(maxAdults, 10) || 0);
+      const children = Math.max(0, parseInt(maxChildren, 10) || 0);
 
       // Fetching the country from the hotels object
       const hotelCountry = partnerDetails?.country || "Thailand";
@@ -131,10 +137,19 @@ const CreateRoom = () => {
         country: hotelCountry,
       };
 
+      const inventoryQty = Math.max(
+        1,
+        parseInt(data.totalRooms, 10) || Number(roomDetails.totalRooms) || 5
+      );
       const packageDetails = {
         ...packageInfo,
         description,
-        numberOfGuests,
+        maxAdults: adults,
+        maxChildren: children,
+        numberOfGuests: adults + children,
+        totalRooms: inventoryQty,
+        quantity: inventoryQty,
+        roomName: packageName,
         amenities: arrayData?.amenities,
         pictures: arrayData?.pictures,
         // location,
@@ -143,18 +158,43 @@ const CreateRoom = () => {
         duration: 30,
         extraBedPrice: hasExtraBed ? parseFloat(extraBedPrice || 0) : 0,
         hasExtraBed: !!hasExtraBed,
+        allowExtraBed: !!hasExtraBed,
+        policies: {
+          extraBed: hasExtraBed ? "Available" : "",
+          extraBedPrice: hasExtraBed ? parseFloat(extraBedPrice || 0) : 0,
+        },
+        pricing: {
+          basePrice: parseFloat(price) || 0,
+          discountPercent: parseFloat(discount) || 0,
+          pricePerNightAfterDiscount:
+            parseFloat(price) * (1 - (parseFloat(discount) || 0) / 100) || 0,
+        },
         updatedAt: serverTimestamp(),
-        ...(roomDetails?.packageName ? { createdAt: serverTimestamp() } : {}),
+        // createdAt only when creating a new package
+        ...(!roomDetails.id ? { createdAt: serverTimestamp() } : {}),
       };
       // console.log(packageDetails, packageInfo);
 
       // await setDoc(doc(hotelPackages, id), packageInfo);
-      await setDoc(doc(hotelPackageDetails, id), packageDetails).then(() => {
-        successNotification(
-          `The Package is ${roomDetails?.packageName ? "updated" : "added"
-          } successfully`
+      await setDoc(doc(hotelPackageDetails, id), packageDetails, { merge: true });
+      // Dual-write so availability / website booking see this room type
+      if (user?.uid) {
+        await setDoc(
+          doc(db, "HotelDB", user.uid, "rooms", id),
+          {
+            ...packageDetails,
+            id,
+            hotelUid: user.uid,
+            packageName,
+            roomName: packageName,
+          },
+          { merge: true }
         );
-      });
+      }
+      successNotification(
+        `The Package is ${roomDetails?.packageName ? "updated" : "added"
+        } successfully`
+      );
 
       setRoomDetails({
         id: "",
@@ -165,7 +205,8 @@ const CreateRoom = () => {
         // location: {},
         // period: "",
         bookingInfo: {},
-        numberOfGuests: "",
+        maxAdults: "",
+        maxChildren: "",
         // address: "",
         ratings: "",
         numberOfReviews: "",
@@ -203,11 +244,22 @@ const CreateRoom = () => {
         // location,
         // period,
         numberOfGuests,
+        maxAdults,
+        maxChildren,
         ratings,
         numberOfReviews,
         extraBedPrice,
         hasExtraBed,
       } = existingData;
+
+      const adults =
+        maxAdults !== undefined && maxAdults !== null && maxAdults !== ""
+          ? maxAdults
+          : (numberOfGuests ?? "");
+      const children =
+        maxChildren !== undefined && maxChildren !== null && maxChildren !== ""
+          ? maxChildren
+          : 0;
 
       setRoomDetails({
         id,
@@ -218,7 +270,8 @@ const CreateRoom = () => {
         discount,
         // location,
         // period,
-        numberOfGuests,
+        maxAdults: adults,
+        maxChildren: children,
         ratings,
         numberOfReviews,
         extraBedPrice: extraBedPrice || 0,
@@ -230,7 +283,12 @@ const CreateRoom = () => {
       setValue("discount", discount);
       // setValue("address", address);
       // setValue("period", period);
-      setValue("numberOfGuests", numberOfGuests);
+      setValue("maxAdults", adults);
+      setValue("maxChildren", children);
+      setValue(
+        "totalRooms",
+        existingData.totalRooms ?? existingData.quantity ?? 5
+      );
       setValue("extraBedPrice", extraBedPrice || 0);
       setValue("hasExtraBed", hasExtraBed || false);
 
@@ -324,15 +382,13 @@ const CreateRoom = () => {
 
   const textField = (label, name, placeholder) => {
     const value = watch(name); // Watch current value of the field
+    const isNumber = ["price", "discount", "maxAdults", "maxChildren", "totalRooms", "period", "extraBedPrice"].includes(name);
+    const registration = register(name, { required: true });
     return (
       <Grid item xs={12} sm={name === "description" ? 12 : 6}>
         <TextField
           label={label}
-          type={
-            ["price", "discount", "numberOfGuests", "period", "extraBedPrice"].includes(name)
-              ? "number"
-              : "text"
-          }
+          type={isNumber ? "number" : "text"}
           onWheel={(e) => e.target.blur()}
           onKeyDown={(e) => {
             if (
@@ -343,24 +399,27 @@ const CreateRoom = () => {
             }
           }}
           inputProps={{
-            min: ["discount"].includes(name)
+            min: ["discount", "maxAdults", "maxChildren"].includes(name)
               ? 0
-              : ["numberOfGuests", "price", "period", "extraBedPrice"].includes(name)
+              : ["price", "period", "extraBedPrice", "totalRooms"].includes(name)
                 ? 1
                 : undefined,
-            max: ["discount", "numberOfGuests"].includes(name)
-              ? 100
-              : undefined,
+            max: name === "discount" ? 100 : undefined,
           }}
-          value={value}
-          onChange={(e) => setValue(name, e.target.value)} // Update value dynamically
+          value={value ?? ""}
+          name={registration.name}
+          inputRef={registration.ref}
+          onBlur={registration.onBlur}
+          onChange={(e) => {
+            registration.onChange(e);
+            setValue(name, e.target.value, { shouldValidate: true, shouldDirty: true });
+          }}
           placeholder={placeholder}
           autoComplete="off"
           autoCorrect="off"
           multiline={name === "description"}
           fullWidth
           rows={name === "description" ? 3 : undefined}
-          {...register(name, { required: true })}
         />
         {errors?.[name] && (
           <span className="text-red-500">{label} is required</span>
@@ -521,12 +580,21 @@ const CreateRoom = () => {
               </Select> */}
             {/* </div> */}
 
-            {/* Number Of Guests */}
+            {/* Adults / Children capacity (replaces maximum guests) */}
             {textField(
-              "Number Of Guests Allowed",
-              "numberOfGuests",
-              "Eg: 4",
-              roomDetails?.numberOfGuests
+              "Adults",
+              "maxAdults",
+              "Eg: 2"
+            )}
+            {textField(
+              "Children",
+              "maxChildren",
+              "Eg: 1"
+            )}
+            {textField(
+              "Rooms of this type",
+              "totalRooms",
+              "Eg: 5"
             )}
 
             {/* Discount */}

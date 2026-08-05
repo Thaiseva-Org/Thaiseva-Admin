@@ -239,11 +239,25 @@ const TodayArriving = () => {
       return setError("Rooms provided are less than required!");
     }
     if (confirm("Check details twice before confirming")) {
+      let acceptResult = null;
+      try {
+        const { acceptHotelBookingWithAvailability } = await import(
+          "../../../../../services/HotelBookingAccept"
+        );
+        acceptResult = await acceptHotelBookingWithAvailability(
+          bookingDetails.bookingId
+        );
+      } catch (acceptErr) {
+        console.error("[TodayArriving] Accept/reserve failed", acceptErr);
+        const msg =
+          acceptErr?.message ||
+          "Not enough rooms free for these dates. Cannot accept.";
+        setError(String(msg).replace(/^FirebaseError:\s*/i, ""));
+        return;
+      }
+
       const createdAtBackfill = backfillCreatedAt(bookingDetails);
       const updatedDoc = {
-        status: "Accepted",
-        bookingStatus: "ACCEPTED",
-        isBookingConfirmed: true,
         managerPhone: data.managerPhone,
         roomNumbers: data.roomNumbers,
         ...(createdAtBackfill && !bookingDetails.createdAt
@@ -255,11 +269,21 @@ const TodayArriving = () => {
         updatedDoc
       ).then(async () => {
         setOpenBookingDetailsModal(false);
-        successNotification("Booking approved. Awaiting guest payment.");
+        const amountDue = Number(acceptResult?.amountDue || 0);
+        const payNow = acceptResult?.payNow === true || amountDue > 0;
+        successNotification(
+          payNow
+            ? "Booking accepted — guest must pay (Unpaid)."
+            : "Booking approved."
+        );
         setData({ managerPhone: "", roomNumbers: [] });
         await CreateNewNotificationToUser(
-          "Room booking approved!",
-          `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is approved. Please complete payment.`,
+          payNow
+            ? "Booking accepted — payment required"
+            : "Room booking approved!",
+          payNow
+            ? `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is approved. Amount due: ฿${amountDue || "—"}. Please complete payment from My Bookings.`
+            : `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is approved.`,
           bookingDetails?.userId
         );
       });

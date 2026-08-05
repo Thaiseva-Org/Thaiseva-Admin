@@ -84,6 +84,7 @@ import {
   isHotelPaymentVerified,
   isStripeHotelPayment,
   isThaiQrHotelPayment,
+  hasHotelPendingRooms,
 } from "../../../../../utils/bookingStatus";
 import { backfillCreatedAt } from "../../../../../utils/bookingTimestamps";
 
@@ -324,10 +325,10 @@ const RoomBookings = () => {
 
     setLoading(true);
     for (const booking of targets) {
+      // Status-only cancel — nothing auto-happens on user request; admin marks unavailable
       await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), {
         status: "Canceled",
         bookingStatus: "CANCELED",
-        // Trigger releases inventory when inventoryReserved; keep payment fields unchanged
       });
     }
     setLoading(false);
@@ -338,20 +339,33 @@ const RoomBookings = () => {
   const confirmBookingInternal = async (booking) => {
     try {
       // Server: re-check capacity every night + reserve night ledger (prevents overbooking)
+      // Also resolves sibling pending docs for partially confirmed stays.
       const { acceptHotelBookingWithAvailability } = await import(
         "../../../../../services/HotelBookingAccept"
       );
-      await acceptHotelBookingWithAvailability(booking.bookingId || booking.id);
+      const result = await acceptHotelBookingWithAvailability(
+        booking.bookingId || booking.id
+      );
 
       if (booking.userId) {
-        const paymentMessage = isStripeHotelPayment(booking)
-          ? "Your payment has been received and your stay is confirmed."
-          : isThaiQrHotelPayment(booking)
-            ? "Your booking is approved. We will verify your Thai QR payment shortly."
-            : "Your room booking has been approved. You can complete payment from My Bookings.";
+        const amountDue = Number(result?.amountDue || 0);
+        const payNow = result?.payNow === true || amountDue > 0;
+        const paymentMessage = payNow
+          ? amountDue > 0
+            ? `Amount due: ฿${amountDue}. Please complete payment from My Bookings to confirm your stay.`
+            : "Please complete payment from My Bookings to confirm your stay."
+          : result?.isPaymentDone === true || isHotelPaymentVerified(booking)
+            ? "Payment is confirmed. Your stay is booked."
+            : isThaiQrHotelPayment(booking)
+              ? "Your booking is approved. We will verify your Thai QR payment shortly."
+              : "Your room booking has been approved.";
 
         CreateNewNotificationToUser(
-          "Room booking approved!",
+          payNow
+            ? "Booking accepted — payment required"
+            : hasHotelPendingRooms(booking)
+              ? "Pending rooms accepted!"
+              : "Room booking approved!",
           `Your room booking at ${booking.hotelName || "the hotel"} has been approved. ${paymentMessage}`,
           booking.userId
         );
@@ -360,18 +374,25 @@ const RoomBookings = () => {
     } catch (e) {
       console.error("[ManualConfirm] Confirm failed", e);
       // Callable HttpsError: prefer details / message body over Firebase wrapper text
+      const details =
+        e?.details && typeof e.details === "object"
+          ? e.details.message || e.details.reason || JSON.stringify(e.details)
+          : e?.details;
       const raw =
-        (typeof e?.details === "string" && e.details) ||
+        (typeof details === "string" && details) ||
+        (typeof e?.customData?.message === "string" && e.customData.message) ||
         (typeof e?.message === "string" && e.message) ||
         (typeof e?.code === "string" && e.code) ||
-        "Not enough rooms free for the full stay.";
+        "Could not confirm rooms.";
       let friendly = String(raw)
         .replace(/^Firebase:\s*/i, "")
         .replace(/^FirebaseError:\s*/i, "")
-        .replace(/\s*\(functions\/[a-z-]+\)\s*$/i, "")
+        .replace(/\s*\(functions\/[a-z-]+\)\s*\.?$/i, "")
         .trim();
-      if (!friendly || /internal/i.test(friendly)) {
-        friendly = "Could not accept — rooms may be full for these dates.";
+      // Surface real failed-precondition text; only use generic for empty/internal
+      if (!friendly || friendly.toLowerCase() === "internal") {
+        friendly =
+          "Could not confirm rooms. Deploy latest functions or check capacity / permissions.";
       }
       if (typeof window !== "undefined") {
         window.alert(friendly);
@@ -428,9 +449,17 @@ const RoomBookings = () => {
       phone: booking.guestPhone || booking.phone || booking.guestDetails?.phone || "N/A",
       email: booking.guestEmail || booking.email || booking.guestDetails?.email || "N/A",
       noOfRooms: booking.rooms || booking.noOfRooms,
+      roomsInstant: booking.roomsInstant,
+      roomsPending: booking.roomsPending,
+      roomsRequestedTotal: booking.roomsRequestedTotal,
+      amountDue: booking.amountDue,
+      amountPaid: booking.amountPaid,
+      siblingAutoBookingId: booking.siblingAutoBookingId,
+      siblingPendingBookingId: booking.siblingPendingBookingId,
+      sourcePath: booking.sourcePath,
       checkIn: getDate(checkInDate),
       checkOut: getDate(checkOutDate),
-      amount: booking.amountTHB || booking.amount,
+      amount: booking.amountDue > 0 ? booking.amountDue : (booking.amountTHB || booking.amount),
       orderedAt: orderedAtRaw,
       roomNumbers: booking.roomNumbers,
       status: normalizeBookingStatus(booking),
@@ -655,30 +684,43 @@ const RoomBookings = () => {
   };
 
   const handleConfirmBooking = async (booking) => {
-    if (confirm("Are you sure you want to accept this booking?")) {
+    const pending = Number(
+      booking.roomsPending ?? booking.rawData?.roomsPending ?? 0
+    );
+    const msg =
+      pending > 0
+        ? `Confirm ${pending} pending room(s) available? This will reserve them on the stay dates.`
+        : "Confirm rooms are available and accept this booking?";
+    if (!confirm(msg)) return;
 
-
-      await confirmBookingInternal(booking).then(() => {
-        successNotification("Booking is confirmed and Processed!");
-      });
+    const ok = await confirmBookingInternal(booking);
+    if (ok) {
+      successNotification(
+        pending > 0
+          ? `Pending room(s) confirmed — inventory updated for stay dates.`
+          : "Booking accepted — rooms confirmed available."
+      );
     }
   };
 
   const handleCancelBooking = async (booking) => {
-    if (confirm("Are you sure to decline this booking?")) {
-      // Status-only cancel → onHotelBookingStatusChangeV3 unlocks reserved rooms
-      const updatedDoc = {
-        status: "Canceled",
-        bookingStatus: "CANCELED",
-      };
+    if (!confirm("Mark rooms as not available and decline this request?")) return;
 
-      await updateDoc(
-        doc(roomBookingCollection, booking.bookingId),
-        updatedDoc
-      ).then(() => {
-        deleteNotification("Booking is declined!");
-      });
-    }
+    // Admin-only: mark not available. No special reject CF — status cancel only.
+    // Inventory unlock (if any) is handled by booking status trigger.
+    await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), {
+      status: "Canceled",
+      bookingStatus: "CANCELED",
+    }).then(() => {
+      if (booking.userId) {
+        CreateNewNotificationToUser(
+          "Room request declined",
+          `Your room request at ${booking.hotelName || "the hotel"} could not be confirmed (rooms not available).`,
+          booking.userId
+        );
+      }
+      deleteNotification("Booking declined — rooms not available.");
+    });
   };
 
   // setting booking details to the state
@@ -699,13 +741,45 @@ const RoomBookings = () => {
     }
   };
 
-  // delete canceled booking
+  // delete canceled booking — free inventory first so rooms do not stay locked
   const handleDelete = (id) => {
     askingForDelete().then(async (result) => {
       if (result.isConfirmed) {
-        await deleteDoc(doc(roomBookingCollection, id)).then(() => {
+        try {
+          const snap = await getDoc(doc(roomBookingCollection, id));
+          if (snap.exists()) {
+            const data = snap.data() || {};
+            if (
+              data.inventoryReserved === true &&
+              data.inventoryReleased !== true
+            ) {
+              // Ensure cancel path runs inventory release before hard delete
+              await updateDoc(doc(roomBookingCollection, id), {
+                status: "Canceled",
+                bookingStatus: "CANCELED",
+              });
+              // Give trigger a moment; also try explicit release
+              try {
+                const { releaseHotelInventory } = await import(
+                  "../../../../../services/HotelAvailability"
+                );
+                await releaseHotelInventory(id);
+              } catch (releaseErr) {
+                console.warn(
+                  "[RoomBookings] inventory release before delete",
+                  releaseErr
+                );
+              }
+            }
+          }
+          await deleteDoc(doc(roomBookingCollection, id));
           deleteNotification("The booking is deleted successfully.");
-        });
+        } catch (e) {
+          console.error(e);
+          deleteNotification(
+            e?.message || "Could not delete booking. Inventory may still be locked."
+          );
+        }
       }
     });
   };
@@ -1088,19 +1162,24 @@ const RoomBookings = () => {
                                           </button>
                                         )}
 
-                                        {row.status === "Pending" && (
+                                        {(row.status === "Pending" ||
+                                          hasHotelPendingRooms(row)) && (
                                           <>
                                             <button
                                               onClick={() => handleConfirmBooking(row)}
                                               className="p-2 rounded-full bg-success-500 text-white hover:bg-success-600 hover:scale-110 transition-all duration-200"
-                                              title="Approve Request"
+                                              title={
+                                                Number(row.roomsPending) > 0
+                                                  ? "Confirm pending room(s) available"
+                                                  : "Confirm available"
+                                              }
                                             >
                                               <DoneRoundedIcon className="scale-90" />
                                             </button>
                                             <button
                                               onClick={() => handleCancelBooking(row)}
                                               className="p-2 rounded-full bg-danger-500 text-white hover:bg-danger-600 hover:scale-110 transition-all duration-200"
-                                              title="Decline Booking"
+                                              title="Not available"
                                             >
                                               <CloseRoundedIcon className="scale-90" />
                                             </button>
@@ -1269,6 +1348,15 @@ const RoomBookings = () => {
                 {renderDetailItem("Hotel Name", bookingDetails?.hotelName || "N/A", <HotelIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
                 {renderDetailItem("Room Type", bookingDetails?.roomName || "N/A", <MeetingRoomIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
                 {renderDetailItem("Rooms", bookingDetails?.noOfRooms || "N/A", <BedroomParentIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
+                {(bookingDetails?.roomsInstant != null ||
+                  bookingDetails?.roomsPending != null) &&
+                  renderDetailItem(
+                    "Instant / Pending",
+                    `${bookingDetails?.roomsInstant ?? 0} confirmed · ${bookingDetails?.roomsPending ?? 0} pending`,
+                    <BedroomParentIcon fontSize="small" />,
+                    false,
+                    "text-amber-600 bg-amber-50"
+                  )}
                 {renderDetailItem("Nights", bookingDetails?.nights || "N/A", <NumbersIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
                 {renderDetailItem("Check In", bookingDetails?.checkIn || "N/A", <CalendarMonthIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
                 {renderDetailItem("Check Out", bookingDetails?.checkOut || "N/A", <CalendarMonthIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
@@ -1303,6 +1391,22 @@ const RoomBookings = () => {
               </div>
               <Grid container spacing={1}>
                 {renderDetailItem("Amount (THB)", `฿${bookingDetails?.amountTHB || bookingDetails?.amount || 0}`, <AttachMoneyIcon fontSize="small" />, false, "text-emerald-600 bg-emerald-50")}
+                {Number(bookingDetails?.amountDue) > 0 &&
+                  renderDetailItem(
+                    "Amount Due",
+                    `฿${bookingDetails.amountDue}`,
+                    <AttachMoneyIcon fontSize="small" />,
+                    false,
+                    "text-amber-600 bg-amber-50"
+                  )}
+                {Number(bookingDetails?.amountPaid) > 0 &&
+                  renderDetailItem(
+                    "Amount Paid",
+                    `฿${bookingDetails.amountPaid}`,
+                    <AttachMoneyIcon fontSize="small" />,
+                    false,
+                    "text-emerald-600 bg-emerald-50"
+                  )}
                 {bookingDetails?.amountINR && renderDetailItem("Amount (INR)", `₹${bookingDetails?.amountINR}`, <AttachMoneyIcon fontSize="small" />, false, "text-emerald-600 bg-emerald-50")}
                 {renderDetailItem("Payment Method", bookingDetails?.paymentMethod || "N/A", <CreditCardIcon fontSize="small" />, false, "text-emerald-600 bg-emerald-50")}
                 <Grid item xs={12} sm={6}>
@@ -1357,7 +1461,37 @@ const RoomBookings = () => {
             )}
           </div>
         </DialogContent>
-        <DialogActions sx={{ p: 3, borderTop: '1px solid #e5e5e5', bgcolor: 'white', gap: 1 }}>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #e5e5e5', bgcolor: 'white', gap: 1, flexWrap: 'wrap' }}>
+          {(isAdmin || isSubAdmin) &&
+            (bookingDetails?.status === "Pending" ||
+              hasHotelPendingRooms(bookingDetails)) && (
+            <>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={async () => {
+                  await handleConfirmBooking(bookingDetails);
+                  setOpenBookingDetailsModal(false);
+                }}
+                sx={{ borderRadius: "10px", textTransform: "none", fontWeight: 600 }}
+              >
+                {Number(bookingDetails?.roomsPending) > 0
+                  ? `Confirm ${bookingDetails.roomsPending} pending room(s)`
+                  : "Confirm available"}
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={async () => {
+                  await handleCancelBooking(bookingDetails);
+                  setOpenBookingDetailsModal(false);
+                }}
+                sx={{ borderRadius: "10px", textTransform: "none", fontWeight: 600 }}
+              >
+                Not available
+              </Button>
+            </>
+          )}
           {(isAdmin || isSubAdmin) && needsHotelPaymentVerification(bookingDetails) && (
             <VerifyPaymentModalButton
               onClick={() => handleVerifyPayment(bookingDetails)}

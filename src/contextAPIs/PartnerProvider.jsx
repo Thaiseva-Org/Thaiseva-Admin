@@ -227,7 +227,20 @@ const PartnerProvider = ({ children }) => {
       hotelsCollection,
       (result) => {
         if (result) {
-          const list = result.docs.map((doc) => doc.data());
+          // Always attach Firestore doc id — many HotelDB docs omit top-level uid
+          const list = result.docs.map((docSnap) => {
+            const data = docSnap.data() || {};
+            const resolvedUid =
+              data.uid ||
+              data.hotelUid ||
+              data.hotel?.hotelUid ||
+              docSnap.id;
+            return {
+              ...data,
+              id: data.id || docSnap.id,
+              uid: resolvedUid,
+            };
+          });
           setHotels(list);
           setLoadingPartnerData(false);
         }
@@ -442,7 +455,7 @@ const PartnerProvider = ({ children }) => {
     return () => unSub();
   }, [isAdmin, isSubAdmin]);
 
-  // loading all travel bookings
+  // loading all travel / sightseeing package bookings (full collection, realtime)
   useEffect(() => {
     if (!(isAdmin || isSubAdmin)) return;
 
@@ -450,22 +463,38 @@ const PartnerProvider = ({ children }) => {
     const unSub = onSnapshot(
       query(travelBookingCollection),
       (result) => {
-        const list = result.docs.map((doc) => {
-          const data = doc.data();
+        const getBookingTimeMs = (booking) => {
+          const t =
+            booking?.orderedAt || booking?.createdAt || booking?.timestamp;
+          if (!t) return 0;
+          if (typeof t.toMillis === "function") return t.toMillis();
+          if (typeof t.seconds === "number") {
+            return (
+              t.seconds * 1000 +
+              Math.floor((t.nanoseconds || 0) / 1_000_000)
+            );
+          }
+          if (t instanceof Date) return t.getTime();
+          const parsed = new Date(t);
+          return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+        };
+
+        const list = result.docs.map((snap) => {
+          const data = snap.data() || {};
+          const guestName =
+            data?.fullName ||
+            data?.guestDetails?.name?.replace("not_present", "").trim() ||
+            data?.name ||
+            "";
+          // Always keep Firestore document id last so it cannot be overwritten
           return {
-            id: doc.id,
-            name: data?.guestDetails?.name
-              ?.replace("not_present", "")
-              .trim(),
             ...data,
+            name: guestName,
+            id: snap.id,
           };
         });
-        // Sort client-side (latest first)
-        list.sort((a, b) => {
-          const timeA = a.orderedAt?.seconds || a.createdAt?.seconds || a.timestamp?.seconds || 0;
-          const timeB = b.orderedAt?.seconds || b.createdAt?.seconds || b.timestamp?.seconds || 0;
-          return timeB - timeA; // Descending order (newest first)
-        });
+        // Sort client-side (latest first) — supports Timestamp, Date, ISO strings
+        list.sort((a, b) => getBookingTimeMs(b) - getBookingTimeMs(a));
         setTravelBookings(list);
         setLoadingData(false);
       },

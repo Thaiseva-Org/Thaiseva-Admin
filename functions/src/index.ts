@@ -28,6 +28,7 @@ import {
   getHotelAvailabilityCalendar,
   manageHotelAvailability,
   releaseHotelInventory,
+  unlockHotelRoomLock,
 } from "./hotelAvailabilityWorkflow";
 import {
   checkHotelAvailability,
@@ -74,6 +75,8 @@ exports.getHotelAvailability = getHotelAvailability;
 exports.getHotelAvailabilityCalendar = getHotelAvailabilityCalendar;
 exports.manageHotelAvailability = manageHotelAvailability;
 exports.releaseHotelInventory = releaseHotelInventory;
+// Admin: free stay nights + delete hold lock docs
+exports.unlockHotelRoomLock = unlockHotelRoomLock;
 
 // Website / app hotel booking with inventory (auto-accept vs pending)
 exports.checkHotelAvailability = checkHotelAvailability;

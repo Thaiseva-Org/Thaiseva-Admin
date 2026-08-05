@@ -178,8 +178,12 @@ export const buildSightseeingAutoAcceptPaymentFields = (
         "Accepted automatically for Thai QR payment. Awaiting admin verification." :
         "Accepted automatically for onsite payment. Awaiting admin verification.");
   } else if (isSightseeingPaymentVerified(booking)) {
+    // Stripe (or already-verified) → keep verified + Accepted-compatible fields
     fields.paymentVerificationStatus = "VERIFIED";
     fields.isPaymentDone = true;
+    fields.paymentMethod =
+      getSightseeingPaymentMethod(booking) ||
+      (isStripeSightseeingPayment(booking) ? "STRIPE" : fields.paymentMethod);
   }
 
   return fields;

@@ -82,6 +82,7 @@ import {
 } from "../../../../../utils/bookingNotes";
 import {
   canConfirmSightseeing,
+  formatSightseeingPaymentMethodLabel,
   getSightseeingPaymentMethod,
   getSightseeingPaymentStatusInfo,
   getSightseeingStatusLabel,
@@ -118,6 +119,7 @@ const TravelBookings = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isRealTime, setIsRealTime] = useState(true);
+  // 0=All (default) so Thai QR / auto-accepted bookings are not hidden on Pending
   const [tabValue, setTabValue] = useState(0);
   const [viewMode, setViewMode] = useState("list");
   const [searchQuery, setSearchQuery] = useState("");
@@ -192,13 +194,15 @@ const TravelBookings = () => {
     return serviceDate >= today && serviceDate <= next7;
   };
 
+  // Tab indices: 0 All | 1 Pending | 2 Thai QR/Onsite | 3 Paid | 4 Declined | 5 Next 7 Days
   const filterByTab = (row, tab) => {
     const booking = row.rawData || row;
-    if (tab === 0) return isSightseeingPendingReview(booking);
-    if (tab === 1) return isSightseeingOnsiteQueue(booking);
-    if (tab === 2) return isSightseeingRevenueEligible(booking);
-    if (tab === 3) return isSightseeingCanceled(booking);
-    if (tab === 4) return isNext7DaysBooking(booking);
+    if (tab === 0) return true; // All bookings
+    if (tab === 1) return isSightseeingPendingReview(booking);
+    if (tab === 2) return isSightseeingOnsiteQueue(booking);
+    if (tab === 3) return isSightseeingRevenueEligible(booking);
+    if (tab === 4) return isSightseeingCanceled(booking);
+    if (tab === 5) return isNext7DaysBooking(booking);
     return true;
   };
 
@@ -275,7 +279,15 @@ const TravelBookings = () => {
       booking?.guestDetails?.name?.replace("not_present", "").trim() ||
       booking?.name ||
       "N/A";
-    const serviceDate = toDate(booking.pickUpTime || booking.arrivalDate);
+    const serviceDate = toDate(
+      booking.arrivalDate || booking.pickUpTime || booking.travelDate
+    );
+    const departureDateObj = toDate(booking.departureDate || booking.endDate);
+    const adults = Number(booking?.adults ?? 0);
+    const children = Number(booking?.children ?? 0);
+    const passengerCount =
+      booking?.noOfPassengers ||
+      (adults || children ? adults + children : null);
 
     return {
       ...booking,
@@ -293,18 +305,40 @@ const TravelBookings = () => {
         "N/A",
       packageTitle: booking?.title || booking?.packageName || "Unknown Package",
       tourDate: serviceDate ? getDate(serviceDate) : "N/A",
-      amount: booking?.price || booking?.totalAmount || 0,
+      arrivalDateDisplay: serviceDate ? getDate(serviceDate) : "N/A",
+      departureDateDisplay: departureDateObj ? getDate(departureDateObj) : "N/A",
+      amount:
+        booking?.totalAmount ??
+        booking?.amount ??
+        booking?.price ??
+        0,
+      currency: booking?.currency || "THB",
       orderedAt: backfillCreatedAt(booking),
       statusLabel: getSightseeingStatusLabel(booking),
       bookingId: booking.id || booking.orderId,
       packageId: booking.dataid || booking.packageId,
       paymentMethod: getSightseeingPaymentMethod(booking) || "ONSITE",
-      passengers:
-        booking?.noOfPassengers ||
-        (booking?.adults || 0) + (booking?.children || 0) ||
-        "N/A",
+      paymentMethodLabel: formatSightseeingPaymentMethodLabel(booking),
+      modeOfPayment: booking?.modeOfPayment || "",
+      adults,
+      children,
+      passengers: passengerCount != null ? passengerCount : "N/A",
+      passengersLabel:
+        passengerCount != null
+          ? `${adults} adult${adults === 1 ? "" : "s"}, ${children} child${children === 1 ? "" : "ren"}`
+          : "N/A",
       specialNotes: getBookingSpecialNotes(booking),
       pickupRequest: getBookingPickupRequest(booking),
+      paymentVerificationStatus:
+        booking?.paymentVerificationStatus || "—",
+      paymentVerificationNote: booking?.paymentVerificationNote || "",
+      customerQrPaymentConfirmed: booking?.customerQrPaymentConfirmed === true,
+      bookingStatus:
+        booking?.bookingStatus || booking?.status || "—",
+      source: booking?.source || "—",
+      autoAccepted: booking?.autoAccepted === true,
+      isBookingConfirmed: booking?.isBookingConfirmed === true,
+      isPaymentDone: booking?.isPaymentDone === true,
       rawData: booking,
     };
   }
@@ -334,12 +368,21 @@ const TravelBookings = () => {
             ""
         ).toLowerCase();
         const bookingId = String(booking?.id || booking?.orderId || "").toLowerCase();
+        const email = String(
+          booking?.guestEmail || booking?.email || booking?.guestDetails?.email || ""
+        ).toLowerCase();
+        const paymentMethod = String(
+          booking?.paymentMethod || ""
+        ).toLowerCase();
 
         return (
           guestName.includes(search) ||
           packageTitle.includes(search) ||
           phone.includes(search) ||
-          bookingId.includes(search)
+          bookingId.includes(search) ||
+          email.includes(search) ||
+          paymentMethod.includes(search) ||
+          String(booking?.packageId || "").toLowerCase().includes(search)
         );
       })
       ?.map((booking) => createData(booking));
@@ -357,6 +400,12 @@ const TravelBookings = () => {
       ).length,
       paidAccepted: visibleBookings.filter((row) =>
         isSightseeingRevenueEligible(row.rawData)
+      ).length,
+      declined: visibleBookings.filter((row) =>
+        isSightseeingCanceled(row.rawData)
+      ).length,
+      next7: visibleBookings.filter((row) =>
+        isNext7DaysBooking(row.rawData)
       ).length,
     };
   }, [sourceBookings, searchQuery]);
@@ -646,9 +695,15 @@ const TravelBookings = () => {
       const existingConfirmation = bookingData.paymentConfirmation;
       const updateData = {
         paymentVerificationStatus: "VERIFIED",
-        paymentVerificationNote: "Verified by admin",
+        paymentVerificationNote: isThaiQrSightseeingPayment(bookingData)
+          ? "Thai QR transfer verified by admin"
+          : "Verified by admin",
         isPaymentDone: true,
         paymentVerifiedAt: new Date(),
+        // Clear payment-pending lifecycle once admin verifies
+        bookingStatus: "CONFIRMED",
+        isBookingConfirmed: true,
+        updatedAt: new Date(),
       };
 
       if (existingConfirmation && typeof existingConfirmation === "object") {
@@ -664,8 +719,12 @@ const TravelBookings = () => {
       setBookingDetails((prev) => ({
         ...prev,
         paymentVerificationStatus: "VERIFIED",
+        paymentVerificationNote: updateData.paymentVerificationNote,
         isPaymentDone: true,
+        bookingStatus: "CONFIRMED",
+        isBookingConfirmed: true,
         earningsRecorded: true,
+        statusLabel: "Paid & Accepted",
       }));
 
       successNotification("Payment verified successfully!");
@@ -936,9 +995,12 @@ const TravelBookings = () => {
         icon="🎫"
       />
 
-      {/* Statistics Cards */}
+      {/* Statistics Cards — click jumps to the matching tab */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
+        <div
+          onClick={() => setTabValue(0)}
+          className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-primary-100 text-sm font-medium mb-1">
@@ -953,7 +1015,7 @@ const TravelBookings = () => {
         </div>
 
         <div
-          onClick={() => setTabValue(0)}
+          onClick={() => setTabValue(1)}
           className="bg-gradient-to-br from-warning-500 to-warning-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
         >
           <div className="flex items-center justify-between">
@@ -968,12 +1030,14 @@ const TravelBookings = () => {
         </div>
 
         <div
-          onClick={() => setTabValue(1)}
+          onClick={() => setTabValue(2)}
           className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm font-medium mb-1">Onsite</p>
+              <p className="text-orange-100 text-sm font-medium mb-1">
+                Thai QR / Onsite
+              </p>
               <p className="text-3xl font-bold">{bookingStats.onsite}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
@@ -983,7 +1047,7 @@ const TravelBookings = () => {
         </div>
 
         <div
-          onClick={() => setTabValue(2)}
+          onClick={() => setTabValue(3)}
           className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
         >
           <div className="flex items-center justify-between">
@@ -999,6 +1063,32 @@ const TravelBookings = () => {
           </div>
         </div>
       </div>
+
+      {!isRealTime && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Date filter is active (not live). Click <strong>Show Realtime</strong> to
+          see all package bookings as they arrive.
+        </div>
+      )}
+      {isRealTime &&
+        bookingStats.total > 0 &&
+        bookingStats.pending === 0 &&
+        bookingStats.onsite > 0 &&
+        tabValue === 1 && (
+          <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
+            No manual-review items.{" "}
+            <strong>{bookingStats.onsite}</strong> Thai QR / onsite booking
+            {bookingStats.onsite === 1 ? "" : "s"} waiting for payment verify — open
+            the <strong>Thai QR / Onsite</strong> tab
+            <button
+              type="button"
+              className="ml-2 underline font-semibold"
+              onClick={() => setTabValue(2)}
+            >
+              Go there
+            </button>
+          </div>
+        )}
 
       {/* View Toggle & Search */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
@@ -1280,12 +1370,19 @@ const TravelBookings = () => {
       </Dialog>
 
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="booking status tabs">
-          <Tab label="Pending" />
-          <Tab label="Onsite" />
-          <Tab label="Paid & Accepted" />
-          <Tab label="Declined" />
-          <Tab label="Next 7 Days" />
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          aria-label="booking status tabs"
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab label={`All (${bookingStats.total})`} />
+          <Tab label={`Pending (${bookingStats.pending})`} />
+          <Tab label={`Thai QR / Onsite (${bookingStats.onsite})`} />
+          <Tab label={`Paid & Accepted (${bookingStats.paidAccepted})`} />
+          <Tab label={`Declined (${bookingStats.declined})`} />
+          <Tab label={`Next 7 Days (${bookingStats.next7})`} />
         </Tabs>
       </Box>
 
@@ -1301,7 +1398,7 @@ const TravelBookings = () => {
                 </span>
               </div>
               <div className="flex gap-2 pr-4">
-                {(tabValue === 0 || tabValue === 1) && (
+                {(tabValue === 0 || tabValue === 1 || tabValue === 2) && (
                   <button
                     onClick={handleBulkApprove}
                     className="bg-success-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-success-700 transition-colors shadow-sm"
@@ -1309,12 +1406,15 @@ const TravelBookings = () => {
                     Approve Selected
                   </button>
                 )}
-                {(tabValue === 0 || tabValue === 1 || tabValue === 2) && (
+                {(tabValue === 0 ||
+                  tabValue === 1 ||
+                  tabValue === 2 ||
+                  tabValue === 3) && (
                   <button
                     onClick={handleBulkDecline}
                     className="bg-danger-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-danger-700 transition-colors shadow-sm"
                   >
-                    {tabValue === 0 ? "Decline Selected" : "Cancel Selected"}
+                    {tabValue === 1 ? "Decline Selected" : "Cancel Selected"}
                   </button>
                 )}
               </div>
@@ -1329,7 +1429,7 @@ const TravelBookings = () => {
                 <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
                   <tr>
                     <th className="px-4 py-4 w-[50px]">
-                      {tabValue !== 3 && (
+                      {tabValue !== 4 && (
                         <input
                           type="checkbox"
                           className="rounded border-white/30 text-primary-600 focus:ring-white/50 w-4 h-4 cursor-pointer"
@@ -1379,7 +1479,7 @@ const TravelBookings = () => {
                           }`}
                         >
                           <td className="px-4 py-4 text-center">
-                            {tabValue !== 3 && (
+                            {tabValue !== 4 && (
                               <input
                                 type="checkbox"
                                 checked={isSelected}
@@ -1414,11 +1514,49 @@ const TravelBookings = () => {
                                     {dateDisplay}
                                   </span>
                                 ) : column.property === "paymentStatus" ? (
-                                  <PaymentStatusBadge
-                                    statusInfo={getSightseeingPaymentStatusInfo(
-                                      row.rawData
+                                  <div className="flex flex-col items-center gap-1">
+                                    <PaymentStatusBadge
+                                      statusInfo={getSightseeingPaymentStatusInfo(
+                                        row.rawData
+                                      )}
+                                    />
+                                    {isThaiQrSightseeingPayment(row.rawData) &&
+                                      needsSightseeingPaymentVerification(
+                                        row.rawData
+                                      ) && (
+                                        <span className="text-[9px] font-semibold text-amber-600 uppercase tracking-wide">
+                                          Awaiting verify
+                                        </span>
+                                      )}
+                                  </div>
+                                ) : column.property === "guestName" ||
+                                  column.property === "guest" ? (
+                                  <div className="text-sm text-left">
+                                    <p className="font-semibold text-neutral-800">
+                                      {row.guestName}
+                                    </p>
+                                    {row.statusLabel && (
+                                      <span
+                                        className={`inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                          needsSightseeingPaymentVerification(
+                                            row.rawData
+                                          )
+                                            ? "bg-amber-50 text-amber-700"
+                                            : isSightseeingRevenueEligible(
+                                                  row.rawData
+                                                )
+                                              ? "bg-emerald-50 text-emerald-700"
+                                              : isSightseeingCanceled(
+                                                    row.rawData
+                                                  )
+                                                ? "bg-rose-50 text-rose-700"
+                                                : "bg-slate-100 text-slate-600"
+                                        }`}
+                                      >
+                                        {row.statusLabel}
+                                      </span>
                                     )}
-                                  />
+                                  </div>
                                 ) : column.property === "action" ? (
                                   <div className="flex gap-2 justify-center items-center">
                                     <button
@@ -1499,6 +1637,17 @@ const TravelBookings = () => {
                                           loading={
                                             verifyingPaymentId === row.bookingId
                                           }
+                                          title={
+                                            isThaiQrSightseeingPayment(
+                                              row.rawData
+                                            )
+                                              ? "Verify Thai QR Payment"
+                                              : isOnsiteSightseeingPayment(
+                                                    row.rawData
+                                                  )
+                                                ? "Verify Onsite Payment"
+                                                : "Verify Payment"
+                                          }
                                         />
                                       )}
                                   </div>
@@ -1511,11 +1660,18 @@ const TravelBookings = () => {
                                     <p className="font-semibold text-neutral-800">
                                       {value}
                                     </p>
-                                    {row.autoAccepted && (
-                                      <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-bold">
-                                        Auto
-                                      </span>
-                                    )}
+                                    <div className="flex flex-wrap gap-1 justify-center mt-0.5">
+                                      {row.autoAccepted && (
+                                        <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded font-bold">
+                                          Auto
+                                        </span>
+                                      )}
+                                      {isThaiQrSightseeingPayment(row.rawData) && (
+                                        <span className="text-[10px] text-orange-700 bg-orange-50 px-1.5 py-0.5 rounded font-bold">
+                                          Thai QR
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                 ) : (
                                   <span className="text-sm text-neutral-700">
@@ -1538,9 +1694,31 @@ const TravelBookings = () => {
                           <p className="text-lg font-medium text-neutral-500">
                             No Sightseeing Bookings Found
                           </p>
-                          <p className="text-sm text-neutral-400 mt-2">
-                            There are no bookings for the selected filter.
+                          <p className="text-sm text-neutral-400 mt-2 text-center max-w-md">
+                            {tabValue === 1 && bookingStats.onsite > 0
+                              ? "Pending is for Stripe/manual review only. Thai QR package bookings appear under Thai QR / Onsite."
+                              : !isRealTime
+                                ? "Try widening the date range or click Show Realtime."
+                                : "There are no bookings for the selected filter."}
                           </p>
+                          {tabValue === 1 && bookingStats.onsite > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setTabValue(2)}
+                              className="mt-4 px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-semibold hover:bg-orange-600"
+                            >
+                              Open Thai QR / Onsite ({bookingStats.onsite})
+                            </button>
+                          )}
+                          {tabValue !== 0 && bookingStats.total > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setTabValue(0)}
+                              className="mt-2 px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 text-sm font-semibold hover:bg-neutral-50"
+                            >
+                              View All ({bookingStats.total})
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1656,11 +1834,69 @@ const TravelBookings = () => {
         </IconButton>
 
         <DialogContent sx={{ p: 3, bgcolor: "#f8fafc" }}>
+          {(() => {
+            const b = bookingDetails.rawData || bookingDetails;
+            const formatTs = (value) => {
+              const d = toDate(value);
+              return d ? getDateAndTime(d) : "—";
+            };
+            const formatDateOnly = (value) => {
+              const d = toDate(value);
+              return d ? getDate(d) : "—";
+            };
+            const pickUpRaw = b?.pickUpTime || bookingDetails?.pickUpTime;
+            const pickUpDate = toDate(pickUpRaw);
+            // Only show a clock time when the source has a real time component
+            const pickUpTimeLabel = (() => {
+              if (!pickUpRaw || !pickUpDate) return "—";
+              if (typeof pickUpRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(pickUpRaw.trim())) {
+                return formatDateOnly(pickUpRaw); // date-only string
+              }
+              return pickUpDate.toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+            })();
+            const amountValue =
+              bookingDetails?.amount ??
+              b?.totalAmount ??
+              b?.amount ??
+              b?.price ??
+              0;
+            const currency = bookingDetails?.currency || b?.currency || "THB";
+            const needsPayVerify = needsSightseeingPaymentVerification(b);
+            const isThaiQr = isThaiQrSightseeingPayment(b);
+
+            return (
+              <>
           <div className="mb-6 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
             <h4 className="font-bold text-slate-700 mb-2 text-sm uppercase tracking-wider">
               Booking Status
             </h4>
             <BookingTimeline booking={bookingDetails} />
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
+                Status: {b?.status || bookingDetails?.status || "—"}
+              </span>
+              <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
+                Booking: {b?.bookingStatus || bookingDetails?.bookingStatus || "—"}
+              </span>
+              {(b?.autoAccepted || bookingDetails?.autoAccepted) && (
+                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">
+                  Auto-Accepted
+                </span>
+              )}
+              {(b?.isBookingConfirmed || bookingDetails?.isBookingConfirmed) && (
+                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
+                  Confirmed
+                </span>
+              )}
+              {needsPayVerify && isThaiQr && (
+                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-orange-50 text-orange-700 ring-1 ring-orange-200">
+                  Thai QR · Payment Pending Verification
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1677,39 +1913,43 @@ const TravelBookings = () => {
                   bookingDetails?.packageTitle ||
                     bookingDetails?.title ||
                     bookingDetails?.packageName ||
+                    b?.packageName ||
                     "N/A",
                   <TourIcon fontSize="small" />,
-                  false,
+                  true,
                   "text-blue-600 bg-blue-50"
                 )}
                 {renderDetailItem(
-                  "Tour Date",
-                  bookingDetails?.tourDate || "N/A",
+                  "Arrival / Tour Date",
+                  bookingDetails?.arrivalDateDisplay ||
+                    bookingDetails?.tourDate ||
+                    formatDateOnly(b?.arrivalDate) ||
+                    "N/A",
                   <CalendarMonthIcon fontSize="small" />,
                   false,
                   "text-blue-600 bg-blue-50"
                 )}
                 {renderDetailItem(
-                  "Pick Up Time",
-                  (() => {
-                    const pickUp = toDate(bookingDetails?.pickUpTime);
-                    return pickUp
-                      ? pickUp.toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "N/A";
-                  })(),
+                  "Departure Date",
+                  bookingDetails?.departureDateDisplay ||
+                    formatDateOnly(b?.departureDate) ||
+                    "N/A",
                   <CalendarMonthIcon fontSize="small" />,
                   false,
                   "text-blue-600 bg-blue-50"
                 )}
                 {renderDetailItem(
-                  "Pickup Request",
+                  "Pick Up",
+                  pickUpTimeLabel,
+                  <CalendarMonthIcon fontSize="small" />,
+                  false,
+                  "text-blue-600 bg-blue-50"
+                )}
+                {renderDetailItem(
+                  "Pickup Location",
                   bookingDetails?.pickupRequest ||
-                    getBookingPickupRequest(
-                      bookingDetails.rawData || bookingDetails
-                    ) ||
+                    getBookingPickupRequest(b) ||
+                    b?.pickUpLocation ||
                     "N/A",
                   <LocationOnIcon fontSize="small" />,
                   true,
@@ -1717,7 +1957,15 @@ const TravelBookings = () => {
                 )}
                 {renderDetailItem(
                   "Passengers",
-                  bookingDetails?.passengers || "N/A",
+                  bookingDetails?.passengersLabel ||
+                    `${b?.adults ?? 0} adults, ${b?.children ?? 0} children`,
+                  <PersonIcon fontSize="small" />,
+                  false,
+                  "text-blue-600 bg-blue-50"
+                )}
+                {renderDetailItem(
+                  "Adults / Children",
+                  `${b?.adults ?? bookingDetails?.adults ?? 0} / ${b?.children ?? bookingDetails?.children ?? 0}`,
                   <PersonIcon fontSize="small" />,
                   false,
                   "text-blue-600 bg-blue-50"
@@ -1735,29 +1983,45 @@ const TravelBookings = () => {
               <Grid container spacing={1}>
                 {renderDetailItem(
                   "Guest Name",
-                  bookingDetails?.guestName || bookingDetails?.name || "N/A",
+                  bookingDetails?.guestName ||
+                    bookingDetails?.fullName ||
+                    b?.fullName ||
+                    b?.guestDetails?.name ||
+                    "N/A",
                   <PersonIcon fontSize="small" />,
                   false,
                   "text-purple-600 bg-purple-50"
                 )}
                 {renderDetailItem(
                   "Phone",
-                  bookingDetails?.phone || "N/A",
+                  bookingDetails?.phone ||
+                    b?.guestPhone ||
+                    b?.phone ||
+                    b?.guestDetails?.phoneNumber ||
+                    "N/A",
                   <PhoneIcon fontSize="small" />,
                   false,
                   "text-purple-600 bg-purple-50"
                 )}
                 {renderDetailItem(
                   "Email",
-                  bookingDetails?.email || "N/A",
+                  bookingDetails?.email ||
+                    b?.guestEmail ||
+                    b?.email ||
+                    b?.guestDetails?.email ||
+                    "N/A",
                   <EmailIcon fontSize="small" />,
-                  false,
+                  true,
                   "text-purple-600 bg-purple-50"
                 )}
-                {bookingDetails?.specialNotes &&
+                {(bookingDetails?.specialNotes ||
+                  getBookingSpecialNotes(b) ||
+                  b?.specialRequests) &&
                   renderDetailItem(
-                    "Special Notes",
-                    bookingDetails.specialNotes,
+                    "Special Requests",
+                    bookingDetails?.specialNotes ||
+                      getBookingSpecialNotes(b) ||
+                      b?.specialRequests,
                     <MdInfo fontSize="small" />,
                     true,
                     "text-purple-600 bg-purple-50"
@@ -1772,18 +2036,46 @@ const TravelBookings = () => {
                 </div>
                 <h3 className="font-bold text-base text-slate-800">Payment Details</h3>
               </div>
+              {needsPayVerify && isThaiQr && (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                    Thai QR payment awaiting verification
+                  </p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    {b?.paymentVerificationNote ||
+                      bookingDetails?.paymentVerificationNote ||
+                      "Customer declared Thai QR transfer. Confirm the bank transfer, then click Verify Payment."}
+                  </p>
+                  {(b?.customerQrPaymentConfirmed ||
+                    bookingDetails?.customerQrPaymentConfirmed) && (
+                    <p className="text-[11px] font-semibold text-amber-800 mt-1">
+                      Customer confirmed QR transfer: Yes
+                    </p>
+                  )}
+                </div>
+              )}
               <Grid container spacing={1}>
                 {renderDetailItem(
-                  "Amount (THB)",
-                  `฿${Number(bookingDetails?.amount || 0).toLocaleString()}`,
+                  `Amount (${currency})`,
+                  `฿${Number(amountValue || 0).toLocaleString()}`,
                   <AttachMoneyIcon fontSize="small" />,
                   false,
                   "text-emerald-600 bg-emerald-50"
                 )}
                 {renderDetailItem(
                   "Payment Method",
-                  bookingDetails?.paymentMethod || "ONSITE",
+                  bookingDetails?.paymentMethodLabel ||
+                    formatSightseeingPaymentMethodLabel(b) ||
+                    bookingDetails?.paymentMethod ||
+                    "—",
                   <CreditCardIcon fontSize="small" />,
+                  false,
+                  "text-emerald-600 bg-emerald-50"
+                )}
+                {renderDetailItem(
+                  "Mode of Payment",
+                  b?.modeOfPayment || bookingDetails?.modeOfPayment || "—",
+                  <PaymentsIcon fontSize="small" />,
                   false,
                   "text-emerald-600 bg-emerald-50"
                 )}
@@ -1797,14 +2089,51 @@ const TravelBookings = () => {
                         Payment Status
                       </p>
                       <PaymentStatusBadge
-                        statusInfo={getSightseeingPaymentStatusInfo(
-                          bookingDetails.rawData || bookingDetails
-                        )}
+                        statusInfo={getSightseeingPaymentStatusInfo(b)}
                         className="mt-0.5"
                       />
                     </div>
                   </div>
                 </Grid>
+                {renderDetailItem(
+                  "Verification Status",
+                  b?.paymentVerificationStatus ||
+                    bookingDetails?.paymentVerificationStatus ||
+                    "—",
+                  <VerifiedUserIcon fontSize="small" />,
+                  false,
+                  "text-emerald-600 bg-emerald-50"
+                )}
+                {renderDetailItem(
+                  "Payment Done",
+                  (b?.isPaymentDone ?? bookingDetails?.isPaymentDone)
+                    ? "Yes"
+                    : "No",
+                  <PaymentsIcon fontSize="small" />,
+                  false,
+                  "text-emerald-600 bg-emerald-50"
+                )}
+                {isThaiQr &&
+                  renderDetailItem(
+                    "Customer QR Confirmed",
+                    (b?.customerQrPaymentConfirmed ??
+                      bookingDetails?.customerQrPaymentConfirmed)
+                      ? "Yes"
+                      : "No",
+                    <CreditCardIcon fontSize="small" />,
+                    false,
+                    "text-emerald-600 bg-emerald-50"
+                  )}
+                {(b?.paymentVerificationNote ||
+                  bookingDetails?.paymentVerificationNote) &&
+                  renderDetailItem(
+                    "Verification Note",
+                    b?.paymentVerificationNote ||
+                      bookingDetails?.paymentVerificationNote,
+                    <MdInfo fontSize="small" />,
+                    true,
+                    "text-emerald-600 bg-emerald-50"
+                  )}
               </Grid>
             </div>
 
@@ -1813,9 +2142,47 @@ const TravelBookings = () => {
                 <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
                   <DirectionsBusIcon fontSize="small" />
                 </div>
-                <h3 className="font-bold text-base text-slate-800">Provider Assignment</h3>
+                <h3 className="font-bold text-base text-slate-800">Provider & Meta</h3>
               </div>
-              <Grid container spacing={2}>
+              <Grid container spacing={1}>
+                {renderDetailItem(
+                  "Source",
+                  b?.source || bookingDetails?.source || "—",
+                  <MdInfo fontSize="small" />,
+                  false,
+                  "text-orange-600 bg-orange-50"
+                )}
+                {renderDetailItem(
+                  "Booked On",
+                  formatTs(bookingDetails?.orderedAt || b?.orderedAt || b?.createdAt),
+                  <CalendarMonthIcon fontSize="small" />,
+                  false,
+                  "text-orange-600 bg-orange-50"
+                )}
+                {(b?.acceptedAt || bookingDetails?.acceptedAt) &&
+                  renderDetailItem(
+                    "Accepted At",
+                    formatTs(b?.acceptedAt || bookingDetails?.acceptedAt),
+                    <CalendarMonthIcon fontSize="small" />,
+                    false,
+                    "text-orange-600 bg-orange-50"
+                  )}
+                {renderDetailItem(
+                  "User ID",
+                  b?.userId || b?.uId || b?.authUid || "—",
+                  <PersonIcon fontSize="small" />,
+                  true,
+                  "text-orange-600 bg-orange-50"
+                )}
+                {renderDetailItem(
+                  "Package ID",
+                  b?.packageId || bookingDetails?.packageId || "—",
+                  <TourIcon fontSize="small" />,
+                  true,
+                  "text-orange-600 bg-orange-50"
+                )}
+              </Grid>
+              <Grid container spacing={2} className="mt-2">
                 <Grid item xs={12}>
                   <TextField
                     label="Provider Name"
@@ -1847,14 +2214,10 @@ const TravelBookings = () => {
                     fullWidth
                   />
                 </Grid>
-                {(isSightseeingPendingReview(bookingDetails.rawData || bookingDetails) ||
-                  (isSightseeingPending(bookingDetails.rawData || bookingDetails) &&
-                    (isOnsiteSightseeingPayment(
-                      bookingDetails.rawData || bookingDetails
-                    ) ||
-                      isThaiQrSightseeingPayment(
-                        bookingDetails.rawData || bookingDetails
-                      )))) && (
+                {(isSightseeingPendingReview(b) ||
+                  (isSightseeingPending(b) &&
+                    (isOnsiteSightseeingPayment(b) ||
+                      isThaiQrSightseeingPayment(b)))) && (
                   <Grid item xs={12}>
                     <TextField
                       label="Admin Review Note"
@@ -1875,6 +2238,9 @@ const TravelBookings = () => {
               </Grid>
             </div>
           </div>
+              </>
+            );
+          })()}
         </DialogContent>
 
         <DialogActions sx={{ p: 3, borderTop: "1px solid #e5e5e5", bgcolor: "white", gap: 1, flexWrap: "wrap" }}>
@@ -1949,6 +2315,17 @@ const TravelBookings = () => {
                 loading={
                   verifyingPaymentId ===
                   (bookingDetails.bookingId || bookingDetails.id)
+                }
+                label={
+                  isThaiQrSightseeingPayment(
+                    bookingDetails.rawData || bookingDetails
+                  )
+                    ? "Verify Thai QR Payment"
+                    : isOnsiteSightseeingPayment(
+                          bookingDetails.rawData || bookingDetails
+                        )
+                      ? "Verify Onsite Payment"
+                      : "Verify Payment"
                 }
               />
             )}

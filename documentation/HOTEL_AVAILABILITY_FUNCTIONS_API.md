@@ -1,6 +1,6 @@
 # Hotel Availability — Cloud Functions API
 
-**Last updated:** 2026-08-02  
+**Last updated:** 2026-08-05  
 **Project:** `gothai-ffea1`  
 **Region:** `asia-east2`  
 **Runtime:** Node.js 20 (2nd gen)
@@ -8,8 +8,10 @@
 | Protocol | Functions |
 |----------|-----------|
 | **HTTPS `onRequest` + CORS** (`fetch` POST/GET) | `checkHotelAvailability` only |
-| **Callable** (`httpsCallable`) | Hold, create, accept, admin ops |
+| **Callable** (`httpsCallable`) | Hold, create, accept, admin ops, unlock |
 | **Scheduler** | `expireHotelBookingHolds` |
+
+Callables use Gen2 **`cors: true`** + **`invoker: "public"`** so browser OPTIONS preflight succeeds. **Firebase Auth and role checks still run inside** (`request.auth`, admin / owner).
 
 Related portal doc (UI + Firestore data model):  
 [`HOTEL_AVAILABILITY_API.md`](./HOTEL_AVAILABILITY_API.md)
@@ -20,7 +22,7 @@ Related portal doc (UI + Firestore data model):
 
 | Audience | How they use availability |
 |----------|---------------------------|
-| **Admin portal** | Prefer **Firestore client** (`src/services/HotelAvailability.js`) under `HotelDB/{hotelId}/availability/...`. Admin callables are optional / ops. |
+| **Admin portal** | **Reads:** Firestore (`HotelDB/.../availability`, night ledger). **Writes:** callables via `src/services/HotelAvailability.js` (`manageHotelAvailability`, `releaseHotelInventory`, `unlockHotelRoomLock`) so ledger stays in sync. |
 | **Website / app** | **`fetch`** for **check**; **`httpsCallable`** for hold / complete / release / create. Never write inventory from the client. |
 | **Scheduler** | `expireHotelBookingHolds` auto-unlocks expired soft holds. |
 
@@ -94,9 +96,9 @@ Helpers in this repo:
 
 | File | Role |
 |------|------|
-| `src/services/HotelAvailability.js` | Admin UI — **Firestore only** |
+| `src/services/HotelAvailability.js` | Admin UI — Firestore reads + write callables |
 | `src/services/HotelBookingHold.js` | Callable hold start / complete / release |
-| `src/services/HotelBookingAccept.js` | Callable admin accept |
+| `src/services/HotelBookingAccept.js` | Callable accept (admin or hotel owner) |
 
 ---
 
@@ -120,7 +122,8 @@ Helpers in this repo:
 | [`getHotelAvailabilityCalendar`](#7-gethotelavailabilitycalendar) | Admin | Calendar range |
 | [`manageHotelAvailability`](#8-managehotelavailability) | Admin | Config, qty, extra, block |
 | [`releaseHotelInventory`](#9-releasehotelinventory) | Admin | Force-release booking inventory |
-| [`acceptHotelBookingWithAvailability`](#10-accepthotelbookingwithavailability) | Admin | Accept pending + reserve |
+| [`acceptHotelBookingWithAvailability`](#10-accepthotelbookingwithavailability) | Admin or hotel owner | Accept pending + reserve (partial → `amountDue`) |
+| [`unlockHotelRoomLock`](#12-unlockhotelroomlock) | Admin | Force free nights + delete hold docs |
 
 ### C. Background
 
@@ -376,11 +379,13 @@ Call on **page leave / unmount / cancel**. Scheduler is only a safety net.
 
 Same guest fields as complete-hold. Use when you skip soft-hold UX.
 
+**Guest capacity:** when the room type has `maxAdults` / `maxChildren` (optional extra-bed caps), over-capacity requests fail with `invalid-argument` and `pendingReasonCode: "GUEST_CAPACITY"`.
+
 ### Response shape
 
-Same family as complete-hold: `bookingId`, `autoBookingId`, `pendingBookingId`, `path`, `payNow`, `messaging`, etc.
+Same family as complete-hold: `bookingId`, `autoBookingId`, `pendingBookingId`, `path` (`auto` | `pending` | `partial`), `payNow`, `messaging`, etc.
 
-Idempotent for same user + hotel + checkIn + package (returns existing docs with `duplicate: true`).
+**Idempotent** for the same user + hotel + **checkIn + checkOut** + package (doc id includes check-out). Legacy ids (no check-out) are still matched when the stored stay length is the same (`duplicate: true`).
 
 ---
 
@@ -491,19 +496,20 @@ Releases night-ledger reservation if `inventoryReserved` on the booking. Cancel 
 
 ## 10. `acceptHotelBookingWithAvailability`
 
-**Audience:** Admin portal  
-**Auth:** Admin  
+**Audience:** Admin portal or **hotel partner** (owner uid = `hotelUid`)  
+**Auth:** Admin / Sub Admin, or authenticated hotel owner  
 **Client:** `src/services/HotelBookingAccept.js`
 
 ```json
 { "bookingId": "hotel_..." }
 ```
 
-- Re-checks full-stay capacity  
+- Re-checks capacity for rooms being accepted  
 - Reserves inventory if not already reserved  
-- Sets booking Accepted / confirmed  
+- Full pending → Accepted / confirmed  
+- **Partial** (instant already held + remaining pending): accepts remaining rooms, updates `roomsInstant` / `roomsPending`, sets **`amountDue`** + **`payNow`** when guest still owes for newly accepted rooms  
 
-Fails if not enough rooms for the whole stay.
+Fails if not enough rooms for the accept slice.
 
 ---
 
@@ -520,6 +526,62 @@ Requires composite index (deployed via `firestore.indexes.json`):
 
 - Collection: `hotelBookingHolds`  
 - Fields: `status` ASC, `holdUntil` ASC  
+
+Also: `status` ASC + `inventoryReserved` ASC (ops / repair queries).
+
+---
+
+## 12. `unlockHotelRoomLock`
+
+**Audience:** Admin ops (stuck holds / ledger repair)  
+**Auth:** Admin  
+**Client:** `src/services/HotelAvailability.js` → `unlockHotelRoomLock`
+
+Full unlock of locked rooms for a stay (`[checkIn, checkOut)` nights). Use when cancel/hold left nights reserved.
+
+### Input (one of)
+
+| Mode | Fields |
+|------|--------|
+| Hold | `holdId` — free nights + **delete entire hold lock doc** |
+| Booking | `bookingId` — free stay nights; optionally delete related holds |
+| Manual stay | `hotelUid` + `packageId` + `checkIn` + `checkOut` + optional `rooms` |
+
+### Options
+
+| Field | Default | Notes |
+|-------|---------|-------|
+| `force` | `false` | Re-decrement ledger even if flags say already released |
+| `deleteRelatedHolds` | `true` for booking mode | Remove related `hotelBookingHolds` docs |
+
+### Example responses
+
+```json
+{
+  "ok": true,
+  "audience": "admin",
+  "kind": "hold",
+  "holdId": "hold_...",
+  "deleted": true,
+  "freedNights": ["2026-08-10", "2026-08-11"],
+  "force": false
+}
+```
+
+```json
+{
+  "ok": true,
+  "kind": "booking",
+  "bookingId": "hotel_...",
+  "alreadyReleased": false,
+  "freedNights": ["2026-08-10"],
+  "holdsDeleted": ["hold_..."]
+}
+```
+
+Related ledger helpers (server only): `unlockAndDeleteHold`, `unlockBookingStayLock`, `forceUnlockStayNights` in `functions/src/utils/hotelInventoryTx.ts`.
+
+Ops CLI (not deployed functions): `functions/scripts/clearAllHotelHolds.js`, `repairNightReserved.js`, `clearAllHotelBookings.js`.
 
 ---
 
@@ -578,14 +640,14 @@ cd ..
 # Website booking + soft hold
 firebase deploy --only "functions:checkHotelAvailability,functions:createHotelBookingWithAvailability,functions:startHotelBookingHold,functions:completeHotelBookingHold,functions:releaseHotelBookingHold,functions:expireHotelBookingHolds,functions:acceptHotelBookingWithAvailability"
 
-# Admin callables (optional if portal uses Firestore client only)
-firebase deploy --only "functions:getHotelAvailability,functions:getHotelAvailabilityCalendar,functions:manageHotelAvailability,functions:releaseHotelInventory"
+# Admin callables (portal writes + unlock)
+firebase deploy --only "functions:getHotelAvailability,functions:getHotelAvailabilityCalendar,functions:manageHotelAvailability,functions:releaseHotelInventory,functions:unlockHotelRoomLock"
 
-# Rules + hold expiry index
+# Rules + hold indexes
 firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-**IAM:** Deployer needs Cloud Functions Admin + Cloud Run Admin (invoker policy) for **new** Gen2 functions.
+**IAM:** Deployer needs Cloud Functions Admin + Cloud Run Admin (invoker policy) for **new** Gen2 functions. After deploy, ensure callables allow unauthenticated **invoker** (public) so browser preflight works; Auth remains enforced in code.
 
 ---
 
@@ -597,9 +659,10 @@ firebase deploy --only firestore:rules,firestore:indexes
 | Website + hold + accept | `functions/src/hotelBookingWithAvailability.ts` |
 | Ledger reserve/release | `functions/src/utils/hotelInventoryTx.ts` |
 | Exports | `functions/src/index.ts` |
-| Admin Firestore service | `src/services/HotelAvailability.js` |
+| Admin service (read + callables) | `src/services/HotelAvailability.js` |
 | Hold client | `src/services/HotelBookingHold.js` |
 | Accept client | `src/services/HotelBookingAccept.js` |
+| Ops scripts | `functions/scripts/` |
 | Rules | `firestore.rules` → `HotelDB/{hotelId}/availability`, `hotelBookingHolds` |
 
 ---
@@ -663,22 +726,28 @@ await acceptHotelBookingWithAvailability(bookingId);
 
 ---
 
-## CORS notes (check only)
+## CORS notes
+
+### Check (`onRequest`)
 
 `checkHotelAvailability` sets `Access-Control-Allow-Origin` for:
 
 - `http://localhost:*` / `http://127.0.0.1:*` (e.g. port 3000, 5173)
-- `https://thaiseva.com`, `https://www.thaiseva.com`
+- `https://thaiseva.com`, `https://www.thaiseva.com`, **`https://admin.thaiseva.com`**
 - `*.web.app`, `*.firebaseapp.com`, `*.vercel.app`
 
 Handles **OPTIONS** preflight. Methods: `GET`, `POST`.
 
-If the browser still reports CORS errors:
+If the browser still reports CORS errors on **check**:
 
 1. Confirm you are **not** using `httpsCallable` for check  
 2. Confirm URL is the **HTTPS** function URL above  
 3. Redeploy after changing CORS:  
    `firebase deploy --only functions:checkHotelAvailability`
+
+### Callables (hold / create / admin)
+
+Use Firebase `httpsCallable` (SDK handles CORS). Functions are deployed with **`invoker: "public"`** so Cloud Run allows OPTIONS; **do not** treat that as open data access — Auth + admin/owner checks still apply.
 
 ---
 
@@ -690,3 +759,4 @@ If the browser still reports CORS errors:
 | 2026-08-02 | Callables: create, accept; soft hold start / complete / release + expire |
 | 2026-08-02 | **`checkHotelAvailability` → public HTTPS + CORS** (website `fetch`; not callable) |
 | 2026-08-02 | This Functions API doc |
+| 2026-08-05 | **`unlockHotelRoomLock`**; guest capacity; checkOut in booking ids; accept by hotel owner; partial `amountDue`; callable public invoker + admin.thaiseva.com CORS |

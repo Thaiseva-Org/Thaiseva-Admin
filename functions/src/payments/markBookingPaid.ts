@@ -115,7 +115,7 @@ export const paidPatch = (info: PaidSessionInfo): Record<string, unknown> => ({
 
 /**
  * Status fields after pay — collection-aware so transport stays Pending for admin
- * accept, hotel keeps Accepted, packages become Confirmed.
+ * accept, hotel keeps Accepted, sightseeing packages auto-accept to Accepted.
  */
 export const statusAfterPaid = (
   collection: string,
@@ -136,7 +136,9 @@ export const statusAfterPaid = (
 
   // Hotel: do not invent acceptance for pending/canceled
   if (col === "hotelBookingData") {
-    const st = String(existing.bookingStatus || existing.status || "").toUpperCase();
+    const st = String(existing.bookingStatus || existing.status || "")
+      .toUpperCase()
+      .replace(/-/g, "_");
     if (
       st === "PENDING" ||
       st === "CANCELED" ||
@@ -146,25 +148,37 @@ export const statusAfterPaid = (
     ) {
       return {};
     }
-    if (st.includes("ACCEPT")) {
+    // After pay: leave accepted (including prior AWAITING_PAYMENT)
+    if (
+      st.includes("ACCEPT") ||
+      st === "AWAITING_PAYMENT" ||
+      st.includes("AWAITING") ||
+      existing.isBookingConfirmed === true
+    ) {
       return {
         isBookingConfirmed: true,
         bookingStatus: "ACCEPTED",
         status: "Accepted",
+        payNow: false,
+        amountDue: 0,
       };
     }
     return {
       isBookingConfirmed: true,
       bookingStatus: "CONFIRMED",
       status: "Confirmed",
+      payNow: false,
+      amountDue: 0,
     };
   }
 
-  // Sightseeing / default: paid → confirmed
+  // Sightseeing: Stripe paid → automatically Accepted (Paid & Accepted in admin)
   return {
     bookingStatus: "CONFIRMED",
-    status: "Confirmed",
+    status: "Accepted",
     isBookingConfirmed: true,
+    autoAccepted: true,
+    acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 };
 
@@ -261,10 +275,27 @@ export const markExistingBookingPaid = async (
     }
   }
 
+  const paidMajor =
+    info.amountTotal != null && Number.isFinite(info.amountTotal) ?
+      info.amountTotal / 100 :
+      null;
+  const prevPaid = Math.max(0, Number(data.amountPaid) || 0);
+  const amountPaid =
+    paidMajor != null ? prevPaid + paidMajor : prevPaid;
+
   await ref.set(
     {
       ...paidPatch(info),
       ...statusAfterPaid(col, data),
+      // Track top-ups after pending-room accept
+      ...(paidMajor != null ?
+        {
+          amountPaid,
+          amountDue: 0,
+        } :
+        {
+          amountDue: 0,
+        }),
     },
     {merge: true},
   );
@@ -337,9 +368,12 @@ export const sightseeingDocFromSession = (
     orderedAt: admin.firestore.FieldValue.serverTimestamp(),
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     ...paidPatch(payInfo),
+    // Stripe paid package → auto Accepted (no admin accept step)
     bookingStatus: "CONFIRMED",
-    status: "Confirmed",
+    status: "Accepted",
     isBookingConfirmed: true,
+    autoAccepted: true,
+    acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
   };
 };
 
@@ -374,19 +408,37 @@ export const upsertSightseeingFromPaidSession = async (
   };
 
   if (existing.exists) {
-    if (existing.data()?.isPaymentDone !== true) {
+    const prev = existing.data() || {};
+    if (prev.isPaymentDone !== true) {
       await ref.set(
         {
           ...paidPatch(payInfo),
-          ...statusAfterPaid("travelBookingDetails", existing.data() || {}),
+          ...statusAfterPaid("travelBookingDetails", prev),
         },
         {merge: true},
       );
+    } else {
+      // Already paid — still ensure status is Accepted (never leave Pending)
+      const st = String(prev.status || "").toUpperCase();
+      if (st !== "ACCEPTED" && st !== "CONFIRMED" && st !== "DONE") {
+        await ref.set(
+          {
+            status: "Accepted",
+            bookingStatus: prev.bookingStatus || "CONFIRMED",
+            isBookingConfirmed: true,
+            autoAccepted: true,
+            acceptedAt:
+              prev.acceptedAt || admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          {merge: true},
+        );
+      }
     }
     return docId;
   }
 
   await ref.set(sightseeingDocFromSession(session, fallbackUserId));
-  logger.info(`[markPaid] created travelBookingDetails/${docId}`);
+  logger.info(`[markPaid] created travelBookingDetails/${docId} (Stripe auto-Accepted)`);
   return docId;
 };

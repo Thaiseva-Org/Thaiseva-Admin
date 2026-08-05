@@ -26,6 +26,11 @@ import {okStripe} from "./response";
 const db = () => admin.firestore();
 
 const amountFromBooking = (data: Record<string, unknown>): number => {
+  // Prefer remaining balance after partial accept / top-up
+  const due = parseNumber(data.amountDue, 0);
+  if (data.isPaymentDone !== true && due > 0) {
+    return Math.max(0, due);
+  }
   const n = parseNumber(
     data.amountTHB ??
       data.totalAmount ??
@@ -37,6 +42,68 @@ const amountFromBooking = (data: Record<string, unknown>): number => {
     0,
   );
   return Math.max(0, n);
+};
+
+/**
+ * Hotel may only be paid when accepted (including partial instant portion).
+ * Does not rely solely on isBookingConfirmed side effects.
+ */
+export const isBookingApprovedForPayment = (
+  data: Record<string, unknown>,
+): boolean => {
+  if (isCanceledBooking(data)) return false;
+
+  const st = stringValue(data.bookingStatus || data.status, 60)
+    .toUpperCase()
+    .replace(/-/g, "_")
+    .replace(/\s+/g, "_");
+
+  const roomsInstant = Math.max(0, parseNumber(data.roomsInstant, 0));
+  const roomsPending = Math.max(0, parseNumber(data.roomsPending, 0));
+  const sourcePath = stringValue(data.sourcePath, 80).toLowerCase();
+
+  const isPartial =
+    st.includes("PARTIAL") ||
+    sourcePath.includes("partial") ||
+    (roomsInstant > 0 && roomsPending > 0);
+
+  // Explicit pure pending — not payable
+  const purePending =
+    st === "PENDING" ||
+    st === "PENDING_REVIEW" ||
+    st === "NOT_REVIEWED";
+
+  if (
+    purePending &&
+    data.isBookingConfirmed !== true &&
+    data.inventoryReserved !== true &&
+    data.autoAccepted !== true &&
+    roomsInstant <= 0
+  ) {
+    return false;
+  }
+
+  // Partially confirmed: pay only for already-accepted / inventory-locked rooms
+  if (isPartial) {
+    return (
+      data.isBookingConfirmed === true ||
+      data.inventoryReserved === true ||
+      data.autoAccepted === true ||
+      roomsInstant > 0 ||
+      st.includes("ACCEPT") ||
+      st === "AWAITING_PAYMENT"
+    );
+  }
+
+  return (
+    data.isBookingConfirmed === true ||
+    st === "ACCEPTED" ||
+    st === "CONFIRMED" ||
+    st === "AWAITING_PAYMENT" ||
+    st.includes("ACCEPT") ||
+    data.autoAccepted === true ||
+    data.inventoryReserved === true
+  );
 };
 
 /**
@@ -164,17 +231,9 @@ export const createCheckoutSession = onRequest(
     }
 
     // Hotel: only accept payment when accepted / awaiting payment
+    // (including partially confirmed instant portion — not pure pending)
     if (collection === "hotelBookingData") {
-      const st = stringValue(data.bookingStatus || data.status, 40).toUpperCase();
-      const ok =
-        data.isBookingConfirmed === true ||
-        st === "ACCEPTED" ||
-        st === "CONFIRMED" ||
-        st === "AWAITING_PAYMENT" ||
-        st.includes("ACCEPT") ||
-        data.autoAccepted === true ||
-        data.inventoryReserved === true;
-      if (!ok) {
+      if (!isBookingApprovedForPayment(data)) {
         throw new HttpError(
           400,
           "This hotel request is still pending. Payment opens after acceptance.",

@@ -428,29 +428,42 @@ const HotelRoomAvailabilityPage = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const [snap, configSnap] = await Promise.all([
-          getDoc(doc(hotelsCollection, hotelId)),
-          getDoc(doc(db, "HotelDB", String(hotelId), "availability", "config")),
-        ]);
-        if (snap.exists()) {
-          const data = { ...snap.data(), uid: snap.id };
-          setHotel(data);
-          const cfg =
-            (configSnap.exists() ? configSnap.data() : null) ||
-            data.availabilityConfig ||
-            data.hotel?.availabilityConfig ||
-            {};
-          setAvailabilityConfig({
-            bookingOpenFrom: cfg.bookingOpenFrom || "",
-            bookingOpenTo: cfg.bookingOpenTo || "",
-            notifyOnFull: cfg.notifyOnFull !== false,
-            notifyOnFreed: cfg.notifyOnFreed !== false,
-            autoBookingEnabled: cfg.autoBookingEnabled !== false,
-            defaultRoomInventory: Number(cfg.defaultRoomInventory) || 5,
-          });
-        } else {
+        // Load hotel first — config must not block hotel resolution (permission
+        // errors on availability/config previously surfaced as "Hotel not found").
+        const snap = await getDoc(doc(hotelsCollection, hotelId));
+        if (!snap.exists()) {
           setHotel(null);
+          return;
         }
+        const data = { ...snap.data(), uid: snap.id };
+        setHotel(data);
+
+        let cfg =
+          data.availabilityConfig || data.hotel?.availabilityConfig || {};
+        try {
+          const configSnap = await getDoc(
+            doc(db, "HotelDB", String(hotelId), "availability", "config")
+          );
+          if (configSnap.exists()) {
+            cfg = configSnap.data() || cfg;
+          }
+        } catch (configErr) {
+          console.warn(
+            "[HotelRoomAvailability] config read failed; using hotel defaults",
+            configErr
+          );
+        }
+        setAvailabilityConfig({
+          bookingOpenFrom: cfg.bookingOpenFrom || "",
+          bookingOpenTo: cfg.bookingOpenTo || "",
+          notifyOnFull: cfg.notifyOnFull !== false,
+          notifyOnFreed: cfg.notifyOnFreed !== false,
+          autoBookingEnabled: cfg.autoBookingEnabled !== false,
+          defaultRoomInventory: Number(cfg.defaultRoomInventory) || 5,
+        });
+      } catch (err) {
+        console.error("[HotelRoomAvailability] hotel load failed", err);
+        setHotel(null);
       } finally {
         setLoading(false);
       }

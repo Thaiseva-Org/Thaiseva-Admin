@@ -35,6 +35,7 @@ import {
   doc,
   getCountFromServer,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   updateDoc,
@@ -109,30 +110,26 @@ const Hotels = () => {
           list = await Promise.all(list.map(async (hotel) => {
             try {
               const roomsRef = collection(db, "HotelDB", hotel.uid, "rooms");
-              const snapshot = await getCountFromServer(roomsRef);
-              // Use the 'totalRooms' from the hotel document if available
-              const totalRooms = Number(
-                hotel.totalRooms ||
-                hotel.hotel?.totalRooms ||
-                hotel.hotelInformation?.totalRooms ||
-                hotel.hotelDetails?.totalRooms ||
-                0
-              );
+              const roomsSnap = await getDocs(roomsRef);
+              // Capacity = sum of each room type inventory (no separate hotel total)
+              let capacityFromTypes = 0;
+              roomsSnap.forEach((roomDoc) => {
+                const r = roomDoc.data() || {};
+                const n = Number(r.totalRooms ?? r.quantity ?? r.numberOfRooms ?? 0);
+                if (Number.isFinite(n) && n > 0) capacityFromTypes += Math.floor(n);
+              });
+              const totalRooms = capacityFromTypes;
 
               // Calculate occupied rooms for TODAY
               const today = new Date();
               today.setHours(0, 0, 0, 0);
 
               const occupiedRooms = (roomBookings || []).reduce((acc, booking) => {
-                // Check if booking is for this hotel and is active
-                // Active = Accepted OR Pending (that might be auto-confirmed soon)
-                // We should count active stays
                 if (booking.hotelUid === hotel.uid || booking.hotelId === hotel.uid) {
-                  const status = booking.status || booking.bookingStatus;
+                  const status = String(booking.status || booking.bookingStatus || "").toUpperCase();
                   const isConfirmed = booking.isBookingConfirmed === true;
 
-                  // Count if Accepted OR Pending+Confirmed OR Pending (potential)
-                  if (status === 'Accepted' || status === 'ACCEPTED' || isConfirmed) {
+                  if (status === "ACCEPTED" || status === "CONFIRMED" || isConfirmed) {
                     const checkInRaw = booking.checkInDate || booking.checkIn;
                     const checkOutRaw = booking.checkOutDate || booking.checkOut;
 
@@ -143,7 +140,6 @@ const Hotels = () => {
                       checkIn.setHours(0, 0, 0, 0);
                       checkOut.setHours(0, 0, 0, 0);
 
-                      // If today is strictly within [checkIn, checkOut)
                       if (today >= checkIn && today < checkOut) {
                         return acc + (Number(booking.rooms || booking.noOfRooms || 0));
                       }
@@ -155,10 +151,15 @@ const Hotels = () => {
 
               const available = Math.max(0, totalRooms - occupiedRooms);
 
-              return { ...hotel, roomTypesCount: snapshot.data().count, totalRoomsAvailable: available, totalCapacity: totalRooms };
+              return {
+                ...hotel,
+                roomTypesCount: roomsSnap.size,
+                totalRoomsAvailable: available,
+                totalCapacity: totalRooms,
+              };
             } catch (error) {
               console.error("Error fetching room count:", error);
-              return { ...hotel, roomTypesCount: 0, totalRoomsAvailable: 0 };
+              return { ...hotel, roomTypesCount: 0, totalRoomsAvailable: 0, totalCapacity: 0 };
             }
           }));
 
@@ -193,10 +194,9 @@ const Hotels = () => {
   const columns = [
     { id: "hotelName", label: "Name", width: "15%" },
     { id: "phoneNumber", label: "Phone", width: "15%" },
-    { id: "email", label: "Email", width: "15%" },
-    { id: "address", label: "Address", width: "25%" },
-    { id: "totalRoomsAvailable", label: "Total Rooms", width: "10%" },
-    { id: "action", label: "Action", width: "10%" },
+    { id: "email", label: "Email", width: "20%" },
+    { id: "address", label: "Address", width: "30%" },
+    { id: "action", label: "Action", width: "20%" },
   ];
 
   // creating single row
@@ -319,15 +319,18 @@ const Hotels = () => {
   // };
 
   const handleSearch = (text) => {
-    const matchingObjects = hotels.filter(
-      (item) =>
-        item.hotelInformation.address
-          .toLowerCase()
-          .includes(text.toLowerCase()) ||
-        item.hotelInformation.hotelName
-          .toLowerCase()
-          .includes(text.toLowerCase())
-    );
+    const q = String(text || "").toLowerCase().trim();
+    if (!q) {
+      setMatchedHotels(hotels);
+      return;
+    }
+    const matchingObjects = hotels.filter((item) => {
+      const h = item.hotel || item.hotelInformation || item;
+      const name = String(h.hotelName || item.hotelName || "").toLowerCase();
+      const address = String(h.address || item.address || "").toLowerCase();
+      const phone = String(h.phoneNumber || item.phoneNumber || "").toLowerCase();
+      return name.includes(q) || address.includes(q) || phone.includes(q);
+    });
 
     setMatchedHotels(matchingObjects);
   };
@@ -552,10 +555,6 @@ const Hotels = () => {
                                     ? `${value.slice(0, 18)}...`
                                     : value}
                                 </span>
-                              ) : column.id === "totalRoomsAvailable" ? (
-                                <span className="inline-flex items-center justify-center min-w-[3rem] px-2 h-8 font-bold text-sm text-neutral-700">
-                                  {row.totalRoomsAvailable ?? 0}/{row.totalCapacity ?? 0}
-                                </span>
                               ) : column.id === "action" ? (
                                 <div className="flex items-center justify-center gap-2">
                                   <IconButton
@@ -613,7 +612,7 @@ const Hotels = () => {
                   })}
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-12">
+                    <td colSpan={5} className="px-6 py-12">
                       <div className="flex flex-col items-center justify-center text-neutral-400">
                         <span className="text-6xl mb-4">🏨</span>
                         <p className="text-lg font-medium text-neutral-500">

@@ -19,8 +19,12 @@ import {
   loadPackage,
   loadAvailabilityConfig,
   loadActiveAvailabilityAdjustments,
+  unlockAndDeleteHold,
+  unlockBookingStayLock,
+  forceUnlockStayNights,
 } from "./utils/hotelInventoryTx";
 import {sendTelegramNotification} from "./utils/telegram";
+import {toDateString} from "./utils/hotelAvailability";
 
 const REGION = "asia-east2";
 type Data = Record<string, unknown>;
@@ -29,12 +33,12 @@ type Auth = {uid: string; token?: Record<string, unknown>};
 const db = () => admin.firestore();
 const stringValue = (v: unknown) => String(v ?? "").trim();
 
-/** Shared options: admin portal only (not public app invokers). */
+/** Shared options: admin portal only (Auth still enforced in assertAdmin). */
 const adminCallableOpts = {
   region: REGION,
-  cors: true,
-  // Restrict Cloud Run invoker when platform allows; Firebase Auth still required below.
-  // If deploy fails on invoker IAM, function code still enforces admin-only.
+  cors: true as const,
+  invoker: "public" as const,
+  // Firebase Auth + assertAdmin still required; public invoker only fixes CORS/preflight.
 } as const;
 
 const assertAdmin = async (auth: Auth | undefined) => {
@@ -357,6 +361,153 @@ export const releaseHotelInventory = onCall(
       audience: "admin",
       alreadyReleased: result.alreadyReleased,
       freedNights: result.freedNights,
+    };
+  },
+);
+
+/**
+ * Admin: full unlock of locked rooms for a stay (check-in → check-out).
+ *
+ * Use when rooms are stuck reserved after cancel/hold, or ops need to free stock.
+ *
+ * Input (one of):
+ *   - holdId   → free nights + **delete entire hold lock doc**
+ *   - bookingId → free nights for that booking stay + delete related hold docs
+ *   - hotelUid + packageId + checkIn + checkOut + rooms → force free nights only
+ *
+ * Options:
+ *   - force: true → re-decrement ledger even if flags say already released
+ *   - deleteRelatedHolds: true (default for bookingId)
+ */
+export const unlockHotelRoomLock = onCall(
+  adminCallableOpts,
+  async (request) => {
+    await assertAdmin(request.auth as Auth | undefined);
+
+    const input = (request.data || {}) as Data;
+    const holdId = stringValue(input.holdId);
+    const bookingId = stringValue(input.bookingId);
+    const force = input.force === true || input.force === "true";
+    const deleteRelatedHolds =
+      input.deleteRelatedHolds !== false &&
+      input.deleteRelatedHolds !== "false";
+
+    // 1) Checkout soft-hold: free stay + remove whole lock document
+    if (holdId) {
+      const result = await unlockAndDeleteHold(db(), holdId, {force});
+      if (!result.ok) {
+        throw new HttpsError(
+          "failed-precondition",
+          result.reason || "Could not unlock hold.",
+        );
+      }
+      logger.info(
+        `[HotelUnlock] hold ${holdId} deleted=${result.deleted} force=${force}`,
+      );
+      await notifyAvailability(
+        `<b>Room hold unlocked (admin)</b>\n` +
+          `Hold: ${holdId}\n` +
+          `Deleted lock doc: ${result.deleted ? "yes" : "no"}\n` +
+          `Nights: ${(result.freedNights || []).join(", ") || "—"}`,
+      );
+      return {
+        ok: true,
+        audience: "admin",
+        kind: "hold",
+        holdId,
+        deleted: result.deleted,
+        freedNights: result.freedNights || [],
+        force,
+      };
+    }
+
+    // 2) Booking: free inventory from book dates + remove related hold locks
+    if (bookingId) {
+      const result = await unlockBookingStayLock(db(), bookingId, {
+        force,
+        deleteRelatedHolds,
+      });
+      if (!result.ok) {
+        throw new HttpsError(
+          result.reason === "booking_not_found" ? "not-found" : "failed-precondition",
+          result.reason || "Could not unlock booking inventory.",
+        );
+      }
+      logger.info(
+        `[HotelUnlock] booking ${bookingId} holdsDeleted=${(result.holdsDeleted || []).join(",")}`,
+      );
+      await notifyAvailability(
+        `<b>Booking rooms unlocked (admin)</b>\n` +
+          `Booking: ${bookingId}\n` +
+          `Holds deleted: ${(result.holdsDeleted || []).join(", ") || "none"}\n` +
+          `Nights: ${(result.freedNights || []).join(", ") || "—"}`,
+      );
+      return {
+        ok: true,
+        audience: "admin",
+        kind: "booking",
+        bookingId,
+        alreadyReleased: result.alreadyReleased === true,
+        freedNights: result.freedNights || [],
+        holdsDeleted: result.holdsDeleted || [],
+        force,
+      };
+    }
+
+    // 3) Direct stay unlock (no booking/hold id — ops repair)
+    const hotelUid = stringValue(input.hotelUid || input.hotelId);
+    const packageId = stringValue(input.packageId || input.roomId);
+    const checkIn =
+      toDateString(input.checkIn || input.checkInDate) ||
+      stringValue(input.checkIn || input.checkInDate);
+    const checkOut =
+      toDateString(input.checkOut || input.checkOutDate) ||
+      stringValue(input.checkOut || input.checkOutDate);
+    const rooms = Math.max(
+      1,
+      Math.floor(Number(input.rooms || input.roomsHeld || 1) || 1),
+    );
+
+    if (!hotelUid || !packageId || !checkIn || !checkOut) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Provide holdId, bookingId, or hotelUid + packageId + checkIn + checkOut.",
+      );
+    }
+
+    const stay = await forceUnlockStayNights(db(), {
+      hotelUid,
+      packageId,
+      checkIn,
+      checkOut,
+      rooms,
+      sourceId: stringValue(input.sourceId) || "manual",
+      auditAction: "force_unlock_manual",
+    });
+
+    if (!stay.ok) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Could not force-unlock stay nights.",
+      );
+    }
+
+    logger.info(
+      `[HotelUnlock] manual stay hotel=${hotelUid} pkg=${packageId} rooms=${rooms}`,
+    );
+
+    return {
+      ok: true,
+      audience: "admin",
+      kind: "stay",
+      hotelUid,
+      packageId,
+      checkIn,
+      checkOut,
+      rooms,
+      nights: stay.nights,
+      freedNights: stay.freedNights,
+      force: true,
     };
   },
 );

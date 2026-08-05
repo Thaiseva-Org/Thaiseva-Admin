@@ -253,11 +253,14 @@ const Bookings = () => {
       return setError("Rooms provided are less than required!");
     }
     if (confirm("Check details twice before confirming")) {
+      let acceptResult = null;
       try {
         const { acceptHotelBookingWithAvailability } = await import(
           "../../../../../services/HotelBookingAccept"
         );
-        await acceptHotelBookingWithAvailability(bookingDetails.bookingId);
+        acceptResult = await acceptHotelBookingWithAvailability(
+          bookingDetails.bookingId
+        );
       } catch (acceptErr) {
         console.error("[PartnerConfirm] Accept/reserve failed", acceptErr);
         const msg =
@@ -281,20 +284,28 @@ const Bookings = () => {
         updatedDoc
       ).then(async () => {
         setOpenBookingDetailsModal(false);
-        const paymentMessage = isStripeHotelPayment(bookingDetails)
-          ? "Your payment has been received and your stay is confirmed."
-          : isThaiQrHotelPayment(bookingDetails)
-            ? "We will verify your Thai QR payment shortly."
-            : "Your room booking has been approved.";
+        const amountDue = Number(acceptResult?.amountDue || 0);
+        const payNow = acceptResult?.payNow === true || amountDue > 0;
+        const paymentMessage = payNow
+          ? amountDue > 0
+            ? `Amount due: ฿${amountDue}. Please complete payment from My Bookings.`
+            : "Please complete payment from My Bookings."
+          : acceptResult?.isPaymentDone === true
+            ? "Payment is confirmed. Your stay is booked."
+            : isThaiQrHotelPayment(bookingDetails)
+              ? "We will verify your Thai QR payment shortly."
+              : "Your room booking has been approved.";
 
         successNotification(
-          isStripeHotelPayment(bookingDetails)
-            ? "Booking approved. Payment already received."
-            : "Booking approved. Awaiting Thai QR payment verification."
+          payNow
+            ? "Booking accepted — guest must pay (Unpaid)."
+            : "Booking approved."
         );
         setData({ managerPhone: "", roomNumbers: [] });
         await CreateNewNotificationToUser(
-          "Room booking approved!",
+          payNow
+            ? "Booking accepted — payment required"
+            : "Room booking approved!",
           `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is approved. ${paymentMessage}`,
           bookingDetails?.userId
         );

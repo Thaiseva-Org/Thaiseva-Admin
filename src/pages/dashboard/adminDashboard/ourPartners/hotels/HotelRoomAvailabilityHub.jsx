@@ -17,14 +17,13 @@ import SearchIcon from "@mui/icons-material/Search";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import LocationOn from "@mui/icons-material/LocationOn";
 import HotelIcon from "@mui/icons-material/Hotel";
-import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
 import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
 import PauseCircleOutlineIcon from "@mui/icons-material/PauseCircleOutline";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import PageHeading from "../../../../../components/PageHeading";
 import LoadingContent from "../../../../../components/LoadingContent";
-import { normalizeHotelBookingStatus } from "../../../../../utils/bookingStatus";
+import { isHotelPending } from "../../../../../utils/bookingStatus";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../../../../firebase/firebase.config";
 
@@ -46,41 +45,32 @@ const hotelPhone = (hotel) =>
   hotel?.hotel?.phoneNumber ||
   "—";
 
-const startOfToday = () => {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+/** Collect possible hotel identity strings for matching bookings. */
+const hotelIdentitySet = (hotel) => {
+  const ids = [
+    hotel?.uid,
+    hotel?.id,
+    hotel?.hotelUid,
+    hotel?.hotel?.hotelUid,
+    hotel?.hotel?.uid,
+  ]
+    .filter((v) => v != null && String(v).trim() !== "")
+    .map((v) => String(v));
+  return new Set(ids);
 };
 
-const parseBookingDate = (raw) => {
-  if (!raw) return null;
-  if (raw.seconds) return new Date(raw.seconds * 1000);
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? null : d;
-};
-
-const isStayActiveToday = (booking) => {
-  const checkIn = parseBookingDate(booking.checkInDate || booking.checkIn);
-  const checkOut = parseBookingDate(booking.checkOutDate || booking.checkOut);
-  if (!checkIn || !checkOut) return false;
-  const today = startOfToday();
-  const inD = new Date(checkIn);
-  inD.setHours(0, 0, 0, 0);
-  const outD = new Date(checkOut);
-  outD.setHours(0, 0, 0, 0);
-  return today >= inD && today < outD;
-};
-
-const isAccepted = (b) => {
-  const s = normalizeHotelBookingStatus(b);
-  return s === "Accepted" || b.isBookingConfirmed === true;
-};
-
-const isPending = (b) => normalizeHotelBookingStatus(b) === "Pending";
-
-const roomsOf = (b) => {
-  const n = Number(b.rooms ?? b.noOfRooms ?? b.roomCount ?? 1);
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
+const bookingBelongsToHotel = (booking, hotelIds) => {
+  if (!hotelIds || hotelIds.size === 0) return false;
+  const candidates = [
+    booking?.hotelUid,
+    booking?.hotelId,
+    booking?.hotel?.hotelUid,
+    booking?.hotel?.uid,
+    booking?.hotelUID,
+  ]
+    .filter((v) => v != null && String(v).trim() !== "")
+    .map((v) => String(v));
+  return candidates.some((id) => hotelIds.has(id));
 };
 
 const btnPrimarySx = {
@@ -192,6 +182,7 @@ const HotelRoomAvailabilityHub = () => {
   const list = useMemo(() => {
     const rows = (hotels || []).map((h) => {
       const uid = h.uid || h.id || h.hotelUid || h.hotel?.hotelUid;
+      const hotelIds = hotelIdentitySet(h);
       const cfg =
         availabilityConfigs[String(uid)] ||
         h.availabilityConfig ||
@@ -199,16 +190,9 @@ const HotelRoomAvailabilityHub = () => {
         {};
       const autoOn = cfg.autoBookingEnabled !== false;
 
-      const bookingsForHotel = (roomBookings || []).filter(
-        (b) =>
-          b.hotelUid === uid ||
-          b.hotelId === uid ||
-          b.hotel?.hotelUid === uid
-      );
-      const pendingCount = bookingsForHotel.filter(isPending).length;
-      const activeRoomsToday = bookingsForHotel
-        .filter((b) => isAccepted(b) && isStayActiveToday(b))
-        .reduce((sum, b) => sum + roomsOf(b), 0);
+      const pendingCount = (roomBookings || []).filter(
+        (b) => bookingBelongsToHotel(b, hotelIds) && isHotelPending(b)
+      ).length;
 
       return {
         ...h,
@@ -218,7 +202,6 @@ const HotelRoomAvailabilityHub = () => {
         phone: hotelPhone(h),
         autoOn,
         pendingCount,
-        activeRoomsToday,
       };
     });
 
@@ -250,19 +233,14 @@ const HotelRoomAvailabilityHub = () => {
       else autoOff += 1;
     });
 
-    const pending = bookings.filter(isPending).length;
-    const accepted = bookings.filter(isAccepted).length;
-    const activeTodayRooms = bookings
-      .filter((b) => isAccepted(b) && isStayActiveToday(b))
-      .reduce((sum, b) => sum + roomsOf(b), 0);
+    // Same pending definition as Room Bookings page / sidebar badge
+    const pending = bookings.filter(isHotelPending).length;
 
     return {
       hotels: allHotels.length,
       autoOn,
       autoOff,
       pending,
-      accepted,
-      activeTodayRooms,
     };
   }, [hotels, roomBookings, availabilityConfigs]);
 
@@ -293,8 +271,12 @@ const HotelRoomAvailabilityHub = () => {
         </Button>
       </div>
 
-      {/* Main statistics — match Hotels page gradient cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      {/* Main statistics — Sold today removed; Pending only when count > 0 */}
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 ${
+          mainStats.pending > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2"
+        } gap-4 mb-6`}
+      >
         <StatCard
           title="Hotels"
           value={mainStats.hotels}
@@ -309,20 +291,15 @@ const HotelRoomAvailabilityHub = () => {
           icon={CheckCircleOutlineIcon}
           tone="success"
         />
-        <StatCard
-          title="Rooms sold today"
-          value={mainStats.activeTodayRooms}
-          subtitle="Active accepted stays"
-          icon={MeetingRoomIcon}
-          tone="primary"
-        />
-        <StatCard
-          title="Pending bookings"
-          value={mainStats.pending}
-          subtitle={`${mainStats.accepted} accepted in list`}
-          icon={HourglassEmptyIcon}
-          tone="warning"
-        />
+        {mainStats.pending > 0 ? (
+          <StatCard
+            title="Pending bookings"
+            value={mainStats.pending}
+            subtitle="Awaiting action"
+            icon={HourglassEmptyIcon}
+            tone="warning"
+          />
+        ) : null}
       </div>
 
       {/* Search */}
@@ -456,24 +433,18 @@ const HotelRoomAvailabilityHub = () => {
                     />
                   </div>
 
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-primary-50 border border-primary-100 px-3 py-2 text-center">
-                      <p className="text-[10px] font-semibold uppercase text-primary-700/80">
-                        Sold today
-                      </p>
-                      <p className="text-lg font-bold text-primary-900 tabular-nums">
-                        {hotel.activeRoomsToday}
-                      </p>
+                  {hotel.pendingCount > 0 ? (
+                    <div className="mt-3">
+                      <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-center">
+                        <p className="text-[10px] font-semibold uppercase text-amber-800/80">
+                          Pending
+                        </p>
+                        <p className="text-lg font-bold text-amber-900 tabular-nums">
+                          {hotel.pendingCount}
+                        </p>
+                      </div>
                     </div>
-                    <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2 text-center">
-                      <p className="text-[10px] font-semibold uppercase text-amber-800/80">
-                        Pending
-                      </p>
-                      <p className="text-lg font-bold text-amber-900 tabular-nums">
-                        {hotel.pendingCount}
-                      </p>
-                    </div>
-                  </div>
+                  ) : null}
 
                   <Button
                     fullWidth

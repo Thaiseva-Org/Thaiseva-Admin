@@ -184,6 +184,7 @@ Cloud Functions HTTPS (`asia-east2`): create/pay, transport quote fetch, notific
 
 ## Change log (permissions)
 
-- **2026-08-02** — Hotel Room Availability: admin UI + rules for `HotelDB/{hotelId}/availability`, `hotelRoomInventory`, `hotelInventoryAuditLogs`; hub stats; Firestore client service (no callables required for admin). Website: `checkHotelAvailability` public HTTPS + CORS; soft hold + create callables. See `documentation/HOTEL_AVAILABILITY_API.md` and `documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`.
+- **2026-08-05** — Hotel inventory unlock (`unlockHotelRoomLock`), partial-accept `amountDue` pay path, guest capacity, safer `userRole()` rules, admin callables for availability writes. See `HOTEL_AVAILABILITY_*` docs + `THAISEVA_BOOKING_API.md`.
+- **2026-08-02** — Hotel Room Availability: admin UI + rules for `HotelDB/{hotelId}/availability`, `hotelRoomInventory`, `hotelInventoryAuditLogs`; hub stats. Website: `checkHotelAvailability` public HTTPS + CORS; soft hold + create callables. See `documentation/HOTEL_AVAILABILITY_API.md` and `documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`.
 - **2026-06-22** — Merged app-wide rules (orders, cart, T2T, chat, etc.) with admin portal rules; added `MasterEarnings` read/create/update; deployed to `gothai-ffea1`.
 - **2026-06-22** — Statistics switched to aggregate from booking collections with `MasterEarnings` fallback.

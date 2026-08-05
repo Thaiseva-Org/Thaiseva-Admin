@@ -56,10 +56,7 @@ const parseBool = (v: unknown) =>
 
 const normalizeEmail = (v: unknown) => stringValue(v, 200).toLowerCase();
 
-/** Callable opts for Firebase SDK (httpsCallable). */
-const callableOpts = {region: REGION, cors: true as const};
-
-/** Origins allowed for public HTTPS (website fetch). */
+/** Origins allowed for browser callables + public HTTPS. */
 const allowedWebsiteOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
@@ -67,6 +64,7 @@ const allowedWebsiteOrigins = [
   "http://127.0.0.1:5173",
   "https://thaiseva.com",
   "https://www.thaiseva.com",
+  "https://admin.thaiseva.com",
   "https://thaiseva-85cda.web.app",
   "https://thaiseva-85cda.firebaseapp.com",
   "https://thaiseva-demo.web.app",
@@ -74,6 +72,18 @@ const allowedWebsiteOrigins = [
   "https://gothai-ffea1.web.app",
   "https://gothai-ffea1.firebaseapp.com",
 ];
+
+/**
+ * Callable opts for Firebase SDK (httpsCallable).
+ * cors: true + invoker public so browser OPTIONS preflight gets CORS headers
+ * (Firebase Auth is still enforced inside via request.auth + assertAdmin).
+ * After deploy, ensure Cloud Run allows unauthenticated: allUsers as run.invoker.
+ */
+const callableOpts = {
+  region: REGION,
+  cors: true as const,
+  invoker: "public" as const,
+};
 
 const applyWebsiteCors = (
   req: {headers: Record<string, unknown>},
@@ -214,16 +224,125 @@ const assertAdmin = async (auth: Auth | undefined) => {
   throw new HttpsError("permission-denied", "Admin access only.");
 };
 
+/** Admin or the hotel partner who owns this booking's hotel. */
+const assertAdminOrHotelOwner = async (
+  auth: Auth | undefined,
+  hotelUid: string,
+) => {
+  try {
+    await assertAdmin(auth);
+    return;
+  } catch (e) {
+    if (e instanceof HttpsError && e.code === "unauthenticated") throw e;
+  }
+  if (!auth?.uid) {
+    throw new HttpsError("unauthenticated", "Sign in is required.");
+  }
+  const hid = stringValue(hotelUid, 120);
+  if (hid && auth.uid === hid) {
+    return;
+  }
+  throw new HttpsError(
+    "permission-denied",
+    "Only admin or the hotel partner can accept this booking.",
+  );
+};
+
+/** Enforce room guest limits when maxAdults/maxChildren are configured. */
+const assertGuestCapacity = (
+  pkg: Record<string, unknown> | null | undefined,
+  adults: number,
+  children: number,
+  extraBedRequested: boolean,
+) => {
+  if (!pkg) return;
+  const maxAdults = Number(pkg.maxAdults);
+  const maxChildren = Number(pkg.maxChildren);
+  const policies = (pkg.policies || {}) as Record<string, unknown>;
+  const extraAdults = Number(
+    policies.extraBedMaxAdults ?? pkg.extraBedMaxAdults ?? 0,
+  );
+  const extraChildren = Number(
+    policies.extraBedMaxChildren ?? pkg.extraBedMaxChildren ?? 0,
+  );
+  const allowExtra =
+    pkg.allowExtraBed === true ||
+    pkg.hasExtraBed === true ||
+    policies.extraBed === "Available" ||
+    policies.extraBed === true;
+
+  let adultCap = Number.isFinite(maxAdults) && maxAdults > 0 ? maxAdults : null;
+  let childCap =
+    Number.isFinite(maxChildren) && maxChildren >= 0 ? maxChildren : null;
+
+  if (extraBedRequested && allowExtra) {
+    if (adultCap != null) adultCap += Math.max(0, extraAdults || 1);
+    if (childCap != null) childCap += Math.max(0, extraChildren || 0);
+  }
+
+  if (adultCap != null && adults > adultCap) {
+    throw new HttpsError(
+      "invalid-argument",
+      `This room allows at most ${adultCap} adult(s).`,
+      {pendingReasonCode: "GUEST_CAPACITY"},
+    );
+  }
+  if (childCap != null && children > childCap) {
+    throw new HttpsError(
+      "invalid-argument",
+      `This room allows at most ${childCap} child(ren).`,
+      {pendingReasonCode: "GUEST_CAPACITY"},
+    );
+  }
+};
+
+/**
+ * Stable booking id. Includes checkOut so different stay lengths do not collide.
+ * Legacy ids (no checkOut) are still checked for idempotency at create time.
+ */
 const buildManualDocId = (
   userId: string,
   hotelId: string,
   checkIn: string,
   roomKey: string,
   suffix = "",
-) =>
-  `hotel_${userId}_${hotelId}_${checkIn}_${roomKey}${suffix ? `_${suffix}` : ""}`
+  checkOut = "",
+) => {
+  const core = checkOut ?
+    `hotel_${userId}_${hotelId}_${checkIn}_${checkOut}_${roomKey}` :
+    `hotel_${userId}_${hotelId}_${checkIn}_${roomKey}`;
+  return `${core}${suffix ? `_${suffix}` : ""}`
     .replace(/[^a-zA-Z0-9_-]/g, "_")
     .slice(0, 120);
+};
+
+const bookingDocIds = (
+  userId: string,
+  hotelId: string,
+  checkIn: string,
+  checkOut: string,
+  roomKey: string,
+  suffix = "",
+) => {
+  const primary = buildManualDocId(
+    userId,
+    hotelId,
+    checkIn,
+    roomKey,
+    suffix,
+    checkOut,
+  );
+  // Legacy (pre checkOut-in-id) for duplicate detection only
+  const legacy = buildManualDocId(
+    userId,
+    hotelId,
+    checkIn,
+    roomKey,
+    suffix,
+    "",
+  );
+  return {primary, legacy};
+};
 
 const computeNightsCount = (checkIn: string, checkOut: string) =>
   listStayNights(checkIn, checkOut).length;
@@ -470,6 +589,8 @@ export async function runCreateHotelBookingWithAvailability(
         );
       }
 
+      assertGuestCapacity(pkg, adults, children, extraBedRequested);
+
       const pricing = getRoomPricing(pkg, hotel);
       if (!pricing.roomPrice || pricing.roomPrice <= 0) {
         throw new HttpsError(
@@ -568,42 +689,89 @@ export async function runCreateHotelBookingWithAvailability(
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      // Idempotency: if primary doc exists, return it
-      const fullId = buildManualDocId(
+      // Idempotency: if primary (or legacy) doc exists for this exact stay, return it
+      const fullIds = bookingDocIds(
         userId,
         hotelUid,
         checkInStr,
+        checkOutStr,
         packageId,
       );
-      const autoId = buildManualDocId(
+      const autoIds = bookingDocIds(
         userId,
         hotelUid,
         checkInStr,
+        checkOutStr,
         packageId,
         "auto",
       );
-      const pendId = buildManualDocId(
+      const pendIds = bookingDocIds(
         userId,
         hotelUid,
         checkInStr,
+        checkOutStr,
         packageId,
         "pend",
       );
+      const fullId = fullIds.primary;
+      const autoId = autoIds.primary;
+      const pendId = pendIds.primary;
 
-      const existingFull = await db().collection(HOTEL_COLLECTION).doc(fullId).get();
-      const existingAuto = await db().collection(HOTEL_COLLECTION).doc(autoId).get();
-      const existingPend = await db().collection(HOTEL_COLLECTION).doc(pendId).get();
-      if (existingFull.exists || existingAuto.exists || existingPend.exists) {
-        const autoSnap = existingAuto.exists ?
-          existingAuto :
-          (existingFull.exists &&
-            (existingFull.data()?.autoAccepted === true ||
-              existingFull.data()?.inventoryReserved === true) ?
-            existingFull :
+      const loadFirstExisting = async (ids: string[]) => {
+        for (const id of ids) {
+          const snap = await db().collection(HOTEL_COLLECTION).doc(id).get();
+          if (snap.exists) return snap;
+        }
+        return null;
+      };
+
+      // Prefer exact stay match (includes checkOut). Only treat as duplicate when
+      // checkout matches — legacy ids may belong to a different length of stay.
+      const existingFull = await loadFirstExisting([fullIds.primary]);
+      const existingAuto = await loadFirstExisting([autoIds.primary]);
+      const existingPend = await loadFirstExisting([pendIds.primary]);
+
+      // Legacy fallback only when same checkOut is stored on the doc
+      const legacyFull =
+        !existingFull ?
+          await loadFirstExisting([fullIds.legacy]) :
+          null;
+      const legacyAuto =
+        !existingAuto ?
+          await loadFirstExisting([autoIds.legacy]) :
+          null;
+      const legacyPend =
+        !existingPend ?
+          await loadFirstExisting([pendIds.legacy]) :
+          null;
+
+      const sameStay = (
+        snap: admin.firestore.DocumentSnapshot | null,
+      ) => {
+        if (!snap?.exists) return false;
+        const d = snap.data() || {};
+        const out = toDateString(d.checkOutDate || d.checkOut);
+        return !out || out === checkOutStr;
+      };
+
+      const resolvedFull =
+        existingFull || (sameStay(legacyFull) ? legacyFull : null);
+      const resolvedAuto =
+        existingAuto || (sameStay(legacyAuto) ? legacyAuto : null);
+      const resolvedPend =
+        existingPend || (sameStay(legacyPend) ? legacyPend : null);
+
+      if (resolvedFull || resolvedAuto || resolvedPend) {
+        const autoSnap = resolvedAuto ?
+          resolvedAuto :
+          (resolvedFull &&
+            (resolvedFull.data()?.autoAccepted === true ||
+              resolvedFull.data()?.inventoryReserved === true) ?
+            resolvedFull :
             null);
-        const pendSnap = existingPend.exists ?
-          existingPend :
-          (existingFull.exists && !autoSnap ? existingFull : null);
+        const pendSnap = resolvedPend ?
+          resolvedPend :
+          (resolvedFull && !autoSnap ? resolvedFull : null);
         const prevAuto = autoSnap?.data() || null;
         const prevPend = pendSnap?.data() || null;
         const alreadyAuto = Boolean(
@@ -615,7 +783,7 @@ export async function runCreateHotelBookingWithAvailability(
             alreadyAuto ? "auto" :
               "pending";
         const primary =
-          autoSnap?.id || pendSnap?.id || existingFull.id || fullId;
+          autoSnap?.id || pendSnap?.id || resolvedFull?.id || fullId;
         return {
           success: true,
           bookingId: primary,
@@ -797,52 +965,168 @@ export const createHotelBookingWithAvailability = onCall(
 );
 
 /**
- * Admin: accept a pending booking only if capacity remains; then reserve inventory.
+ * Admin: accept pending room request (full pending or remaining partial rooms).
+ *
+ * Partial flow (website "partially confirmed"):
+ * - Instant rooms live on auto sibling (already reserved / maybe paid)
+ * - Pending rooms live on pending sibling (or roomsPending on same doc)
+ * On accept: reserve inventory for newly accepted rooms, recalculate amountTHB,
+ * clear roomsPending, set amountDue when guest already paid for instant rooms.
  */
 export const acceptHotelBookingWithAvailability = onCall(
   callableOpts,
   async (request) => {
-    await assertAdmin(request.auth as Auth | undefined);
-
     const input = (request.data || {}) as Data;
-    const bookingId = stringValue(input.bookingId, 120);
+    let bookingId = stringValue(input.bookingId, 120);
     if (!bookingId) {
       throw new HttpsError("invalid-argument", "bookingId is required.");
     }
 
-    const snap = await db().collection(HOTEL_COLLECTION).doc(bookingId).get();
+    let snap = await db().collection(HOTEL_COLLECTION).doc(bookingId).get();
     if (!snap.exists) {
       throw new HttpsError("not-found", "Booking not found.");
     }
 
-    const booking = snap.data() || {};
+    let booking = snap.data() || {};
+    const hotelUidEarly = stringValue(
+      booking.hotelUid || booking.hotelId,
+      120,
+    );
+    await assertAdminOrHotelOwner(
+      request.auth as Auth | undefined,
+      hotelUidEarly,
+    );
+
+    // If admin acts on the already-accepted partial parent, resolve sibling pending
+    const statusUpperEarly = stringValue(
+      booking.bookingStatus || booking.status,
+      60,
+    )
+      .toUpperCase()
+      .replace(/-/g, "_")
+      .replace(/\s+/g, "_");
+    const roomsPendingEarly = Math.max(
+      0,
+      parsePositiveInt(booking.roomsPending, 0),
+    );
+    const siblingPendId = stringValue(booking.siblingPendingBookingId, 120);
+    if (
+      siblingPendId &&
+      roomsPendingEarly > 0 &&
+      (statusUpperEarly === "ACCEPTED" ||
+        statusUpperEarly === "CONFIRMED" ||
+        statusUpperEarly.includes("ACCEPT") ||
+        booking.isBookingConfirmed === true ||
+        booking.inventoryReserved === true)
+    ) {
+      const pendSnap = await db()
+        .collection(HOTEL_COLLECTION)
+        .doc(siblingPendId)
+        .get();
+      if (pendSnap.exists) {
+        const pendStatus = stringValue(
+          pendSnap.data()?.bookingStatus || pendSnap.data()?.status,
+          40,
+        ).toUpperCase();
+        if (
+          pendStatus !== "CANCELED" &&
+          pendStatus !== "CANCELLED" &&
+          pendStatus !== "REJECTED" &&
+          pendSnap.data()?.isBookingConfirmed !== true
+        ) {
+          snap = pendSnap;
+          booking = pendSnap.data() || {};
+          bookingId = pendSnap.id;
+        }
+      }
+    }
+
     const statusUpper = stringValue(
       booking.bookingStatus || booking.status,
-      40,
-    ).toUpperCase();
+      60,
+    )
+      .toUpperCase()
+      .replace(/-/g, "_")
+      .replace(/\s+/g, "_");
 
-    if (statusUpper === "CANCELED" || statusUpper === "CANCELLED") {
+    if (
+      statusUpper === "CANCELED" ||
+      statusUpper === "CANCELLED" ||
+      statusUpper === "REJECTED"
+    ) {
       throw new HttpsError(
         "failed-precondition",
         "Cannot accept a cancelled booking.",
       );
     }
 
+    const roomsPending = Math.max(0, parsePositiveInt(booking.roomsPending, 0));
+    const roomsOnDoc = Math.max(
+      1,
+      parsePositiveInt(booking.rooms || booking.noOfRooms, 1),
+    );
+    // Instant / already-held portion on this same document (hold → partial)
+    const roomsInstantExisting = Math.max(
+      0,
+      parsePositiveInt(booking.roomsInstant, 0) ||
+        parsePositiveInt(booking.acceptedRooms, 0),
+    );
+
+    // Same-doc partial: e.g. 5 confirmed + 1 pending on one booking
+    const isSameDocPartial = roomsPending > 0 && roomsInstantExisting > 0;
+
+    // Instant rooms already counted in night ledger (hold transfer / prior reserve)
+    const instantAlreadyHeld =
+      booking.inventoryReserved === true ||
+      isSameDocPartial ||
+      (roomsInstantExisting > 0 &&
+        Boolean(booking.holdId || booking.holdDeletedAfterPayment === true));
+
+    // Already fully accepted (no remaining pending rooms)
     if (
-      booking.inventoryReserved === true &&
-      (booking.isBookingConfirmed === true ||
-        statusUpper === "ACCEPTED" ||
-        statusUpper === "CONFIRMED")
+      roomsPending === 0 &&
+      (booking.inventoryReserved === true || booking.isBookingConfirmed === true) &&
+      (statusUpper === "ACCEPTED" ||
+        statusUpper === "CONFIRMED" ||
+        statusUpper === "AWAITING_PAYMENT" ||
+        booking.isBookingConfirmed === true)
     ) {
       return {
         ok: true,
         alreadyAccepted: true,
         bookingId,
         inventoryReserved: true,
+        roomsInstant: roomsInstantExisting || roomsOnDoc,
+        roomsPending: 0,
       };
     }
 
-    const hotelUid = stringValue(booking.hotelUid || booking.hotelId, 120);
+    // Rooms to newly lock: pending remainder, or full doc for pure pending
+    const roomsToAccept =
+      roomsPending > 0 ?
+        roomsPending :
+        instantAlreadyHeld && booking.isBookingConfirmed === true ?
+          0 :
+          roomsOnDoc;
+
+    if (roomsToAccept <= 0) {
+      return {
+        ok: true,
+        alreadyAccepted: true,
+        bookingId,
+        inventoryReserved: booking.inventoryReserved === true,
+        roomsInstant: roomsInstantExisting || roomsOnDoc,
+        roomsPending: 0,
+      };
+    }
+
+    // After accept: all instant + newly confirmed pending
+    const totalAcceptedRooms =
+      roomsPending > 0 ?
+        Math.max(roomsOnDoc, roomsInstantExisting + roomsPending) :
+        roomsToAccept;
+
+    const hotelUid = hotelUidEarly;
     let packageId = stringValue(booking.packageId || booking.roomId, 120);
     const roomName = stringValue(
       booking.roomName || booking.packageName,
@@ -850,10 +1134,6 @@ export const acceptHotelBookingWithAvailability = onCall(
     );
     const checkIn = booking.checkInDate || booking.checkIn;
     const checkOut = booking.checkOutDate || booking.checkOut;
-    const rooms = Math.max(
-      1,
-      parsePositiveInt(booking.rooms || booking.noOfRooms, 1),
-    );
 
     if (!hotelUid) {
       throw new HttpsError("failed-precondition", "Booking has no hotel.");
@@ -867,63 +1147,241 @@ export const acceptHotelBookingWithAvailability = onCall(
       );
     }
 
+    // Soft capacity check for messaging only — admin confirm may add extra capacity
     const availability = await evaluateAvailability(db(), {
       hotelUid,
       packageId,
       checkIn,
       checkOut,
-      rooms,
+      rooms: roomsToAccept,
       forManualAccept: true,
     });
 
-    if (!availability.available) {
+    // Reserve newly confirmed rooms on each stay night.
+    // allowAdminExtra: if physical total is full (e.g. 5/5) but admin confirms
+    // the pending room, add temporary capacity (extra) then reserve +N.
+    const reserveBookingId =
+      isSameDocPartial || instantAlreadyHeld ?
+        `${bookingId}_pending_accept` :
+        bookingId;
+
+    const reserve = await reserveRoomsInTransaction(db(), {
+      hotelUid,
+      packageId,
+      checkIn,
+      checkOut,
+      rooms: roomsToAccept,
+      bookingId: reserveBookingId,
+      allowAdminExtra: true,
+    });
+    if (!reserve.ok) {
       throw new HttpsError(
         "failed-precondition",
-        availability.reason ||
-          "Not enough rooms for the full stay. Cannot accept.",
+        reserve.reason || "Could not reserve rooms for these dates.",
       );
     }
+    const reservedOk = true;
 
-    let reservedOk = booking.inventoryReserved === true;
-    if (!reservedOk) {
-      const reserve = await reserveRoomsInTransaction(db(), {
-        hotelUid,
-        packageId,
-        checkIn,
-        checkOut,
-        rooms,
-        bookingId,
-      });
-      if (!reserve.ok) {
-        throw new HttpsError(
-          "failed-precondition",
-          reserve.reason || "Could not reserve rooms.",
+    const [hotel, pkg] = await Promise.all([
+      loadHotel(db(), hotelUid),
+      loadPackage(db(), packageId, hotelUid),
+    ]);
+    const pricing = getRoomPricing(pkg, hotel);
+    const checkInStr = toDateString(checkIn) || "";
+    const checkOutStr = toDateString(checkOut) || "";
+    const nightsCount =
+      parsePositiveInt(booking.nights, 0) ||
+      (checkInStr && checkOutStr ?
+        computeNightsCount(checkInStr, checkOutStr) :
+        0) ||
+      1;
+    const extraBedRequested = booking.extraBed === true;
+
+    // Prefer live room price; fall back to amount already stored on the pending doc
+    // so accept never zeros out amountDue and incorrectly marks paid.
+    const computedAccepted = amountForRooms(
+      pricing.roomPrice || 0,
+      nightsCount,
+      totalAcceptedRooms,
+      extraBedRequested,
+      pricing.extraBedPrice || 0,
+      pricing.allowExtraBed === true,
+    );
+    const computedNewOnly = amountForRooms(
+      pricing.roomPrice || 0,
+      nightsCount,
+      roomsToAccept,
+      extraBedRequested,
+      pricing.extraBedPrice || 0,
+      pricing.allowExtraBed === true,
+    );
+    const storedFull = Math.max(
+      0,
+      Number(booking.amountTHB ?? booking.subtotal ?? booking.amount) || 0,
+    );
+    const perRoomStored =
+      roomsOnDoc > 0 ? storedFull / roomsOnDoc : storedFull;
+    const amountForAccepted =
+      computedAccepted > 0 ?
+        computedAccepted :
+        Math.round(perRoomStored * totalAcceptedRooms) || storedFull;
+    const amountForNewOnly =
+      computedNewOnly > 0 ?
+        computedNewOnly :
+        Math.round(perRoomStored * roomsToAccept) || amountForAccepted;
+
+    // Sibling auto booking (instant portion of a partial group)
+    const siblingAutoId = stringValue(booking.siblingAutoBookingId, 120);
+    let siblingAlreadyPaid = false;
+    if (siblingAutoId) {
+      const siblingRef = db().collection(HOTEL_COLLECTION).doc(siblingAutoId);
+      const siblingSnap = await siblingRef.get();
+      if (siblingSnap.exists) {
+        const sibling = siblingSnap.data() || {};
+        siblingAlreadyPaid =
+          sibling.isPaymentDone === true ||
+          String(sibling.paymentVerificationStatus || "").toUpperCase() ===
+            "VERIFIED";
+        const prevInstant = Math.max(
+          0,
+          parsePositiveInt(
+            sibling.roomsInstant ?? sibling.rooms ?? sibling.noOfRooms,
+            0,
+          ),
+        );
+        const combinedInstant = prevInstant + roomsToAccept;
+        await siblingRef.set(
+          {
+            roomsPending: 0,
+            roomsInstant: combinedInstant,
+            acceptedRooms: combinedInstant,
+            pendingReason: null,
+            pendingReasonCode: null,
+            partialResolved: "ACCEPTED",
+            siblingPendingBookingId: bookingId,
+            siblingPendingResolvedAt:
+              admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          {merge: true},
         );
       }
-      reservedOk = true;
     }
 
-    await snap.ref.update({
-      status: "Accepted",
-      bookingStatus: "ACCEPTED",
-      isBookingConfirmed: true,
-      autoAccepted: false,
-      acceptanceMethod: "MANUAL",
-      inventoryReserved: true,
-      inventoryReservedAt: admin.firestore.FieldValue.serverTimestamp(),
-      inventoryReleased: false,
-      packageId,
-      roomId: packageId,
-      hotelUid,
-      pendingReasonCode: null,
-      pendingReason: null,
-      sourcePath: booking.sourcePath || "manual",
-      acceptedBy: request.auth?.uid || null,
-      acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    // Note: amountPaid may be stored as 0 — do not use ?? (0 is valid for ?? and blocks stripe fields)
+    const alreadyPaidOnThisDoc =
+      booking.isPaymentDone === true ||
+      booking.isPaymentClear === true ||
+      String(booking.paymentVerificationStatus || "").toUpperCase() ===
+        "VERIFIED" ||
+      (booking.paymentConfirmation as {status?: string} | undefined)?.status ===
+        "paid" ||
+      Number(booking.stripeAmountMajor) > 0 ||
+      Number(booking.stripeChargeAmount) > 0 ||
+      Number(booking.amountPaid) > 0;
+    const prevPaidRaw = [
+      booking.amountPaid,
+      booking.stripeAmountMajor,
+      booking.stripeChargeAmount,
+      alreadyPaidOnThisDoc ? booking.amountTHB ?? booking.amount : 0,
+    ]
+      .map((v) => Number(v))
+      .find((n) => Number.isFinite(n) && n > 0);
+    const prevPaid = Math.max(0, prevPaidRaw || 0);
 
-    logger.info(`[HotelBooking] manual accept ${bookingId}`);
+    // Guest paid for instant rooms already → amountDue = price of newly accepted only
+    const needsTopUp =
+      alreadyPaidOnThisDoc &&
+      amountForNewOnly > 0 &&
+      (isSameDocPartial ||
+        siblingAlreadyPaid ||
+        roomsToAccept < totalAcceptedRooms);
+    const amountPaid = alreadyPaidOnThisDoc ? prevPaid : 0;
+    let amountDue = needsTopUp ?
+      amountForNewOnly :
+      alreadyPaidOnThisDoc ?
+        Math.max(0, amountForAccepted - prevPaid) :
+        amountForAccepted;
+
+    // Pure pending accept with no prior payment must always leave a payable due
+    // when there is a known room amount (never mark paid by accident).
+    if (!alreadyPaidOnThisDoc && !siblingAlreadyPaid && amountForAccepted > 0) {
+      amountDue = Math.max(amountDue, amountForAccepted);
+    }
+
+    const requiresPayment = amountDue > 0;
+    const displayStatus = requiresPayment ?
+      "Accepted - awaiting payment" :
+      "Accepted";
+    const bookingStatusCode = requiresPayment ?
+      "AWAITING_PAYMENT" :
+      "ACCEPTED";
+
+    await snap.ref.set(
+      {
+        status: displayStatus,
+        bookingStatus: bookingStatusCode,
+        isBookingConfirmed: true,
+        autoAccepted: false,
+        acceptanceMethod: "MANUAL",
+        inventoryReserved: true,
+        inventoryReservedAt: admin.firestore.FieldValue.serverTimestamp(),
+        inventoryReleased: false,
+        packageId,
+        roomId: packageId,
+        hotelUid,
+        rooms: totalAcceptedRooms,
+        noOfRooms: totalAcceptedRooms,
+        roomsInstant: totalAcceptedRooms,
+        acceptedRooms: totalAcceptedRooms,
+        roomsPending: 0,
+        roomsRequestedTotal:
+          parsePositiveInt(booking.roomsRequestedTotal, 0) ||
+          totalAcceptedRooms,
+        // Full stay amount for all accepted rooms
+        amountTHB: amountForAccepted,
+        subtotal: amountForAccepted,
+        amountDue,
+        amountPaid,
+        // Unpaid after accept → guest must pay (checkout uses amountDue / payNow)
+        isPaymentDone: !requiresPayment && alreadyPaidOnThisDoc,
+        isPaymentClear: !requiresPayment && alreadyPaidOnThisDoc,
+        payNow: requiresPayment,
+        paymentVerificationStatus: requiresPayment ?
+          "PENDING_VERIFICATION" :
+          String(booking.paymentVerificationStatus || "VERIFIED"),
+        paymentVerificationNote: requiresPayment ?
+          needsTopUp ?
+            "Additional rooms accepted — complete remaining payment." :
+            "Booking accepted — payment required to confirm stay." :
+          booking.paymentVerificationNote || "Paid.",
+        // Do not carry a stale open Checkout from the pending phase
+        ...(requiresPayment ?
+          {
+            stripeSessionId: null,
+            stripeChargeAmount: null,
+          } :
+          {}),
+        pendingReasonCode: null,
+        pendingReason: null,
+        partialResolved: "ACCEPTED",
+        sourcePath:
+          booking.sourcePath ||
+          (isSameDocPartial ?
+            "same_doc_partial_accepted" :
+            siblingAutoId ?
+              "pending_partial_accepted" :
+              "manual"),
+        acceptedBy: request.auth?.uid || null,
+        acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true},
+    );
+
+    logger.info(
+      `[HotelBooking] manual accept ${bookingId} +${roomsToAccept} rooms → ${totalAcceptedRooms} total amountDue=${amountDue} payNow=${requiresPayment}`,
+    );
 
     return {
       ok: true,
@@ -931,7 +1389,21 @@ export const acceptHotelBookingWithAvailability = onCall(
       inventoryReserved: reservedOk,
       packageId,
       hotelUid,
+      roomsAdded: roomsToAccept,
+      roomsInstant: totalAcceptedRooms,
+      roomsPending: 0,
+      acceptedRooms: totalAcceptedRooms,
+      amountTHB: amountForAccepted,
+      amountDue,
+      amountPaid,
+      payNow: requiresPayment,
+      isPaymentDone: !requiresPayment && alreadyPaidOnThisDoc,
+      status: displayStatus,
+      bookingStatus: bookingStatusCode,
+      siblingAutoBookingId: siblingAutoId || null,
+      siblingAlreadyPaid,
       availability,
+      nightsReserved: reserve.nights || null,
     };
   },
 );
@@ -966,15 +1438,16 @@ const isHoldExpired = (data: Record<string, unknown>) => {
 
 /**
  * Internal: free ledger rooms for a hold doc if still reserved.
+ * Does NOT mark EXPIRED/RELEASED if ledger release fails (avoids ghost locks).
  */
 const unlockHoldIfNeeded = async (
   holdId: string,
   hold: Record<string, unknown>,
   status: "RELEASED" | "EXPIRED",
-) => {
+): Promise<{ok: boolean; alreadyReleased?: boolean}> => {
   const roomsHeld = Math.max(0, parsePositiveInt(hold.roomsHeld, 0));
   if (hold.inventoryReserved === true && roomsHeld > 0 && hold.inventoryReleased !== true) {
-    await releaseHoldRoomsInTransaction(db(), {
+    const result = await releaseHoldRoomsInTransaction(db(), {
       hotelUid: stringValue(hold.hotelUid, 120),
       packageId: stringValue(hold.packageId, 120),
       checkIn: hold.checkIn,
@@ -982,6 +1455,12 @@ const unlockHoldIfNeeded = async (
       rooms: roomsHeld,
       holdId,
     });
+    if (!result.ok) {
+      logger.error(
+        `[HotelHold] unlockHoldIfNeeded release failed hold=${holdId} — leaving status as HOLD for retry`,
+      );
+      return {ok: false};
+    }
   } else if (hold.inventoryReleased !== true) {
     await db().collection(HOLD_COLLECTION).doc(holdId).set(
       {
@@ -1001,6 +1480,7 @@ const unlockHoldIfNeeded = async (
     },
     {merge: true},
   );
+  return {ok: true};
 };
 
 /**
@@ -1334,6 +1814,7 @@ export async function runCompleteHotelBookingHold(
     const adults = Math.max(1, parsePositiveInt(body.adults, 1));
     const children = Math.max(0, parsePositiveInt(body.children, 0));
     const extraBedRequested = parseBool(body.extraBed);
+    assertGuestCapacity(pkg, adults, children, extraBedRequested);
     const paymentMethodIntent =
       stringValue(body.paymentMethod || body.paymentMethodIntent, 40).toUpperCase() ||
       "STRIPE";
@@ -1455,9 +1936,29 @@ export async function runCompleteHotelBookingHold(
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    const fullId = buildManualDocId(userId, hotelUid, checkInStr, packageId);
-    const autoId = buildManualDocId(userId, hotelUid, checkInStr, packageId, "auto");
-    const pendId = buildManualDocId(userId, hotelUid, checkInStr, packageId, "pend");
+    const fullId = bookingDocIds(
+      userId,
+      hotelUid,
+      checkInStr,
+      checkOutStr,
+      packageId,
+    ).primary;
+    const autoId = bookingDocIds(
+      userId,
+      hotelUid,
+      checkInStr,
+      checkOutStr,
+      packageId,
+      "auto",
+    ).primary;
+    const pendId = bookingDocIds(
+      userId,
+      hotelUid,
+      checkInStr,
+      checkOutStr,
+      packageId,
+      "pend",
+    ).primary;
 
     let autoBookingId: string | null = null;
     let pendingBookingId: string | null = null;
@@ -1722,15 +2223,24 @@ export const expireHotelBookingHolds = onSchedule(
     }
 
     let released = 0;
+    let failed = 0;
     for (const doc of snap.docs) {
       try {
-        await unlockHoldIfNeeded(doc.id, doc.data() || {}, "EXPIRED");
-        released += 1;
+        const result = await unlockHoldIfNeeded(
+          doc.id,
+          doc.data() || {},
+          "EXPIRED",
+        );
+        if (result.ok) released += 1;
+        else failed += 1;
       } catch (err) {
+        failed += 1;
         logger.error(`[HotelHold] expire failed ${doc.id}`, err);
       }
     }
-    logger.info(`[HotelHold] expire: released ${released}/${snap.size}`);
+    logger.info(
+      `[HotelHold] expire: released ${released}/${snap.size} failed=${failed}`,
+    );
   },
 );
 

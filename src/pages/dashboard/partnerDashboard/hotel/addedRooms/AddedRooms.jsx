@@ -57,7 +57,8 @@ const AddedRooms = () => {
     location: {},
     period: "",
     bookingInfo: {},
-    numberOfGuests: "",
+    maxAdults: "",
+    maxChildren: "",
     address: "",
     ratings: "",
     numberOfReviews: "",
@@ -74,22 +75,22 @@ const AddedRooms = () => {
     handleSubmit,
     reset,
     register,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm();
 
   // Partners table header
   let columns = [
-    { property: "packageName", label: "Package Name", width: "20%" },
-    { property: "price", label: "Price", width: "15%" },
+    { property: "packageName", label: "Package Name", width: "18%" },
+    { property: "price", label: "Price", width: "12%" },
     { property: "discount", label: "Discount", width: "10%" },
-    { property: "discountPrice", label: "Discount Price", width: "15%" },
-    { property: "noOfGuest", label: "Guests", width: "10%" },
+    { property: "discountPrice", label: "Discount Price", width: "12%" },
+    { property: "maxAdults", label: "Adults", width: "10%" },
+    { property: "maxChildren", label: "Children", width: "10%" },
     { property: "extraBedPrice", label: "Extra Bed", width: "10%" },
-    { property: "status", label: "Status", width: "15%" },
-    { property: "action", label: "Action", width: "15%" },
-    // { property: "period", label: "Period", width: 50 },
-    // { property: "ratings", label: "Rating", width: 50 },
-    // { property: "numberOfReviews", label: "Reviews", width: 50 },
+    { property: "status", label: "Status", width: "10%" },
+    { property: "action", label: "Action", width: "12%" },
   ];
 
   // creating single row
@@ -100,7 +101,8 @@ const AddedRooms = () => {
     period,
     ratings,
     numberOfReviews,
-    noOfGuest,
+    maxAdults,
+    maxChildren,
     status,
     id,
     hasExtraBed,
@@ -113,7 +115,8 @@ const AddedRooms = () => {
       discount,
       ratings,
       numberOfReviews,
-      noOfGuest,
+      maxAdults,
+      maxChildren,
       status,
       id,
       hasExtraBed,
@@ -130,7 +133,8 @@ const AddedRooms = () => {
       room.period,
       room.rating,
       room.numberOfReviews,
-      room.numberOfGuests,
+      room.maxAdults ?? room.numberOfGuests ?? "-",
+      room.maxChildren ?? 0,
       room.status,
       room.id,
       room.hasExtraBed,
@@ -154,7 +158,16 @@ const AddedRooms = () => {
 
   // opening AddPackagesModal the modal while cliking on right sign icon
   const handleCloseModal = () => {
-    reset();
+    reset({
+      packageName: "",
+      price: "",
+      description: "",
+      discount: "",
+      period: "",
+      maxAdults: "",
+      maxChildren: "",
+      address: "",
+    });
     setRoomDetails({
       id: "",
       packageName: "",
@@ -164,7 +177,8 @@ const AddedRooms = () => {
       location: {},
       period: "",
       bookingInfo: {},
-      numberOfGuests: "",
+      maxAdults: "",
+      maxChildren: "",
       address: "",
       ratings: "",
       numberOfReviews: "",
@@ -188,7 +202,8 @@ const AddedRooms = () => {
       description,
       discount,
       period,
-      numberOfGuests,
+      maxAdults,
+      maxChildren,
       address,
     } = data;
 
@@ -199,6 +214,9 @@ const AddedRooms = () => {
     } else {
       id = uuid();
     }
+
+    const adults = Math.max(0, parseInt(maxAdults, 10) || 0);
+    const children = Math.max(0, parseInt(maxChildren, 10) || 0);
 
     const packageInfo = {
       id,
@@ -218,7 +236,9 @@ const AddedRooms = () => {
     const packageDetails = {
       ...packageInfo,
       description,
-      numberOfGuests,
+      maxAdults: adults,
+      maxChildren: children,
+      numberOfGuests: adults + children,
       amenities: arrayData?.amenities,
       pictures: arrayData?.pictures,
       location,
@@ -243,7 +263,8 @@ const AddedRooms = () => {
       location: {},
       period: "",
       bookingInfo: {},
-      numberOfGuests: "",
+      maxAdults: "",
+      maxChildren: "",
       address: "",
       ratings: "",
       numberOfReviews: "",
@@ -372,35 +393,38 @@ const AddedRooms = () => {
     setArrayData((p) => ({ ...p, pictures: newPictures }));
   };
 
-  // custom text field for common data
-  const textField = (label, name, placeholder, defaultValue) => {
+  // custom text field for common data (controlled so adults/children stay editable)
+  const textField = (label, name, placeholder) => {
+    const isNumber = ["price", "discount", "maxAdults", "maxChildren", "period"].includes(name);
+    const registration = register(name, { required: true });
+    const value = watch(name);
     return (
       <Grid item xs={12} sm={name === "description" ? 12 : 6}>
         <TextField
           label={label}
-          type={
-            ["price", "discount", "numberOfGuests", "period"].includes(name)
-              ? "number"
-              : "text"
-          }
+          type={isNumber ? "number" : "text"}
           inputProps={{
-            min: ["discount"].includes(name)
+            min: ["discount", "maxAdults", "maxChildren"].includes(name)
               ? 0
-              : ["price", "numberOfGuests", "period"].includes(name)
+              : ["price", "period"].includes(name)
                 ? 1
                 : undefined,
-            max: ["discount", "numberOfGuests"].includes(name)
-              ? 100
-              : undefined,
+            max: name === "discount" ? 100 : undefined,
           }}
-          defaultValue={defaultValue}
+          value={value ?? ""}
+          name={registration.name}
+          inputRef={registration.ref}
+          onBlur={registration.onBlur}
+          onChange={(e) => {
+            registration.onChange(e);
+            setValue(name, e.target.value, { shouldValidate: true, shouldDirty: true });
+          }}
           placeholder={placeholder}
           multiline={name === "description"}
           fullWidth
-          {...register(name, { required: true })}
           rows={name === "description" ? 3 : undefined}
         />
-        {errors?.name && (
+        {errors?.[name] && (
           <span className="text-red-500">{label} is required</span>
         )}
       </Grid>
@@ -567,41 +591,42 @@ const AddedRooms = () => {
               {textField(
                 "Package Name",
                 "packageName",
-                "Package Name",
-                roomDetails?.packageName
+                "Package Name"
               )}
 
               {/* Price */}
-              {textField("Price", "price", "Price", roomDetails?.price)}
+              {textField("Price", "price", "Price")}
 
-              {/* Requirement Title */}
-              {textField("Address", "address", "Address", roomDetails?.address)}
+              {/* Address */}
+              {textField("Address", "address", "Address")}
 
               {/* Discount */}
               {textField(
                 "Discount",
                 "discount",
-                "Discount in %",
-                roomDetails?.discount
+                "Discount in %"
               )}
 
               {/* Description */}
               {textField(
                 "Description",
                 "description",
-                "Type Package Description...",
-                roomDetails?.description
+                "Type Package Description..."
               )}
 
               {/* Period */}
-              {textField("Period", "period", "Period", roomDetails?.period)}
+              {textField("Period", "period", "Period")}
 
-              {/* Number Of Guests */}
+              {/* Adults / Children (replaces maximum guests) */}
               {textField(
-                "Number Of Guests",
-                "numberOfGuests",
-                "Number Of Guests",
-                roomDetails?.numberOfGuests
+                "Adults",
+                "maxAdults",
+                "e.g. 2"
+              )}
+              {textField(
+                "Children",
+                "maxChildren",
+                "e.g. 1"
               )}
 
               {/* Cover Photo */}

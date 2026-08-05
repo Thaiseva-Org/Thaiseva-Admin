@@ -34,7 +34,7 @@ import {
 } from "../../../../../firebase/firebase.config";
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
-import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc, getDocs } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc, getDocs, deleteDoc } from "firebase/firestore";
 import { db } from "../../../../../firebase/firebase.config";
 import { getFileUrl, successNotification } from "../../../../../utils/utils";
 
@@ -230,7 +230,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             setValue("address", h.address || "");
             setValue("country", h.country || "");
             setValue("description", h.description || "");
-            setValue("totalRooms", h.totalRooms ?? 5);
             setValue("policies", h.policies || "");
 
             setLogoURL(h.images?.logo || h.logoURL || "");
@@ -354,13 +353,40 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             inferredBedDetails = [{ type: room.bedType, count: Number(room.numberOfBeds) || 1 }];
         }
 
+        const capacityFromBeds = getDefaultRoomCapacity({
+            ...room,
+            bedDetails: inferredBedDetails,
+        });
+
         setNewRoom({
             ...initialRoomState,
             ...room,
             roomName: room.roomName || room.packageName || "",
             bedDetails: inferredBedDetails,
+            // Prefer saved adults/children; fall back to beds or legacy numberOfGuests
+            maxAdults:
+                room.maxAdults !== undefined && room.maxAdults !== null && room.maxAdults !== ""
+                    ? Number(room.maxAdults)
+                    : (room.numberOfGuests != null && room.numberOfGuests !== ""
+                        ? Number(room.numberOfGuests)
+                        : capacityFromBeds.maxAdults),
+            maxChildren:
+                room.maxChildren !== undefined && room.maxChildren !== null && room.maxChildren !== ""
+                    ? Number(room.maxChildren)
+                    : capacityFromBeds.maxChildren,
             pricing: { ...initialRoomState.pricing, ...room.pricing },
-            policies: { ...initialRoomState.policies, ...room.policies },
+            policies: {
+                ...initialRoomState.policies,
+                ...room.policies,
+                extraBedMaxAdults:
+                    room.policies?.extraBedMaxAdults !== undefined && room.policies?.extraBedMaxAdults !== null && room.policies?.extraBedMaxAdults !== ""
+                        ? Number(room.policies.extraBedMaxAdults)
+                        : (room.policies?.extraBed === "Available" ? 1 : ""),
+                extraBedMaxChildren:
+                    room.policies?.extraBedMaxChildren !== undefined && room.policies?.extraBedMaxChildren !== null && room.policies?.extraBedMaxChildren !== ""
+                        ? Number(room.policies.extraBedMaxChildren)
+                        : (room.policies?.extraBed === "Available" ? 1 : ""),
+            },
             foodInfo: { ...initialRoomState.foodInfo, ...room.foodInfo },
         });
         setIsRoomModalOpen(true);
@@ -399,6 +425,8 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             amenities: newRoom.amenities || [],
             maxAdults: resolvedMaxAdults,
             maxChildren: resolvedMaxChildren,
+            // Keep numberOfGuests in sync for older package/booking readers; do not use as a separate max-guest field
+            numberOfGuests: resolvedMaxAdults + resolvedMaxChildren,
             numberOfBeds: totalBeds,
             bedType: typeSummary,
             bedDetails: newRoom.bedDetails || [],
@@ -434,6 +462,13 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
         setRoomTypes(prev => prev.filter(r => r.id !== id));
     };
 
+    /** Inventory total = sum of each room type's count (no separate hotel-level total). */
+    const sumRoomInventory = (rooms) =>
+        (rooms || []).reduce((sum, r) => {
+            const n = Number(r.totalRooms ?? r.quantity ?? 0);
+            return sum + (Number.isFinite(n) && n > 0 ? Math.floor(n) : 0);
+        }, 0);
+
     const onSubmit = async (data) => {
         console.log("onSubmit triggered! Data:", data);
         if (!logoURL) { setLogoError(true); return; }
@@ -445,8 +480,10 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             const existingAvailabilityConfig =
                 initialData?.availabilityConfig ||
                 initialData?.hotel?.availabilityConfig;
+            const derivedTotalRooms = sumRoomInventory(roomTypes);
             const availabilityConfig = {
                 autoBookingEnabled: true,
+                // Default per type when a type has no qty — not a hotel-level total
                 defaultRoomInventory: 5,
                 notifyOnFull: true,
                 notifyOnFreed: true,
@@ -463,7 +500,8 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     currency: "THB",
                     startingPrice: manualStartingPrice ? Number(manualStartingPrice) : (roomTypes.length > 0 ? Math.min(...roomTypes.map(r => r.pricing?.pricePerNightAfterDiscount || 0)) : 0),
                     discount: Number(hotelDiscount) || 0,
-                    totalRooms: Number(data.totalRooms) || 5,
+                    // Derived from room types only (not a separate form field)
+                    totalRooms: derivedTotalRooms,
                     address: addressInputValue || data.address || "",
                     description: data.description || "",
                     policies: data.policies || "",
@@ -526,13 +564,31 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
             // Save Rooms to Sub-collection
             const roomsSubCollectionRef = collection(db, "HotelDB", hotelIdForSubColl, "rooms");
+            const keepIds = new Set(roomTypes.map((r) => String(r.id)));
 
-            // Note: For edit, we are upserting rooms. 
-            // Currently not handling deletion of rooms that were removed from UI but exist in DB.
+            // Delete room types removed in the UI so they cannot still be booked
+            if (isEdit) {
+                try {
+                    const existingSnap = await getDocs(roomsSubCollectionRef);
+                    const deletePromises = existingSnap.docs
+                        .filter((d) => !keepIds.has(d.id))
+                        .map((d) => deleteDoc(d.ref));
+                    await Promise.all(deletePromises);
+                } catch (delErr) {
+                    console.warn("Room type cleanup failed", delErr);
+                }
+            }
+
             const roomPromises = roomTypes.map(async (room) => {
                 const roomId = room.id.toString();
                 const roomDocRef = doc(roomsSubCollectionRef, roomId);
-                await setDoc(roomDocRef, room, { merge: true });
+                await setDoc(roomDocRef, {
+                    ...room,
+                    hotelUid: hotelIdForSubColl,
+                    // Normalize extra bed for booking pricing
+                    allowExtraBed: room.policies?.extraBed === "Available" || room.allowExtraBed === true,
+                    hasExtraBed: room.policies?.extraBed === "Available" || room.hasExtraBed === true,
+                }, { merge: true });
             });
 
             await Promise.all(roomPromises);
@@ -634,7 +690,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                             )}
                         />
                     </div>
-                    <div className="md:col-span-4">
+                    <div className="md:col-span-6">
                         <Controller
                             name="phoneNumber"
                             control={control}
@@ -645,7 +701,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                             )}
                         />
                     </div>
-                    <div className="md:col-span-4">
+                    <div className="md:col-span-6">
                         <Controller
                             name="country"
                             control={control}
@@ -653,25 +709,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                             render={({ field }) => (
                                 <TextField {...field} label="Country" fullWidth
                                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
-                            )}
-                        />
-                    </div>
-                    <div className="md:col-span-4">
-                        <Controller
-                            name="totalRooms"
-                            control={control}
-                            defaultValue={5}
-                            rules={{ required: "Total Rooms is required" }}
-                            render={({ field }) => (
-                                <TextField
-                                    {...field}
-                                    label="Total Rooms Available"
-                                    type="number"
-                                    fullWidth
-                                    error={!!errors.totalRooms}
-                                    helperText={errors.totalRooms?.message}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                />
                             )}
                         />
                     </div>
@@ -943,26 +980,20 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div>
+                                <div className="col-span-2">
                                     <label className="text-xs font-bold text-gray-500 uppercase">Base Price</label>
                                     <div className="mt-1 bg-gray-50 rounded-xl px-3 py-2 text-gray-900 font-bold border border-gray-100">
                                         $ {room.pricing?.basePrice || room.price || 0}
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Rooms (inventory)</label>
-                                    <div className="mt-1 bg-sky-50 rounded-xl px-3 py-2 text-sky-900 font-bold border border-sky-100">
-                                        {room.totalRooms ?? room.quantity ?? "—"}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Max Adults</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Adults</label>
                                     <div className="mt-1 bg-gray-50 rounded-xl px-3 py-2 text-gray-900 font-bold border border-gray-100">
                                         {room.maxAdults ?? 0}
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs font-bold text-gray-500 uppercase">Max Children</label>
+                                    <label className="text-xs font-bold text-gray-500 uppercase">Children</label>
                                     <div className="mt-1 bg-gray-50 rounded-xl px-3 py-2 text-gray-900 font-bold border border-gray-100">
                                         {room.maxChildren ?? 0}
                                     </div>
@@ -1027,7 +1058,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                         <div>
                             <h3 className="text-sm font-bold text-gray-500 uppercase mb-2">Configuration</h3>
                             <div className="space-y-2">
-                                <p><span className="font-semibold text-gray-900">Total Rooms:</span> {getValues("totalRooms")}</p>
                                 <p><span className="font-semibold text-gray-900">Room Types:</span> {roomTypes.length}</p>
                                 {roomTypes.some(r => r.policies?.extraBed === "Available") && (
                                     <p><span className="font-semibold text-gray-900">Extra Beds:</span> Yes (Available in some rooms)</p>
@@ -1196,18 +1226,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                 </div>
                                 <div className="md:col-span-3">
                                     <TextField
-                                        label="No. of rooms"
-                                        type="number"
-                                        fullWidth
-                                        required
-                                        helperText="Inventory for this type"
-                                        value={newRoom.totalRooms}
-                                        onChange={(e) => setNewRoom({ ...newRoom, totalRooms: e.target.value === "" ? "" : Number(e.target.value) })}
-                                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                                    />
-                                </div>
-                                <div className="md:col-span-3">
-                                    <TextField
                                         label="Discount (%)"
                                         type="number"
                                         fullWidth
@@ -1233,23 +1251,56 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                 </div>
                                 <div className="md:col-span-2">
                                     <TextField
-                                        label="Max Adults"
+                                        label="Adults"
                                         type="number"
                                         fullWidth
-                                        value={newRoom.maxAdults === "" ? defaultCapacity.maxAdults : newRoom.maxAdults}
-                                        onChange={(e) => setNewRoom({ ...newRoom, maxAdults: e.target.value === "" ? "" : Number(e.target.value) })}
-                                        helperText="Single bed: 1, other beds: 2"
+                                        inputProps={{ min: 0 }}
+                                        value={newRoom.maxAdults === "" || newRoom.maxAdults === null || newRoom.maxAdults === undefined ? "" : newRoom.maxAdults}
+                                        onChange={(e) => {
+                                            const raw = e.target.value;
+                                            setNewRoom((prev) => ({
+                                                ...prev,
+                                                maxAdults: raw === "" ? "" : Math.max(0, Number(raw)),
+                                            }));
+                                        }}
+                                        onBlur={(e) => {
+                                            // If left empty, seed from bed config on blur (still fully editable after)
+                                            if (e.target.value === "") {
+                                                setNewRoom((prev) => ({
+                                                    ...prev,
+                                                    maxAdults: defaultCapacity.maxAdults,
+                                                }));
+                                            }
+                                        }}
+                                        placeholder={String(defaultCapacity.maxAdults)}
+                                        helperText={`Suggested: ${defaultCapacity.maxAdults} (from beds)`}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                     />
                                 </div>
                                 <div className="md:col-span-2">
                                     <TextField
-                                        label="Max Children"
+                                        label="Children"
                                         type="number"
                                         fullWidth
-                                        value={newRoom.maxChildren === "" ? defaultCapacity.maxChildren : newRoom.maxChildren}
-                                        onChange={(e) => setNewRoom({ ...newRoom, maxChildren: e.target.value === "" ? "" : Number(e.target.value) })}
-                                        helperText="1 child max per selected bed"
+                                        inputProps={{ min: 0 }}
+                                        value={newRoom.maxChildren === "" || newRoom.maxChildren === null || newRoom.maxChildren === undefined ? "" : newRoom.maxChildren}
+                                        onChange={(e) => {
+                                            const raw = e.target.value;
+                                            setNewRoom((prev) => ({
+                                                ...prev,
+                                                maxChildren: raw === "" ? "" : Math.max(0, Number(raw)),
+                                            }));
+                                        }}
+                                        onBlur={(e) => {
+                                            if (e.target.value === "") {
+                                                setNewRoom((prev) => ({
+                                                    ...prev,
+                                                    maxChildren: defaultCapacity.maxChildren,
+                                                }));
+                                            }
+                                        }}
+                                        placeholder={String(defaultCapacity.maxChildren)}
+                                        helperText={`Suggested: ${defaultCapacity.maxChildren} (from beds)`}
                                         sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                     />
                                 </div>
@@ -1462,21 +1513,65 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                             />
                                             <TextField
-                                                label="Extra Bed Max Adults"
+                                                label="Extra Bed Adults"
                                                 type="number"
                                                 fullWidth
-                                                value={newRoom.policies.extraBedMaxAdults === "" ? defaultCapacity.extraBedMaxAdults : newRoom.policies.extraBedMaxAdults}
-                                                onChange={(e) => setNewRoom({ ...newRoom, policies: { ...newRoom.policies, extraBedMaxAdults: e.target.value === "" ? "" : Number(e.target.value) } })}
-                                                helperText="Default: 1 adult"
+                                                inputProps={{ min: 0 }}
+                                                value={newRoom.policies.extraBedMaxAdults === "" || newRoom.policies.extraBedMaxAdults === null || newRoom.policies.extraBedMaxAdults === undefined ? "" : newRoom.policies.extraBedMaxAdults}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value;
+                                                    setNewRoom((prev) => ({
+                                                        ...prev,
+                                                        policies: {
+                                                            ...prev.policies,
+                                                            extraBedMaxAdults: raw === "" ? "" : Math.max(0, Number(raw)),
+                                                        },
+                                                    }));
+                                                }}
+                                                onBlur={(e) => {
+                                                    if (e.target.value === "") {
+                                                        setNewRoom((prev) => ({
+                                                            ...prev,
+                                                            policies: {
+                                                                ...prev.policies,
+                                                                extraBedMaxAdults: defaultCapacity.extraBedMaxAdults,
+                                                            },
+                                                        }));
+                                                    }
+                                                }}
+                                                placeholder={String(defaultCapacity.extraBedMaxAdults)}
+                                                helperText={`Suggested: ${defaultCapacity.extraBedMaxAdults}`}
                                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                             />
                                             <TextField
-                                                label="Extra Bed Max Children"
+                                                label="Extra Bed Children"
                                                 type="number"
                                                 fullWidth
-                                                value={newRoom.policies.extraBedMaxChildren === "" ? defaultCapacity.extraBedMaxChildren : newRoom.policies.extraBedMaxChildren}
-                                                onChange={(e) => setNewRoom({ ...newRoom, policies: { ...newRoom.policies, extraBedMaxChildren: e.target.value === "" ? "" : Number(e.target.value) } })}
-                                                helperText="Default: 1 child"
+                                                inputProps={{ min: 0 }}
+                                                value={newRoom.policies.extraBedMaxChildren === "" || newRoom.policies.extraBedMaxChildren === null || newRoom.policies.extraBedMaxChildren === undefined ? "" : newRoom.policies.extraBedMaxChildren}
+                                                onChange={(e) => {
+                                                    const raw = e.target.value;
+                                                    setNewRoom((prev) => ({
+                                                        ...prev,
+                                                        policies: {
+                                                            ...prev.policies,
+                                                            extraBedMaxChildren: raw === "" ? "" : Math.max(0, Number(raw)),
+                                                        },
+                                                    }));
+                                                }}
+                                                onBlur={(e) => {
+                                                    if (e.target.value === "") {
+                                                        setNewRoom((prev) => ({
+                                                            ...prev,
+                                                            policies: {
+                                                                ...prev.policies,
+                                                                extraBedMaxChildren: defaultCapacity.extraBedMaxChildren,
+                                                            },
+                                                        }));
+                                                    }
+                                                }}
+                                                placeholder={String(defaultCapacity.extraBedMaxChildren)}
+                                                helperText={`Suggested: ${defaultCapacity.extraBedMaxChildren}`}
                                                 sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                                             />
                                         </>

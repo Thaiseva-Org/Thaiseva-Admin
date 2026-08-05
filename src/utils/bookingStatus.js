@@ -181,34 +181,106 @@ export const isPaymentUnverified = (booking = {}) => {
   );
 };
 
+const HOTEL_PENDING_STATUS = new Set([
+  "PENDING",
+  "PENDING_VERIFICATION",
+  "PENDING VERIFICATION",
+  "PAYMENT_PENDING",
+  "PAYMENT PENDING",
+  "PAYMENT_PENDING_VERIFICATION",
+  "PAYMENT PENDING VERIFICATION",
+  "NOT_REVIEWED",
+  "NOT REVIEWED",
+]);
+
+const HOTEL_ACCEPTED_STATUS = new Set([
+  "ACCEPTED",
+  "CONFIRMED",
+  "COMPLETED",
+  "DONE",
+  "AWAITING_PAYMENT",
+  "AWAITING PAYMENT",
+  "ACCEPTED_AWAITING_PAYMENT",
+  "PARTIALLY_CONFIRMED",
+  "PARTIALLY CONFIRMED",
+]);
+
+const HOTEL_CANCELED_STATUS = new Set([
+  "CANCELED",
+  "CANCELLED",
+  "REJECTED",
+  "DENIED",
+]);
+
+/**
+ * Normalize hotel booking lifecycle for admin tabs / counts.
+ * Prefer bookingStatus, then status. Treat confirmed flag as Accepted.
+ */
 export const normalizeHotelBookingStatus = (booking = {}) => {
   const rawStatus = booking.bookingStatus || booking.status || "";
-  const statusUpper = upper(rawStatus);
+  const statusUpper = upper(rawStatus).replace(/-/g, "_");
+  const statusToken = statusUpper.replace(/_/g, " ").trim();
 
-  if (
-    statusUpper === "PENDING" ||
-    statusUpper === "AWAITING_PAYMENT" ||
-    statusUpper === "PENDING_VERIFICATION" ||
-    statusUpper === "PAYMENT_PENDING"
-  ) {
-    return "Pending";
+  if (HOTEL_CANCELED_STATUS.has(statusUpper) || HOTEL_CANCELED_STATUS.has(statusToken)) {
+    return "Canceled";
   }
 
-  if (statusUpper === "ACCEPTED" || statusUpper === "CONFIRMED") {
+  // "Accepted - awaiting payment" and similar display strings
+  if (
+    statusToken.includes("ACCEPT") ||
+    statusUpper.includes("AWAITING_PAYMENT") ||
+    statusToken.includes("AWAITING PAYMENT")
+  ) {
+    return "Accepted";
+  }
+
+  // Explicit confirm flag wins over a stale "Pending" label
+  if (booking.isBookingConfirmed === true) {
+    return "Accepted";
+  }
+
+  // Inventory-locked instant portion of a partial booking is accepted
+  if (
+    booking.inventoryReserved === true &&
+    (Number(booking.roomsInstant) > 0 || booking.autoAccepted === true)
+  ) {
     return "Accepted";
   }
 
   if (
-    statusUpper === "CANCELED" ||
-    statusUpper === "CANCELLED" ||
-    statusUpper === "REJECTED" ||
-    statusUpper === "DENIED"
+    HOTEL_PENDING_STATUS.has(statusUpper) ||
+    HOTEL_PENDING_STATUS.has(statusToken)
   ) {
-    return "Canceled";
+    return "Pending";
   }
 
-  return booking.status || rawStatus || "Pending";
+  if (HOTEL_ACCEPTED_STATUS.has(statusUpper) || HOTEL_ACCEPTED_STATUS.has(statusToken)) {
+    return "Accepted";
+  }
+
+  // Unknown non-empty values: keep original for display; empty → Pending
+  if (!rawStatus) return "Pending";
+  return booking.status || rawStatus;
 };
+
+/** True when booking still has pending rooms awaiting hotel accept/reject. */
+export const hasHotelPendingRooms = (booking = {}) => {
+  const roomsPending = Number(booking.roomsPending ?? booking.rawData?.roomsPending ?? 0);
+  if (Number.isFinite(roomsPending) && roomsPending > 0) return true;
+  const source = String(
+    booking.sourcePath || booking.rawData?.sourcePath || ""
+  ).toLowerCase();
+  const status = upper(booking.bookingStatus || booking.status || "");
+  return (
+    source.includes("pending_partial") ||
+    (status === "PENDING" &&
+      Boolean(booking.siblingAutoBookingId || booking.rawData?.siblingAutoBookingId))
+  );
+};
+
+/** True when booking still needs admin/hotel action (not accepted/canceled). */
+export const isHotelPending = (booking = {}) =>
+  normalizeHotelBookingStatus(booking) === "Pending";
 
 export const getHotelPaymentMethod = (booking = {}) =>
   booking.paymentMethod ||
@@ -275,8 +347,24 @@ export const isHotelAccepted = (booking = {}) =>
 export const isHotelCanceled = (booking = {}) =>
   normalizeHotelBookingStatus(booking) === "Canceled";
 
-export const isHotelWaitingForPayment = (booking = {}) =>
-  isHotelAccepted(booking) && !isHotelPaymentVerified(booking);
+export const isHotelWaitingForPayment = (booking = {}) => {
+  if (isHotelPaymentVerified(booking)) return false;
+  if (isHotelCanceled(booking)) return false;
+
+  const due = Number(booking.amountDue);
+  if (Number.isFinite(due) && due > 0 && booking.isPaymentDone !== true) {
+    return true;
+  }
+  if (booking.payNow === true && booking.isPaymentDone !== true) {
+    return true;
+  }
+  const st = upper(booking.bookingStatus || booking.status || "");
+  if (st.includes("AWAITING") || st.includes("AWAITING_PAYMENT")) {
+    return true;
+  }
+  // Accepted but not paid
+  return isHotelAccepted(booking) && booking.isPaymentDone !== true;
+};
 
 export const isHotelRevenueEligible = (booking = {}) =>
   isHotelAccepted(booking) && isHotelPaymentVerified(booking);
@@ -289,36 +377,74 @@ const SIGHTSEEING_PENDING_STATUSES = new Set([
   "REVIEWED",
   "AWAITING PAYMENT",
   "PENDING VERIFICATION",
+  "PENDING_VERIFICATION",
   "PAYMENT PENDING",
+  "PAYMENT_PENDING",
+  "PAYMENT_PENDING_VERIFICATION",
+  "PAYMENT PENDING VERIFICATION",
 ]);
 
+const SIGHTSEEING_ACCEPTED_STATUSES = new Set([
+  "ACCEPTED",
+  "CONFIRMED",
+  "DONE",
+  "COMPLETED",
+]);
+
+const SIGHTSEEING_CANCELED_STATUSES = new Set([
+  "CANCELED",
+  "CANCELLED",
+  "REJECTED",
+  "DENIED",
+]);
+
+const normalizeStatusToken = (value) => upper(value).replace(/_/g, " ").trim();
+
+/**
+ * Normalize sightseeing lifecycle for admin tabs.
+ *
+ * Stripe path often has:
+ *   status: "Pending" | "Confirmed"
+ *   bookingStatus: "CONFIRMED"
+ *   isPaymentDone: true, paymentVerificationStatus: "VERIFIED"
+ *
+ * Capacity auto-accept can rewrite status → "Pending" even after pay.
+ * Paid/verified bookings must still count as Accepted → Paid & Accepted tab.
+ */
 export const normalizeSightseeingStatus = (booking = {}) => {
-  const rawStatus = booking.status || "";
-  const statusUpper = upper(rawStatus);
-
-  if (SIGHTSEEING_PENDING_STATUSES.has(statusUpper)) {
-    return "Pending";
-  }
+  const lifecycle = normalizeStatusToken(booking.status);
+  const bookingLifecycle = normalizeStatusToken(booking.bookingStatus);
 
   if (
-    statusUpper === "ACCEPTED" ||
-    statusUpper === "CONFIRMED" ||
-    statusUpper === "DONE" ||
-    statusUpper === "COMPLETED"
-  ) {
-    return "Accepted";
-  }
-
-  if (
-    statusUpper === "CANCELED" ||
-    statusUpper === "CANCELLED" ||
-    statusUpper === "REJECTED" ||
-    statusUpper === "DENIED"
+    SIGHTSEEING_CANCELED_STATUSES.has(lifecycle) ||
+    SIGHTSEEING_CANCELED_STATUSES.has(bookingLifecycle)
   ) {
     return "Canceled";
   }
 
-  return rawStatus || "Pending";
+  // Fully paid (Stripe Checkout, admin-verified Thai QR, etc.)
+  if (isPaymentVerified(booking)) {
+    return "Accepted";
+  }
+
+  // Seat accepted / confirmed (Thai QR auto-accept, onsite, manual accept)
+  if (SIGHTSEEING_ACCEPTED_STATUSES.has(lifecycle)) {
+    return "Accepted";
+  }
+  if (SIGHTSEEING_ACCEPTED_STATUSES.has(bookingLifecycle)) {
+    return "Accepted";
+  }
+
+  if (
+    SIGHTSEEING_PENDING_STATUSES.has(lifecycle) ||
+    SIGHTSEEING_PENDING_STATUSES.has(bookingLifecycle) ||
+    lifecycle.includes("PENDING") ||
+    bookingLifecycle.includes("PENDING")
+  ) {
+    return "Pending";
+  }
+
+  return booking.status || booking.bookingStatus || "Pending";
 };
 
 export const isSightseeingPending = (booking = {}) =>
@@ -330,10 +456,12 @@ export const isSightseeingAccepted = (booking = {}) =>
 export const isSightseeingCanceled = (booking = {}) =>
   normalizeSightseeingStatus(booking) === "Canceled";
 
+/** Manual review queue: unpaid Stripe/card only — not Thai QR, onsite, or already paid. */
 export const isSightseeingPendingReview = (booking = {}) =>
   isSightseeingPending(booking) &&
   !isOnsiteSightseeingPayment(booking) &&
-  !isThaiQrSightseeingPayment(booking);
+  !isThaiQrSightseeingPayment(booking) &&
+  !isPaymentVerified(booking);
 
 export const needsSightseeingPaymentVerification = (booking = {}) => {
   if (!isSightseeingAccepted(booking)) return false;
@@ -366,20 +494,27 @@ const getDeferredPaymentStatusPrefix = (booking = {}) =>
 export const getSightseeingStatusLabel = (booking = {}) => {
   if (isSightseeingCanceled(booking)) return "Rejected";
   if (isSightseeingRevenueEligible(booking)) {
-    if (booking.autoAccepted && isStripeSightseeingPayment(booking)) {
-      return "Auto-Accepted · Paid";
+    if (isStripeSightseeingPayment(booking)) {
+      return booking.autoAccepted ? "Stripe · Auto-Accepted · Paid" : "Stripe · Paid";
     }
-    return booking.autoAccepted ? "Auto-Accepted · Paid" : "Paid & Accepted";
+    if (booking.autoAccepted) return "Auto-Accepted · Paid";
+    return "Paid & Accepted";
   }
   if (needsSightseeingPaymentVerification(booking)) {
+    const prefix = getDeferredPaymentStatusPrefix(booking);
+    if (isThaiQrSightseeingPayment(booking)) {
+      return booking.autoAccepted
+        ? "Thai QR · Pending Verify"
+        : "Thai QR · Awaiting Verify";
+    }
     if (booking.autoAccepted) {
-      return `${getDeferredPaymentStatusPrefix(booking)} · Auto-Accepted`;
+      return `${prefix} · Auto-Accepted`;
     }
     if (
       isOnsiteSightseeingPayment(booking) ||
       isThaiQrSightseeingPayment(booking)
     ) {
-      return getDeferredPaymentStatusPrefix(booking);
+      return `${prefix} · Pending Verify`;
     }
     if (isStripeSightseeingPayment(booking)) return "Awaiting Payment";
     return "Awaiting Payment";
@@ -388,7 +523,9 @@ export const getSightseeingStatusLabel = (booking = {}) => {
     isSightseeingPending(booking) &&
     (isOnsiteSightseeingPayment(booking) || isThaiQrSightseeingPayment(booking))
   ) {
-    return `${getDeferredPaymentStatusPrefix(booking)} · Auto-Booking`;
+    return isThaiQrSightseeingPayment(booking)
+      ? "Thai QR · Auto-Booking"
+      : `${getDeferredPaymentStatusPrefix(booking)} · Auto-Booking`;
   }
   if (isSightseeingAccepted(booking)) return "Accepted";
   return "Pending Review";
@@ -406,17 +543,35 @@ export const getSightseeingPaymentStatusInfo = (booking = {}) => {
     };
   }
 
+  const verificationStatus = upper(booking.paymentVerificationStatus);
+  const isPendingVerification =
+    verificationStatus === "PENDING_VERIFICATION" ||
+    verificationStatus === "UNVERIFIED" ||
+    verificationStatus === "PENDING" ||
+    upper(booking.bookingStatus) === "PAYMENT_PENDING_VERIFICATION";
+
   if (
     needsSightseeingPaymentVerification(booking) ||
     isPaymentUnverified(booking) ||
-    requiresDeferredSightseeingPaymentVerification(booking)
+    requiresDeferredSightseeingPaymentVerification(booking) ||
+    isPendingVerification
   ) {
+    if (isThaiQrSightseeingPayment(booking)) {
+      return {
+        label: "Thai QR · Pending",
+        className:
+          "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20",
+      };
+    }
+    if (isOnsiteSightseeingPayment(booking)) {
+      return {
+        label: "Onsite · Pending",
+        className:
+          "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20",
+      };
+    }
     return {
-      label: isThaiQrSightseeingPayment(booking)
-        ? "Thai QR"
-        : isOnsiteSightseeingPayment(booking)
-          ? "Onsite"
-          : "Unverified",
+      label: isPendingVerification ? "Pending Verify" : "Unverified",
       className:
         "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20",
     };
@@ -427,6 +582,15 @@ export const getSightseeingPaymentStatusInfo = (booking = {}) => {
     className:
       "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/20",
   };
+};
+
+/** Human-readable payment method for admin UI */
+export const formatSightseeingPaymentMethodLabel = (booking = {}) => {
+  if (isThaiQrSightseeingPayment(booking)) return "Thai QR (PromptPay)";
+  if (isStripeSightseeingPayment(booking)) return "Card (Stripe)";
+  if (isOnsiteSightseeingPayment(booking)) return "Onsite / Cash";
+  const method = getSightseeingPaymentMethod(booking);
+  return method || "—";
 };
 
 export const normalizeVanStatus = (booking = {}) => {
@@ -481,17 +645,59 @@ export const getHotelPaymentStatusInfo = (booking = {}) => {
     };
   }
 
-  if (isThaiQrHotelPayment(booking)) {
+  const amountDue = Number(booking.amountDue);
+  const hasOpenBalance =
+    Number.isFinite(amountDue) && amountDue > 0;
+  const unpaid =
+    booking.isPaymentDone !== true &&
+    booking.isPaymentClear !== true &&
+    booking.paymentConfirmation?.status !== "paid";
+
+  // Thai QR: guest submitted proof, admin still must verify
+  if (
+    isThaiQrHotelPayment(booking) &&
+    (booking.customerQrPaymentConfirmed === true ||
+      upper(booking.paymentVerificationStatus) === "PENDING_VERIFICATION") &&
+    !unpaid
+  ) {
     return {
-      label: "Thai QR",
+      label: "Thai QR · Pending",
       className:
         "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20",
     };
   }
 
-  if (isStripeHotelPayment(booking)) {
+  // Accepted / awaiting payment → show Unpaid (not "Unverified" just because method is Stripe)
+  if (unpaid) {
+    if (isThaiQrHotelPayment(booking) && booking.customerQrPaymentConfirmed === true) {
+      return {
+        label: "Thai QR · Pending",
+        className:
+          "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20",
+      };
+    }
+    if (
+      hasOpenBalance ||
+      isHotelAccepted(booking) ||
+      upper(booking.bookingStatus).includes("AWAITING") ||
+      booking.payNow === true
+    ) {
+      return {
+        label: hasOpenBalance ? "Unpaid · Pay now" : "Unpaid",
+        className:
+          "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20",
+      };
+    }
     return {
-      label: "Unverified",
+      label: "Unpaid",
+      className:
+        "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/20",
+    };
+  }
+
+  if (isThaiQrHotelPayment(booking)) {
+    return {
+      label: "Thai QR · Pending",
       className:
         "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20",
     };
@@ -500,7 +706,7 @@ export const getHotelPaymentStatusInfo = (booking = {}) => {
   return {
     label: "Unpaid",
     className:
-      "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-500/20",
+      "bg-rose-50 text-rose-700 ring-1 ring-inset ring-rose-600/20",
   };
 };
 
