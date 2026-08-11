@@ -197,6 +197,17 @@ if (method === "STRIPE") {
         await stripe.paymentIntents.retrieve(paymentIntentId);
 
       // Payment must actually be successful.
+ if (paymentIntent.status !== "succeeded") {
+        throw new HttpError(
+          400,
+          `Stripe payment is not completed. Current status: ${paymentIntent.status}`,
+          "PAYMENT_NOT_COMPLETED",
+        );
+      }
+
+      // Make sure the Stripe amount matches your package amount.
+      const expectedAmount = Math.round(amount);
+
      if (paymentIntent.amount !== expectedAmount) {
   throw new HttpError(
     400,
@@ -206,17 +217,6 @@ if (method === "STRIPE") {
     "PAYMENT_AMOUNT_MISMATCH",
   );
 }
-
-      // Make sure the Stripe amount matches your package amount.
-      const expectedAmount = Math.round(amount);
-
-      if (paymentIntent.amount !== expectedAmount) {
-        throw new HttpError(
-          400,
-          "Stripe payment amount does not match booking amount.",
-          "PAYMENT_AMOUNT_MISMATCH",
-        );
-      }
 
       // Make sure currency matches.
       if (paymentIntent.currency.toLowerCase() !== "thb") {
