@@ -154,7 +154,12 @@ File: **`storage.rules`**
 
 ## Customer booking APIs (website / app)
 
-**Single guide to share:** [`THAISEVA_BOOKING_API.md`](./THAISEVA_BOOKING_API.md)
+**Share with website/app developers:**
+
+| Doc | Audience |
+|-----|----------|
+| [`THAISEVA_BOOKING_API.md`](./THAISEVA_BOOKING_API.md) | Full booking API (hotel, sightseeing, transport) |
+| [`SIGHTSEEING_CLIENT_INTEGRATION.md`](./SIGHTSEEING_CLIENT_INTEGRATION.md) | Package booking only — website Checkout vs app PaymentSheet |
 
 Cloud Functions HTTPS (`asia-east2`): create/pay, transport quote fetch, notifications inbox `notifications/users/{userId}`.
 
@@ -184,6 +189,7 @@ Cloud Functions HTTPS (`asia-east2`): create/pay, transport quote fetch, notific
 
 ## Change log (permissions)
 
+- **2026-08-12** — Sightseeing Stripe PaymentIntent (app PaymentSheet) documented; canonical paid `travelBookingDetails` shape; client guide `SIGHTSEEING_CLIENT_INTEGRATION.md`. PaymentIntent validation on `createSightseeingBooking` (succeeded, amount satang, thb).
 - **2026-08-05** — Hotel inventory unlock (`unlockHotelRoomLock`), partial-accept `amountDue` pay path, guest capacity, safer `userRole()` rules, admin callables for availability writes. See `HOTEL_AVAILABILITY_*` docs + `THAISEVA_BOOKING_API.md`.
 - **2026-08-02** — Hotel Room Availability: admin UI + rules for `HotelDB/{hotelId}/availability`, `hotelRoomInventory`, `hotelInventoryAuditLogs`; hub stats. Website: `checkHotelAvailability` public HTTPS + CORS; soft hold + create callables. See `documentation/HOTEL_AVAILABILITY_API.md` and `documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`.
 - **2026-06-22** — Merged app-wide rules (orders, cart, T2T, chat, etc.) with admin portal rules; added `MasterEarnings` read/create/update; deployed to `gothai-ffea1`.

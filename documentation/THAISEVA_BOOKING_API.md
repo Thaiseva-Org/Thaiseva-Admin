@@ -7,7 +7,9 @@
 | **Region** | `asia-east2` |
 | **Protocol** | HTTPS `POST` + JSON (unless noted) |
 | **Auth** | Firebase ID token: `Authorization: Bearer <token>` |
-| **Updated** | 2026-08-05 |
+| **Updated** | 2026-08-12 |
+
+**Also see:** [Sightseeing website & app integration](./SIGHTSEEING_CLIENT_INTEGRATION.md) (step-by-step for Checkout vs PaymentSheet).
 
 ---
 
@@ -249,23 +251,41 @@ await startHold({ hotelId, packageId, checkIn, checkOut, rooms: 1 });
 
 ### `POST createSightseeingBooking`
 
+Collection written by the server: **`travelBookingDetails`**.  
+Clients must **not** write this collection directly.
+
 **Body**
 
 | Field | Required | Notes |
 |-------|----------|--------|
 | `packageId` | Yes | From `sightseeingPackagesDetails` |
 | `arrivalDate` / `travelDate` | Yes | `YYYY-MM-DD` |
-| `fullName` | Yes | |
+| `fullName` | Yes | Guest name |
 | `adults` | No | Default 1 (max 50) |
 | `children` | No | Default 0 |
-| `guestEmail`, `guestPhone` | Recommended | |
+| `guestEmail`, `guestPhone` | Recommended | Also accepted as `email` / `phone` |
 | `departureDate` | No | Defaults to arrival |
+| `pickUpTime` | No | Defaults to arrival date |
 | `pickUpLocation`, `specialRequests` | No | |
-| `paymentMethod` | No | STRIPE / THAI_QR / ONSITE |
-| `customerQrPaymentConfirmed` | QR | boolean |
-| `successUrl`, `cancelUrl` | Stripe | |
+| `paymentMethod` | No | STRIPE / THAI_QR / ONSITE (default STRIPE) |
+| `customerQrPaymentConfirmed` | QR | boolean — user declared transfer done |
+| `successUrl`, `cancelUrl` | Website Stripe | Checkout return URLs |
+| `paymentIntentId` | App Stripe | After PaymentSheet succeeds (`pi_...`) |
+| `userId` | Optional | Must match token UID if sent |
 
-**Example**
+**Pricing (server only):**  
+`round(adultPrice × adults + childPrice × children)`  
+(If child price missing → 50% of adult price.)  
+Minimum card charge: **20 THB**.
+
+### Two Stripe modes
+
+| Client | How | Booking created when |
+|--------|-----|----------------------|
+| **Website** | No `paymentIntentId` → server returns `stripeUrl` (Checkout Session) | **After** pay (`verifySession` or `stripeWebhook`) |
+| **App (PaymentSheet)** | Pay first, then send `paymentIntentId` | **Immediately** after server verifies PI |
+
+#### Website Stripe (Checkout)
 
 ```json
 {
@@ -282,19 +302,161 @@ await startHold({ hotelId, packageId, checkIn, checkOut, rooms: 1 });
 }
 ```
 
-### By payment method
+Response (typical):
+
+```json
+{
+  "success": true,
+  "paymentMethod": "STRIPE",
+  "bookingId": null,
+  "bookingCollection": "travelBookingDetails",
+  "amount": 49000,
+  "currency": "thb",
+  "stripeUrl": "https://checkout.stripe.com/...",
+  "stripeSessionId": "cs_...",
+  "payNow": true,
+  "isPaymentDone": false,
+  "message": "Redirect the guest to stripeUrl to complete payment."
+}
+```
+
+Client: `window.location.href = data.stripeUrl` → on success page call `verifySession`.
+
+#### App Stripe (PaymentSheet + PaymentIntent)
+
+1. Create/confirm a Stripe PaymentIntent for **server price × 100** (satang), currency **`thb`**.
+2. Present PaymentSheet; wait until status is **succeeded**.
+3. Call `createSightseeingBooking` with the same booking fields + `paymentIntentId`.
+
+```json
+{
+  "packageId": "921f7fa3-5e80-4eaa-88dd-c84e0ff84ff3",
+  "fullName": "abc",
+  "guestEmail": "user@gmail.com",
+  "guestPhone": "+66676646464",
+  "adults": 2,
+  "children": 1,
+  "arrivalDate": "2026-08-11",
+  "departureDate": "2026-08-12",
+  "pickUpTime": "2026-08-11",
+  "paymentMethod": "STRIPE",
+  "paymentIntentId": "pi_3U3KI6B2v6ObPUpc1FGkwnvT",
+  "userId": "GZVysd1ylQRfKZTaXN3GcS1xxTL2"
+}
+```
+
+Server verifies the PaymentIntent:
+
+| Check | Rule |
+|-------|------|
+| Status | Must be `succeeded` |
+| Amount | Must equal server `amount * 100` (THB satang) |
+| Currency | Must be `thb` |
+| Reuse | Same `paymentIntentId` cannot create two bookings |
+
+Success response (typical):
+
+```json
+{
+  "success": true,
+  "paymentMethod": "STRIPE",
+  "bookingId": "pkg_...",
+  "bookingCollection": "travelBookingDetails",
+  "amount": 49000,
+  "currency": "thb",
+  "status": "Confirmed",
+  "bookingStatus": "CONFIRMED",
+  "isPaymentDone": true,
+  "isBookingConfirmed": true,
+  "paymentIntentId": "pi_...",
+  "duplicate": false,
+  "message": "Payment verified and booking confirmed."
+}
+```
+
+A create trigger then auto-accepts paid bookings (`status: "Accepted"`, `autoAccepted: true`, `acceptedAt`).
+
+### THAI_QR / ONSITE
 
 | Method | What happens |
 |--------|----------------|
-| **STRIPE** | Returns `stripeUrl`. Booking is created **after** successful payment (`verifySession` or webhook). On pay, status becomes **Accepted** (`autoAccepted`). `bookingId` may be `null` until then. |
-| **THAI_QR** | Booking created immediately, unpaid, pending admin verification. |
-| **ONSITE** | Booking created, often confirmed; pay later offline. |
+| **THAI_QR** | Booking created immediately, unpaid, `PENDING_VERIFICATION` until admin verifies |
+| **ONSITE** | Booking created; pay later offline; often confirmed |
 
-**Pricing (server):**  
-`adultPrice × adults + childPrice × children`  
-(If child price missing → 50% of adult price.)
+Optional for QR: `"customerQrPaymentConfirmed": true` when the user declares transfer done.
 
-Collection: `travelBookingDetails`.
+### Canonical paid Stripe document (target shape)
+
+After a successful PaymentSheet booking (and after Checkout webhook/verify), readers should treat this as the standard `travelBookingDetails` paid shape:
+
+```json
+{
+  "fullName": "abc",
+  "guestEmail": "user@gmail.com",
+  "guestPhone": "+66676646464",
+  "email": "user@gmail.com",
+  "phone": "+66676646464",
+  "guestDetails": {
+    "name": "abc",
+    "email": "user@gmail.com",
+    "phoneNumber": "+66676646464"
+  },
+  "title": "Grand Thailand Highlands Escape Trip",
+  "packageName": "Grand Thailand Highlands Escape Trip",
+  "packageId": "921f7fa3-5e80-4eaa-88dd-c84e0ff84ff3",
+  "userId": "GZVysd1ylQRfKZTaXN3GcS1xxTL2",
+  "authUid": "GZVysd1ylQRfKZTaXN3GcS1xxTL2",
+  "uId": "GZVysd1ylQRfKZTaXN3GcS1xxTL2",
+  "arrivalDate": "2026-08-11",
+  "departureDate": "2026-08-12",
+  "pickUpTime": "2026-08-11",
+  "pickUpLocation": "",
+  "specialRequests": "",
+  "adults": 2,
+  "children": 1,
+  "totalAmount": 49000,
+  "price": 49000,
+  "amount": 49000,
+  "currency": "THB",
+  "paymentMethod": "STRIPE",
+  "modeOfPayment": "ONLINE",
+  "isPaymentDone": true,
+  "isPaymentClear": true,
+  "isBookingConfirmed": true,
+  "paymentVerificationStatus": "VERIFIED",
+  "paymentVerificationNote": "Stripe PaymentIntent verified successfully.",
+  "paymentIntentId": "pi_3U3KI6B2v6ObPUpc1FGkwnvT",
+  "stripePaymentIntentId": "pi_3U3KI6B2v6ObPUpc1FGkwnvT",
+  "stripeSessionId": null,
+  "paymentConfirmation": {
+    "provider": "STRIPE",
+    "status": "paid",
+    "paymentIntentId": "pi_3U3KI6B2v6ObPUpc1FGkwnvT",
+    "sessionId": null
+  },
+  "stripeAmountTotal": 4900000,
+  "stripeAmountMajor": 49000,
+  "stripeCurrency": "thb",
+  "bookingStatus": "CONFIRMED",
+  "status": "Accepted",
+  "autoAccepted": true,
+  "source": "APP"
+}
+```
+
+**Reader fallbacks (admin + clients):**
+
+| Display | Prefer | Fallback |
+|---------|--------|----------|
+| Guest name | `guestDetails.name` | `fullName` |
+| Phone | `guestDetails.phoneNumber` | `phone` / `guestPhone` |
+| Email | `guestDetails.email` | `email` / `guestEmail` |
+| Amount | `totalAmount` | `price` / `amount` |
+| Paid? | `isPaymentDone` | `paymentVerificationStatus === "VERIFIED"` or `paymentConfirmation.status === "paid"` |
+
+`source`: PaymentSheet path uses `"APP"`; website Checkout/QR/Onsite typically `"WEB"`.
+
+Full step-by-step for both clients: [SIGHTSEEING_CLIENT_INTEGRATION.md](./SIGHTSEEING_CLIENT_INTEGRATION.md).
 
 ---
 
@@ -529,7 +691,11 @@ On transport “price ready”, call `getTransportBooking` or refresh My Booking
 | `NOT_ACCEPTED` | Hotel not ready for payment |
 | `ALREADY_PAID` | Already paid |
 | `CANCELED` | Booking canceled |
-| `INVALID_AMOUNT` / `INVALID_PRICE` | Amount/price problem |
+| `INVALID_AMOUNT` / `INVALID_PRICE` | Amount/price problem (e.g. card &lt; 20 THB) |
+| `PAYMENT_NOT_COMPLETED` | PaymentIntent status is not `succeeded` |
+| `PAYMENT_AMOUNT_MISMATCH` | PaymentIntent amount ≠ server price × 100 |
+| `PAYMENT_CURRENCY_MISMATCH` | PaymentIntent currency is not `thb` |
+| `STRIPE_VERIFICATION_ERROR` | Could not retrieve/verify PaymentIntent |
 | `STRIPE_ERROR` | Could not create Checkout |
 | `RATE_LIMITED` | Too many requests |
 | `FORBIDDEN` | Not owner of booking/session |
@@ -591,7 +757,7 @@ if (data.stripeUrl) {
 }
 ```
 
-### Package + Stripe
+### Package + Stripe (website Checkout)
 
 ```js
 const data = await bookingApi(
@@ -613,7 +779,38 @@ const data = await bookingApi(
 if (data.stripeUrl) window.location.href = data.stripeUrl;
 ```
 
-### Success page
+### Package + Stripe (app PaymentSheet)
+
+```js
+// 1) Create PaymentIntent for amountTHB * 100, currency "thb" (your Stripe backend)
+// 2) presentPaymentSheet() until succeeded
+// 3) Confirm booking with the PI id:
+
+const data = await bookingApi(
+  "createSightseeingBooking",
+  {
+    packageId,
+    adults: 2,
+    children: 1,
+    arrivalDate: "2026-08-11",
+    departureDate: "2026-08-12",
+    fullName,
+    guestEmail,
+    guestPhone,
+    paymentMethod: "STRIPE",
+    paymentIntentId: "pi_...", // from PaymentSheet
+    userId: currentUser.uid,
+  },
+  idToken,
+);
+
+if (data.success && data.isPaymentDone) {
+  // data.bookingId — already paid & written to travelBookingDetails
+  showPaidConfirmed(data.bookingId);
+}
+```
+
+### Success page (website Checkout only)
 
 ```js
 const params = new URLSearchParams(window.location.search);
@@ -655,8 +852,12 @@ const quote = await bookingApi(
 
 - [ ] Hotel STRIPE: create → redirect → test card `4242 4242 4242 4242` → `verifySession` → paid  
 - [ ] Hotel THAI_QR: create → no `stripeUrl` → pending verification  
-- [ ] Package STRIPE: checkout first → booking after pay  
+- [ ] Package STRIPE **website**: Checkout → booking after pay (`verifySession` / webhook)  
+- [ ] Package STRIPE **app**: PaymentSheet → `paymentIntentId` → booking paid immediately  
+- [ ] Package PaymentIntent wrong amount → `PAYMENT_AMOUNT_MISMATCH`  
+- [ ] Package PaymentIntent not succeeded → `PAYMENT_NOT_COMPLETED`  
 - [ ] Package ONSITE: booking created, unpaid/confirmed  
+- [ ] Package THAI_QR: pending verification  
 - [ ] Transport: create → `amount: null` → admin quotes → `getTransportBooking` shows amount  
 - [ ] Transport + STRIPE body → `TRANSPORT_NO_STRIPE`  
 - [ ] My Bookings: `createCheckoutSession` for unpaid hotel/package only  
@@ -668,12 +869,14 @@ const quote = await bookingApi(
 ## 16. Quick rules for developers
 
 1. **Always** send Firebase Bearer token (except public availability check).  
-2. **Never** set `isPaymentDone` from the client.  
+2. **Never** set `isPaymentDone` / write `travelBookingDetails` from the client.  
 3. **Never** trust client-calculated totals for hotel/package charges.  
-4. **Hotel/package card** → follow `stripeUrl` when returned.  
-5. **Transport** → no Stripe; wait for admin amount + notifications / `getTransportBooking`.  
-6. **Listen** to `notifications/users/{uid}` for live updates.  
-7. Success/cancel URLs must use **allowed** production or localhost hosts.
+4. **Website package card** → follow `stripeUrl`, then `verifySession`.  
+5. **App package card** → PaymentSheet first, then `createSightseeingBooking` + `paymentIntentId`.  
+6. **Transport** → no Stripe; wait for admin amount + notifications / `getTransportBooking`.  
+7. **Listen** to `notifications/users/{uid}` for live updates.  
+8. Success/cancel URLs must use **allowed** production or localhost hosts.  
+9. Paid package docs: prefer the [canonical shape](#canonical-paid-stripe-document-target-shape); read with guest/amount fallbacks.
 
 ---
 
