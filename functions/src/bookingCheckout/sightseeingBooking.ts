@@ -21,6 +21,9 @@ import {
 } from "./paymentMethod";
 import {okOnsite, okStripe, okThaiQr} from "./response";
 
+import Stripe from "stripe";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
 const db = () => admin.firestore();
 const COLLECTION = "travelBookingDetails";
 
@@ -160,85 +163,317 @@ export const createSightseeingBooking = onRequest(
     }
 
     // --- STRIPE: checkout first, booking after pay ---
-    if (method === "STRIPE") {
-      if (amount < 20) {
+// --- STRIPE ---
+if (method === "STRIPE") {
+  if (amount < 20) {
+    throw new HttpError(
+      400,
+      "Amount must be at least 20 THB for card payment.",
+      "INVALID_AMOUNT",
+    );
+  }
+
+  if (!fullName) {
+    throw new HttpError(
+      400,
+      "fullName is required.",
+      "INVALID_ARGUMENT",
+    );
+  }
+
+  const paymentIntentId = stringValue(
+    body.paymentIntentId,
+    200,
+  );
+
+  // ============================================================
+  // PAYMENT SHEET FLOW
+  // If paymentIntentId exists, verify the PaymentIntent and
+  // create the booking immediately.
+  // ============================================================
+  if (paymentIntentId) {
+    try {
+      const paymentIntent =
+        await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      // Payment must actually be successful.
+      if (paymentIntent.status !== "succeeded") {
         throw new HttpError(
           400,
-          "Amount must be at least 20 THB for card payment.",
-          "INVALID_AMOUNT",
+          `Stripe payment is not completed. Current status: ${paymentIntent.status}`,
+          "PAYMENT_NOT_COMPLETED",
         );
       }
-      if (!fullName) {
+
+      // Make sure the Stripe amount matches your package amount.
+      const expectedAmount = Math.round(amount * 100);
+
+      if (paymentIntent.amount !== expectedAmount) {
         throw new HttpError(
           400,
-          "fullName is required.",
-          "INVALID_ARGUMENT",
+          "Stripe payment amount does not match booking amount.",
+          "PAYMENT_AMOUNT_MISMATCH",
         );
       }
-      try {
-        const session = await createCheckoutSessionCore({
+
+      // Make sure currency matches.
+      if (paymentIntent.currency.toLowerCase() !== "thb") {
+        throw new HttpError(
+          400,
+          "Stripe payment currency does not match booking currency.",
+          "PAYMENT_CURRENCY_MISMATCH",
+        );
+      }
+
+      // Prevent the same PaymentIntent from being used twice.
+      const existingPayment = await db()
+        .collection(COLLECTION)
+        .where("paymentIntentId", "==", paymentIntentId)
+        .limit(1)
+        .get();
+
+      if (!existingPayment.empty) {
+        const existingDoc = existingPayment.docs[0];
+
+        return res.status(200).json({
+          success: true,
+          paymentMethod: "STRIPE",
+          bookingId: existingDoc.id,
+          bookingCollection: COLLECTION,
+          duplicate: true,
+          isPaymentDone: true,
+          isBookingConfirmed: true,
+          paymentIntentId,
+          message: "Payment already used for this booking.",
+        });
+      }
+
+      // Continue into the normal Firestore booking creation logic.
+      const docId = buildDocId(
+        userId,
+        stringValue(pkg.id || packageId, 120),
+        arrivalDate || "na",
+        departureDate || "na",
+      );
+
+      const ref = db().collection(COLLECTION).doc(docId);
+
+      const existing = await ref.get();
+
+      if (existing.exists) {
+        const prev = existing.data() || {};
+
+        return res.status(200).json({
+          success: true,
+          paymentMethod: "STRIPE",
+          bookingId: docId,
+          bookingCollection: COLLECTION,
+          amount: parseNumber(
+            prev.totalAmount ?? prev.price ?? amount,
+            amount,
+          ),
+          currency: "thb",
+          status: stringValue(prev.status, 40),
+          bookingStatus: stringValue(prev.bookingStatus, 40),
+          duplicate: true,
+          isPaymentDone: prev.isPaymentDone === true,
+          isBookingConfirmed: prev.isBookingConfirmed === true,
+          paymentIntentId:
+            stringValue(prev.paymentIntentId, 200) ||
+            paymentIntentId,
+          message: "Existing package booking found.",
+        });
+      }
+
+      const modeOfPayment = modeOfPaymentFor("STRIPE");
+
+      const doc: Record<string, unknown> = {
+        fullName,
+        guestEmail,
+        guestPhone,
+
+        email: guestEmail,
+        phone: guestPhone,
+
+        guestDetails: {
+          name: fullName,
+          email: guestEmail,
+          phoneNumber: guestPhone,
+        },
+
+        title: packageName,
+        packageName,
+        packageId: stringValue(pkg.id || packageId, 120),
+
+        userId,
+        authUid: userId,
+        uId: userId,
+
+        arrivalDate,
+        departureDate,
+        pickUpTime: body.pickUpTime || arrivalDate,
+        pickUpLocation,
+
+        adults,
+        children,
+
+        totalAmount: amount,
+        price: amount,
+        amount,
+        currency: "THB",
+
+        paymentMethod: "STRIPE",
+        modeOfPayment,
+
+        // PaymentSheet payment is already successful.
+        isPaymentDone: true,
+
+        // PaymentIntent information.
+        paymentIntentId,
+
+        paymentConfirmation: {
+          paymentIntentId,
+          provider: "STRIPE",
+          status: "paid",
+        },
+
+        stripeSessionId: null,
+
+        paymentVerificationStatus: "VERIFIED",
+        paymentVerificationNote:
+          "Stripe PaymentIntent verified successfully.",
+
+        bookingStatus: "CONFIRMED",
+        status: "Confirmed",
+        isBookingConfirmed: true,
+
+        specialRequests,
+
+        // This is coming from the app.
+        // Keep WEB for your website flow below.
+        source: "APP",
+
+        orderedAt:
+          admin.firestore.FieldValue.serverTimestamp(),
+
+        createdAt:
+          admin.firestore.FieldValue.serverTimestamp(),
+
+        updatedAt:
+          admin.firestore.FieldValue.serverTimestamp(),
+      };
+
+      await ref.set(doc);
+
+      return res.status(200).json({
+        success: true,
+        paymentMethod: "STRIPE",
+        bookingId: docId,
+        bookingCollection: COLLECTION,
+        amount,
+        currency: "thb",
+        status: "Confirmed",
+        bookingStatus: "CONFIRMED",
+        isPaymentDone: true,
+        isBookingConfirmed: true,
+        paymentIntentId,
+        packageId: stringValue(pkg.id || packageId, 120),
+        packageName,
+        duplicate: false,
+        message: "Payment verified and booking confirmed.",
+      });
+    } catch (err) {
+      if (err instanceof HttpError) {
+        throw err;
+      }
+
+      const msg =
+        err instanceof Error ? err.message : "Stripe error";
+
+      throw new HttpError(
+        502,
+        `Could not verify Stripe payment: ${msg}`,
+        "STRIPE_VERIFICATION_ERROR",
+      );
+    }
+  }
+
+  // ============================================================
+  // EXISTING WEBSITE STRIPE CHECKOUT FLOW
+  // DO NOT CHANGE THIS
+  // ============================================================
+
+  try {
+    const session = await createCheckoutSessionCore({
+      amount,
+      currency: "thb",
+      productName: packageName || "Sightseeing package",
+      productDescription:
+        `${adults} adult(s), ${children} child(ren)`,
+      customerEmail: guestEmail || auth.email,
+      successUrl: stringValue(
+        body.successUrl || body.success_url,
+        2000,
+      ),
+      cancelUrl: stringValue(
+        body.cancelUrl || body.cancel_url,
+        2000,
+      ),
+      metadata: {
+        bookingCollection: COLLECTION,
+        bookingType: "sightseeing",
+        userId,
+        extra: {
+          packageId: stringValue(pkg.id || packageId, 120),
+          packageName,
+          fullName,
+          guestEmail,
+          guestPhone,
+          arrivalDate,
+          departureDate,
+          pickUpLocation,
+          pickUpTime: arrivalDate,
+          adults: String(adults),
+          children: String(children),
+          amount: String(amount),
+          specialRequests,
+        },
+      },
+      idempotencyKey:
+        `ss_${userId}_${packageId}_${arrivalDate}_${adults}_${children}_${Math.floor(Date.now() / 60_000)}`
+          .slice(0, 255),
+    });
+
+    res.status(200).json(
+      okStripe(
+        {
+          bookingId: null,
+          bookingCollection: COLLECTION,
           amount,
           currency: "thb",
-          productName: packageName || "Sightseeing package",
-          productDescription: `${adults} adult(s), ${children} child(ren)`,
-          customerEmail: guestEmail || auth.email,
-          successUrl: stringValue(body.successUrl || body.success_url, 2000),
-          cancelUrl: stringValue(body.cancelUrl || body.cancel_url, 2000),
-          metadata: {
-            bookingCollection: COLLECTION,
-            bookingType: "sightseeing",
-            userId,
-            extra: {
-              packageId: stringValue(pkg.id || packageId, 120),
-              packageName,
-              fullName,
-              guestEmail,
-              guestPhone,
-              arrivalDate,
-              departureDate,
-              pickUpLocation,
-              pickUpTime: arrivalDate,
-              adults: String(adults),
-              children: String(children),
-              amount: String(amount),
-              specialRequests,
-            },
-          },
-          // Minute bucket: retries within 60s share session; later can get a new one
-          idempotencyKey:
-            `ss_${userId}_${packageId}_${arrivalDate}_${adults}_${children}_${Math.floor(Date.now() / 60_000)}`.slice(
-              0,
-              255,
-            ),
-        });
+          status: null,
+          bookingStatus: null,
+          payNow: true,
+          packageId: stringValue(pkg.id || packageId, 120),
+          packageName,
+        },
+        session,
+        "Redirect to stripeUrl. Booking is created after successful payment.",
+      ),
+    );
 
-        res.status(200).json(
-          okStripe(
-            {
-              bookingId: null,
-              bookingCollection: COLLECTION,
-              amount,
-              currency: "thb",
-              status: null,
-              bookingStatus: null,
-              payNow: true,
-              packageId: stringValue(pkg.id || packageId, 120),
-              packageName,
-            },
-            session,
-            "Redirect to stripeUrl. Booking is created after successful payment.",
-          ),
-        );
-        return;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : "Stripe error";
-        throw new HttpError(
-          502,
-          `Could not create payment link: ${msg}`,
-          "STRIPE_ERROR",
-        );
-      }
-    }
+    return;
+  } catch (err) {
+    const msg =
+      err instanceof Error ? err.message : "Stripe error";
+
+    throw new HttpError(
+      502,
+      `Could not create payment link: ${msg}`,
+      "STRIPE_ERROR",
+    );
+  }
+}
 
     // --- THAI_QR / ONSITE: immediate Firestore write ---
     if (!fullName) {
