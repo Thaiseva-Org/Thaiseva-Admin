@@ -21,6 +21,7 @@ import {
   evaluateAvailability,
   evaluateStayCapacity,
   reserveRoomsInTransaction,
+  transferHeldRoomsToBookingInTransaction,
   releaseHoldRoomsInTransaction,
   bookingInventoryFields,
   loadHotel,
@@ -812,6 +813,26 @@ export async function runCreateHotelBookingWithAvailability(
       // --- Instant portion ---
       if (roomsInstant > 0) {
         const useId = roomsPending > 0 ? autoId : fullId;
+        const acceptedBookingData = {
+          ...buildBase(roomsInstant),
+          bookingStatus: "ACCEPTED",
+          status: "Accepted",
+          isBookingConfirmed: true,
+          autoAccepted: true,
+          acceptanceMethod: "AUTO",
+          inventoryReserved: true,
+          inventoryReservedAt:
+            admin.firestore.FieldValue.serverTimestamp(),
+          inventoryReleased: false,
+          sourcePath: roomsPending > 0 ? "auto_partial" : "auto",
+          pendingReasonCode: null,
+          pendingReason: null,
+          roomsInstant,
+          roomsPending,
+          acceptanceNotifiedAt:
+            admin.firestore.FieldValue.serverTimestamp(),
+          siblingPendingBookingId: roomsPending > 0 ? pendId : null,
+        };
         const reserve = await reserveRoomsInTransaction(db(), {
           hotelUid,
           packageId,
@@ -819,6 +840,13 @@ export async function runCreateHotelBookingWithAvailability(
           checkOut: checkOutStr,
           rooms: roomsInstant,
           bookingId: useId,
+          allocationId: useId,
+          reservationKind: "booking",
+          owner: {
+            collection: HOTEL_COLLECTION,
+            docId: useId,
+            data: acceptedBookingData,
+          },
         });
 
         if (!reserve.ok) {
@@ -832,26 +860,7 @@ export async function runCreateHotelBookingWithAvailability(
           await db()
             .collection(HOTEL_COLLECTION)
             .doc(useId)
-            .set({
-              ...buildBase(roomsInstant),
-              bookingStatus: "ACCEPTED",
-              status: "Accepted",
-              isBookingConfirmed: true,
-              autoAccepted: true,
-              acceptanceMethod: "AUTO",
-              inventoryReserved: true,
-              inventoryReservedAt:
-                admin.firestore.FieldValue.serverTimestamp(),
-              inventoryReleased: false,
-              sourcePath: roomsPending > 0 ? "auto_partial" : "auto",
-              pendingReasonCode: null,
-              pendingReason: null,
-              roomsInstant,
-              roomsPending,
-              acceptanceNotifiedAt:
-                admin.firestore.FieldValue.serverTimestamp(),
-              siblingPendingBookingId: roomsPending > 0 ? pendId : null,
-            });
+            .set(acceptedBookingData, {merge: true});
           autoBookingId = useId;
           payNow = true;
           path = roomsPending > 0 ? "partial" : "auto";
@@ -1172,7 +1181,22 @@ export const acceptHotelBookingWithAvailability = onCall(
       checkOut,
       rooms: roomsToAccept,
       bookingId: reserveBookingId,
+      allocationId: reserveBookingId,
+      reservationKind: "booking",
       allowAdminExtra: true,
+      owner: {
+        collection: HOTEL_COLLECTION,
+        docId: bookingId,
+        data: {
+          inventoryReserved: true,
+          inventoryReleased: false,
+          inventoryReservationPendingFinalize: true,
+          inventoryAllocationId: reserveBookingId,
+          inventoryReservedAt:
+            admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+      },
     });
     if (!reserve.ok) {
       throw new HttpsError(
@@ -1327,6 +1351,7 @@ export const acceptHotelBookingWithAvailability = onCall(
         inventoryReserved: true,
         inventoryReservedAt: admin.firestore.FieldValue.serverTimestamp(),
         inventoryReleased: false,
+        inventoryReservationPendingFinalize: false,
         packageId,
         roomId: packageId,
         hotelUid,
@@ -1623,6 +1648,7 @@ export const startHotelBookingHold = onCall(callableOpts, async (request) => {
     const messaging = buildAvailabilityMessage(capacity);
     let roomsToHold = messaging.roomsInstant;
     let roomsPendingIntent = messaging.roomsPending;
+    const until = holdUntilDate(holdMinutes);
 
     // Only lock what auto-book can take now
     let locked = false;
@@ -1634,6 +1660,40 @@ export const startHotelBookingHold = onCall(callableOpts, async (request) => {
         checkOut: checkOutStr,
         rooms: roomsToHold,
         bookingId: holdId,
+        allocationId: holdId,
+        reservationKind: "hold",
+        owner: {
+          collection: HOLD_COLLECTION,
+          docId: holdId,
+          data: {
+            holdId,
+            userId,
+            authUid: userId,
+            hotelUid,
+            packageId,
+            roomName: roomNameHint || null,
+            checkIn: checkInStr,
+            checkOut: checkOutStr,
+            checkInDate: checkInStr,
+            checkOutDate: checkOutStr,
+            nights: nightsCount,
+            roomsRequested,
+            roomsHeld: roomsToHold,
+            roomsPendingIntent,
+            status: "HOLD",
+            inventoryReserved: true,
+            inventoryReleased: false,
+            holdMinutes,
+            holdUntil: admin.firestore.Timestamp.fromDate(until),
+            messaging,
+            bookingId: null,
+            autoBookingId: null,
+            pendingBookingId: null,
+            source: "WEB_HOLD",
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+        },
       });
       if (!reserve.ok) {
         logger.warn(`[HotelHold] reserve failed ${holdId}: ${reserve.reason}`);
@@ -1644,35 +1704,37 @@ export const startHotelBookingHold = onCall(callableOpts, async (request) => {
       }
     }
 
-    const until = holdUntilDate(holdMinutes);
-    await holdRef.set({
-      holdId,
-      userId,
-      authUid: userId,
-      hotelUid,
-      packageId,
-      roomName: roomNameHint || null,
-      checkIn: checkInStr,
-      checkOut: checkOutStr,
-      checkInDate: checkInStr,
-      checkOutDate: checkOutStr,
-      nights: nightsCount,
-      roomsRequested,
-      roomsHeld: roomsToHold,
-      roomsPendingIntent,
-      status: "HOLD",
-      inventoryReserved: locked,
-      inventoryReleased: !locked,
-      holdMinutes,
-      holdUntil: admin.firestore.Timestamp.fromDate(until),
-      messaging,
-      bookingId: null,
-      autoBookingId: null,
-      pendingBookingId: null,
-      source: "WEB_HOLD",
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    await holdRef.set(
+      {
+        holdId,
+        userId,
+        authUid: userId,
+        hotelUid,
+        packageId,
+        roomName: roomNameHint || null,
+        checkIn: checkInStr,
+        checkOut: checkOutStr,
+        checkInDate: checkInStr,
+        checkOutDate: checkOutStr,
+        nights: nightsCount,
+        roomsRequested,
+        roomsHeld: roomsToHold,
+        roomsPendingIntent,
+        status: "HOLD",
+        inventoryReserved: locked,
+        inventoryReleased: !locked,
+        holdMinutes,
+        holdUntil: admin.firestore.Timestamp.fromDate(until),
+        messaging,
+        bookingId: null,
+        autoBookingId: null,
+        pendingBookingId: null,
+        source: "WEB_HOLD",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      {merge: true},
+    );
 
     logger.info(
       `[HotelHold] start ${holdId} locked=${roomsToHold} pendingIntent=${roomsPendingIntent}`,
@@ -1864,6 +1926,18 @@ export async function runCompleteHotelBookingHold(
             checkOut: checkOutStr,
             rooms: roomsInstant,
             bookingId: holdId,
+            allocationId: holdId,
+            reservationKind: "hold",
+            owner: {
+              collection: HOLD_COLLECTION,
+              docId: holdId,
+              data: {
+                inventoryReserved: true,
+                inventoryReleased: false,
+                roomsHeld: roomsInstant,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              },
+            },
           });
           if (!re.ok) {
             roomsPending += roomsInstant;
@@ -1968,11 +2042,8 @@ export async function runCompleteHotelBookingHold(
     // Instant portion: ledger already reserved under holdId — transfer to booking
     if (roomsInstant > 0) {
       const useId = roomsPending > 0 ? autoId : fullId;
-      await db()
-        .collection(HOTEL_COLLECTION)
-        .doc(useId)
-        .set({
-          ...buildBase(roomsInstant),
+      const acceptedBookingData = {
+        ...buildBase(roomsInstant),
           bookingStatus: "ACCEPTED",
           status: "Accepted",
           isBookingConfirmed: true,
@@ -1989,21 +2060,26 @@ export async function runCompleteHotelBookingHold(
           roomsPending,
           acceptanceNotifiedAt: admin.firestore.FieldValue.serverTimestamp(),
           siblingPendingBookingId: roomsPending > 0 ? pendId : null,
-        });
+      };
+      const transfer = await transferHeldRoomsToBookingInTransaction(db(), {
+        holdId,
+        bookingId: useId,
+        hotelUid,
+        packageId,
+        checkIn: checkInStr,
+        checkOut: checkOutStr,
+        rooms: roomsInstant,
+        bookingData: acceptedBookingData,
+      });
+      if (!transfer.ok) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Could not convert the room hold into a booking. Please try again.",
+        );
+      }
       autoBookingId = useId;
       payNow = true;
       path = roomsPending > 0 ? "partial" : "auto";
-
-      // Point ledger audit ownership: mark hold reserved flag transferred (do not free rooms)
-      await holdRef.set(
-        {
-          inventoryReleased: true, // hold no longer owns the lock; booking does
-          inventoryReserved: false,
-          inventoryTransferredToBookingId: useId,
-          inventoryTransferredAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        {merge: true},
-      );
     } else if (hold.inventoryReserved === true && hold.inventoryReleased !== true) {
       // Nothing instant to book but hold still locked — free it
       await releaseHoldRoomsInTransaction(db(), {

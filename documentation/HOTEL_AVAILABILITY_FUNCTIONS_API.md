@@ -1,9 +1,15 @@
 # Hotel Availability — Cloud Functions API
 
-**Last updated:** 2026-08-05  
+**Last updated:** 2026-08-09  
 **Project:** `gothai-ffea1`  
 **Region:** `asia-east2`  
 **Runtime:** Node.js 20 (2nd gen)
+
+> **Simplified stock model:** capacity is pure numbers  
+> `free = total − locked − booked` on `hotelStock/.../nights/{date}`.  
+> Primary APIs: **`checkHotelStock` / `lockHotelStock` / `unlockHotelStock`**.  
+> Full guide: [`HOTEL_STOCK_API.md`](./HOTEL_STOCK_API.md).  
+> Names below remain as compatibility aliases to the same data.
 
 | Protocol | Functions |
 |----------|-----------|
@@ -29,6 +35,7 @@ Related portal doc (UI + Firestore data model):
 ### Formula (all paths)
 
 ```
+reserved = held + booked + untracked
 remaining = max(0, normal + extra − blocked − reserved)
 ```
 
@@ -47,11 +54,16 @@ remaining = max(0, normal + extra − blocked − reserved)
 | `HotelDB/{hotelId}/availability/{adjustmentId}` | Extra / blocked ranges |
 | `HotelDB/{hotelId}/rooms/{roomId}` | Room types (unchanged) |
 | `hotelRoomInventory/{hotel}_{pkg}/nights/{date}` | Night ledger (`reserved`, `remaining`) |
+| `hotelInventoryAllocations/{allocationId}` | Idempotency and ownership for every hold/booking reserve |
 | `hotelBookingData/{id}` | Customer bookings |
 | `hotelBookingHolds/{holdId}` | Soft checkout locks (Functions write only) |
 | `hotelInventoryAuditLogs` | Audit trail |
 
 Legacy top-level adjustment collections remain **read fallback** only; **new writes** go under `HotelDB/.../availability`.
+
+Night documents also expose `held`, `booked`, and `untracked`. Reservations
+write their allocation and night changes in one transaction. Completing a hold
+atomically transfers rooms from `held` to `booked` without changing `reserved`.
 
 ---
 

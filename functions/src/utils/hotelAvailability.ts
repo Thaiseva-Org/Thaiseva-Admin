@@ -4,6 +4,10 @@ export type NightInventory = {
   base: number;
   extra: number;
   blocked: number;
+  held: number;
+  booked: number;
+  /** Legacy reservations that have not yet been classified by reconciliation. */
+  untracked: number;
   reserved: number;
   remaining: number;
   date: string;
@@ -30,6 +34,9 @@ export type NightBreakdown = {
   base: number;
   extra: number;
   blocked: number;
+  held: number;
+  booked: number;
+  untracked: number;
   reserved: number;
   remaining: number;
 };
@@ -171,6 +178,9 @@ export const emptyNight = (
   base,
   extra: 0,
   blocked: 0,
+  held: 0,
+  booked: 0,
+  untracked: 0,
   reserved: 0,
   remaining: computeRemaining(base, 0, 0, 0),
 });

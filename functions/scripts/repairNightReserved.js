@@ -1,10 +1,11 @@
 /**
- * Rebuild hotelRoomInventory night.reserved from real bookings
- * (inventoryReserved && !inventoryReleased && not canceled).
+ * Rebuild hotelRoomInventory held/booked/reserved from real holds + bookings.
+ * Dry-run is the default. Pass --apply only after reviewing the output.
  * Also force-unlock specified booking IDs if --unlock-all-reserved.
  *
  *   node scripts/repairNightReserved.js
- *   node scripts/repairNightReserved.js --unlock-bookings
+ *   node scripts/repairNightReserved.js --apply
+ *   node scripts/repairNightReserved.js --unlock-bookings --apply
  */
 /* eslint-disable no-console */
 const fs = require("fs");
@@ -15,6 +16,7 @@ const https = require("https");
 const PROJECT_ID = process.env.GCLOUD_PROJECT || "gothai-ffea1";
 const BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const UNLOCK_BOOKINGS = process.argv.includes("--unlock-bookings");
+const APPLY = process.argv.includes("--apply");
 
 const FIREBASE_CLI_CLIENT = {
   client_id:
@@ -250,9 +252,15 @@ async function patchBookingUnlock(token, bookingName) {
 }
 
 async function main() {
+  if (UNLOCK_BOOKINGS && !APPLY) {
+    throw new Error("--unlock-bookings requires --apply");
+  }
   const tokens = loadCliTokens();
   const token = await getAccessToken(tokens);
-  console.log(`[repair] project=${PROJECT_ID} unlockBookings=${UNLOCK_BOOKINGS}`);
+  console.log(
+    `[repair] project=${PROJECT_ID} mode=${APPLY ? "APPLY" : "DRY_RUN"} ` +
+      `unlockBookings=${UNLOCK_BOOKINGS}`,
+  );
 
   // All currently reserved bookings
   let reservedBookings = await runQuery(token, {
@@ -271,7 +279,25 @@ async function main() {
     (b) => !isCanceled(b) && b.inventoryReleased !== true,
   );
 
+  let activeHolds = await runQuery(token, {
+    from: [{collectionId: "hotelBookingHolds"}],
+    where: {
+      fieldFilter: {
+        field: {fieldPath: "inventoryReserved"},
+        op: "EQUAL",
+        value: {booleanValue: true},
+      },
+    },
+    limit: 500,
+  });
+  activeHolds = activeHolds.filter((h) => {
+    if (h.inventoryReleased === true || h.status !== "HOLD") return false;
+    const until = new Date(h.holdUntil || 0).getTime();
+    return Number.isFinite(until) && until > Date.now();
+  });
+
   console.log(`[repair] active inventoryReserved bookings: ${reservedBookings.length}`);
+  console.log(`[repair] active room holds: ${activeHolds.length}`);
   for (const b of reservedBookings) {
     console.log(
       `  ${b.id} hotel=${b.hotelUid || b.hotelId} pkg=${b.packageId || b.roomId} ` +
@@ -293,20 +319,27 @@ async function main() {
     reservedBookings = [];
   }
 
-  // Group by hotel_package
-  const byParent = new Map();
-  for (const b of reservedBookings) {
-    const hotelUid = String(b.hotelUid || b.hotelId || "").trim();
-    const packageId = String(b.packageId || b.roomId || "").trim();
-    if (!hotelUid || !packageId) continue;
-    const key = `${hotelUid}_${packageId}`;
-    if (!byParent.has(key)) byParent.set(key, []);
-    byParent.get(key).push(b);
-  }
+  const bookingsByParent = new Map();
+  const holdsByParent = new Map();
+  const group = (target, rows) => {
+    for (const row of rows) {
+      const hotelUid = String(row.hotelUid || row.hotelId || "").trim();
+      const packageId = String(row.packageId || row.roomId || "").trim();
+      if (!hotelUid || !packageId) continue;
+      const key = `${hotelUid}_${packageId}`;
+      if (!target.has(key)) target.set(key, []);
+      target.get(key).push(row);
+    }
+  };
+  group(bookingsByParent, reservedBookings);
+  group(holdsByParent, activeHolds);
 
   // Also scan known inventory parents from bookings + hardcode from audit UI
   // Rebuild every parent that has night docs mentioned by bookings
-  const parentsToFix = new Set(byParent.keys());
+  const parentsToFix = new Set([
+    ...bookingsByParent.keys(),
+    ...holdsByParent.keys(),
+  ]);
 
   // Also scan any parent keys we know from previous session
   // Find parents by listing is hard; use bookings only + if unlock, still need to zero nights
@@ -340,34 +373,44 @@ async function main() {
 
   // Also query inventoryReserved false recently - skip
 
-  // Known problem hotel from user report
-  parentsToFix.add("ajA7wviIAeDzIyyiYRCu_1774262764415");
-
   console.log(`[repair] parents to fix: ${[...parentsToFix].join(", ")}`);
 
   for (const parentKey of parentsToFix) {
-    const bookings = byParent.get(parentKey) || [];
-    const roomsByDate = {};
-    for (const b of bookings) {
-      const rooms = Math.max(
-        1,
-        Math.floor(Number(b.rooms ?? b.noOfRooms ?? 1) || 1),
-      );
-      const nights = listStayNights(
-        b.checkInDate || b.checkIn,
-        b.checkOutDate || b.checkOut,
-      );
-      for (const d of nights) {
-        roomsByDate[d] = (roomsByDate[d] || 0) + rooms;
+    const bookings = bookingsByParent.get(parentKey) || [];
+    const holds = holdsByParent.get(parentKey) || [];
+    const bookedByDate = {};
+    const heldByDate = {};
+    const addRows = (rows, target, roomField) => {
+      for (const row of rows) {
+        const rooms = Math.max(
+          1,
+          Math.floor(
+            Number(row[roomField] ?? row.rooms ?? row.noOfRooms ?? 1) || 1,
+          ),
+        );
+        const nights = listStayNights(
+          row.checkInDate || row.checkIn,
+          row.checkOutDate || row.checkOut,
+        );
+        for (const date of nights) {
+          target[date] = (target[date] || 0) + rooms;
+        }
       }
-    }
+    };
+    addRows(bookings, bookedByDate, "rooms");
+    addRows(holds, heldByDate, "roomsHeld");
 
     const nights = await listNights(token, parentKey);
-    console.log(`[repair] ${parentKey}: ${nights.length} night docs, true bookings rooms by date:`, roomsByDate);
+    console.log(`[repair] ${parentKey}: ${nights.length} night docs`, {
+      bookedByDate,
+      heldByDate,
+    });
 
     for (const night of nights) {
       const date = night.date;
-      const trueReserved = roomsByDate[date] || 0;
+      const booked = bookedByDate[date] || 0;
+      const held = heldByDate[date] || 0;
+      const trueReserved = booked + held;
       const base = Number(night.base) || 0;
       const extra = Number(night.extra) || 0;
       const blocked = Number(night.blocked) || 0;
@@ -377,21 +420,32 @@ async function main() {
         continue;
       }
       const remaining = Math.max(0, base + extra - blocked - trueReserved);
-      if (prev === trueReserved && Number(night.remaining) === remaining) continue;
+      if (
+        prev === trueReserved &&
+        Number(night.held || 0) === held &&
+        Number(night.booked || 0) === booked &&
+        Number(night.untracked || 0) === 0 &&
+        Number(night.remaining) === remaining
+      ) continue;
       console.log(
         `  ${date}: reserved ${prev} → ${trueReserved} remaining → ${remaining}`,
       );
-      await patchNight(token, parentKey, date, {
-        reserved: trueReserved,
-        remaining,
-        base: base || Number(night.base) || 0,
-        extra: extra || 0,
-        blocked: blocked || 0,
-      });
+      if (APPLY) {
+        await patchNight(token, parentKey, date, {
+          held,
+          booked,
+          untracked: 0,
+          reserved: trueReserved,
+          remaining,
+          base: base || Number(night.base) || 0,
+          extra: extra || 0,
+          blocked: blocked || 0,
+        });
+      }
     }
   }
 
-  console.log("[repair] DONE");
+  console.log(`[repair] ${APPLY ? "APPLIED" : "DRY RUN COMPLETE - no writes"}`);
 }
 
 main().catch((e) => {

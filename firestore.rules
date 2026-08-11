@@ -315,12 +315,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // Soft holds — Functions only
+    // Soft holds (legacy) — Functions only
     match /hotelBookingHolds/{holdId} {
       allow read: if isAdmin() ||
         (isAuthenticated() &&
           (resource.data.userId == request.auth.uid ||
            resource.data.authUid == request.auth.uid));
+      allow create, update, delete: if false;
+    }
+
+    // Simple stock locks — Functions write only
+    match /hotelLocks/{lockId} {
+      allow read: if isAdmin() ||
+        (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow create, update, delete: if false;
     }
 
@@ -417,8 +424,7 @@ service cloud.firestore {
     match /HotelDB/{hotelId}/availability/{availabilityId} {
       // Public read (do not call isAdmin() here — missing users/{uid} must not deny)
       allow read: if true;
-      allow write: if isAdmin() ||
-        (isAuthenticated() && request.auth.uid == hotelId);
+      allow write: if isAdmin();
     }
 
     match /restaurants/{restaurantId} {
@@ -465,16 +471,28 @@ service cloud.firestore {
     }
 
     // ============================================================
-    // HOTEL INVENTORY LEDGER / AUDIT
+    // HOTEL STOCK (numbers: free = total - locked - booked)
     // ============================================================
 
-    match /hotelRoomInventory/{inventoryId} {
+    match /hotelStock/{stockId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if false;
 
       match /nights/{date} {
         allow read: if true;
-        allow write: if isAdmin();
+        // Writes only via Cloud Functions (lock/unlock/manage)
+        allow write: if false;
+      }
+    }
+
+    // Legacy ledger (read-only archive)
+    match /hotelRoomInventory/{inventoryId} {
+      allow read: if true;
+      allow write: if false;
+
+      match /nights/{date} {
+        allow read: if true;
+        allow write: if false;
       }
     }
 
@@ -490,6 +508,13 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isAdmin();
       allow update, delete: if false;
+    }
+
+    // One immutable/idempotent source allocation per hold or booking reserve.
+    // Only Cloud Functions may mutate these records.
+    match /hotelInventoryAllocations/{allocationId} {
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
 
     // ============================================================

@@ -8,8 +8,9 @@ const acceptCallable = httpsCallable(
 );
 
 /**
- * Admin accept with capacity check + night ledger reserve.
- * Confirms availability for pending (or remaining partial) rooms.
+ * Admin/hotel accept pending booking.
+ * If free stock is short, server raises night.total for the stay dates
+ * automatically, then books the rooms (confirm availability → expand capacity).
  * @param {string} bookingId
  */
 export async function acceptHotelBookingWithAvailability(bookingId) {

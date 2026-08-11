@@ -265,7 +265,7 @@ const Bookings = () => {
         console.error("[PartnerConfirm] Accept/reserve failed", acceptErr);
         const msg =
           acceptErr?.message ||
-          "Not enough rooms free for these dates. Cannot accept.";
+          "Could not confirm this booking. Please try again.";
         setError(String(msg).replace(/^FirebaseError:\s*/i, ""));
         return;
       }

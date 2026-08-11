@@ -1,20 +1,16 @@
 /**
- * Admin portal hotel availability.
- * Reads: Firestore (calendar preview).
- * Writes (extra/block/qty/release): Cloud Functions first so night ledger
- * stays in sync with website/app booking capacity.
+ * Admin portal hotel availability — simple stock numbers.
+ * free = total - locked - booked
+ * Reads: hotelStock nights (Firestore).
+ * Writes: Cloud Functions (manageHotelAvailability / unlock).
  */
 import {
   collection,
   doc,
   getDoc,
   getDocs,
-  setDoc,
-  updateDoc,
-  addDoc,
   query,
   where,
-  serverTimestamp,
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import {
@@ -100,13 +96,13 @@ const sumAdjustmentsForDate = (adjustments, date) => {
 const roomLabel = (room) =>
   room?.roomName || room?.packageName || room?.name || room?.id || "Room";
 
-const roomBaseQty = (room, hotelDefault = DEFAULT_ROOM_INVENTORY) => {
+const roomBaseQty = (room) => {
   const raw = room?.totalRooms ?? room?.quantity ?? room?.numberOfRooms;
   if (raw === undefined || raw === null || raw === "") {
-    return hotelDefault;
+    return 0;
   }
   const n = Number(raw);
-  if (!Number.isFinite(n) || n < 0) return hotelDefault;
+  if (!Number.isFinite(n) || n < 0) return 0;
   if (n === 0) return 0;
   return Math.floor(n);
 };
@@ -167,11 +163,24 @@ const availabilityConfigRef = (hotelUid) =>
 const loadAvailabilityConfig = async (hotelUid, legacyHotelData = {}) => {
   try {
     const snap = await getDoc(availabilityConfigRef(hotelUid));
-    if (snap.exists()) return readAvailabilityConfig(snap.data());
+    if (snap.exists()) {
+      return { ...readAvailabilityConfig(snap.data()), configured: true };
+    }
   } catch (error) {
     console.warn("[HotelAvailability] config read failed", error);
   }
-  return readAvailabilityConfig(legacyHotelData);
+  const inlineConfigured = Boolean(
+    legacyHotelData.availabilityConfig ||
+      legacyHotelData.hotel?.availabilityConfig
+  );
+  const fallback = readAvailabilityConfig(legacyHotelData);
+  return {
+    ...fallback,
+    configured: inlineConfigured,
+    autoBookingEnabled: inlineConfigured
+      ? fallback.autoBookingEnabled
+      : false,
+  };
 };
 
 const loadRoom = async (hotelUid, packageId) => {
@@ -309,6 +318,32 @@ const loadAcceptedBookings = async (hotelUid, packageId, roomNameHint = "") => {
   return mergeById(chunks);
 };
 
+const loadActiveLocks = async (hotelUid, packageId) => {
+  const hid = asId(hotelUid);
+  const rid = asId(packageId);
+  if (!hid || !rid) return [];
+  try {
+    const snap = await getDocs(
+      query(collection(db, "hotelLocks"), where("hotelId", "==", hid))
+    );
+    const now = Date.now();
+    return snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .filter((lock) => {
+        if (asId(lock.packageId) !== rid) return false;
+        if (lock.status !== "active") return false;
+        if (lock.kind !== "hold") return true;
+        const until = lock.expiresAt?.toMillis
+          ? lock.expiresAt.toMillis()
+          : new Date(lock.expiresAt || 0).getTime();
+        return !lock.expiresAt || (Number.isFinite(until) && until > now);
+      });
+  } catch (error) {
+    console.warn("[HotelAvailability] active locks query failed", error);
+    return [];
+  }
+};
+
 const guestNameOf = (b) =>
   b.fullName ||
   b.guestDetails?.name ||
@@ -328,39 +363,6 @@ const summarizeBooking = (b) => ({
   roomName: b.roomName || b.packageName || "",
 });
 
-const computeNights = (dates, base, adjustments, bookings) =>
-  dates.map((date) => {
-    let extra = 0;
-    let blocked = 0;
-    for (const adj of adjustments) {
-      const adjStart = toYmd(adj.startDate) || String(adj.startDate || "");
-      const adjEnd = toYmd(adj.endDate) || String(adj.endDate || "");
-      if (adjStart && adjEnd && date >= adjStart && date <= adjEnd) {
-        const delta = Math.max(0, Number(adj.delta) || 0);
-        if (adj.type === "extra") extra += delta;
-        if (adj.type === "blocked") blocked += delta;
-      }
-    }
-    let reserved = 0;
-    const dayBookings = [];
-    for (const b of bookings) {
-      if (bookingCoversDate(b, date)) {
-        reserved += roomsFromBooking(b);
-        dayBookings.push(summarizeBooking(b));
-      }
-    }
-    const remaining = Math.max(0, base + extra - blocked - reserved);
-    return {
-      date,
-      base,
-      extra,
-      blocked,
-      reserved,
-      remaining,
-      bookings: dayBookings,
-    };
-  });
-
 /** Dates in range that have at least one accepted booking (for list UI). */
 const buildBookedDatesList = (nights) =>
   (nights || [])
@@ -373,65 +375,41 @@ const buildBookedDatesList = (nights) =>
       bookings: n.bookings || [],
     }));
 
-const computeRemaining = (base, extra, blocked, reserved) =>
-  Math.max(
-    0,
-    Number(base || 0) +
-      Number(extra || 0) -
-      Number(blocked || 0) -
-      Number(reserved || 0)
-  );
+/** free = total - locked - booked */
+const freeOf = (total, locked, booked) =>
+  Math.max(0, Number(total || 0) - Number(locked || 0) - Number(booked || 0));
 
-/** Night ledger path used by website booking (must stay in sync with adjustments). */
-const nightDocRef = (hotelUid, packageId, date) =>
+/** Simple stock night path (shared with website lock/check). */
+const stockNightRef = (hotelUid, packageId, date) =>
   doc(
     db,
-    "hotelRoomInventory",
+    "hotelStock",
     `${asId(hotelUid)}_${asId(packageId)}`,
     "nights",
     asId(date)
   );
 
-const writeNightLedger = async (
-  hotelUid,
-  packageId,
-  date,
-  { base, extra, blocked, reserved }
-) => {
-  const remaining = computeRemaining(base, extra, blocked, reserved);
-  await setDoc(
-    nightDocRef(hotelUid, packageId, date),
-    {
-      date,
-      base: Number(base) || 0,
-      extra: Number(extra) || 0,
-      blocked: Number(blocked) || 0,
-      reserved: Number(reserved) || 0,
-      remaining,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true }
-  );
-};
-
-const readNightLedger = async (hotelUid, packageId, date, defaultBase) => {
-  const snap = await getDoc(nightDocRef(hotelUid, packageId, date));
+const readStockNight = async (hotelUid, packageId, date, defaultTotal) => {
+  const snap = await getDoc(stockNightRef(hotelUid, packageId, date));
   if (!snap.exists()) {
     return {
       exists: false,
-      base: defaultBase,
-      extra: 0,
-      blocked: 0,
-      reserved: 0,
+      total: defaultTotal,
+      locked: 0,
+      booked: 0,
+      free: defaultTotal,
     };
   }
   const d = snap.data() || {};
+  const total = Number(d.total ?? defaultTotal) || 0;
+  const locked = Math.max(0, Number(d.locked) || 0);
+  const booked = Math.max(0, Number(d.booked) || 0);
   return {
     exists: true,
-    base: Number(d.base ?? defaultBase) || 0,
-    extra: Number(d.extra) || 0,
-    blocked: Number(d.blocked) || 0,
-    reserved: Number(d.reserved) || 0,
+    total,
+    locked,
+    booked,
+    free: freeOf(total, locked, booked),
   };
 };
 
@@ -457,51 +435,72 @@ export const getHotelAvailabilityCalendar = async ({
   const hotelData = hotelSnap.exists() ? hotelSnap.data() : {};
   const availabilityConfig = await loadAvailabilityConfig(hid, hotelData);
   const room = await loadRoom(hid, rid);
-  const base = roomBaseQty(room, availabilityConfig.defaultRoomInventory);
+  const base = roomBaseQty(room);
 
   const roomNameHint =
     room?.roomName || room?.packageName || room?.name || "";
 
-  const [adjustments, bookings] = await Promise.all([
-    loadAdjustments(hid, rid),
+  const [bookings, locks] = await Promise.all([
     loadAcceptedBookings(hid, rid, roomNameHint),
+    loadActiveLocks(hid, rid),
   ]);
 
   const dates = listInclusiveDates(from, to);
-  // Always merge active date adjustments with ledger so "extra rooms for dates"
-  // show the same capacity the website/app will sell.
+  // Stock is the single source of truth (same docs website locks against).
   const nights = await Promise.all(
     dates.map(async (date) => {
-      const ledger = await readNightLedger(hid, rid, date, base);
+      const stock = await readStockNight(hid, rid, date, base);
       const dayBookings = bookings
         .filter((b) => bookingCoversDate(b, date))
         .map(summarizeBooking);
-      const adj = sumAdjustmentsForDate(adjustments, date);
-      const nightBase = ledger.exists ? ledger.base : base;
-      // max(ledger, adjustments): date extras always win even if ledger is stale
-      const extra = Math.max(ledger.extra || 0, adj.extra);
-      const blocked = Math.max(ledger.blocked || 0, adj.blocked);
-      const bookingReserved = dayBookings.reduce(
-        (s, b) => s + (Number(b.rooms) || 0),
-        0
-      );
-      // Ledger reserved includes holds; booking scan covers accepted stays
-      const reserved = Math.max(ledger.reserved || 0, bookingReserved);
+      const dayHolds = locks
+        .filter(
+          (lock) =>
+            lock.kind === "hold" &&
+            bookingCoversDate(
+              {
+                checkInDate: lock.checkIn,
+                checkOutDate: lock.checkOut,
+              },
+              date
+            )
+        )
+        .map((lock) => ({
+          id: lock.id,
+          rooms: Number(lock.rooms) || 0,
+          userId: lock.userId || "",
+          checkIn: toYmd(lock.checkIn) || "—",
+          checkOut: toYmd(lock.checkOut) || "—",
+          holdUntil: lock.expiresAt?.toDate
+            ? lock.expiresAt.toDate().toISOString()
+            : lock.expiresAt || null,
+        }));
+
+      const total = stock.total;
+      const locked = stock.locked;
+      const booked = stock.booked;
+      const free = stock.free;
       return {
         date,
-        base: nightBase,
-        extra,
-        blocked,
-        reserved,
-        remaining: computeRemaining(nightBase, extra, blocked, reserved),
+        total,
+        base: total,
+        extra: 0,
+        blocked: 0,
+        held: locked,
+        locked,
+        booked,
+        untracked: 0,
+        reserved: locked + booked,
+        remaining: free,
+        free,
         bookings: dayBookings,
-        source: ledger.exists ? "ledger+adjustments" : "adjustments",
+        holds: dayHolds,
+        source: stock.exists ? "hotelStock" : "default",
       };
     })
   );
   const bookedDates = buildBookedDatesList(nights);
 
-  // Unique bookings overlapping range (for summary list)
   const bookingMap = new Map();
   for (const n of nights) {
     for (const b of n.bookings || []) {
@@ -518,7 +517,8 @@ export const getHotelAvailabilityCalendar = async ({
     nights,
     bookedDates,
     bookingsInRange,
-    adjustments,
+    holdsInRange: locks,
+    adjustments: [],
     availabilityConfig,
     package: room
       ? {
@@ -609,8 +609,8 @@ export const getHotelAvailability = async ({
 };
 
 /**
- * Prefer Cloud Function so Admin SDK materializes night ledger the same way
- * website/app evaluateStayCapacity reads it. Falls back to client writes if CF fails.
+ * Use the Cloud Function so inventory and its audit/allocation records are updated
+ * atomically. A failed server update must never fall back to partial client writes.
  */
 export const manageHotelAvailability = async (payload) => {
   const action = payload?.action;
@@ -630,233 +630,13 @@ export const manageHotelAvailability = async (payload) => {
     });
     return result?.data || { ok: true, audience: "admin" };
   } catch (cfError) {
-    console.warn(
-      "[HotelAvailability] manageHotelAvailability CF failed, using client fallback",
-      cfError
+    console.error("[HotelAvailability] server update failed", cfError);
+    throw new Error(
+      cfError?.message ||
+        cfError?.details ||
+        "Could not update availability. No inventory changes were saved."
     );
   }
-
-  // ----- Client fallback (same logic, may hit rules / partial writes) -----
-  const actor = "admin-portal";
-
-  if (action === "setBookableWindow") {
-    if (!hotelUid) throw new Error("hotelUid is required.");
-    const hotelRef = doc(hotelsCollection, hotelUid);
-    const snap = await getDoc(hotelRef);
-    if (!snap.exists()) throw new Error("Hotel not found.");
-
-    const availabilityConfig = {
-      bookingOpenFrom: payload.bookingOpenFrom || null,
-      bookingOpenTo: payload.bookingOpenTo || null,
-      timezone: "Asia/Bangkok",
-      notifyOnFull: payload.notifyOnFull !== false,
-      notifyOnFreed: payload.notifyOnFreed !== false,
-      autoBookingEnabled: payload.autoBookingEnabled !== false,
-      defaultRoomInventory: Math.max(
-        1,
-        Math.floor(Number(payload.defaultRoomInventory) || 5)
-      ),
-    };
-
-    await setDoc(
-      availabilityConfigRef(hotelUid),
-      {
-        ...availabilityConfig,
-        recordType: "config",
-        hotelUid,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    return { ok: true, audience: "admin", availabilityConfig };
-  }
-
-  if (action === "setTotalRooms") {
-    const packageId = asId(payload.packageId).trim();
-    const totalRooms = Math.max(0, Math.floor(Number(payload.totalRooms) || 0));
-    if (!hotelUid || !packageId) {
-      throw new Error("hotelUid and packageId are required.");
-    }
-    const roomRef = doc(db, "HotelDB", hotelUid, "rooms", packageId);
-    await setDoc(
-      roomRef,
-      {
-        totalRooms,
-        quantity: totalRooms,
-        updatedAt: serverTimestamp(),
-        totalRoomsUpdatedBy: actor,
-      },
-      { merge: true }
-    );
-
-    try {
-      const nightsCol = collection(
-        db,
-        "hotelRoomInventory",
-        `${hotelUid}_${packageId}`,
-        "nights"
-      );
-      const nightSnap = await getDocs(nightsCol);
-      await Promise.all(
-        nightSnap.docs.map(async (nightDoc) => {
-          const d = nightDoc.data() || {};
-          const extra = Number(d.extra) || 0;
-          const blocked = Number(d.blocked) || 0;
-          const reserved = Number(d.reserved) || 0;
-          await writeNightLedger(hotelUid, packageId, nightDoc.id, {
-            base: totalRooms,
-            extra,
-            blocked,
-            reserved,
-          });
-        })
-      );
-    } catch (e) {
-      console.warn("[HotelAvailability] night base patch failed", e);
-    }
-
-    return { ok: true, audience: "admin" };
-  }
-
-  if (action === "addExtra" || action === "block") {
-    const packageId = asId(payload.packageId).trim();
-    const startDate = toYmd(payload.startDate);
-    const endDate = toYmd(payload.endDate);
-    const delta = Math.max(
-      0,
-      Math.floor(Number(payload.delta || payload.quantity) || 0)
-    );
-    if (!hotelUid || !packageId || !startDate || !endDate) {
-      throw new Error(
-        "hotelUid, packageId, startDate, and endDate are required."
-      );
-    }
-    if (delta <= 0) throw new Error("Quantity must be greater than zero.");
-    if (startDate > endDate) {
-      throw new Error("Start date must be on or before end date.");
-    }
-
-    const room = await loadRoom(hotelUid, packageId);
-    const hotelSnap = await getDoc(doc(hotelsCollection, hotelUid));
-    const hotelData = hotelSnap.exists() ? hotelSnap.data() : {};
-    const cfg = await loadAvailabilityConfig(hotelUid, hotelData);
-    const defaultBase = roomBaseQty(room, cfg.defaultRoomInventory);
-    const dates = listInclusiveDates(startDate, endDate);
-    // Load other active adjustments so materialization is complete
-    const otherAdjustments = await loadAdjustments(hotelUid, packageId);
-
-    for (const date of dates) {
-      const night = await readNightLedger(
-        hotelUid,
-        packageId,
-        date,
-        defaultBase
-      );
-      const adj = sumAdjustmentsForDate(otherAdjustments, date);
-      let extra = Math.max(night.extra || 0, adj.extra);
-      let blocked = Math.max(night.blocked || 0, adj.blocked);
-      if (action === "addExtra") extra += delta;
-      if (action === "block") blocked += delta;
-      const nightBase = night.exists ? night.base : defaultBase;
-      const capacity = nightBase + extra - blocked;
-      if (action === "block" && capacity < night.reserved) {
-        throw new Error(
-          `Cannot block rooms on ${date}: ${night.reserved} already reserved.`
-        );
-      }
-      await writeNightLedger(hotelUid, packageId, date, {
-        base: nightBase,
-        extra,
-        blocked,
-        reserved: night.reserved,
-      });
-    }
-
-    const ref = await addDoc(availabilityCollection(hotelUid), {
-      hotelUid,
-      packageId,
-      recordType: "adjustment",
-      type: action === "addExtra" ? "extra" : "blocked",
-      delta,
-      startDate,
-      endDate,
-      reason: payload.reason || "",
-      note: payload.note || "",
-      active: true,
-      roomTypeName: payload.roomTypeName || roomLabel(room),
-      createdBy: actor,
-      createdAt: serverTimestamp(),
-      ledgerMaterialized: true,
-    });
-
-    return { ok: true, audience: "admin", adjustmentId: ref.id };
-  }
-
-  if (action === "endAdjustment") {
-    const adjustmentId = String(payload.adjustmentId || "").trim();
-    if (!hotelUid || !adjustmentId) {
-      throw new Error("hotelUid and adjustmentId are required.");
-    }
-    const nestedRef = doc(availabilityCollection(hotelUid), adjustmentId);
-    const nestedSnap = await getDoc(nestedRef);
-    const ref = nestedSnap.exists()
-      ? nestedRef
-      : doc(hotelAvailabilityAdjustments, adjustmentId);
-    const adjSnap = nestedSnap.exists() ? nestedSnap : await getDoc(ref);
-    if (!adjSnap.exists()) throw new Error("Adjustment not found.");
-    const adj = adjSnap.data() || {};
-
-    if (adj.active !== false && adj.packageId && adj.startDate && adj.endDate) {
-      const packageId = asId(adj.packageId);
-      const room = await loadRoom(hotelUid, packageId);
-      const hotelSnap = await getDoc(doc(hotelsCollection, hotelUid));
-      const hotelData = hotelSnap.exists() ? hotelSnap.data() : {};
-      const cfg = await loadAvailabilityConfig(hotelUid, hotelData);
-      const defaultBase = roomBaseQty(room, cfg.defaultRoomInventory);
-      const dates = listInclusiveDates(
-        toYmd(adj.startDate) || adj.startDate,
-        toYmd(adj.endDate) || adj.endDate
-      );
-      const delta = Math.max(0, Math.floor(Number(adj.delta) || 0));
-      for (const date of dates) {
-        const night = await readNightLedger(
-          hotelUid,
-          packageId,
-          date,
-          defaultBase
-        );
-        if (!night.exists) continue;
-        let extra = night.extra;
-        let blocked = night.blocked;
-        if (adj.type === "extra") extra = Math.max(0, extra - delta);
-        if (adj.type === "blocked" || adj.type === "block") {
-          blocked = Math.max(0, blocked - delta);
-        }
-        const capacity = night.base + extra - blocked;
-        if (capacity < night.reserved) {
-          throw new Error(
-            `Cannot end adjustment: would under-capacity reserved rooms on ${date}.`
-          );
-        }
-        await writeNightLedger(hotelUid, packageId, date, {
-          base: night.base,
-          extra,
-          blocked,
-          reserved: night.reserved,
-        });
-      }
-    }
-
-    await updateDoc(ref, {
-      active: false,
-      endedAt: serverTimestamp(),
-      endedBy: actor,
-    });
-    return { ok: true, audience: "admin" };
-  }
-
-  throw new Error(`Unknown action: ${action}`);
 };
 
 export const setBookableWindow = async (hotelUid, config) =>
@@ -882,12 +662,12 @@ export const addExtraRooms = async (payload) =>
 export const blockRooms = async (payload) =>
   manageHotelAvailability({ action: "block", ...payload });
 
-export const endAvailabilityAdjustment = async (hotelUid, adjustmentId) =>
-  manageHotelAvailability({
-    action: "endAdjustment",
-    hotelUid,
-    adjustmentId,
-  });
+/** @deprecated Adjustments removed — use setTotalRange / addExtra / block on stock totals. */
+export const endAvailabilityAdjustment = async () => ({
+  ok: true,
+  deprecated: true,
+  message: "Adjustments removed. Use addExtra/block to change night totals.",
+});
 
 /**
  * Admin ops — free night-ledger rooms for a booking (not just flags).
@@ -928,6 +708,7 @@ export const releaseHotelInventory = async (bookingId) => {
  */
 export const unlockHotelRoomLock = async (payload = {}) => {
   const hasTarget =
+    payload.lockId ||
     payload.holdId ||
     payload.bookingId ||
     (payload.hotelUid &&
@@ -936,12 +717,16 @@ export const unlockHotelRoomLock = async (payload = {}) => {
       (payload.checkOut || payload.checkOutDate));
   if (!hasTarget) {
     throw new Error(
-      "Provide holdId, bookingId, or hotelUid + packageId + checkIn + checkOut."
+      "Provide lockId, holdId, bookingId, or hotelUid + packageId + checkIn + checkOut."
     );
   }
 
   try {
-    const result = await unlockRoomLockCallable(payload);
+    const result = await unlockRoomLockCallable({
+      ...payload,
+      lockId: payload.lockId || payload.holdId,
+      force: payload.force === true || !payload.lockId,
+    });
     return result?.data || { ok: true };
   } catch (cfError) {
     console.warn("[HotelAvailability] unlockHotelRoomLock CF failed", cfError);
@@ -955,14 +740,10 @@ export const unlockHotelRoomLock = async (payload = {}) => {
 
 export const availabilityColour = (night) => {
   if (!night) return "grey";
-  if (night.blocked > 0 && night.remaining === 0) return "grey";
-  if (night.remaining <= 0) return "red";
-  if (night.extra > 0 && night.remaining > 0) return "blue";
-  const capacity = night.base + night.extra - night.blocked;
-  if (
-    capacity > 0 &&
-    night.remaining <= Math.max(1, Math.ceil(capacity * 0.2))
-  ) {
+  const free = night.free ?? night.remaining ?? 0;
+  const total = night.total ?? night.base ?? 0;
+  if (free <= 0) return "red";
+  if (total > 0 && free <= Math.max(1, Math.ceil(total * 0.2))) {
     return "orange";
   }
   return "green";

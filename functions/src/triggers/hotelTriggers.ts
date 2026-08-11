@@ -3,6 +3,7 @@ import {
   onDocumentUpdated,
 } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
+import * as admin from "firebase-admin";
 import {getFirestore} from "firebase-admin/firestore";
 import {sendTelegramNotification} from "../utils/telegram";
 import {icon} from "../utils/bookingNotification";
@@ -14,11 +15,10 @@ import {
 } from "../utils/hotelBooking";
 import {requiresHotelManualApproval} from "../utils/hotelPayment";
 import {
-  bookingInventoryFields,
-  releaseRoomsInTransaction,
+  unlockStock,
   loadHotel,
-  loadAvailabilityConfig,
-} from "../utils/hotelInventoryTx";
+  loadStockConfig,
+} from "../utils/hotelStock";
 import {
   moneyText,
   notifyCustomer,
@@ -127,33 +127,57 @@ export const onHotelBookingStatusChangeV3 = onDocumentUpdated(
 
     if (becameTerminal && after.inventoryReserved === true) {
       try {
-        const fields = bookingInventoryFields(after);
-        const result = await releaseRoomsInTransaction(getFirestore(), {
-          ...fields,
-          bookingId,
-        });
-        logger.info(
-          `[Hotel] Inventory release for ${bookingId}: ` +
-            JSON.stringify(result),
+        const db = getFirestore();
+        const lockId = String(after.stockLockId || after.holdId || "").trim();
+        const hotelUid = String(after.hotelUid || after.hotelId || "").trim();
+        const packageId = String(after.packageId || after.roomId || "").trim();
+        const rooms = Math.max(
+          1,
+          Math.floor(Number(after.rooms || after.noOfRooms || 1)),
         );
 
-        if (result.ok && result.freedNights && result.freedNights.length > 0) {
-          const hotel = await loadHotel(getFirestore(), fields.hotelUid);
-          const config = await loadAvailabilityConfig(
-            getFirestore(),
-            fields.hotelUid,
-            hotel,
+        let result;
+        if (lockId) {
+          result = await unlockStock(db, {lockId, reason: "released"});
+        } else {
+          result = await unlockStock(db, {
+            force: true,
+            hotelId: hotelUid,
+            packageId,
+            checkIn: after.checkInDate || after.checkIn,
+            checkOut: after.checkOutDate || after.checkOut,
+            rooms,
+            target: "booked",
+          });
+        }
+
+        logger.info(
+          `[Hotel] Stock unlock for ${bookingId}: ` + JSON.stringify(result),
+        );
+
+        if (result.ok && result.nights && result.nights.length > 0) {
+          await event.data?.after.ref.set(
+            {
+              inventoryReserved: false,
+              inventoryReleased: true,
+              inventoryReleasedAt:
+                admin.firestore.FieldValue.serverTimestamp(),
+            },
+            {merge: true},
           );
+
+          const hotel = await loadHotel(db, hotelUid);
+          const config = await loadStockConfig(db, hotelUid, hotel);
           if (config.notifyOnFreed) {
             await sendTelegramNotification(
               `<b>Availability restored</b>\n` +
                 `Booking ${bookingId} cancelled.\n` +
-                `Dates: ${result.freedNights.join(", ")}`,
+                `Dates: ${result.nights.join(", ")}`,
             );
           }
         }
       } catch (error) {
-        logger.error(`[Hotel] Inventory release failed for ${bookingId}`, error);
+        logger.error(`[Hotel] Stock unlock failed for ${bookingId}`, error);
       }
     }
 

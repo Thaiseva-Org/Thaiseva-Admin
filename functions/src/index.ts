@@ -23,22 +23,31 @@ import {
   manageTransportBooking,
   manageTransportResource,
 } from "./transportWorkflow";
+
+// Simple stock APIs (numbers: free = total - locked - booked)
 import {
-  getHotelAvailability,
-  getHotelAvailabilityCalendar,
-  manageHotelAvailability,
-  releaseHotelInventory,
-  unlockHotelRoomLock,
-} from "./hotelAvailabilityWorkflow";
-import {
+  checkHotelStock,
+  lockHotelStock,
+  unlockHotelStock,
+  expireHotelStockHolds,
+  manageHotelStock,
+  // Compatibility aliases for old website clients
   checkHotelAvailability,
-  createHotelBookingWithAvailability,
-  acceptHotelBookingWithAvailability,
   startHotelBookingHold,
-  completeHotelBookingHold,
   releaseHotelBookingHold,
   expireHotelBookingHolds,
-} from "./hotelBookingWithAvailability";
+} from "./hotelStockApi";
+
+import {
+  createHotelBookingWithAvailability,
+  acceptHotelBookingWithAvailability,
+  completeHotelBookingHold,
+  getHotelAvailability,
+  getHotelAvailabilityCalendar,
+  releaseHotelInventory,
+  unlockHotelRoomLock,
+} from "./hotelBookingStock";
+
 import {createHotelBooking} from "./bookingCheckout/hotelBooking";
 import {createSightseeingBooking} from "./bookingCheckout/sightseeingBooking";
 import {
@@ -70,26 +79,28 @@ exports.initializeLegacyTransportBooking = initializeLegacyTransportBooking;
 exports.createManualVanBooking = createManualVanBooking;
 exports.seedTransportDemoData = seedTransportDemoData;
 
-// Hotel room availability — ADMIN PORTAL ONLY (Admin / Sub Admin)
-exports.getHotelAvailability = getHotelAvailability;
-exports.getHotelAvailabilityCalendar = getHotelAvailabilityCalendar;
-exports.manageHotelAvailability = manageHotelAvailability;
-exports.releaseHotelInventory = releaseHotelInventory;
-// Admin: free stay nights + delete hold lock docs
-exports.unlockHotelRoomLock = unlockHotelRoomLock;
+// --- Simple hotel stock (primary) ---
+exports.checkHotelStock = checkHotelStock;
+exports.lockHotelStock = lockHotelStock;
+exports.unlockHotelStock = unlockHotelStock;
+exports.expireHotelStockHolds = expireHotelStockHolds;
+exports.manageHotelStock = manageHotelStock;
 
-// Website / app hotel booking with inventory (auto-accept vs pending)
+// --- Compatibility names (same stock data) ---
 exports.checkHotelAvailability = checkHotelAvailability;
-exports.createHotelBookingWithAvailability = createHotelBookingWithAvailability;
-// Admin manual accept with capacity check + night ledger reserve
-exports.acceptHotelBookingWithAvailability = acceptHotelBookingWithAvailability;
-// Soft hold: start (lock) → complete (book) → release (unlock) + TTL expire
 exports.startHotelBookingHold = startHotelBookingHold;
 exports.completeHotelBookingHold = completeHotelBookingHold;
 exports.releaseHotelBookingHold = releaseHotelBookingHold;
 exports.expireHotelBookingHolds = expireHotelBookingHolds;
+exports.createHotelBookingWithAvailability = createHotelBookingWithAvailability;
+exports.acceptHotelBookingWithAvailability = acceptHotelBookingWithAvailability;
+exports.getHotelAvailability = getHotelAvailability;
+exports.getHotelAvailabilityCalendar = getHotelAvailabilityCalendar;
+exports.manageHotelAvailability = manageHotelStock;
+exports.releaseHotelInventory = releaseHotelInventory;
+exports.unlockHotelRoomLock = unlockHotelRoomLock;
 
-// Website/app booking create APIs (HTTPS + CORS) — paymentMethod: STRIPE | THAI_QR | ONSITE
+// Website/app booking create APIs (HTTPS + CORS)
 exports.createHotelBooking = createHotelBooking;
 exports.createSightseeingBooking = createSightseeingBooking;
 exports.createCarBooking = createCarBooking;
@@ -99,41 +110,3 @@ exports.getTransportBooking = getTransportBooking;
 exports.createCheckoutSession = createCheckoutSession;
 exports.verifySession = verifySession;
 exports.stripeWebhook = stripeWebhook;
-
-
-// exports.sendEmail = onRequest(async (req, res) => {
-//   if (!req.body.to || !req.body.subject || !req.body.text) {
-//     res
-//       .status(400)
-//       .json({ error: "Missing to, subject, or text in request body" });
-//     return;
-//   }
-//   const result = sendEmail(req.body.to, req.body.subject, req.body.text);
-//   res.json({ result });
-// });
-
-// exports.findNearestLocations = onRequest(async (req, res) => {
-//   const { lat, lng } = req.query;
-//   if (!lat || !lng) {
-//     res.status(400).json({ error: "Missing lat or lng query parameter" });
-//     return;
-//   }
-//   const placesRes = await fetch(
-//     mapNearbySearchUrl({ lat: lat as string, lng: lng as string })
-//   );
-//   const places = await placesRes.json();
-//   const placeIds = places.results.map((place: { place_id: string }) =>
-//     place.place_id
-//   );
-
-//   const snapshot: QuerySnapshot = await getFirestore()
-//     .collection("shops")
-//     .where("id", "in", placeIds)
-//     .get();
-
-//   const filteredPlaces = snapshot.docs.map((doc: QueryDocumentSnapshot) => {
-//     return doc.data();
-//   });
-
-//   res.json(filteredPlaces);
-// });

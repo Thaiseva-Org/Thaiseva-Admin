@@ -183,12 +183,11 @@ const HotelRoomAvailabilityHub = () => {
     const rows = (hotels || []).map((h) => {
       const uid = h.uid || h.id || h.hotelUid || h.hotel?.hotelUid;
       const hotelIds = hotelIdentitySet(h);
-      const cfg =
-        availabilityConfigs[String(uid)] ||
-        h.availabilityConfig ||
-        h.hotel?.availabilityConfig ||
-        {};
-      const autoOn = cfg.autoBookingEnabled !== false;
+      const storedCfg = availabilityConfigs[String(uid)];
+      const inlineCfg = h.availabilityConfig || h.hotel?.availabilityConfig;
+      const cfg = storedCfg || inlineCfg || {};
+      const configured = Boolean(storedCfg || inlineCfg);
+      const autoOn = configured && cfg.autoBookingEnabled !== false;
 
       const pendingCount = (roomBookings || []).filter(
         (b) => bookingBelongsToHotel(b, hotelIds) && isHotelPending(b)
@@ -201,6 +200,7 @@ const HotelRoomAvailabilityHub = () => {
         address: hotelAddress(h),
         phone: hotelPhone(h),
         autoOn,
+        configured,
         pendingCount,
       };
     });
@@ -224,12 +224,10 @@ const HotelRoomAvailabilityHub = () => {
 
     allHotels.forEach((h) => {
       const uid = h.uid || h.id || h.hotelUid || h.hotel?.hotelUid;
-      const cfg =
-        availabilityConfigs[String(uid)] ||
-        h.availabilityConfig ||
-        h.hotel?.availabilityConfig ||
-        {};
-      if (cfg.autoBookingEnabled !== false) autoOn += 1;
+      const storedCfg = availabilityConfigs[String(uid)];
+      const inlineCfg = h.availabilityConfig || h.hotel?.availabilityConfig;
+      const cfg = storedCfg || inlineCfg || {};
+      if ((storedCfg || inlineCfg) && cfg.autoBookingEnabled !== false) autoOn += 1;
       else autoOff += 1;
     });
 
@@ -426,7 +424,13 @@ const HotelRoomAvailabilityHub = () => {
                           <PauseCircleOutlineIcon />
                         )
                       }
-                      label={hotel.autoOn ? "Auto-book ON" : "Auto-book OFF"}
+                      label={
+                        !hotel.configured
+                          ? "Setup required"
+                          : hotel.autoOn
+                            ? "Auto-book ON"
+                            : "Auto-book OFF"
+                      }
                       color={hotel.autoOn ? "success" : "default"}
                       variant={hotel.autoOn ? "filled" : "outlined"}
                       sx={{ fontWeight: 600, fontSize: "0.7rem" }}

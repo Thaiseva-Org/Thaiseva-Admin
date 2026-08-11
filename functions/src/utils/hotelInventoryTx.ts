@@ -21,6 +21,30 @@ import {
 
 type Db = admin.firestore.Firestore;
 type Tx = admin.firestore.Transaction;
+export type InventoryReservationKind = "hold" | "booking";
+
+const removeTrackedRooms = (
+  data: {held: number; booked: number; untracked: number},
+  rooms: number,
+  preferred?: InventoryReservationKind,
+) => {
+  let left = Math.max(0, Math.floor(rooms));
+  let held = Math.max(0, data.held);
+  let booked = Math.max(0, data.booked);
+  let untracked = Math.max(0, data.untracked);
+  const take = (value: number) => {
+    const removed = Math.min(value, left);
+    left -= removed;
+    return value - removed;
+  };
+
+  if (preferred === "hold") held = take(held);
+  if (preferred === "booking") booked = take(booked);
+  untracked = take(untracked);
+  if (!preferred || left > 0) booked = take(booked);
+  if (!preferred || left > 0) held = take(held);
+  return {held, booked, untracked, removed: Math.max(0, rooms - left)};
+};
 
 const asNumber = (v: unknown, fallback = 0) => {
   const n = Number(v);
@@ -73,6 +97,9 @@ const mergeNightCapacity = (
     base?: number;
     extra?: number;
     blocked?: number;
+    held?: number;
+    booked?: number;
+    untracked?: number;
     reserved?: number;
   },
   adjustments: Array<{
@@ -86,21 +113,39 @@ const mergeNightCapacity = (
   base: number;
   extra: number;
   blocked: number;
+  held: number;
+  booked: number;
+  untracked: number;
   reserved: number;
   remaining: number;
 } => {
   const adj = sumAdjustmentsForDate(adjustments, date);
-  const base = ledger.exists ?
-    asNumber(ledger.base, defaultBase) :
-    defaultBase;
+  // The room document is authoritative. Existing materialized nights must not
+  // keep selling an old quantity after an admin/partner changes totalRooms.
+  const base = Number.isFinite(defaultBase) ?
+    Math.max(0, defaultBase) :
+    asNumber(ledger.base, 0);
   const extra = Math.max(asNumber(ledger.extra, 0), adj.extra);
   const blocked = Math.max(asNumber(ledger.blocked, 0), adj.blocked);
-  const reserved = asNumber(ledger.reserved, 0);
+  const rawReserved = Math.max(0, asNumber(ledger.reserved, 0));
+  const hasBreakdown =
+    ledger.held !== undefined ||
+    ledger.booked !== undefined ||
+    ledger.untracked !== undefined;
+  const held = Math.max(0, asNumber(ledger.held, 0));
+  const booked = Math.max(0, asNumber(ledger.booked, 0));
+  const untracked = hasBreakdown ?
+    Math.max(0, asNumber(ledger.untracked, rawReserved - held - booked)) :
+    rawReserved;
+  const reserved = held + booked + untracked;
   return {
     date,
     base,
     extra,
     blocked,
+    held,
+    booked,
+    untracked,
     reserved,
     remaining: computeRemaining(base, extra, blocked, reserved),
   };
@@ -123,7 +168,15 @@ const readNightInTx = async (
   const base = asNumber(d.base, defaultBase);
   const extra = asNumber(d.extra, 0);
   const blocked = asNumber(d.blocked, 0);
-  const reserved = asNumber(d.reserved, 0);
+  const rawReserved = Math.max(0, asNumber(d.reserved, 0));
+  const hasBreakdown =
+    d.held !== undefined || d.booked !== undefined || d.untracked !== undefined;
+  const held = Math.max(0, asNumber(d.held, 0));
+  const booked = Math.max(0, asNumber(d.booked, 0));
+  const untracked = hasBreakdown ?
+    Math.max(0, asNumber(d.untracked, rawReserved - held - booked)) :
+    rawReserved;
+  const reserved = held + booked + untracked;
   return {
     ref,
     exists: true,
@@ -132,6 +185,9 @@ const readNightInTx = async (
       base,
       extra,
       blocked,
+      held,
+      booked,
+      untracked,
       reserved,
       remaining: computeRemaining(base, extra, blocked, reserved),
     },
@@ -145,20 +201,43 @@ const writeNight = (
     base: number;
     extra: number;
     blocked: number;
-    reserved: number;
+    held?: number;
+    booked?: number;
+    untracked?: number;
+    reserved?: number;
   },
   date: string,
 ) => {
+  const hasBreakdown =
+    data.held !== undefined ||
+    data.booked !== undefined ||
+    data.untracked !== undefined;
+  const held = Math.max(0, Math.floor(asNumber(data.held, 0)));
+  const booked = Math.max(0, Math.floor(asNumber(data.booked, 0)));
+  const untracked = Math.max(
+    0,
+    Math.floor(
+      asNumber(
+        data.untracked,
+        hasBreakdown ? asNumber(data.reserved, 0) - held - booked : data.reserved,
+      ),
+    ),
+  );
+  const reserved = held + booked + untracked;
   const remaining = computeRemaining(
     data.base,
     data.extra,
     data.blocked,
-    data.reserved,
+    reserved,
   );
   tx.set(
     ref,
     {
       ...data,
+      held,
+      booked,
+      untracked,
+      reserved,
       date,
       remaining,
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -336,8 +415,21 @@ export const loadAvailabilityConfig = async (
     .collection("availability")
     .doc("config")
     .get();
-  if (snap.exists) return readAvailabilityConfig(snap.data());
-  return readAvailabilityConfig(legacyHotel || undefined);
+  if (snap.exists) {
+    return {...readAvailabilityConfig(snap.data()), configured: true};
+  }
+  const inlineConfigured = Boolean(
+    legacyHotel?.availabilityConfig ||
+      (legacyHotel?.hotel as Record<string, unknown> | undefined)
+        ?.availabilityConfig,
+  );
+  const fallback = readAvailabilityConfig(legacyHotel || undefined);
+  return {
+    ...fallback,
+    configured: inlineConfigured,
+    // Never auto-sell a legacy hotel until availability has been explicitly saved.
+    autoBookingEnabled: inlineConfigured ? fallback.autoBookingEnabled : false,
+  };
 };
 
 /** New nested records plus legacy top-level records during migration. */
@@ -498,18 +590,26 @@ export const computeNightsBreakdown = async (
         base: asNumber(d.base, defaultBase),
         extra: asNumber(d.extra, 0),
         blocked: asNumber(d.blocked, 0),
+        held: d.held as number | undefined,
+        booked: d.booked as number | undefined,
+        untracked: d.untracked as number | undefined,
         reserved: asNumber(d.reserved, 0),
       },
       adjustments,
     );
 
     // Legacy accepted bookings that never wrote the ledger
-    const reserved = merged.reserved + (legacyByDate[date] || 0);
+    const legacyBooked = legacyByDate[date] || 0;
+    const booked = merged.booked + legacyBooked;
+    const reserved = merged.held + booked + merged.untracked;
     return {
       date: merged.date,
       base: merged.base,
       extra: merged.extra,
       blocked: merged.blocked,
+      held: merged.held,
+      booked,
+      untracked: merged.untracked,
       reserved,
       remaining: computeRemaining(
         merged.base,
@@ -610,11 +710,7 @@ export const evaluateAvailability = async (
     };
   }
 
-  // Default 5 rooms when not set; hotel defaultRoomInventory can override
-  let totalRooms = getPackageTotalRooms(pkg, {useDefaultIfMissing: false});
-  if (totalRooms <= 0) {
-    totalRooms = config.defaultRoomInventory || DEFAULT_ROOM_INVENTORY;
-  }
+  const totalRooms = getPackageTotalRooms(pkg, {useDefaultIfMissing: false});
   const packageName = getRoomDisplayName(pkg);
 
   if (totalRooms <= 0) {
@@ -797,6 +893,7 @@ export const evaluateStayCapacity = async (
 
 export type ReserveResult = {
   ok: boolean;
+  alreadyReserved?: boolean;
   reason?: string;
   reasonCode?: string;
   nights?: NightBreakdown[];
@@ -817,6 +914,15 @@ export const reserveRoomsInTransaction = async (
     checkOut: unknown;
     rooms: number;
     bookingId: string;
+    /** Stable idempotency key for this exact inventory allocation. */
+    allocationId?: string;
+    reservationKind?: InventoryReservationKind;
+    /** Optional source document written in the same transaction as the ledger. */
+    owner?: {
+      collection: "hotelBookingData" | "hotelBookingHolds";
+      docId: string;
+      data: Record<string, unknown>;
+    };
     /** Admin confirm-available: add temporary capacity (extra) if short. */
     allowAdminExtra?: boolean;
   },
@@ -825,6 +931,8 @@ export const reserveRoomsInTransaction = async (
   const packageId = String(params.packageId).trim();
   const rooms = Math.max(1, Math.floor(params.rooms));
   const allowAdminExtra = params.allowAdminExtra === true;
+  const reservationKind = params.reservationKind || "booking";
+  const allocationId = String(params.allocationId || params.bookingId).trim();
   const nights = listStayNights(params.checkIn, params.checkOut);
 
   if (!hotelUid || !packageId || nights.length === 0) {
@@ -836,7 +944,9 @@ export const reserveRoomsInTransaction = async (
   }
 
   const pkg = await loadPackage(db, packageId, hotelUid);
-  const defaultBase = getPackageTotalRooms(pkg || undefined);
+  const defaultBase = getPackageTotalRooms(pkg || undefined, {
+    useDefaultIfMissing: false,
+  });
   if (defaultBase <= 0) {
     return {
       ok: false,
@@ -862,6 +972,18 @@ export const reserveRoomsInTransaction = async (
 
   try {
     return await db.runTransaction(async (tx) => {
+      const allocationRef = db
+        .collection("hotelInventoryAllocations")
+        .doc(allocationId);
+      const allocationSnap = await tx.get(allocationRef);
+      if (allocationSnap.exists && allocationSnap.data()?.status === "ACTIVE") {
+        return {
+          ok: true,
+          alreadyReserved: true,
+          nights: allocationSnap.data()?.nightBreakdown || [],
+        };
+      }
+
       const nightStates = [];
       for (const date of nights) {
         const state = await readNightInTx(
@@ -882,6 +1004,9 @@ export const reserveRoomsInTransaction = async (
             base: state.data.base,
             extra: state.data.extra,
             blocked: state.data.blocked,
+            held: state.data.held,
+            booked: state.data.booked,
+            untracked: state.data.untracked,
             reserved: state.data.reserved,
           },
           adjustments,
@@ -896,6 +1021,9 @@ export const reserveRoomsInTransaction = async (
           base,
           extra: merged.extra,
           blocked: merged.blocked,
+          held: merged.held,
+          booked: merged.booked,
+          untracked: merged.untracked,
           // Keep ledger reserved (not legacy) for the write path
           reserved: merged.reserved,
           remaining: computeRemaining(
@@ -940,7 +1068,12 @@ export const reserveRoomsInTransaction = async (
       const after: NightBreakdown[] = [];
       const fullNights: string[] = [];
       for (const state of nightStates) {
-        const reserved = state.data.reserved + rooms;
+        const held =
+          state.data.held + (reservationKind === "hold" ? rooms : 0);
+        const booked =
+          state.data.booked + (reservationKind === "booking" ? rooms : 0);
+        const untracked = state.data.untracked;
+        const reserved = held + booked + untracked;
         const remaining = writeNight(
           tx,
           state.ref,
@@ -948,6 +1081,9 @@ export const reserveRoomsInTransaction = async (
             base: state.data.base,
             extra: state.data.extra,
             blocked: state.data.blocked,
+            held,
+            booked,
+            untracked,
             reserved,
           },
           state.data.date,
@@ -957,10 +1093,42 @@ export const reserveRoomsInTransaction = async (
           base: state.data.base,
           extra: state.data.extra,
           blocked: state.data.blocked,
+          held,
+          booked,
+          untracked,
           reserved,
           remaining,
         });
         if (remaining === 0) fullNights.push(state.data.date);
+      }
+
+      tx.set(allocationRef, {
+        allocationId,
+        status: "ACTIVE",
+        kind: reservationKind,
+        hotelUid,
+        packageId,
+        sourceId: params.bookingId,
+        rooms,
+        nights,
+        nightBreakdown: after,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      if (params.owner?.docId) {
+        const ownerRef = db
+          .collection(params.owner.collection)
+          .doc(params.owner.docId);
+        tx.set(
+          ownerRef,
+          {
+            ...params.owner.data,
+            inventoryAllocationId: allocationId,
+            inventoryReservationKind: reservationKind,
+          },
+          {merge: true},
+        );
       }
 
       // Audit
@@ -970,6 +1138,8 @@ export const reserveRoomsInTransaction = async (
         hotelUid,
         packageId,
         bookingId: params.bookingId,
+        allocationId,
+        reservationKind,
         rooms,
         nights,
         allowAdminExtra,
@@ -988,6 +1158,173 @@ export const reserveRoomsInTransaction = async (
   }
 };
 
+/** Convert a checkout hold into a booked allocation without changing reserved. */
+export const transferHeldRoomsToBookingInTransaction = async (
+  db: Db,
+  params: {
+    holdId: string;
+    bookingId: string;
+    hotelUid: string;
+    packageId: string;
+    checkIn: unknown;
+    checkOut: unknown;
+    rooms: number;
+    bookingData: Record<string, unknown>;
+  },
+): Promise<{ok: boolean; alreadyTransferred?: boolean; nights?: NightBreakdown[]}> => {
+  const holdId = String(params.holdId || "").trim();
+  const bookingId = String(params.bookingId || "").trim();
+  const hotelUid = String(params.hotelUid || "").trim();
+  const packageId = String(params.packageId || "").trim();
+  const rooms = Math.max(1, Math.floor(Number(params.rooms) || 1));
+  const nights = listStayNights(params.checkIn, params.checkOut);
+  if (!holdId || !bookingId || !hotelUid || !packageId || nights.length === 0) {
+    return {ok: false};
+  }
+
+  const pkg = await loadPackage(db, packageId, hotelUid);
+  const defaultBase = getPackageTotalRooms(pkg || undefined, {
+    useDefaultIfMissing: false,
+  });
+  const holdRef = db.collection("hotelBookingHolds").doc(holdId);
+  const bookingRef = db.collection("hotelBookingData").doc(bookingId);
+  const holdAllocationRef = db.collection("hotelInventoryAllocations").doc(holdId);
+  const bookingAllocationRef = db
+    .collection("hotelInventoryAllocations")
+    .doc(bookingId);
+
+  try {
+    return await db.runTransaction(async (tx) => {
+      const [holdSnap, holdAllocationSnap, bookingAllocationSnap] =
+        await Promise.all([
+          tx.get(holdRef),
+          tx.get(holdAllocationRef),
+          tx.get(bookingAllocationRef),
+        ]);
+
+      if (
+        bookingAllocationSnap.exists &&
+        bookingAllocationSnap.data()?.status === "ACTIVE"
+      ) {
+        return {ok: true, alreadyTransferred: true};
+      }
+      if (!holdSnap.exists) return {ok: false};
+
+      const states = [];
+      for (const date of nights) {
+        states.push(
+          await readNightInTx(tx, db, hotelUid, packageId, date, defaultBase),
+        );
+      }
+
+      const after: NightBreakdown[] = [];
+      for (const state of states) {
+        let remainingToClassify = rooms;
+        const heldMoved = Math.min(state.data.held, remainingToClassify);
+        remainingToClassify -= heldMoved;
+        const legacyMoved = Math.min(
+          state.data.untracked,
+          remainingToClassify,
+        );
+        remainingToClassify -= legacyMoved;
+        if (remainingToClassify > 0) {
+          throw new Error(`Hold allocation is missing on ${state.data.date}.`);
+        }
+        const held = state.data.held - heldMoved;
+        const booked = state.data.booked + heldMoved + legacyMoved;
+        const untracked = state.data.untracked - legacyMoved;
+        const reserved = held + booked + untracked;
+        const remaining = writeNight(
+          tx,
+          state.ref,
+          {
+            base: state.data.base,
+            extra: state.data.extra,
+            blocked: state.data.blocked,
+            held,
+            booked,
+            untracked,
+            reserved,
+          },
+          state.data.date,
+        );
+        after.push({
+          date: state.data.date,
+          base: state.data.base,
+          extra: state.data.extra,
+          blocked: state.data.blocked,
+          held,
+          booked,
+          untracked,
+          reserved,
+          remaining,
+        });
+      }
+
+      tx.set(
+        bookingRef,
+        {
+          ...params.bookingData,
+          inventoryAllocationId: bookingId,
+          inventoryReservationKind: "booking",
+        },
+        {merge: true},
+      );
+      tx.set(
+        holdRef,
+        {
+          inventoryReleased: true,
+          inventoryReserved: false,
+          inventoryTransferredToBookingId: bookingId,
+          inventoryTransferredAt: admin.firestore.FieldValue.serverTimestamp(),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
+        {merge: true},
+      );
+      if (holdAllocationSnap.exists) {
+        tx.set(
+          holdAllocationRef,
+          {
+            status: "TRANSFERRED",
+            transferredToAllocationId: bookingId,
+            transferredAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          {merge: true},
+        );
+      }
+      tx.set(bookingAllocationRef, {
+        allocationId: bookingId,
+        status: "ACTIVE",
+        kind: "booking",
+        sourceId: bookingId,
+        sourceHoldId: holdId,
+        hotelUid,
+        packageId,
+        rooms,
+        nights,
+        nightBreakdown: after,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      tx.set(db.collection("hotelInventoryAuditLogs").doc(), {
+        action: "transfer_hold_to_booking",
+        holdId,
+        bookingId,
+        hotelUid,
+        packageId,
+        rooms,
+        nights,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      return {ok: true, nights: after};
+    });
+  } catch (error) {
+    logger.error("[HotelInventory] hold transfer failed", error);
+    return {ok: false};
+  }
+};
+
 /**
  * Idempotent release of reserved rooms for a booking.
  */
@@ -1000,6 +1337,7 @@ export const releaseRoomsInTransaction = async (
     checkOut: unknown;
     rooms: number;
     bookingId: string;
+    allocationId?: string;
   },
 ): Promise<{ok: boolean; freedNights?: string[]; alreadyReleased?: boolean}> => {
   return releaseInventoryDocInTransaction(db, {
@@ -1011,6 +1349,8 @@ export const releaseRoomsInTransaction = async (
     collection: "hotelBookingData",
     docId: params.bookingId,
     auditAction: "release",
+    reservationKind: "booking",
+    allocationId: params.allocationId,
   });
 };
 
@@ -1042,7 +1382,9 @@ export const forceUnlockStayNights = async (
   }
 
   const pkg = await loadPackage(db, packageId, hotelUid);
-  const defaultBase = getPackageTotalRooms(pkg || undefined) || 0;
+  const defaultBase = getPackageTotalRooms(pkg || undefined, {
+    useDefaultIfMissing: false,
+  });
 
   try {
     return await db.runTransaction(async (tx) => {
@@ -1060,7 +1402,8 @@ export const forceUnlockStayNights = async (
         if (!state.exists && state.data.reserved <= 0) continue;
         const prevReserved = asNumber(state.data.reserved, 0);
         const prevRemaining = state.data.remaining;
-        const reserved = Math.max(0, prevReserved - rooms);
+        const next = removeTrackedRooms(state.data, rooms);
+        const reserved = next.held + next.booked + next.untracked;
         const remaining = writeNight(
           tx,
           state.ref,
@@ -1068,6 +1411,9 @@ export const forceUnlockStayNights = async (
             base: state.data.base || defaultBase,
             extra: state.data.extra,
             blocked: state.data.blocked,
+            held: next.held,
+            booked: next.booked,
+            untracked: next.untracked,
             reserved,
           },
           state.data.date,
@@ -1348,6 +1694,7 @@ export const releaseHoldRoomsInTransaction = async (
     collection: "hotelBookingHolds",
     docId: params.holdId,
     auditAction: "release_hold",
+    reservationKind: "hold",
   });
 };
 
@@ -1366,6 +1713,8 @@ const releaseInventoryDocInTransaction = async (
     collection: "hotelBookingData" | "hotelBookingHolds";
     docId: string;
     auditAction: string;
+    reservationKind: InventoryReservationKind;
+    allocationId?: string;
   },
 ): Promise<{ok: boolean; freedNights?: string[]; alreadyReleased?: boolean}> => {
   const hotelUid = String(params.hotelUid).trim();
@@ -1379,7 +1728,9 @@ const releaseInventoryDocInTransaction = async (
 
   const docRef = db.collection(params.collection).doc(params.docId);
   const pkg = await loadPackage(db, packageId, hotelUid);
-  const defaultBase = getPackageTotalRooms(pkg || undefined) || 0;
+  const defaultBase = getPackageTotalRooms(pkg || undefined, {
+    useDefaultIfMissing: false,
+  });
 
   try {
     return await db.runTransaction(async (tx) => {
@@ -1387,6 +1738,11 @@ const releaseInventoryDocInTransaction = async (
       const snap = await tx.get(docRef);
       if (!snap.exists) return {ok: false};
       const data = snap.data() || {};
+
+      const allocationRef = db
+        .collection("hotelInventoryAllocations")
+        .doc(String(params.allocationId || params.docId));
+      const allocationSnap = await tx.get(allocationRef);
 
       if (data.inventoryReleased === true) {
         return {ok: true, alreadyReleased: true};
@@ -1410,7 +1766,12 @@ const releaseInventoryDocInTransaction = async (
       const freedNights: string[] = [];
       for (const state of nightStates) {
         const prevRemaining = state.data.remaining;
-        const reserved = Math.max(0, state.data.reserved - rooms);
+        const next = removeTrackedRooms(
+          state.data,
+          rooms,
+          params.reservationKind,
+        );
+        const reserved = next.held + next.booked + next.untracked;
         const remaining = writeNight(
           tx,
           state.ref,
@@ -1418,6 +1779,9 @@ const releaseInventoryDocInTransaction = async (
             base: state.data.base || defaultBase,
             extra: state.data.extra,
             blocked: state.data.blocked,
+            held: next.held,
+            booked: next.booked,
+            untracked: next.untracked,
             reserved,
           },
           state.data.date,
@@ -1433,6 +1797,18 @@ const releaseInventoryDocInTransaction = async (
         inventoryReleasedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
+      if (allocationSnap.exists) {
+        tx.set(
+          allocationRef,
+          {
+            status: "RELEASED",
+            releasedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          },
+          {merge: true},
+        );
+      }
+
       const auditRef = db.collection("hotelInventoryAuditLogs").doc();
       tx.set(auditRef, {
         action: params.auditAction,
@@ -1440,6 +1816,7 @@ const releaseInventoryDocInTransaction = async (
         packageId,
         bookingId: params.docId,
         rooms,
+        reservationKind: params.reservationKind,
         nights,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
@@ -1486,7 +1863,7 @@ export const applyAvailabilityAdjustment = async (
 
   const pkg = await loadPackage(db, packageId, hotelUid);
   if (!pkg) return {ok: false, error: "Room type not found."};
-  const defaultBase = getPackageTotalRooms(pkg);
+  const defaultBase = getPackageTotalRooms(pkg, {useDefaultIfMissing: false});
   if (defaultBase <= 0) {
     return {
       ok: false,
@@ -1535,6 +1912,9 @@ export const applyAvailabilityAdjustment = async (
               base: state.data.base,
               extra: state.data.extra,
               blocked: state.data.blocked,
+              held: state.data.held,
+              booked: state.data.booked,
+              untracked: state.data.untracked,
               reserved: state.data.reserved,
             },
             existingAdjustments,
@@ -1559,6 +1939,9 @@ export const applyAvailabilityAdjustment = async (
             base: state.data.base,
             extra: state.data.extra,
             blocked: state.data.blocked,
+            held: state.data.held,
+            booked: state.data.booked,
+            untracked: state.data.untracked,
             reserved: state.data.reserved,
           },
           existingAdjustments,
@@ -1574,6 +1957,9 @@ export const applyAvailabilityAdjustment = async (
             base: defaultBase > 0 ? defaultBase : merged.base,
             extra,
             blocked,
+            held: merged.held,
+            booked: merged.booked,
+            untracked: merged.untracked,
             reserved: merged.reserved,
           },
           state.data.date,
@@ -1650,6 +2036,7 @@ export const deactivateAdjustment = async (
   const dates = listInclusiveDates(adjStart, adjEnd);
   const defaultBase = getPackageTotalRooms(
     (await loadPackage(db, adj.packageId, adj.hotelUid)) || undefined,
+    {useDefaultIfMissing: false},
   );
 
   try {
@@ -1690,6 +2077,9 @@ export const deactivateAdjustment = async (
             base: state.data.base,
             extra,
             blocked,
+            held: state.data.held,
+            booked: state.data.booked,
+            untracked: state.data.untracked,
             reserved: state.data.reserved,
           },
           date,
@@ -1836,7 +2226,9 @@ export const bookingInventoryFields = (booking: Record<string, unknown>) => {
   const checkIn = booking.checkInDate || booking.checkIn;
   const checkOut = booking.checkOutDate || booking.checkOut;
   const rooms = roomsFromBooking(booking);
-  return {hotelUid, packageId, checkIn, checkOut, rooms};
+  const allocationId = String(booking.inventoryAllocationId || "").trim() ||
+    undefined;
+  return {hotelUid, packageId, checkIn, checkOut, rooms, allocationId};
 };
 
 /**
@@ -1851,6 +2243,8 @@ export const getCalendarRange = async (
 ): Promise<NightBreakdown[]> => {
   const dates = listInclusiveDates(startDate, endDate);
   const pkg = await loadPackage(db, packageId, hotelUid);
-  const defaultBase = getPackageTotalRooms(pkg || undefined);
+  const defaultBase = getPackageTotalRooms(pkg || undefined, {
+    useDefaultIfMissing: false,
+  });
   return computeNightsBreakdown(db, hotelUid, packageId, dates, defaultBase);
 };

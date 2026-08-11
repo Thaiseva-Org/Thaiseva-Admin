@@ -338,8 +338,8 @@ const RoomBookings = () => {
 
   const confirmBookingInternal = async (booking) => {
     try {
-      // Server: re-check capacity every night + reserve night ledger (prevents overbooking)
-      // Also resolves sibling pending docs for partially confirmed stays.
+      // Server: accept pending → expand night.total if free is short, then book stock.
+      // Confirming availability automatically increases rooms for those stay dates.
       const { acceptHotelBookingWithAvailability } = await import(
         "../../../../../services/HotelBookingAccept"
       );

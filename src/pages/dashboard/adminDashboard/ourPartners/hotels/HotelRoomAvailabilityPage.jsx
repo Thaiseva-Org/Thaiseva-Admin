@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   Box,
+  Alert,
   Button,
   Chip,
   Dialog,
@@ -10,7 +11,6 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
-  Grid,
   IconButton,
   InputLabel,
   MenuItem,
@@ -153,13 +153,13 @@ const btnOutlineSx = {
 const roomLabel = (room) =>
   room?.roomName || room?.packageName || room?.name || room?.id || "Room";
 
-const roomQty = (room, hotelDefault = 5) => {
+const roomQty = (room) => {
   const raw = room?.totalRooms ?? room?.quantity ?? room?.numberOfRooms;
   if (raw === undefined || raw === null || raw === "") {
-    return hotelDefault;
+    return 0;
   }
   const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : hotelDefault;
+  return Number.isFinite(n) && n >= 0 ? n : 0;
 };
 
 /** Build month grid cells (null = padding outside month). */
@@ -250,8 +250,9 @@ const HotelRoomAvailabilityPage = () => {
     bookingOpenTo: "",
     notifyOnFull: true,
     notifyOnFreed: true,
-    autoBookingEnabled: true, // ON by default for every hotel
-    defaultRoomInventory: 5, // default 5 rooms when type has no qty set
+    autoBookingEnabled: false,
+    configured: false,
+    defaultRoomInventory: 5, // starting value for newly created room types only
   });
   const [calendarLoading, setCalendarLoading] = useState(false);
   const [tab, setTab] = useState(0);
@@ -440,12 +441,16 @@ const HotelRoomAvailabilityPage = () => {
 
         let cfg =
           data.availabilityConfig || data.hotel?.availabilityConfig || {};
+        let configured = Boolean(
+          data.availabilityConfig || data.hotel?.availabilityConfig
+        );
         try {
           const configSnap = await getDoc(
             doc(db, "HotelDB", String(hotelId), "availability", "config")
           );
           if (configSnap.exists()) {
             cfg = configSnap.data() || cfg;
+            configured = true;
           }
         } catch (configErr) {
           console.warn(
@@ -458,7 +463,8 @@ const HotelRoomAvailabilityPage = () => {
           bookingOpenTo: cfg.bookingOpenTo || "",
           notifyOnFull: cfg.notifyOnFull !== false,
           notifyOnFreed: cfg.notifyOnFreed !== false,
-          autoBookingEnabled: cfg.autoBookingEnabled !== false,
+          autoBookingEnabled: configured && cfg.autoBookingEnabled !== false,
+          configured,
           defaultRoomInventory: Number(cfg.defaultRoomInventory) || 5,
         });
       } catch (err) {
@@ -547,6 +553,7 @@ const HotelRoomAvailabilityPage = () => {
           notifyOnFreed: data.availabilityConfig.notifyOnFreed !== false,
           autoBookingEnabled:
             data.availabilityConfig.autoBookingEnabled !== false,
+          configured: data.availabilityConfig.configured !== false,
           defaultRoomInventory:
             Number(data.availabilityConfig.defaultRoomInventory) || 5,
         }));
@@ -586,6 +593,11 @@ const HotelRoomAvailabilityPage = () => {
         defaultRoomInventory:
           Number(availabilityConfig.defaultRoomInventory) || 5,
       });
+      setAvailabilityConfig((current) => ({
+        ...current,
+        configured: true,
+      }));
+      await refreshCalendar();
       successNotification("Hotel availability settings saved.");
     } catch (e) {
       console.error(e);
@@ -595,7 +607,7 @@ const HotelRoomAvailabilityPage = () => {
     }
   };
 
-  /** Settings: set default stock for a chosen room type */
+  /** Settings: set explicit sellable stock for a chosen room type. */
   const handleSaveTypeDefault = async () => {
     if (!hotelId || !settingsTypeId) {
       deleteNotification("Choose a room type.");
@@ -603,7 +615,7 @@ const HotelRoomAvailabilityPage = () => {
     }
     const n = parseInt(settingsQtyDraft, 10);
     if (!Number.isFinite(n) || n < 1) {
-      deleteNotification("Enter a valid default room count (at least 1).");
+      deleteNotification("Enter the actual sellable room count (at least 1).");
       return;
     }
     setSaving(true);
@@ -611,11 +623,11 @@ const HotelRoomAvailabilityPage = () => {
       await setTotalRooms(hotelId, settingsTypeId, n);
       const name =
         roomLabel(roomTypes.find((r) => r.id === settingsTypeId)) || "Room type";
-      successNotification(`${name}: default set to ${n} room(s).`);
+      successNotification(`${name}: inventory set to ${n} room(s).`);
       await refreshCalendar();
     } catch (e) {
       console.error(e);
-      deleteNotification(e?.message || "Failed to save default rooms.");
+      deleteNotification(e?.message || "Failed to save room inventory.");
     } finally {
       setSaving(false);
     }
@@ -1119,7 +1131,7 @@ const HotelRoomAvailabilityPage = () => {
                           } ${!inLoadedRange ? "opacity-50" : ""}`}
                           title={
                             night
-                              ? `${cell.date}: ${night.remaining} left · ${night.reserved} booked`
+                              ? `${cell.date}: ${night.remaining} free · ${night.booked || 0} booked · ${night.held || 0} on hold`
                               : cell.date
                           }
                         >
@@ -1139,7 +1151,7 @@ const HotelRoomAvailabilityPage = () => {
                                 {night.remaining}
                               </p>
                               <p className="mt-0.5 text-[10px] opacity-80">
-                                free · {night.reserved} booked
+                                free · {night.booked || 0} booked · {night.held || 0} held
                               </p>
                             </>
                           ) : (
@@ -1205,7 +1217,15 @@ const HotelRoomAvailabilityPage = () => {
                               Booked
                             </p>
                             <p className="font-bold tabular-nums text-primary-900">
-                              {selectedNight.reserved}
+                              {selectedNight.booked || 0}
+                            </p>
+                          </div>
+                          <div className="rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
+                            <p className="text-[10px] uppercase text-amber-700">
+                              On hold
+                            </p>
+                            <p className="font-bold tabular-nums text-amber-900">
+                              {selectedNight.held || 0}
                             </p>
                           </div>
                         </div>
@@ -1245,6 +1265,37 @@ const HotelRoomAvailabilityPage = () => {
                                   {b.phone ? (
                                     <p className="text-neutral-500">{b.phone}</p>
                                   ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div>
+                          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-amber-700">
+                            Active checkout holds
+                          </p>
+                          {(selectedNight.holds || []).length === 0 ? (
+                            <p className="text-sm text-neutral-500">
+                              No active holds on this night.
+                            </p>
+                          ) : (
+                            <ul className="space-y-2">
+                              {selectedNight.holds.map((hold) => (
+                                <li
+                                  key={`${selectedDay}-${hold.id}`}
+                                  className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs"
+                                >
+                                  <p className="font-semibold text-amber-900">
+                                    {hold.rooms} room(s) held
+                                  </p>
+                                  <p className="text-amber-800">
+                                    {hold.checkIn} → {hold.checkOut}
+                                  </p>
+                                  {hold.holdUntil && (
+                                    <p className="text-amber-700">
+                                      Expires {new Date(hold.holdUntil).toLocaleString()}
+                                    </p>
+                                  )}
                                 </li>
                               ))}
                             </ul>
@@ -1498,7 +1549,9 @@ const HotelRoomAvailabilityPage = () => {
                             <th className="px-3 py-3 text-center">Normal</th>
                             <th className="px-3 py-3 text-center">Extra</th>
                             <th className="px-3 py-3 text-center">Blocked</th>
+                            <th className="px-3 py-3 text-center">On hold</th>
                             <th className="px-3 py-3 text-center">Booked</th>
+                            <th className="px-3 py-3 text-center">Unclassified</th>
                             <th className="px-3 py-3 text-center">Remaining</th>
                             <th className="px-3 py-3 text-center">Status</th>
                           </tr>
@@ -1531,8 +1584,14 @@ const HotelRoomAvailabilityPage = () => {
                                 <td className="px-3 py-2.5 text-center text-neutral-500">
                                   {night.blocked}
                                 </td>
+                                <td className="px-3 py-2.5 text-center font-semibold text-amber-700">
+                                  {night.held || 0}
+                                </td>
                                 <td className="px-3 py-2.5 text-center font-semibold text-primary-700">
-                                  {night.reserved}
+                                  {night.booked || 0}
+                                </td>
+                                <td className="px-3 py-2.5 text-center text-neutral-500">
+                                  {night.untracked || 0}
                                 </td>
                                 <td className="px-3 py-2.5 text-center font-bold">
                                   {night.remaining}
@@ -1569,9 +1628,15 @@ const HotelRoomAvailabilityPage = () => {
               Auto booking & window
             </h3>
             <p className="text-sm text-neutral-500">
-              Auto-booking is ON by default. Use the panel on the right to set
-              default rooms for each room type.
+              Auto-booking starts only after these settings are explicitly saved
+              and every sellable room type has a room quantity.
             </p>
+            {!availabilityConfig.configured && (
+              <Alert severity="warning">
+                Setup is incomplete. Automatic booking is safely disabled until
+                you save these settings.
+              </Alert>
+            )}
             <FormControlLabel
               control={
                 <Switch
@@ -1587,7 +1652,7 @@ const HotelRoomAvailabilityPage = () => {
               }
               label={
                 availabilityConfig.autoBookingEnabled !== false
-                  ? "Auto booking enabled (default)"
+                  ? "Auto booking enabled"
                   : "Auto booking disabled — bookings stay pending"
               }
             />
@@ -1665,7 +1730,7 @@ const HotelRoomAvailabilityPage = () => {
 
           <div className="bg-white rounded-2xl border border-neutral-200 p-5 shadow-sm space-y-4">
             <h3 className="font-semibold text-lg text-neutral-800">
-              Default rooms by type
+              Sellable rooms by type
             </h3>
             <p className="text-sm text-neutral-500">
               Choose a room type, set how many rooms are available by default for
@@ -1702,7 +1767,7 @@ const HotelRoomAvailabilityPage = () => {
                 </FormControl>
 
                 <TextField
-                  label="Default rooms for this type"
+                  label="Total sellable rooms for this type"
                   size="small"
                   type="number"
                   fullWidth

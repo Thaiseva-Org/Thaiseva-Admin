@@ -1,10 +1,13 @@
 # Hotel Room Availability — Admin Portal
 
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-09
 
-**Cloud Functions request/response API:**  
-[`HOTEL_AVAILABILITY_FUNCTIONS_API.md`](./HOTEL_AVAILABILITY_FUNCTIONS_API.md)  
-(check, soft hold lock/complete/unlock, create, admin callables, deploy)
+> **New model (recommended):** number-based stock with 3 APIs — see  
+> [`HOTEL_STOCK_API.md`](./HOTEL_STOCK_API.md)  
+> (`free = total − locked − booked`, check / lock / unlock)
+
+**Cloud Functions request/response API (legacy names, same stock):**  
+[`HOTEL_AVAILABILITY_FUNCTIONS_API.md`](./HOTEL_AVAILABILITY_FUNCTIONS_API.md)
 
 ## Purpose
 
@@ -68,15 +71,24 @@ Admin staff manage **room inventory by night** so:
 ## Formula
 
 ```
+reserved = held + booked + untracked
 remaining = max(0, normal + extra − blocked − reserved)
 ```
 
 | Field | Source |
 |-------|--------|
-| **normal** | `HotelDB/{hotel}/rooms/{id}.totalRooms` (or default 5) |
+| **normal** | Explicit `HotelDB/{hotel}/rooms/{id}.totalRooms` |
 | **extra** | Active `HotelDB/{hotelId}/availability/{id}` type `extra` |
 | **blocked** | Active adjustments type `blocked` |
 | **reserved** | Accepted `hotelBookingData` for that hotel + room type covering the night |
+
+New night ledgers classify reservations as `held` (temporary checkout locks),
+`booked` (accepted/confirmed inventory), and `untracked` (legacy aggregate
+inventory awaiting reconciliation). `reserved` remains the compatibility total.
+
+Room quantity and availability settings must be explicitly saved before
+automatic booking is enabled. An unconfigured legacy hotel remains pending
+instead of silently selling fallback inventory.
 
 **Occupied nights:** half-open interval **`[checkIn, checkOut)`**  
 Checkout day is free for a new check-in.
@@ -155,7 +167,8 @@ Match hotel via `hotelUid` / `hotelId`, room via `packageId` / `roomId`.
 
 ### Optional (server / future)
 
-- `hotelRoomInventory/{hotelUid}_{packageId}/nights/{YYYY-MM-DD}` — night ledger  
+- `hotelRoomInventory/{hotelUid}_{packageId}/nights/{YYYY-MM-DD}` — classified night ledger
+- `hotelInventoryAllocations/{allocationId}` — idempotent allocation ownership
 - `hotelInventoryAuditLogs` — audit trail  
 
 Admin UI currently **computes remaining live** (does not require the ledger).
@@ -320,6 +333,14 @@ Also listed in `firestore.indexes.json`.
 
 Admin portal does not implement the customer checkout UI. Ops repair scripts live under `functions/scripts/`.
 
+The ledger reconciliation tool is dry-run by default:
+
+```bash
+cd functions
+node scripts/repairNightReserved.js
+node scripts/repairNightReserved.js --apply
+```
+
 ---
 
 ## Related docs
@@ -329,4 +350,3 @@ Admin portal does not implement the customer checkout UI. Ops repair scripts liv
 - `FIRESTORE_DATA_REFERENCE.md` — collection shapes  
 - `COLLECTION_SCHEMA_REFERENCE.md` — schema overview  
 - `documentation/FIREBASE_REFERENCE.md` — routes and collections  
-

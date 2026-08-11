@@ -9,7 +9,7 @@ import * as logger from "firebase-functions/logger";
 import {
   runCreateHotelBookingWithAvailability,
   runCompleteHotelBookingHold,
-} from "../hotelBookingWithAvailability";
+} from "../hotelBookingStock";
 import {
   createCheckoutSessionCore,
   expireCheckoutSessionSafe,
