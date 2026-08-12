@@ -22,7 +22,6 @@ import {
   selfDriveBookingCollection,
   settingsCollection,
   travelBookingCollection,
-  vanBookingsCollection,
 } from "../firebase/firebase.config";
 import { AuthContext } from "./AuthProvider";
 
@@ -58,7 +57,6 @@ const PartnerProvider = ({ children }) => {
   const [carBookings, setCarBookings] = useState([]);
   const [selfDriveBookings, setSelfDriveBookings] = useState([]);
   const [travelBookings, setTravelBookings] = useState([]);
-  const [vanBookings, setVanBookings] = useState([]);
   const [categories, setCategories] = useState([]);
   const [logo, setLogo] = useState("");
   // const [adminHomeData, setAdminHomeData] = useState({
@@ -504,36 +502,6 @@ const PartnerProvider = ({ children }) => {
     return () => unSub();
   }, [isAdmin, isSubAdmin]);
 
-  // loading all van bookings
-  useEffect(() => {
-    if (!(isAdmin || isSubAdmin)) return;
-
-    setLoadingData(true);
-    // Van bookings (Manual) - Check last 24 hours or just recent
-    const unSub = onSnapshot(
-      query(
-        vanBookingsCollection,
-        where("createdAt", ">=", last24Hours.toISOString()),
-        orderBy("createdAt", "desc")
-      ),
-      (result) => {
-        const list = result.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            source: "manual",
-          };
-        });
-        setVanBookings(list);
-        setLoadingData(false);
-      },
-      handleSnapshotError("Van bookings", () => setVanBookings([]))
-    );
-
-    return () => unSub();
-  }, [isAdmin, isSubAdmin]);
-
   // loading all partner's payments
   // useEffect(() => {
   //   const loadPayments = async () => {
@@ -705,7 +673,6 @@ const PartnerProvider = ({ children }) => {
     carBookings,
     selfDriveBookings,
     travelBookings,
-    vanBookings,
     logo,
     contactInfo,
     categories,

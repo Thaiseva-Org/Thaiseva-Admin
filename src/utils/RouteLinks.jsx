@@ -230,14 +230,8 @@ export const Travellinks = [
     icon: <DirectionsBusIcon />,
   },
   {
-    url: "/dashboard/van-bookings",
-    lable: "Van Bookings",
-    icon: <DirectionsBusIcon />,
-  },
-
-  {
     url: "/dashboard/car-bookings",
-    lable: "Taxi Bookings",
+    lable: "Car Bookings",
     icon: <LocalTaxiIcon />,
   },
   {

@@ -1,12 +1,19 @@
 /**
- * Transport booking APIs (car / van / self-drive)
+ * Transport booking APIs — two products only:
+ *  1) createCarBooking   → car_bookings
+ *       transportType: car | van | taxi | bike
+ *  2) createSelfDriveBooking → self_driving_bookings
+ *
+ * No separate van booking API — van is a transportType on car booking.
  *
  * Product model (no Stripe):
  * 1) User submits trip details → Pending booking (no price charged online)
  * 2) Admin sets amount / accepts via admin portal (manageTransportBooking)
  * 3) User fetches booking from backend to see price & status
  *
- * paymentMethod STRIPE is rejected. Optional preference: THAI_QR | ONSITE | PENDING_QUOTE.
+ * Aligns with mobile client field names where possible:
+ *   name, contact, pickup, drop, date, time, transportType, seats,
+ *   isImmediateRequest, bookingType (immediate | scheduled)
  */
 import * as admin from "firebase-admin";
 import {onRequest} from "firebase-functions/v2/https";
@@ -23,18 +30,40 @@ import {normalizePaymentMethod} from "./paymentMethod";
 
 const db = () => admin.firestore();
 
-type TransportKind = "car" | "van" | "selfDrive";
+/** Car booking transport types (all stored in car_bookings). */
+const CAR_TRANSPORT_TYPES = new Set(["car", "van", "taxi", "bike"]);
 
-const COLLECTION: Record<TransportKind, string> = {
-  car: "car_bookings",
-  van: "vanBookings",
-  selfDrive: "self_driving_bookings",
-};
+type CarTransportType = "car" | "van" | "taxi" | "bike";
+type Product = "carBooking" | "selfDrive";
 
-const label: Record<TransportKind, string> = {
-  car: "Car / taxi",
-  van: "Van",
-  selfDrive: "Self-drive",
+/**
+ * Resolve transportType for car bookings.
+ * Accepts: car | van | taxi | bike (case-insensitive).
+ * Also maps common aliases (cab→taxi, motorcycle→bike, etc.).
+ */
+const resolveCarTransportType = (
+  raw: unknown,
+  fixed?: CarTransportType,
+): CarTransportType => {
+  if (fixed) return fixed;
+  const v = stringValue(raw, 40).toLowerCase().replace(/[\s_-]+/g, "");
+  if (!v || v === "car" || v === "sedan") return "car";
+  if (v === "taxi" || v === "cab") return "taxi";
+  if (v === "van" || v === "minivan" || v === "luxuryvan") return "van";
+  if (
+    v === "bike" ||
+    v === "motorcycle" ||
+    v === "motorbike" ||
+    v === "scooter"
+  ) {
+    return "bike";
+  }
+  if (CAR_TRANSPORT_TYPES.has(v)) return v as CarTransportType;
+  throw new HttpError(
+    400,
+    "transportType must be one of: car, van, taxi, bike.",
+    "INVALID_TRANSPORT_TYPE",
+  );
 };
 
 /** Map client payment preference — never Stripe for transport. */
@@ -47,7 +76,6 @@ const paymentPreference = (
 } => {
   const method = normalizePaymentMethod(raw, "ONSITE");
   if (method === "STRIPE") {
-    // Caller should have rejected; defensive fallback
     return {
       paymentMethod: "PENDING_ADMIN",
       modeOfPayment: "OFFLINE",
@@ -70,10 +98,35 @@ const paymentPreference = (
   };
 };
 
-const buildHandler = (kind: TransportKind) =>
+const serviceLabelFor = (
+  product: Product,
+  transportType: string | null,
+): string => {
+  if (product === "selfDrive") return "Self-drive";
+  const labels: Record<string, string> = {
+    car: "Car booking",
+    van: "Van booking",
+    taxi: "Taxi booking",
+    bike: "Bike booking",
+  };
+  return labels[transportType || "car"] || "Car booking";
+};
+
+const buildHandler = (
+  product: Product,
+  fixedTransportType?: CarTransportType,
+) =>
   withBookingHttp(async ({res, body, auth}) => {
     const userId = assertUserMatch(auth, body.userId);
-    const collection = COLLECTION[kind];
+
+    const isCar = product === "carBooking";
+    const collection = isCar ? "car_bookings" : "self_driving_bookings";
+    const transportType = isCar ?
+      resolveCarTransportType(
+        body.transportType ?? body.vehicleType ?? body.type ?? "car",
+        fixedTransportType,
+      ) :
+      null;
 
     // Explicit: no card/Stripe checkout for transport
     const rawPay = body.paymentMethod || body.paymentMethodIntent;
@@ -88,12 +141,13 @@ const buildHandler = (kind: TransportKind) =>
       }
     }
 
-    const customerName = stringValue(
-      body.customerName || body.fullName || body.guestName || body.name,
+    // Mobile field names first, then web aliases
+    const name = stringValue(
+      body.name || body.customerName || body.fullName || body.guestName,
       120,
     );
-    const customerPhone = stringValue(
-      body.customerPhone || body.guestPhone || body.phone || body.contact,
+    const contact = stringValue(
+      body.contact || body.customerPhone || body.guestPhone || body.phone,
       40,
     );
     const customerEmail = normalizeEmail(
@@ -103,13 +157,52 @@ const buildHandler = (kind: TransportKind) =>
       body.pickup || body.pickupLocation || body.from,
       300,
     );
-    const destination = stringValue(
-      body.destination || body.drop || body.dropLocation || body.to,
+    const drop = stringValue(
+      body.drop || body.destination || body.dropLocation || body.to,
       300,
     );
     const notes = stringValue(body.notes || body.specialRequests, 500);
 
-    // Optional client hint only — NOT the billable amount (admin sets AmountOffered/finalAmount)
+    // seats (mobile); optional
+    const seatsRaw = body.seats ?? body.seatCount ?? body.passengers;
+    let seats: number | null = null;
+    if (seatsRaw != null && seatsRaw !== "") {
+      const n = Math.floor(parseNumber(seatsRaw, 0));
+      if (n < 1 || n > 50) {
+        throw new HttpError(
+          400,
+          "seats must be between 1 and 50.",
+          "INVALID_SEATS",
+        );
+      }
+      seats = n;
+    }
+
+    // Immediate vs scheduled (mobile)
+    const isImmediateRequest =
+      body.isImmediateRequest === true ||
+      body.isImmediateRequest === "true" ||
+      String(body.bookingType || "").toLowerCase() === "immediate";
+    const bookingType = isImmediateRequest ? "immediate" : "scheduled";
+
+    // date + time as mobile stores them (strings); also accept ISO travelAt
+    const dateStr = stringValue(body.date, 40) || null;
+    const timeStr = stringValue(body.time, 40) || null;
+
+    const travelAtRaw =
+      body.travelAt ||
+      body.bookingDate ||
+      (dateStr && timeStr ? `${dateStr} ${timeStr}` : dateStr || timeStr);
+    let travelAt: admin.firestore.Timestamp | string | null = null;
+    if (travelAtRaw) {
+      const d = new Date(String(travelAtRaw));
+      if (!Number.isNaN(d.getTime())) {
+        travelAt = admin.firestore.Timestamp.fromDate(d);
+      } else {
+        travelAt = stringValue(travelAtRaw, 80);
+      }
+    }
+
     const requestedAmountHint = Math.max(
       0,
       parseNumber(
@@ -118,17 +211,17 @@ const buildHandler = (kind: TransportKind) =>
       ),
     );
 
-    if (!customerName || !customerPhone) {
+    if (!name || !contact) {
       throw new HttpError(
         400,
-        "customerName and customerPhone are required.",
+        "name (or customerName) and contact (or customerPhone) are required.",
         "INVALID_ARGUMENT",
       );
     }
-    if (!pickup || !destination) {
+    if (!pickup || !drop) {
       throw new HttpError(
         400,
-        "pickup and destination are required.",
+        "pickup and drop (or destination) are required.",
         "INVALID_ARGUMENT",
       );
     }
@@ -140,40 +233,43 @@ const buildHandler = (kind: TransportKind) =>
       );
     }
 
-    const travelAtRaw =
-      body.travelAt || body.bookingDate || body.time || body.date;
-    let travelAt: admin.firestore.Timestamp | string | null = null;
-    if (travelAtRaw) {
-      const d = new Date(String(travelAtRaw));
-      if (!Number.isNaN(d.getTime())) {
-        travelAt = admin.firestore.Timestamp.fromDate(d);
-      } else {
-        travelAt = stringValue(travelAtRaw, 80);
-      }
-    }
-
     const pay = paymentPreference(rawPay);
 
+    // Admin workflow: car_bookings are managed under bookingKind "taxi"
+    const bookingKind = isCar ? "taxi" : "selfDrive";
+    const serviceLabel = serviceLabelFor(product, transportType);
+
     const baseDoc: Record<string, unknown> = {
-      customerName,
-      customerPhone,
-      customerEmail,
-      fullName: customerName,
-      guestName: customerName,
-      guestPhone: customerPhone,
-      guestEmail: customerEmail,
-      name: customerName,
-      contact: customerPhone,
-      username: customerName,
-      phoneNo: customerPhone,
+      // --- Mobile-aligned fields ---
+      userId,
+      name,
+      contact,
       pickup,
+      drop,
+      date: dateStr,
+      time: timeStr || travelAt,
+      transportType: isCar ? transportType : "selfDrive",
+      seats,
+      isImmediateRequest,
+      bookingType,
+      status: "pending",
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+
+      // --- Web / admin aliases ---
+      customerName: name,
+      customerPhone: contact,
+      customerEmail,
+      fullName: name,
+      guestName: name,
+      guestPhone: contact,
+      guestEmail: customerEmail,
+      username: name,
+      phoneNo: contact,
       pickupLocation: pickup,
-      destination,
-      drop: destination,
-      dropLocation: destination,
+      destination: drop,
+      dropLocation: drop,
       travelAt,
       notes,
-      // Billable fields empty until admin quotes / accepts
       amount: null,
       price: null,
       AmountOffered: null,
@@ -181,12 +277,14 @@ const buildHandler = (kind: TransportKind) =>
       requestedAmountHint: requestedAmountHint > 0 ? requestedAmountHint : null,
       amountStatus: "AWAITING_ADMIN_QUOTE",
       currency: "THB",
-      userId,
       authUid: userId,
-      source: "WEB",
-      transportType: kind,
-      bookingKind: kind,
-      status: "Pending",
+      source: stringValue(body.source, 40) || "WEB",
+      transportProduct: product,
+      bookingKind,
+      vehicleType: isCar ?
+        String(transportType).charAt(0).toUpperCase() +
+          String(transportType).slice(1) :
+        "Self Drive",
       bookingStatus: "Pending",
       isPaymentDone: false,
       paymentVerificationStatus: "NOT_APPLICABLE",
@@ -194,20 +292,11 @@ const buildHandler = (kind: TransportKind) =>
       paymentMethod: pay.paymentMethod,
       modeOfPayment: pay.modeOfPayment,
       stripeSessionId: null,
-      // Explicit: online card checkout not used for transport
       stripeEnabled: false,
       orderedAt: admin.firestore.FieldValue.serverTimestamp(),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
     };
-
-    if (kind === "van" && travelAt) {
-      baseDoc.bookingDate = travelAt;
-    }
-    if (kind === "car" && travelAt) {
-      baseDoc.time = travelAt;
-    }
 
     const ref = db().collection(collection).doc();
     await ref.set(baseDoc);
@@ -218,9 +307,14 @@ const buildHandler = (kind: TransportKind) =>
       paymentMethod: pay.paymentMethod,
       bookingId,
       bookingCollection: collection,
-      transportType: kind,
-      service: label[kind],
-      status: "Pending",
+      transportProduct: product,
+      transportType: isCar ? transportType : "selfDrive",
+      bookingKind,
+      bookingType,
+      isImmediateRequest,
+      seats,
+      service: serviceLabel,
+      status: "pending",
       bookingStatus: "Pending",
       amount: null,
       finalAmount: null,
@@ -244,35 +338,48 @@ export const getTransportBooking = onRequest(
   withBookingHttp(async ({res, body, auth}) => {
     const bookingId = stringValue(body.bookingId || body.id, 200);
     const kindRaw = stringValue(
-      body.bookingKind || body.transportType || body.bookingType,
+      body.bookingKind ||
+        body.transportType ||
+        body.bookingType ||
+        body.transportProduct,
       40,
-    ).toLowerCase();
+    )
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
     const collectionRaw = stringValue(
       body.bookingCollection || body.collection,
       80,
     );
 
     let collection: string | null = null;
-    if (collectionRaw === "car_bookings" || kindRaw === "car" || kindRaw === "taxi") {
+    if (collectionRaw === "car_bookings") {
       collection = "car_bookings";
-    } else if (collectionRaw === "vanBookings" || kindRaw === "van") {
-      collection = "vanBookings";
+    } else if (collectionRaw === "self_driving_bookings") {
+      collection = "self_driving_bookings";
     } else if (
-      collectionRaw === "self_driving_bookings" ||
       kindRaw === "selfdrive" ||
-      kindRaw === "self_drive"
+      kindRaw === "selfdriving" ||
+      kindRaw === "selfbooking"
     ) {
       collection = "self_driving_bookings";
+    } else if (
+      kindRaw === "car" ||
+      kindRaw === "taxi" ||
+      kindRaw === "van" ||
+      kindRaw === "bike" ||
+      kindRaw === "carbooking"
+    ) {
+      // All car-product types (car/van/taxi/bike) live in car_bookings
+      collection = "car_bookings";
     }
 
     if (!bookingId) {
       throw new HttpError(400, "bookingId is required.", "INVALID_ARGUMENT");
     }
 
-    // If collection known, read one; else search all three (owner-scoped)
     const tryCols = collection ?
       [collection] :
-      ["car_bookings", "vanBookings", "self_driving_bookings"];
+      ["car_bookings", "self_driving_bookings"];
 
     let found: {
       id: string;
@@ -308,12 +415,25 @@ export const getTransportBooking = onRequest(
       data.finalAmount ?? data.AmountOffered ?? data.price ?? data.amount,
     );
 
+    const transportType =
+      data.transportType ||
+      (found.collection === "self_driving_bookings" ? "selfDrive" : "car");
+
     res.status(200).json({
       success: true,
       bookingId: found.id,
       bookingCollection: found.collection,
-      transportType: data.transportType || data.bookingKind || null,
-      status: data.status || data.bookingStatus || "Pending",
+      transportProduct:
+        data.transportProduct ||
+        (found.collection === "self_driving_bookings" ?
+          "selfDrive" :
+          "carBooking"),
+      transportType,
+      bookingKind: data.bookingKind || null,
+      bookingType: data.bookingType || null,
+      isImmediateRequest: data.isImmediateRequest === true,
+      seats: numberOrNull(data.seats),
+      status: data.status || data.bookingStatus || "pending",
       bookingStatus: data.bookingStatus || data.status || "Pending",
       amount,
       finalAmount: numberOrNull(data.finalAmount),
@@ -325,10 +445,15 @@ export const getTransportBooking = onRequest(
       currency: stringValue(data.currency, 10) || "THB",
       isPaymentDone: data.isPaymentDone === true,
       paymentMethod: data.paymentMethod || null,
-      customerName: data.customerName || data.fullName || data.name || null,
+      name: data.name || data.customerName || data.fullName || null,
+      contact: data.contact || data.customerPhone || data.phoneNo || null,
+      customerName: data.customerName || data.name || data.fullName || null,
       customerPhone: data.customerPhone || data.contact || data.phoneNo || null,
       pickup: data.pickup || data.pickupLocation || null,
+      drop: data.drop || data.destination || data.dropLocation || null,
       destination: data.destination || data.drop || data.dropLocation || null,
+      date: data.date || null,
+      time: data.time || null,
       travelAt: data.travelAt || data.bookingDate || data.time || null,
       notes: data.notes || null,
       stripeUrl: null,
@@ -347,9 +472,33 @@ const numberOrNull = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-export const createCarBooking = onRequest(httpsOpts, buildHandler("car"));
-export const createVanBooking = onRequest(httpsOpts, buildHandler("van"));
+/**
+ * Car booking (product #1).
+ * Collection: car_bookings
+ * transportType: car | van | taxi | bike
+ *
+ * Body (mobile-aligned):
+ *   name, contact, pickup, drop, date, time, transportType, seats,
+ *   isImmediateRequest, bookingType
+ */
+export const createCarBooking = onRequest(
+  httpsOpts,
+  buildHandler("carBooking"),
+);
+
+/**
+ * Self-drive booking (product #2).
+ * Collection: self_driving_bookings
+ */
 export const createSelfDriveBooking = onRequest(
   httpsOpts,
   buildHandler("selfDrive"),
+);
+
+/**
+ * @deprecated Prefer createCarBooking with transportType: "taxi" (or car/van/bike).
+ */
+export const createTaxiBooking = onRequest(
+  httpsOpts,
+  buildHandler("carBooking", "taxi"),
 );

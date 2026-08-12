@@ -27,8 +27,8 @@ Complete guide: auth, all endpoints, hotel / package / transport, Stripe, notifi
 
 ### 📦 1. Booking Operations Manager
 Admin tracking and CRUD interface covering all service categories:
-*   **Car & Taxi rentals**: Supports Self-Drive and Driver-inclusive bookings.
-*   **Van services**: Custom scheduling, distance logs, and partner assignments.
+*   **Car bookings**: Driver-inclusive rides with `transportType` car / van / taxi / bike (one list, one API).
+*   **Self-drive**: Rental fleet assignment and document verification.
 *   **Hotel Room Reservations**: Manage check-in/out dates, guest details, room numbers, and track pricing splits.
 *   **Sightseeing & Tour Packages**: Detail itineraries, days/nights layouts, included activities, and authorized travel operators.
 

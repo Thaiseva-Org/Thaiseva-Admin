@@ -9,7 +9,7 @@
 | **Auth** | Firebase ID token: `Authorization: Bearer <token>` |
 | **Updated** | 2026-08-12 |
 
-**Also see:** [Sightseeing website & app integration](./SIGHTSEEING_CLIENT_INTEGRATION.md) (step-by-step for Checkout vs PaymentSheet).
+This is the **only** client integration document for website and mobile booking APIs.
 
 ---
 
@@ -23,7 +23,7 @@
 6. [Common request / response](#6-common-request--response)
 7. [Hotel booking](#7-hotel-booking)
 8. [Sightseeing / package booking](#8-sightseeing--package-booking)
-9. [Transport (car / van / self-drive)](#9-transport-car--van--self-drive)
+9. [Transport (car booking / self-drive)](#9-transport-car-booking--self-drive)
 10. [Pay later (My Bookings)](#10-pay-later-my-bookings)
 11. [Stripe return & webhook](#11-stripe-return--webhook)
 12. [Customer notifications (app + website)](#12-customer-notifications-app--website)
@@ -42,9 +42,15 @@ The **server** creates bookings, calculates prices (hotel & tours), creates Stri
 |---------|----------------|----------------------|
 | **Hotel** | Server (room × nights) | Yes + Thai QR |
 | **Sightseeing package** | Server (package rates) | Yes + Thai QR + Onsite |
-| **Car / van / self-drive** | **Admin** (later) | **No Stripe** |
+| **Car booking** (car / van / taxi / bike) / **Self-drive** | **Admin** (later) | **No Stripe** |
 
-**Transport:** user submits a request → admin sets amount in admin portal → app/website fetches booking or receives a notification.
+**Transport has 2 APIs only:**
+1. **`createCarBooking`** — all rides go to `car_bookings`; `transportType` is `car` | `van` | `taxi` | `bike`
+2. **`createSelfDriveBooking`** — self-drive rentals
+
+There is **no separate van booking API**. Van is a `transportType` on car booking.
+
+User submits a request → admin sets amount in admin portal → app/website fetches booking or receives a notification.
 
 ---
 
@@ -113,8 +119,7 @@ Default for hotel/package if omitted: **`STRIPE`**.
 | `checkHotelAvailability` | Public pre-check: free rooms / messages |
 | `createHotelBooking` | Create hotel booking + optional `stripeUrl` |
 | `createSightseeingBooking` | Package booking (Stripe / QR / onsite) |
-| `createCarBooking` | Car/taxi request (no Stripe) |
-| `createVanBooking` | Van request (no Stripe) |
+| `createCarBooking` | Car booking — `transportType`: car / van / taxi / bike (no Stripe) |
 | `createSelfDriveBooking` | Self-drive request (no Stripe) |
 | `getTransportBooking` | Get transport status + admin amount |
 | `createCheckoutSession` | Stripe pay for **existing** hotel/package booking |
@@ -456,46 +461,76 @@ After a successful PaymentSheet booking (and after Checkout webhook/verify), rea
 
 `source`: PaymentSheet path uses `"APP"`; website Checkout/QR/Onsite typically `"WEB"`.
 
-Full step-by-step for both clients: [SIGHTSEEING_CLIENT_INTEGRATION.md](./SIGHTSEEING_CLIENT_INTEGRATION.md).
-
 ---
 
-## 9. Transport (car / van / self-drive)
+## 9. Transport (car booking / self-drive)
 
 **No Stripe.** Admin sets the price; the client only creates a request and later fetches the quote.
 
-### Create
+Transport is **2 APIs only**:
 
-| Endpoint | Collection |
-|----------|------------|
-| `POST createCarBooking` | `car_bookings` |
-| `POST createVanBooking` | `vanBookings` |
-| `POST createSelfDriveBooking` | `self_driving_bookings` |
+| Product | Endpoint | Collection |
+|---------|----------|------------|
+| **Car booking** | `POST createCarBooking` | `car_bookings` |
+| **Self-drive** | `POST createSelfDriveBooking` | `self_driving_bookings` |
 
-**Body (all three)**
+**No separate van API.** Van (and car / taxi / bike) are values of `transportType` on car booking.
 
-| Field | Required |
-|-------|----------|
-| `customerName` | Yes |
-| `customerPhone` | Yes |
-| `pickup` | Yes |
-| `destination` | Yes |
-| `customerEmail` | Recommended |
-| `travelAt` | Recommended (ISO date/time) |
-| `notes` | No |
-| `requestedAmount` | No — **hint only**, not the bill |
+### Create car booking
 
-**Example**
+```http
+POST /createCarBooking
+```
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `transportType` | Recommended | `"car"` (default) \| `"van"` \| `"taxi"` \| `"bike"` |
+| `name` | Yes* | Mobile field (`customerName` also accepted) |
+| `contact` | Yes* | Mobile field (`customerPhone` also accepted) |
+| `pickup` | Yes | |
+| `drop` | Yes* | Mobile field (`destination` also accepted) |
+| `date` | Recommended | `yyyy-MM-dd` (mobile) |
+| `time` | Recommended | time string (mobile) |
+| `seats` | No | seat / passenger count |
+| `isImmediateRequest` | No | `true` for now / ASAP |
+| `bookingType` | No | `"immediate"` \| `"scheduled"` |
+| `travelAt` | No | ISO datetime (web); optional if date+time sent |
+| `notes` | No | |
+| `requestedAmount` | No | **hint only**, not the bill |
+
+\* `name`/`contact`/`drop` match the mobile app; web may still send `customerName` / `customerPhone` / `destination`.
+
+**Example — same shape as mobile**
 
 ```json
 {
-  "customerName": "John Doe",
-  "customerPhone": "+66812345678",
-  "customerEmail": "john@example.com",
+  "name": "John Doe",
+  "contact": "+66812345678",
   "pickup": "Suvarnabhumi Airport",
-  "destination": "Pattaya",
-  "travelAt": "2026-09-20T10:00:00+07:00",
-  "notes": "Flight TG123"
+  "drop": "Pattaya",
+  "date": "2026-09-20",
+  "time": "10:00 AM",
+  "transportType": "taxi",
+  "seats": 2,
+  "isImmediateRequest": false,
+  "bookingType": "scheduled"
+}
+```
+
+**Example — van (same API, different transportType)**
+
+```json
+{
+  "name": "John Doe",
+  "contact": "+66812345678",
+  "pickup": "Hotel lobby",
+  "drop": "Airport",
+  "date": "2026-09-21",
+  "time": "08:00 AM",
+  "transportType": "van",
+  "seats": 8,
+  "isImmediateRequest": false,
+  "bookingType": "scheduled"
 }
 ```
 
@@ -506,7 +541,12 @@ Full step-by-step for both clients: [SIGHTSEEING_CLIENT_INTEGRATION.md](./SIGHTS
   "success": true,
   "bookingId": "...",
   "bookingCollection": "car_bookings",
-  "status": "Pending",
+  "transportProduct": "carBooking",
+  "transportType": "taxi",
+  "bookingType": "scheduled",
+  "isImmediateRequest": false,
+  "seats": 2,
+  "status": "pending",
   "amount": null,
   "amountStatus": "AWAITING_ADMIN_QUOTE",
   "stripeUrl": null,
@@ -515,7 +555,20 @@ Full step-by-step for both clients: [SIGHTSEEING_CLIENT_INTEGRATION.md](./SIGHTS
 }
 ```
 
-If client sends `paymentMethod: "STRIPE"` → **400** `TRANSPORT_NO_STRIPE`.
+Stored document includes mobile fields (`name`, `contact`, `pickup`, `drop`, `date`, `time`, `transportType`, `seats`, `isImmediateRequest`, `bookingType`, `status`, `timestamp`) plus admin aliases.
+
+### Create self-drive booking
+
+```http
+POST /createSelfDriveBooking
+```
+
+Same body fields (no `transportType` required). Writes to `self_driving_bookings`.
+
+If client sends `paymentMethod: "STRIPE"` → **400** `TRANSPORT_NO_STRIPE`.  
+If `transportType` is not car/van/taxi/bike → **400** `INVALID_TRANSPORT_TYPE`.
+
+There is **no** `createVanBooking` API. Van is only `transportType: "van"` on `createCarBooking`.
 
 ### Fetch after admin sets price
 
@@ -530,7 +583,10 @@ POST /getTransportBooking
 }
 ```
 
-`bookingKind`: `car` | `van` | `selfDrive` (optional if the id is unique).
+`bookingKind` / `transportType` (optional if the id is unique):
+
+- `car` | `van` | `taxi` | `bike` | `carBooking` → `car_bookings`
+- `selfDrive` → `self_driving_bookings`
 
 **After admin quoted**
 
@@ -538,6 +594,8 @@ POST /getTransportBooking
 {
   "success": true,
   "bookingId": "...",
+  "transportProduct": "carBooking",
+  "transportType": "taxi",
   "amount": 1800,
   "AmountOffered": 1800,
   "amountStatus": "QUOTED",
@@ -549,8 +607,8 @@ POST /getTransportBooking
 ### Transport timeline
 
 ```text
-User → createCarBooking
-     → amount null, Pending
+User → createCarBooking { transportType: car|van|taxi|bike }
+     → amount null, pending
 
 Admin → sets AmountOffered / accepts in admin portal
 
@@ -582,7 +640,7 @@ POST /createCheckoutSession
 |-------------------------------------|---------|
 | `hotel` / `hotelBookingData` | Hotel |
 | `sightseeing` / `package` / `travelBookingDetails` | Package |
-| car / van / selfDrive | **Rejected** |
+| car booking / selfDrive (transport) | **Rejected** |
 
 **Hotel pay rules**
 
@@ -824,18 +882,38 @@ if (sessionId) {
 ### Transport
 
 ```js
+// Car booking — transportType: "car" | "van" | "taxi" | "bike"
 const created = await bookingApi(
   "createCarBooking",
   {
-    customerName: "John",
-    customerPhone: "+66...",
+    name: "John",
+    contact: "+66...",
     pickup: "Airport",
-    destination: "City",
-    travelAt: "2026-09-20T10:00:00+07:00",
+    drop: "City",
+    date: "2026-09-20",
+    time: "10:00 AM",
+    transportType: "taxi", // car | van | taxi | bike
+    seats: 2,
+    isImmediateRequest: false,
+    bookingType: "scheduled",
   },
   idToken,
 );
-// created.bookingId, amount is null
+// created.bookingId, created.transportType, amount is null
+
+// Self-drive
+const selfDrive = await bookingApi(
+  "createSelfDriveBooking",
+  {
+    name: "John",
+    contact: "+66...",
+    pickup: "Rental desk",
+    drop: "Hotel",
+    date: "2026-09-20",
+    time: "10:00 AM",
+  },
+  idToken,
+);
 
 // Later (or after notification):
 const quote = await bookingApi(
@@ -843,7 +921,7 @@ const quote = await bookingApi(
   { bookingId: created.bookingId, bookingKind: "car" },
   idToken,
 );
-// quote.amount, quote.amountStatus
+// quote.amount, quote.amountStatus, quote.transportType
 ```
 
 ---
@@ -906,8 +984,9 @@ API → notification
 ### Transport
 
 ```text
-App → createCarBooking
-API → Pending, amount null
+App → createCarBooking { transportType: car|van|taxi|bike }
+   or createSelfDriveBooking
+API → pending, amount null
 Admin → sets price
 API → notification "Price ready"
 App → getTransportBooking → show amount

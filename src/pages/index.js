@@ -12,9 +12,6 @@ const RoomBookings = lazy(() =>
 const CarBookings = lazy(() =>
   import("./dashboard/adminDashboard/clientOrders/carBookings/CarBookings")
 );
-const VanBookings = lazy(() =>
-  import("./dashboard/adminDashboard/clientOrders/vanBookings/VanBookings")
-);
 const SelfDriveBookings = lazy(() =>
   import(
     "./dashboard/adminDashboard/clientOrders/carBookings/SelfDriveBookings"
@@ -312,7 +309,6 @@ export {
   HotelRoomAvailabilityPage,
   HotelRoomAvailabilityHub,
   Vans,
-  VanBookings,
 
   // Website Config export
   Blogs,

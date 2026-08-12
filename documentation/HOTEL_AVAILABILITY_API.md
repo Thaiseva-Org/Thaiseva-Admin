@@ -346,7 +346,8 @@ node scripts/repairNightReserved.js --apply
 ## Related docs
 
 - **`documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`** — full Cloud Functions API  
-- `AUTOMATION_LOGIC_REPORT.md` — sightseeing vs hotel automation  
+- **`documentation/THAISEVA_BOOKING_API.md`** — customer booking APIs (hotel / package / transport)  
 - `FIRESTORE_DATA_REFERENCE.md` — collection shapes  
 - `COLLECTION_SCHEMA_REFERENCE.md` — schema overview  
 - `documentation/FIREBASE_REFERENCE.md` — routes and collections  
+

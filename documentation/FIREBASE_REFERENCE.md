@@ -98,9 +98,8 @@ Written when bookings are **accepted** via `updateHourlyEarnings()` / `updateMon
 |---------|------------|---------------|
 | Hotels | `hotelBookingData` | `amountTHB`, `amount` |
 | Sightseeing | `travelBookingDetails` | `totalAmount`, `price`, `amount` |
-| Taxi | `car_bookings` (non-van) | `AmountOffered`, `amount` |
+| Car booking (car / van / taxi / bike) | `car_bookings` | `AmountOffered`, `amount` |
 | Self Drive | `self_driving_bookings` | `AmountOffered`, `amount` |
-| Vans | `vanBookings` + van rows in `car_bookings` | `AmountOffered`, `price` |
 
 Revenue counts **Accepted / Confirmed / Done** bookings only.
 
@@ -119,7 +118,7 @@ Full live rules: **`firestore.rules`** at repo root.
 5. **Notifications** — admin + per-user subpaths
 6. **Food app** — `orders`, `cart`, `reviews`, `feedbackandratings`
 7. **T2T** — `T2T_world/{docId}/{subPath=**}`
-8. **Bookings** — `hotelBookingData`, `travelBookingDetails`, `car_bookings`, `self_driving_bookings`, `vanBookings`
+8. **Bookings** — `hotelBookingData`, `travelBookingDetails`, `car_bookings`, `self_driving_bookings`
 9. **Partner data** — hotels, restaurants, drivers, packages, requirements
 10. **Admin-only** — agents, shops, invoices, statistics, vanCompanies, etc.
 11. **MasterEarnings** — admin read/create/update; partner read/create/update on own path; **no delete**
@@ -154,14 +153,15 @@ File: **`storage.rules`**
 
 ## Customer booking APIs (website / app)
 
-**Share with website/app developers:**
+**Share this one file only with website/app developers:**
 
 | Doc | Audience |
 |-----|----------|
-| [`THAISEVA_BOOKING_API.md`](./THAISEVA_BOOKING_API.md) | Full booking API (hotel, sightseeing, transport) |
-| [`SIGHTSEEING_CLIENT_INTEGRATION.md`](./SIGHTSEEING_CLIENT_INTEGRATION.md) | Package booking only — website Checkout vs app PaymentSheet |
+| [`THAISEVA_BOOKING_API.md`](./THAISEVA_BOOKING_API.md) | Full booking API (hotel, sightseeing, car booking, self-drive) |
 
 Cloud Functions HTTPS (`asia-east2`): create/pay, transport quote fetch, notifications inbox `notifications/users/{userId}`.
+
+Transport APIs: **`createCarBooking`** (`transportType`: car \| van \| taxi \| bike) and **`createSelfDriveBooking`**. No separate van booking API.
 
 ## Related app routes
 
@@ -172,7 +172,8 @@ Cloud Functions HTTPS (`asia-east2`): create/pay, transport quote fetch, notific
 | `/dashboard/hotel-room-availability` | `HotelDB`, `availability`, rooms, `hotelBookingData` (stats + calendar) |
 | `/dashboard/hotel-room-availability/:hotelId` | Same + per-type inventory (`totalRooms`), `availability/config` |
 | `/dashboard/travel-bookings` | `travelBookingDetails` |
-| `/dashboard/van-bookings` | `vanBookings`, `car_bookings` |
+| `/dashboard/car-bookings` | `car_bookings` (car / van / taxi / bike) |
+| `/dashboard/self-drive-bookings` | `self_driving_bookings` |
 
 ---
 
@@ -189,7 +190,7 @@ Cloud Functions HTTPS (`asia-east2`): create/pay, transport quote fetch, notific
 
 ## Change log (permissions)
 
-- **2026-08-12** — Sightseeing Stripe PaymentIntent (app PaymentSheet) documented; canonical paid `travelBookingDetails` shape; client guide `SIGHTSEEING_CLIENT_INTEGRATION.md`. PaymentIntent validation on `createSightseeingBooking` (succeeded, amount satang, thb).
+- **2026-08-12** — Transport simplified to 2 APIs only: `createCarBooking` (transportType car|van|taxi|bike) + `createSelfDriveBooking`. Removed van booking product/API/admin page. Single client doc: `THAISEVA_BOOKING_API.md`.
 - **2026-08-05** — Hotel inventory unlock (`unlockHotelRoomLock`), partial-accept `amountDue` pay path, guest capacity, safer `userRole()` rules, admin callables for availability writes. See `HOTEL_AVAILABILITY_*` docs + `THAISEVA_BOOKING_API.md`.
 - **2026-08-02** — Hotel Room Availability: admin UI + rules for `HotelDB/{hotelId}/availability`, `hotelRoomInventory`, `hotelInventoryAuditLogs`; hub stats. Website: `checkHotelAvailability` public HTTPS + CORS; soft hold + create callables. See `documentation/HOTEL_AVAILABILITY_API.md` and `documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`.
 - **2026-06-22** — Merged app-wide rules (orders, cart, T2T, chat, etc.) with admin portal rules; added `MasterEarnings` read/create/update; deployed to `gothai-ffea1`.

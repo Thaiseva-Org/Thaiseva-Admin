@@ -3,8 +3,8 @@ import TransportBookingsPage from "../../../../../components/bookings/TransportB
 const CarBookings = () => (
   <TransportBookingsPage
     kind="taxi"
-    title="Taxi Bookings"
-    subtitle="Review, assign, collect payment, and complete taxi bookings"
+    title="Car Bookings"
+    subtitle="Review, assign, collect payment, and complete car bookings (car, van, taxi, bike)"
     icon="🚕"
   />
 );

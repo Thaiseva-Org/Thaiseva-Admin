@@ -622,18 +622,29 @@ Notes:
 - Room Availability calendar counts accepted bookings as reserved nights when `packageId` matches the room type.
 
 ### `car_bookings`
-Purpose: taxi/car booking orders.
+Purpose: all driver-inclusive rides (car / van / taxi / bike). No separate van booking collection for new bookings.
 
-Common fields used in admin lists:
+`transportType`: `"car"` | `"van"` | `"taxi"` | `"bike"`.
+
+Common fields (mobile-aligned + admin):
 
 ```json
 {
-  "orderedAt": "Timestamp",
+  "userId": "string",
+  "name": "string",
+  "contact": "string",
+  "pickup": "string",
+  "drop": "string",
+  "date": "string (yyyy-MM-dd)",
+  "time": "string",
+  "transportType": "car | van | taxi | bike",
+  "seats": "number",
+  "isImmediateRequest": "boolean",
+  "bookingType": "immediate | scheduled",
+  "status": "pending",
   "timestamp": "Timestamp",
-  "status": "string",
-  "transportType": "string",
-  "amount": "number",
-  "AmountOffered": "number"
+  "AmountOffered": "number | null",
+  "amount": "number | null"
 }
 ```
 
@@ -647,20 +658,6 @@ Common fields used in admin lists:
   "orderedAt": "Timestamp",
   "time": "Timestamp | string",
   "status": "string",
-  "amount": "number"
-}
-```
-
-### `vanBookings`
-Purpose: manually added van booking orders.
-
-Common fields:
-
-```json
-{
-  "bookingDate": "string",
-  "createdAt": "string",
-  "status": "Pending | Accepted | Confirmed | Done",
   "amount": "number"
 }
 ```
@@ -1010,7 +1007,6 @@ Full collection list currently exported by the app:
 - `manage_partners`
 - `general_partners`
 - `vanCompanies`
-- `vanBookings`
 - `ContentDB`
 - `BlogDB`
 - `OfferDB`

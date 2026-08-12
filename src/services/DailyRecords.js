@@ -13,7 +13,6 @@ import {
   roomBookingCollection,
   selfDriveBookingCollection,
   travelBookingCollection,
-  vanBookingsCollection,
 } from "../firebase/firebase.config";
 import { generateInvoiceIds, INVOICE_TYPES } from "../utils/invoiceGenerator";
 
@@ -89,15 +88,6 @@ const getCollectionAndTimestamp = (category, startDate, endDate) => {
   } else if (cat === "Room Bookings") {
     collectionRef = roomBookingCollection;
     timestampField = "createdAt";
-  } else if (cat === "Van Bookings") {
-    collectionRef = vanBookingsCollection;
-    timestampField = "bookingDate";
-    return {
-      collectionRef,
-      timestampField,
-      todayStart: `${startDate}T00:00`,
-      todayEnd: `${endDate}T23:59:59`,
-    };
   } else {
     // Default to Sightseeing
     collectionRef = travelBookingCollection;
@@ -112,7 +102,6 @@ const CATEGORY_DATE_FIELDS = {
   "Sightseeing Bookings": ["orderedAt", "createdAt", "timestamp"],
   "Taxi Bookings": ["timestamp", "orderedAt", "createdAt"],
   "Selfdrive Bookings": ["time", "timestamp", "createdAt", "orderedAt"],
-  "Van Bookings": ["bookingDate", "createdAt"],
 };
 
 const toDateValue = (value) => {
@@ -195,41 +184,20 @@ const fetchCollectionInRange = async (collectionRef, fields, start, end) => {
   );
 };
 
-const isVanBooking = (booking) =>
-  String(booking.transportType || "").toLowerCase().includes("van");
-
 const fetchAllBookingsForCategory = async (category, startDate, endDate) => {
   const { start, end } = getDateRange(startDate, endDate);
   const fields = CATEGORY_DATE_FIELDS[category] || CATEGORY_DATE_FIELDS["Sightseeing Bookings"];
-  let bookings;
 
-  if (category === "Van Bookings") {
-    const mobileFields = CATEGORY_DATE_FIELDS["Taxi Bookings"];
-    const [manualBookings, mobileBookings] = await Promise.all([
-      fetchCollectionInRange(vanBookingsCollection, fields, start, end),
-      fetchCollectionInRange(carBookingsCollection, mobileFields, start, end),
-    ]);
-    bookings = [
-      ...manualBookings.map((booking) => ({ ...booking, source: "manual" })),
-      ...mobileBookings
-        .filter(isVanBooking)
-        .map((booking) => ({ ...booking, source: "mobile" })),
-    ];
-  } else {
-    const collectionRef =
-      category === "Room Bookings"
-        ? roomBookingCollection
-        : category === "Taxi Bookings"
-          ? carBookingsCollection
-          : category === "Selfdrive Bookings"
-            ? selfDriveBookingCollection
-            : travelBookingCollection;
-    bookings = await fetchCollectionInRange(collectionRef, fields, start, end);
-
-    if (category === "Taxi Bookings") {
-      bookings = bookings.filter((booking) => !isVanBooking(booking));
-    }
-  }
+  // Taxi Bookings = all car_bookings (car | van | taxi | bike)
+  const collectionRef =
+    category === "Room Bookings"
+      ? roomBookingCollection
+      : category === "Taxi Bookings"
+        ? carBookingsCollection
+        : category === "Selfdrive Bookings"
+          ? selfDriveBookingCollection
+          : travelBookingCollection;
+  const bookings = await fetchCollectionInRange(collectionRef, fields, start, end);
 
   return bookings.sort(
     (a, b) => getBookingDateValue(b, fields) - getBookingDateValue(a, fields)
@@ -271,13 +239,6 @@ export const handleClear = async (category, id, source = null) => {
     } else if (cat === "Room Bookings") {
       col = roomBookingCollection;
       serviceType = INVOICE_TYPES.ROOM;
-    } else if (cat === "Van Bookings") {
-      if (source === "mobile") {
-        col = carBookingsCollection;
-      } else {
-        col = vanBookingsCollection;
-      }
-      serviceType = INVOICE_TYPES.VAN;
     } else {
       col = travelBookingCollection;
       serviceType = INVOICE_TYPES.SIGHTSEEING;
@@ -369,55 +330,8 @@ export const fetchTodayBooking = async (
     // and supports all timestamp fields used by legacy and current records.
     let list = await fetchAllBookingsForCategory(category, startDate, endDate);
 
-    // --- CASE 1: Van Bookings (Merge Manual + Mobile Vans) ---
-    if (!list && category === "Van Bookings") {
-      // 1. Manual
-      const qManual = query(
-        vanBookingsCollection,
-        where("status", "in", validStatuses),
-        where("bookingDate", ">=", todayStart),
-        where("bookingDate", "<=", todayEnd)
-      );
-
-      // 2. Mobile (carBookings)
-      const dateStart = new Date(todayStart);
-      const dateEnd = new Date(todayEnd);
-
-      const qMobile = query(
-        carBookingsCollection,
-        where("status", "in", validStatuses),
-        where("timestamp", ">=", dateStart),
-        where("timestamp", "<=", dateEnd)
-      );
-
-      const [manualSnap, mobileSnap] = await Promise.all([getDocs(qManual), getDocs(qMobile)]);
-
-      const manualDocs = manualSnap.docs.map(d => ({ id: d.id, ...d.data(), source: 'manual' }));
-      const mobileDocs = mobileSnap.docs
-        .map(d => ({ id: d.id, ...d.data(), source: 'mobile' }))
-        .filter(d => d.transportType?.toLowerCase().includes('van'));
-
-      list = sortDocs([...manualDocs, ...mobileDocs]);
-
-    }
-    // --- CASE 2: Taxi Bookings (Exclude Vans) ---
-    else if (!list && category === "Taxi Bookings") {
-      const q = query(
-        carBookingsCollection,
-        where("status", "in", validStatuses),
-        where("timestamp", ">=", todayStart),
-        where("timestamp", "<=", todayEnd)
-      );
-      const snap = await getDocs(q);
-
-      list = snap.docs
-        .map(d => ({ id: d.id, ...d.data(), source: 'mobile' }))
-        .filter(d => !d.transportType?.toLowerCase().includes('van'));
-
-      list = sortDocs(list);
-    }
-    // --- CASE 3: Room / Sightseeing (Existing Complex Login) ---
-    else if (!list && (category === "Sightseeing Bookings" || category === "Room Bookings")) {
+    // Fallback for room / sightseeing when primary range fetch returned empty
+    if (!list && (category === "Sightseeing Bookings" || category === "Room Bookings")) {
       // ... Keeps existing logic for merging timestamp fields ...
       // We can reuse the existing performQuery logic structure but simplified for brevity in this replacement block 
       // or just copy the working logic from before.
@@ -527,7 +441,6 @@ export const exportAllBooking = async (selDate) => {
     "Sightseeing Bookings",
     "Taxi Bookings",
     "Selfdrive Bookings",
-    "Van Bookings",
   ];
 
   const promises = categories.map((item) =>

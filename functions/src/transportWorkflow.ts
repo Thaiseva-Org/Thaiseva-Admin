@@ -10,7 +10,8 @@ const REGION = "asia-east2";
 const DEFAULT_TRIP_HOURS = 6;
 const BOOKING_COLLECTIONS: Record<BookingKind, string> = {
   taxi: "car_bookings",
-  van: "vanBookings",
+  // van is no longer a separate product; keep key for legacy admin calls → car_bookings
+  van: "car_bookings",
   selfDrive: "self_driving_bookings",
 };
 const VALID_METHODS = new Set([
@@ -46,8 +47,8 @@ const normalizeStatus = (data: Data): string => {
   return "Pending";
 };
 
-const collectionFor = (kind: BookingKind, source: string): string =>
-  kind === "van" && source === "mobile" ? "car_bookings" : BOOKING_COLLECTIONS[kind];
+const collectionFor = (kind: BookingKind, _source: string): string =>
+  BOOKING_COLLECTIONS[kind];
 
 const legacyStatus = (kind: BookingKind, status: string): string => {
   if (status === "Confirmed") return kind === "van" ? "Confirmed" : "Accepted";
@@ -146,7 +147,7 @@ const assertNoConflict = async (
   end: Timestamp,
 ) => {
   const db = getFirestore();
-  const collections = ["car_bookings", "vanBookings", "self_driving_bookings"];
+  const collections = ["car_bookings", "self_driving_bookings"];
   for (const target of collections) {
     const assignments: Array<[string, string | null, string]> = [
       ["driverId", driverId, "driver"],
@@ -306,13 +307,7 @@ const assignmentPatch = async (
       !new Set(["Available", "Assigned"]).has(stringValue(vehicle.availabilityStatus) || "Available")) {
     throw new HttpsError("failed-precondition", "Driver or vehicle is unavailable.");
   }
-  const type = stringValue(vehicle.vehicleType).toLowerCase();
-  if (kind === "taxi" && type.includes("van")) {
-    throw new HttpsError("failed-precondition", "Select a taxi vehicle for a taxi booking.");
-  }
-  if (kind === "van" && !type.includes("van")) {
-    throw new HttpsError("failed-precondition", "Select a van for a van booking.");
-  }
+  // Car bookings accept any vehicle type (car / van / taxi / bike)
   const window = getAssignmentWindow(booking, input);
   await assertNoConflict(collectionName, bookingId, driverId, vehicleId, window.start, window.end);
   return {
@@ -1074,138 +1069,6 @@ export const initializeLegacyTransportBooking = onCall(
     });
     logger.info("Initialized legacy transport booking", {collectionName, bookingId});
     return {ok: true};
-  },
-);
-
-export const createManualVanBooking = onCall(
-  {region: REGION, cors: true},
-  async (request) => {
-    await assertAdmin(request.auth);
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Sign in is required.");
-    }
-    const input = (request.data || {}) as Data;
-    const companySelection = required(input, "companyId", "Company is required.");
-    const driverSelection = required(input, "driverId", "Driver is required.");
-    const vehicleSelection = required(input, "vehicleId", "Vehicle is required.");
-    const customCompany = companySelection === "__custom__";
-    const customDriver = driverSelection === "__custom__";
-    const customVehicle = vehicleSelection === "__custom__";
-    if (customCompany && (!customDriver || !customVehicle)) {
-      throw new HttpsError("failed-precondition", "A custom company requires custom driver and vehicle details.");
-    }
-    const companyId = customCompany ? null : companySelection;
-    const driverId = customDriver ? null : driverSelection;
-    const vehicleId = customVehicle ? null : vehicleSelection;
-    const customerName = required(input, "guestName", "Guest name is required.");
-    const customerPhone = required(input, "guestPhone", "Guest phone is required.");
-    const pickup = required(input, "pickupLocation", "Pickup is required.");
-    const destination = required(input, "dropLocation", "Destination is required.");
-    const travelAt = asTimestamp(input.bookingDate);
-    if (!travelAt) {
-      throw new HttpsError("invalid-argument", "Travel date and time are required.");
-    }
-    const finalAmount = numberValue(input.price);
-    if (finalAmount <= 0) {
-      throw new HttpsError("invalid-argument", "Price must be greater than zero.");
-    }
-    const db = getFirestore();
-    const [companySnap, driverSnap, vehicleSnap] = await Promise.all([
-      companyId ? db.doc(`transportCompanies/${companyId}`).get() : null,
-      driverId ? db.doc(`transportDrivers/${driverId}`).get() : null,
-      vehicleId ? db.doc(`transportVehicles/${vehicleId}`).get() : null,
-    ]);
-    if ((companySnap && !companySnap.exists) || (driverSnap && !driverSnap.exists) || (vehicleSnap && !vehicleSnap.exists)) {
-      throw new HttpsError("not-found", "Company, driver, or vehicle was not found.");
-    }
-    const company = companySnap?.data() || {
-      companyName: required(input, "companyName", "Custom company name is required."),
-      phone: stringValue(input.companyPhone),
-      companyType: "Custom",
-    };
-    const driver = driverSnap?.data() || {
-      driverName: required(input, "driverName", "Custom driver name is required."),
-      phone: required(input, "driverPhone", "Custom driver phone is required."),
-    };
-    const vehicle = vehicleSnap?.data() || {
-      vehicleName: required(input, "vehicleName", "Custom vehicle name is required."),
-      vehicleType: stringValue(input.vanTypeName) || "Van",
-      registrationNumber: required(input, "vanNumber", "Custom registration number is required."),
-    };
-    if (company.active === false || driver.active === false || vehicle.active === false ||
-        (driverId && driver.companyId !== companyId) || (vehicleId && vehicle.companyId !== companyId) ||
-        !stringValue(vehicle.vehicleType).toLowerCase().includes("van")) {
-      throw new HttpsError("failed-precondition", "Select an active company driver and van from the same company.");
-    }
-    const ref = db.collection("vanBookings").doc();
-    const now = Timestamp.now();
-    const createdBy = actor(request.auth);
-    const history = {
-      action: "Booking created",
-      previousStatus: "",
-      newStatus: "Pending",
-      changedBy: createdBy,
-      timestamp: now,
-      reason: "Manual admin booking",
-      notes: stringValue(input.notes),
-    };
-    await ref.set({
-      bookingReference: `VAN-${ref.id.slice(0, 8).toUpperCase()}`,
-      bookingStatus: "Pending",
-      status: "Pending",
-      paymentStatus: "Unpaid",
-      companyId,
-      driverId,
-      vehicleId,
-      companySnapshot: {
-        name: company.companyName || "",
-        phone: company.phone || "",
-        companyType: company.companyType || "",
-      },
-      driverSnapshot: {
-        name: driver.driverName || "",
-        phone: driver.phone || "",
-        licenceNumber: driver.licenceNumber || "",
-      },
-      vehicleSnapshot: {
-        name: vehicle.vehicleName || "",
-        vehicleType: vehicle.vehicleType || "Van",
-        registrationNumber: vehicle.registrationNumber || "",
-      },
-      companyName: company.companyName || "",
-      driverName: driver.driverName || "",
-      driverPhone: driver.phone || "",
-      vanTypeName: vehicle.vehicleType || "Van",
-      vanNumber: vehicle.registrationNumber || "",
-      guestName: customerName,
-      guestPhone: customerPhone,
-      customerName,
-      customerPhone,
-      pickupLocation: pickup,
-      dropLocation: destination,
-      pickup,
-      destination,
-      bookingDate: travelAt,
-      travelAt,
-      agentName: stringValue(input.agentName),
-      agentPhone: stringValue(input.agentPhone),
-      notes: stringValue(input.notes),
-      passengers: Array.isArray(input.passengers) ? input.passengers : [],
-      finalAmount,
-      price: finalAmount,
-      amount: finalAmount,
-      amountReceived: 0,
-      amountRefunded: 0,
-      remainingBalance: finalAmount,
-      paymentTransactions: [],
-      refundTransactions: [],
-      statusHistory: [history],
-      activityHistory: [history],
-      createdAt: now,
-      createdBy,
-      source: "manual",
-    });
-    return {ok: true, id: ref.id};
   },
 );
 

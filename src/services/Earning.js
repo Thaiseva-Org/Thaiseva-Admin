@@ -14,18 +14,16 @@ import {
   roomBookingCollection,
   selfDriveBookingCollection,
   travelBookingCollection,
-  vanBookingsCollection,
 } from "../firebase/firebase.config.js";
 import { isHotelRevenueEligible } from "../utils/bookingStatus.js";
 
-const SERVICE_TYPES = ["Cars", "SelfDrive", "Sightseeing", "Hotels", "Vans"];
+const SERVICE_TYPES = ["Cars", "SelfDrive", "Sightseeing", "Hotels"];
 
 const SERVICE_LABELS = {
-  Cars: "Taxi",
+  Cars: "Car Bookings",
   SelfDrive: "Self Drive",
   Sightseeing: "Sightseeing",
   Hotels: "Hotels",
-  Vans: "Vans",
 };
 
 const DEFAULT_RANGE_DAYS = 60;
@@ -36,9 +34,6 @@ const ACCEPTED_STATUS_VALUES = new Set([
   "done",
   "completed",
 ]);
-
-const isVanTransportBooking = (booking = {}) =>
-  String(booking.transportType || "").toLowerCase().includes("van");
 
 const toDateKey = (date) =>
   new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -289,12 +284,12 @@ async function getBookingRevenueInRange(type, fromDate = "", toDate = "") {
         ], from, to);
         break;
       case "Cars":
+        // All car_bookings (car | van | taxi | bike)
         bookings = await fetchBookingsInRange(
           carBookingsCollection,
           ["timestamp", "orderedAt", "createdAt"],
           from,
-          to,
-          (booking) => !isVanTransportBooking(booking)
+          to
         );
         break;
       case "SelfDrive":
@@ -305,32 +300,6 @@ async function getBookingRevenueInRange(type, fromDate = "", toDate = "") {
           "orderedAt",
         ], from, to);
         break;
-      case "Vans": {
-        const manualVans = await fetchBookingsInRange(
-          vanBookingsCollection,
-          ["bookingDate", "createdAt", "orderedAt", "timestamp"],
-          from,
-          to
-        );
-        const mobileVans = await fetchBookingsInRange(
-          carBookingsCollection,
-          ["timestamp", "orderedAt", "createdAt"],
-          from,
-          to,
-          isVanTransportBooking
-        );
-        bookings = [...manualVans, ...mobileVans];
-        return {
-          values: bucketTransportRealizedCommission(bookings, dateKeys, [
-            "bookingDate",
-            "createdAt",
-            "orderedAt",
-            "timestamp",
-            "time",
-          ]),
-          permissionError: null,
-        };
-      }
       default:
         bookings = [];
     }

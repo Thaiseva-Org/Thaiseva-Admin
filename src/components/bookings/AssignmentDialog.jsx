@@ -99,17 +99,14 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
 
   const eligibleCompanies = useMemo(() => companies.filter((company) => {
     const type = company.companyType;
-    return kind === "taxi"
-      ? ["Taxi Company", "Taxi and Van Company"].includes(type)
-      : ["Van Company", "Taxi and Van Company"].includes(type);
-  }), [companies, kind]);
+    // Car bookings accept taxi, van, and mixed companies
+    return ["Taxi Company", "Van Company", "Taxi and Van Company"].includes(type);
+  }), [companies]);
   const eligibleDrivers = drivers.filter((driver) =>
     driver.companyId === form.companyId && ["Available", "Assigned"].includes(driver.availabilityStatus || "Available"));
-  const eligibleVehicles = vehicles.filter((vehicle) => {
-    if (vehicle.companyId !== form.companyId || !["Available", "Assigned"].includes(vehicle.availabilityStatus || "Available")) return false;
-    const isVan = String(vehicle.vehicleType || "").toLowerCase().includes("van");
-    return kind === "van" ? isVan : !isVan;
-  });
+  const eligibleVehicles = vehicles.filter((vehicle) =>
+    vehicle.companyId === form.companyId &&
+    ["Available", "Assigned"].includes(vehicle.availabilityStatus || "Available"));
   const selfDriveVehicles = vehicles.filter((vehicle) => vehicle.active !== false);
   const selectedCompany = companies.find((company) => company.id === form.companyId);
 
@@ -126,7 +123,7 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{edit ? "Edit assignment" : kind === "van" ? "Confirm van booking" : "Accept booking"}</DialogTitle>
+      <DialogTitle>{edit ? "Edit assignment" : "Accept booking"}</DialogTitle>
       <DialogContent dividers>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
           {error && <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{error}</Alert>}

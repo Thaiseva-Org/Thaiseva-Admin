@@ -46,7 +46,6 @@ import {
   HotelRoomAvailabilityHub,
   AddHotelForm,
   Vans,
-  VanBookings,
   Blogs,
   Services,
   FAQs,
@@ -187,14 +186,6 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <CarBookings />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "/dashboard/van-bookings",
-        element: (
-          <AdminRoute>
-            <VanBookings />
           </AdminRoute>
         ),
       },

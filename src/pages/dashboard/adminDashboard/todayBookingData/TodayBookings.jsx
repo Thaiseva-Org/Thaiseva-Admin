@@ -678,7 +678,7 @@ const TodayBookings = () => {
 
   const downloadCSV = async () => {
     setIsDownloading(true);
-    const categories = ["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Selfdrive Bookings", "Van Bookings"];
+    const categories = ["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Selfdrive Bookings"];
 
     let allData = [];
 
@@ -786,7 +786,7 @@ const TodayBookings = () => {
           </Grid>
 
           <Box sx={{ mt: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Selfdrive Bookings", "Van Bookings"].map((serviceCategory, i) => (
+            {["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Selfdrive Bookings"].map((serviceCategory, i) => (
               <Chip
                 key={i}
                 icon={<Category fontSize="small" style={{ color: queryCategory === serviceCategory ? 'white' : 'inherit' }} />}

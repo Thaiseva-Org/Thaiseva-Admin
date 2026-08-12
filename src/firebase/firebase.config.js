@@ -65,7 +65,6 @@ const couponsCollection = collection(db, "coupons");
 const managePartnersCollection = collection(db, "manage_partners");
 const generalPartnersCollection = collection(db, "general_partners");
 const vanCompaniesCollection = collection(db, "vanCompanies");
-const vanBookingsCollection = collection(db, "vanBookings");
 const transportCompaniesCollection = collection(db, "transportCompanies");
 const transportDriversCollection = collection(db, "transportDrivers");
 const transportVehiclesCollection = collection(db, "transportVehicles");
@@ -129,7 +128,6 @@ export {
   managePartnersCollection,
   generalPartnersCollection,
   vanCompaniesCollection,
-  vanBookingsCollection,
   transportCompaniesCollection,
   transportDriversCollection,
   transportVehiclesCollection,

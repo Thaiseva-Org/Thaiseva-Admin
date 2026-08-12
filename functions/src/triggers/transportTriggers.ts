@@ -77,7 +77,7 @@ const amountNumber = (data: BookingData): number => {
 const collectionForType = (type: string): string => {
   const t = type.toLowerCase();
   if (t.includes("self")) return "self_driving_bookings";
-  if (t.includes("van") && !t.includes("mobile")) return "vanBookings";
+  // car / van / taxi / bike all use car_bookings
   return "car_bookings";
 };
 
@@ -280,22 +280,12 @@ const updateHandler = (type: string) => async (event: {
 
 export const onCarBookingCreated = onDocumentCreated(
   {document: "car_bookings/{bookingId}", region: REGION},
-  createdHandler("Taxi / Mobile Van"),
+  createdHandler("Car Booking"),
 );
 
 export const onCarBookingStatusChange = onDocumentUpdated(
   {document: "car_bookings/{bookingId}", region: REGION},
-  updateHandler("Taxi / Mobile Van"),
-);
-
-export const onVanBookingCreated = onDocumentCreated(
-  {document: "vanBookings/{bookingId}", region: REGION},
-  createdHandler("Van"),
-);
-
-export const onVanBookingStatusChange = onDocumentUpdated(
-  {document: "vanBookings/{bookingId}", region: REGION},
-  updateHandler("Van"),
+  updateHandler("Car Booking"),
 );
 
 export const onSelfDriveBookingCreated = onDocumentCreated(

@@ -20,7 +20,6 @@ import PageHeading from "../PageHeading";
 import {
   carBookingsCollection,
   selfDriveBookingCollection,
-  vanBookingsCollection,
 } from "../../firebase/firebase.config";
 import { getWorkflowError, runBookingAction } from "../../services/TransportWorkflow";
 import {
@@ -75,19 +74,15 @@ const TransportBookingsPage = ({ kind, title, subtitle, icon, headerAction }) =>
   useEffect(() => {
     setLoading(true);
     setLoadError("");
-    const sources = kind === "van"
-      ? [
-        [vanBookingsCollection, "manual"],
-        [carBookingsCollection, "mobile"],
-      ]
-      : [[kind === "taxi" ? carBookingsCollection : selfDriveBookingCollection, "mobile"]];
+    // car bookings (kind taxi) include all transportType: car | van | taxi | bike
+    const sources = [[
+      kind === "taxi" ? carBookingsCollection : selfDriveBookingCollection,
+      "mobile",
+    ]];
     const results = new Map();
     const publish = () => {
       if (results.size < sources.length) return;
-      const combined = [...results.values()].flat().filter((booking) => {
-        const isVan = String(booking.transportType || booking.vehicleType || "").toLowerCase().includes("van");
-        return kind === "taxi" ? !isVan : kind === "van" && booking.source === "mobile" ? isVan : true;
-      });
+      const combined = [...results.values()].flat();
       combined.sort((a, b) => {
         if (a.bookingStatus === "Pending" && b.bookingStatus !== "Pending") return -1;
         if (a.bookingStatus !== "Pending" && b.bookingStatus === "Pending") return 1;

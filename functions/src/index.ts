@@ -10,15 +10,12 @@ import {
 import {
   onCarBookingCreated,
   onCarBookingStatusChange,
-  onVanBookingCreated,
-  onVanBookingStatusChange,
   onSelfDriveBookingCreated,
   onSelfDriveBookingStatusChange,
 } from "./triggers/transportTriggers";
 import { deleteUserFunction } from "./accountDeletion";
 import {
   initializeLegacyTransportBooking,
-  createManualVanBooking,
   seedTransportDemoData,
   manageTransportBooking,
   manageTransportResource,
@@ -52,8 +49,8 @@ import {createHotelBooking} from "./bookingCheckout/hotelBooking";
 import {createSightseeingBooking} from "./bookingCheckout/sightseeingBooking";
 import {
   createCarBooking,
-  createVanBooking,
   createSelfDriveBooking,
+  createTaxiBooking,
   getTransportBooking,
 } from "./bookingCheckout/transportBooking";
 import {createCheckoutSession} from "./bookingCheckout/payExisting";
@@ -68,15 +65,12 @@ exports.onHotelBookingStatusChangeV3 = onHotelBookingStatusChangeV3;
 exports.onSightseeingBookingStatusChange = onSightseeingBookingStatusChange;
 exports.onCarBookingCreated = onCarBookingCreated;
 exports.onCarBookingStatusChange = onCarBookingStatusChange;
-exports.onVanBookingCreated = onVanBookingCreated;
-exports.onVanBookingStatusChange = onVanBookingStatusChange;
 exports.onSelfDriveBookingCreated = onSelfDriveBookingCreated;
 exports.onSelfDriveBookingStatusChange = onSelfDriveBookingStatusChange;
 exports.deleteUserFunction = deleteUserFunction;
 exports.manageTransportBooking = manageTransportBooking;
 exports.manageTransportResource = manageTransportResource;
 exports.initializeLegacyTransportBooking = initializeLegacyTransportBooking;
-exports.createManualVanBooking = createManualVanBooking;
 exports.seedTransportDemoData = seedTransportDemoData;
 
 // --- Simple hotel stock (primary) ---
@@ -103,9 +97,11 @@ exports.unlockHotelRoomLock = unlockHotelRoomLock;
 // Website/app booking create APIs (HTTPS + CORS)
 exports.createHotelBooking = createHotelBooking;
 exports.createSightseeingBooking = createSightseeingBooking;
+// Transport: 2 products only — car booking (car|van|taxi|bike) + self-drive
 exports.createCarBooking = createCarBooking;
-exports.createVanBooking = createVanBooking;
 exports.createSelfDriveBooking = createSelfDriveBooking;
+// Legacy alias → createCarBooking with transportType taxi
+exports.createTaxiBooking = createTaxiBooking;
 exports.getTransportBooking = getTransportBooking;
 exports.createCheckoutSession = createCheckoutSession;
 exports.verifySession = verifySession;

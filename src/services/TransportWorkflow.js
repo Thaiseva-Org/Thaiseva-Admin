@@ -8,7 +8,6 @@ const initializeLegacy = httpsCallable(
   functions,
   "initializeLegacyTransportBooking"
 );
-const createManualVan = httpsCallable(functions, "createManualVanBooking");
 const seedDemoData = httpsCallable(functions, "seedTransportDemoData");
 
 const actionKey = (action) => {
@@ -41,11 +40,6 @@ export const archiveTransportResource = async (resourceType, id) => {
 
 export const initializeLegacyBooking = async (bookingKind, bookingId, source) => {
   const result = await initializeLegacy({ bookingKind, bookingId, source });
-  return result.data;
-};
-
-export const createManualVanBooking = async (values) => {
-  const result = await createManualVan(values);
   return result.data;
 };
 
