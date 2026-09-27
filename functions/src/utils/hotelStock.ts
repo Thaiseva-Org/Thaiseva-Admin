@@ -583,6 +583,13 @@ export const lockStock = async (
           (lock.nights as string[]) ||
           listStayNights(lock.checkIn, lock.checkOut);
 
+        const nightStates: Array<{
+          ref: admin.firestore.DocumentReference;
+          date: string;
+          total: number;
+          locked: number;
+          booked: number;
+        }> = [];
         for (const date of nights) {
           const ref = nightRef(db, hotelId, packageId, date);
           const snap = await tx.get(ref);
@@ -591,14 +598,17 @@ export const lockStock = async (
             snap.exists ? snap.data() : undefined,
             defaultTotal,
           );
-          const locked = Math.max(0, cur.locked - rooms);
-          const booked = cur.booked + rooms;
-          writeNight(tx, ref, hotelId, packageId, {
+          nightStates.push({
+            ref,
             date,
             total: cur.total || defaultTotal,
-            locked,
-            booked,
+            locked: Math.max(0, cur.locked - rooms),
+            booked: cur.booked + rooms,
           });
+        }
+
+        for (const night of nightStates) {
+          writeNight(tx, night.ref, hotelId, packageId, night);
         }
 
         const bookingId =
@@ -924,6 +934,13 @@ export const unlockStock = async (
           (lock.nights as string[]) ||
           listStayNights(lock.checkIn, lock.checkOut);
 
+        const nightStates: Array<{
+          ref: admin.firestore.DocumentReference;
+          date: string;
+          total: number;
+          locked: number;
+          booked: number;
+        }> = [];
         for (const date of nights) {
           const ref = nightRef(db, hotelId, packageId, date);
           const snap = await tx.get(ref);
@@ -939,12 +956,17 @@ export const unlockStock = async (
           } else {
             booked = Math.max(0, booked - rooms);
           }
-          writeNight(tx, ref, hotelId, packageId, {
+          nightStates.push({
+            ref,
             date,
             total: cur.total || defaultTotal,
             locked,
             booked,
           });
+        }
+
+        for (const night of nightStates) {
+          writeNight(tx, night.ref, hotelId, packageId, night);
         }
 
         const nextStatus =
@@ -1010,6 +1032,13 @@ export const unlockStock = async (
 
   try {
     await db.runTransaction(async (tx) => {
+      const nightStates: Array<{
+        ref: admin.firestore.DocumentReference;
+        date: string;
+        total: number;
+        locked: number;
+        booked: number;
+      }> = [];
       for (const date of nightsList) {
         const ref = nightRef(db, hotelId, packageId, date);
         const snap = await tx.get(ref);
@@ -1026,12 +1055,17 @@ export const unlockStock = async (
         if (target === "booked" || target === "both") {
           booked = Math.max(0, booked - rooms);
         }
-        writeNight(tx, ref, hotelId, packageId, {
+        nightStates.push({
+          ref,
           date,
           total: cur.total || defaultTotal,
           locked,
           booked,
         });
+      }
+
+      for (const night of nightStates) {
+        writeNight(tx, night.ref, hotelId, packageId, night);
       }
     });
     return {
@@ -1093,6 +1127,13 @@ export const setStockTotalRange = async (
   }
 
   await db.runTransaction(async (tx) => {
+    const nightStates: Array<{
+      ref: admin.firestore.DocumentReference;
+      date: string;
+      total: number;
+      locked: number;
+      booked: number;
+    }> = [];
     for (const date of dates) {
       const ref = nightRef(db, hotelId, packageId, date);
       const snap = await tx.get(ref);
@@ -1107,12 +1148,17 @@ export const setStockTotalRange = async (
       } else if (delta !== null) {
         total = Math.max(0, total + delta);
       }
-      writeNight(tx, ref, hotelId, packageId, {
+      nightStates.push({
+        ref,
         date,
         total,
         locked: cur.locked,
         booked: cur.booked,
       });
+    }
+
+    for (const night of nightStates) {
+      writeNight(tx, night.ref, hotelId, packageId, night);
     }
   });
 

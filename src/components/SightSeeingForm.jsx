@@ -11,8 +11,8 @@ import {
   TextField,
 } from "@mui/material";
 import { useForm, Controller } from "react-hook-form";
-import CloseIcon from "@mui/icons-material/Close";
-import ClearRoundedIcon from "@mui/icons-material/ClearRounded";
+import { CloseIcon } from "@icons";
+import { ClearRoundedIcon } from "@icons";
 import { useRef } from "react";
 
 const SightSeeingForm = ({ openModal, handleCloseModal }) => {

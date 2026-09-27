@@ -2,7 +2,7 @@ import { Suspense, useContext } from "react";
 import { AuthContext } from "../contextAPIs/AuthProvider";
 import PendingPartnership from "../components/PendingPartnership";
 import Loading from "../components/Loading";
-import SentimentVeryDissatisfiedIcon from "@mui/icons-material/SentimentVeryDissatisfied";
+import { SentimentVeryDissatisfiedIcon } from "@icons";
 import Unauthorized from "../components/Unauthorized";
 
 const PartnerRoute = ({ children }) => {

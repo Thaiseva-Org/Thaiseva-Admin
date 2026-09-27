@@ -1,4 +1,19 @@
 rules_version = '2';
+// =============================================================================
+// SHARED multi-app Firestore rules (website + hotel/travel/cars + food portal).
+//
+// DO NOT change hotel / travel / car / van / chat / catalog / contact blocks
+// or the body of isAdmin() for food-only needs — that breaks other products.
+//
+// Food portal changes ONLY:
+//   - helpers under "FOOD PORTAL HELPERS ONLY"
+//   - food paths listed in FIRESTORE_RULES_NOTES.md (orders, dineInBookings,
+//     restaurants, restaurantApplications, foodRiders, food_items items, food notifications, Earnings, auditLogs,
+//     users food signup, settings/categories)
+//
+// Policy + checklist: FIRESTORE_RULES_NOTES.md
+// Guard test:        tests/firestoreRulesIsolation.test.cjs
+// =============================================================================
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -22,6 +37,8 @@ service cloud.firestore {
         );
     }
 
+    // FROZEN for food-portal PRs: do not add foodRole / isMasterAdmin / claims here.
+    // Food masters use isFoodAdmin() on food paths only. See FIRESTORE_RULES_NOTES.md.
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.token.email in [
@@ -106,6 +123,52 @@ service cloud.firestore {
         ]);
     }
 
+    function isSafeSelfDriveBookingCreate() {
+      return isSafeBookingCreate() &&
+        request.resource.data.get('licenceVerificationStatus', 'Pending') == 'Pending' &&
+        request.resource.data.get('passportVerificationStatus', 'Pending') == 'Pending';
+    }
+
+    // A customer may attach missing self-drive documents while the request is
+    // pending, but cannot approve documents or alter booking/payment fields.
+    function isOwnerSelfDriveDocumentUpdate() {
+      return isOwner('userId') &&
+        resource.data.get('bookingStatus', 'Pending') in ['Pending', 'PENDING', 'pending'] &&
+        resource.data.get('status', 'pending') in ['Pending', 'PENDING', 'pending'] &&
+        identityFieldsUnchanged() &&
+        paymentFieldsUnchanged() &&
+        inventoryFieldsUnchanged() &&
+        request.resource.data.get('licenceVerificationStatus', 'Pending') ==
+          resource.data.get('licenceVerificationStatus', 'Pending') &&
+        request.resource.data.get('passportVerificationStatus', 'Pending') ==
+          resource.data.get('passportVerificationStatus', 'Pending') &&
+        (
+          resource.data.get('licenceVerificationStatus', 'Pending') == 'Pending' ||
+          (
+            request.resource.data.get('licenceLink', '') == resource.data.get('licenceLink', '') &&
+            request.resource.data.get('licenseLink', '') == resource.data.get('licenseLink', '') &&
+            request.resource.data.get('drivingLicenceLink', '') == resource.data.get('drivingLicenceLink', '') &&
+            request.resource.data.get('drivingLicenseLink', '') == resource.data.get('drivingLicenseLink', '')
+          )
+        ) &&
+        (
+          resource.data.get('passportVerificationStatus', 'Pending') == 'Pending' ||
+          (
+            request.resource.data.get('passportLink', '') == resource.data.get('passportLink', '') &&
+            request.resource.data.get('passportDocumentLink', '') == resource.data.get('passportDocumentLink', '')
+          )
+        ) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'licenceLink', 'licenseLink', 'drivingLicenceLink',
+          'drivingLicenseLink', 'passportLink', 'passportDocumentLink',
+          'updatedAt'
+        ]) &&
+        request.resource.data.get('bookingStatus', 'Pending') ==
+          resource.data.get('bookingStatus', 'Pending') &&
+        request.resource.data.get('status', 'pending') ==
+          resource.data.get('status', 'pending');
+    }
+
     function paymentFieldsUnchanged() {
       return request.resource.data.get('isPaymentDone', false) == resource.data.get('isPaymentDone', false) &&
         request.resource.data.get('isPaymentClear', false) == resource.data.get('isPaymentClear', false) &&
@@ -181,6 +244,66 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // FOOD PORTAL HELPERS ONLY (do not use outside food collections)
+    // isAdmin() above is intentionally unchanged for hotel/travel/etc.
+    // ============================================================
+
+    // Claim-based food master + same email as AuthContext / Cloud Functions.
+    // Used only on food paths so other apps keep the original isAdmin() contract.
+    function isFoodAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email in ["admin@gmail.com"] ||
+        request.auth.token.get('admin', false) == true ||
+        request.auth.token.get('foodRole', '') == 'masterAdmin' ||
+        request.auth.token.get('foodMasterAdmin', false) == true ||
+        request.auth.token.get('role', '') == 'masterAdmin' ||
+        request.auth.token.get('masterAdmin', false) == true
+      );
+    }
+
+    function isFoodOrderRestaurantOwner() {
+      return isAuthenticated()
+        && resource.data.keys().hasAny(['Restaurant'])
+        && resource.data.Restaurant.keys().hasAny(['ownerId'])
+        && resource.data.Restaurant.ownerId == request.auth.uid;
+    }
+
+    function isFoodOrderReceiver() {
+      return isAuthenticated()
+        && resource.data.keys().hasAny(['Receiver'])
+        && resource.data.Receiver.keys().hasAny(['id'])
+        && resource.data.Receiver.id == request.auth.uid;
+    }
+
+    function isFoodOrderSender() {
+      return isAuthenticated()
+        && resource.data.keys().hasAny(['Sender'])
+        && resource.data.Sender.keys().hasAny(['id'])
+        && resource.data.Sender.id == request.auth.uid;
+    }
+
+    // Restaurant-owner self-signup (never self-grant admin flags)
+    function isSafeFoodPortalUserCreate() {
+      return request.resource.data.get('isMasterAdmin', false) == false
+        && request.resource.data.get('isRestaurantAdmin', false) == false
+        && request.resource.data.get('role', 'restaurantOwner') in [
+          'Partner', 'restaurantOwner', 'customer', 'Customer'
+        ]
+        && !request.resource.data.keys().hasAny([
+          'admin', 'isAdmin', 'masterAdmin', 'restaurantOwner'
+        ]);
+    }
+
+    // Food restaurant: partners cannot change money / verification fields
+    function restaurantLockedFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny([
+          'comission', 'lifetimeEarning', 'orderCount',
+          'status', 'ownerId', 'id', 'publicId'
+        ]);
+    }
+
+    // ============================================================
     // PUBLIC CATALOG (read-only for clients)
     // ============================================================
 
@@ -197,7 +320,8 @@ service cloud.firestore {
 
     match /settings/{docId} {
       allow read: if true;
-      allow write: if isAdmin();
+      // categories is food portal only; all other settings keep production isAdmin
+      allow write: if isAdmin() || (docId == 'categories' && isFoodAdmin());
     }
 
     match /FaqDB/{faqId} {
@@ -220,19 +344,24 @@ service cloud.firestore {
     // ============================================================
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin() || isFoodAdmin());
       allow create: if isAuthenticated() &&
         request.auth.uid == userId &&
-        isSafeWebsiteUserCreate();
-      allow update: if isAdmin() ||
-        (isAuthenticated() && isSafeUserSelfUpdate(userId));
-      allow delete: if isAdmin() ||
+        (isSafeWebsiteUserCreate() || isSafeFoodPortalUserCreate());
+      // Self-update: keep production role/status locks; also block self-grant of food admin flags
+      allow update: if isAdmin() || isFoodAdmin() ||
+        (isAuthenticated() && isSafeUserSelfUpdate(userId) &&
+          request.resource.data.get('isMasterAdmin', resource.data.get('isMasterAdmin', false)) ==
+            resource.data.get('isMasterAdmin', false) &&
+          request.resource.data.get('isRestaurantAdmin', resource.data.get('isRestaurantAdmin', false)) ==
+            resource.data.get('isRestaurantAdmin', false));
+      allow delete: if isAdmin() || isFoodAdmin() ||
         (isAuthenticated() && request.auth.uid == userId);
 
       match /notifications/{notificationId} {
         allow read, update, delete: if isAuthenticated() &&
-          (request.auth.uid == userId || isAdmin());
-        allow create: if isAdmin() ||
+          (request.auth.uid == userId || isAdmin() || isFoodAdmin());
+        allow create: if isAdmin() || isFoodAdmin() ||
           (isAuthenticated() && request.auth.uid == userId);
       }
     }
@@ -288,9 +417,9 @@ service cloud.firestore {
     }
 
     match /self_driving_bookings/{bookingId} {
-      allow create: if isAuthenticated() && isSafeBookingCreate();
+      allow create: if isAuthenticated() && isSafeSelfDriveBookingCreate();
       allow read: if isAdmin() || isOwner('userId') || isEmailOwner();
-      allow update: if isAdmin() || isOwnerCancelOnly();
+      allow update: if isAdmin() || isOwnerCancelOnly() || isOwnerSelfDriveDocumentUpdate();
       allow delete: if isAdmin();
     }
 
@@ -308,11 +437,17 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Food portal dine-in: restaurant owner is ownerId (production fields unchanged)
     match /dineInBookings/{bookingId} {
       allow create: if isAuthenticated() && isSafeBookingCreate();
-      allow read: if isAdmin() || isOwner('uid') || isOwner('userId');
-      allow update: if isAdmin() || isOwnerCancelOnly();
-      allow delete: if isAdmin();
+      allow read: if isAdmin() || isFoodAdmin()
+        || isOwner('uid')
+        || isOwner('userId')
+        || isOwner('ownerId');
+      // Status transitions for food owners go through Cloud Functions (Admin SDK).
+      // Production customer cancel path kept as-is.
+      allow update: if isAdmin() || isFoodAdmin() || isOwnerCancelOnly();
+      allow delete: if isAdmin() || isFoodAdmin();
     }
 
     // Soft holds (legacy) — Functions only
@@ -335,21 +470,35 @@ service cloud.firestore {
     // FOOD / ORDERS / CART
     // ============================================================
 
+    // Production order rules kept; food schema adds Restaurant.ownerId / Receiver / Sender.
     match /orders/{orderId} {
       allow create: if isAuthenticated() && (
         ownsIncoming('uid') || ownsIncoming('userId')
+        || (
+          request.resource.data.keys().hasAny(['Receiver'])
+          && request.resource.data.Receiver.keys().hasAny(['id'])
+          && request.resource.data.Receiver.id == request.auth.uid
+        )
       ) &&
         request.resource.data.get('isPaymentDone', false) == false;
-      allow read: if isAdmin() || isOwner('uid') || isOwner('userId');
-      allow update: if isAdmin() || (
-        (isOwner('uid') || isOwner('userId')) &&
+      // Recent-orders list for restaurant admins filters Restaurant.ownerId == uid
+      allow read: if isAdmin() || isFoodAdmin()
+        || isOwner('uid')
+        || isOwner('userId')
+        || isFoodOrderRestaurantOwner()
+        || isFoodOrderReceiver()
+        || isFoodOrderSender();
+      allow update: if isAdmin() || isFoodAdmin() || (
+        (isOwner('uid') || isOwner('userId') || isFoodOrderReceiver() || isFoodOrderSender()) &&
         paymentFieldsUnchanged() &&
         (
           request.resource.data.get('status', '') in ['Canceled', 'Cancelled', 'CANCELED'] ||
-          request.resource.data.get('orderStatus', '') in ['Canceled', 'Cancelled', 'CANCELED']
+          request.resource.data.get('orderStatus', '') in ['Canceled', 'Cancelled', 'CANCELED'] ||
+          request.resource.data.get('currentStatus', '') in ['Cancelled', 'Canceled', 'CANCELED']
         )
       );
-      allow delete: if isAdmin();
+      // Money / delivery / earnings: Cloud Functions (Admin SDK) only
+      allow delete: if isAdmin() || isFoodAdmin();
     }
 
     match /cart/{cartId} {
@@ -363,10 +512,10 @@ service cloud.firestore {
         (isAuthenticated() && request.auth.uid == restaurantId);
     }
 
+    // Food portal menu mutations go through Cloud Functions (Admin SDK)
     match /food_items/{restaurantId}/items/{itemId} {
       allow read: if true;
-      allow write: if isAdmin() ||
-        (isAuthenticated() && request.auth.uid == restaurantId);
+      allow write: if false;
     }
 
     match /foodMenu/{menuId} {
@@ -427,17 +576,34 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Food portal restaurants/{ownerUid}: owners cannot self-set commission / verify
     match /restaurants/{restaurantId} {
       allow read: if true;
-      allow create, update: if isAdmin() ||
+      allow create: if isAdmin() || isFoodAdmin() ||
         (isAuthenticated() && request.auth.uid == restaurantId);
-      allow delete: if isAdmin();
+      allow update: if isAdmin() || isFoodAdmin() ||
+        (isAuthenticated()
+          && request.auth.uid == restaurantId
+          && restaurantLockedFieldsUnchanged());
+      allow delete: if isAdmin() || isFoodAdmin();
     }
 
     match /restaurants/{ownerId}/restaurantDetails/{restaurantId} {
       allow read: if true;
-      allow write: if isAdmin() ||
+      allow write: if isAdmin() || isFoodAdmin() ||
         (isAuthenticated() && request.auth.uid == ownerId);
+    }
+
+    // Public apply-first inbox. Clients never write; Cloud Functions (Admin SDK) only.
+    match /restaurantApplications/{applicationId} {
+      allow read: if isAdmin() || isFoodAdmin();
+      allow write: if false;
+    }
+
+    // Food delivery riders. Master fills details here; assign on confirm delivery.
+    match /foodRiders/{riderId} {
+      allow read: if isAdmin() || isFoodAdmin();
+      allow write: if false;
     }
 
     match /localServices/{serviceId} {
@@ -547,6 +713,17 @@ service cloud.firestore {
         (isAuthenticated() && request.auth.uid == userId);
     }
 
+    // Food portal: notifications/restaurants/{ownerUid|RestAdmin}/{id}
+    match /notifications/{type}/{restaurantId}/{notificationId} {
+      allow create: if (isAdmin() || isFoodAdmin()) && restaurantId != 'Admin';
+      allow read: if isAuthenticated() && (
+        isAdmin() || isFoodAdmin() || request.auth.uid == restaurantId
+      );
+      allow update, delete: if isAuthenticated() && (
+        isAdmin() || isFoodAdmin() || request.auth.uid == restaurantId
+      );
+    }
+
     match /notifications/{docId} {
       allow read, write, delete: if isAdmin();
 
@@ -627,6 +804,19 @@ service cloud.firestore {
       allow create, update: if isAdmin();
     }
 
+    // Food portal earnings (Cloud Functions / Admin SDK write only)
+    match /Earnings/{targetId}/{subcollection}/{docId} {
+      allow read: if isAdmin() || isFoodAdmin() ||
+        (isAuthenticated() && request.auth.uid == targetId);
+      allow write: if false;
+    }
+
+    // Food portal audit trail (Admin SDK write only)
+    match /auditLogs/{logId} {
+      allow read: if isAdmin() || isFoodAdmin();
+      allow write: if false;
+    }
+
     match /general_partners/{partnerId}/assignedPackages/{assignmentId} {
       allow read, write: if isAdmin();
     }
@@ -677,11 +867,48 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // ADMIN PORTAL DIRECT READS
+    // Writes to top-level documents are already covered by the shared
+    // /{collection}/{docId} admin-write rule above.
+    // ============================================================
+
+    match /general_partners/{partnerId} {
+      allow read: if isAdmin();
+    }
+
+    match /transportCompanies/{companyId} {
+      allow read: if isAdmin();
+    }
+
+    match /transportDrivers/{driverId} {
+      allow read: if isAdmin();
+    }
+
+    match /transportVehicles/{vehicleId} {
+      allow read: if isAdmin();
+    }
+
+    // ============================================================
     // DEFAULT DENY
     // ============================================================
 
     match /{document=**} {
       allow read, write: if false;
+    }
+    
+    
+    // APP ISSUE Permission
+     match /chats/{chatId} {
+
+      // Customer support chat ID:
+      // {uid}_CustomerSupport
+      allow read, write: if request.auth != null
+        && chatId == request.auth.uid + "_CustomerSupport";
+
+      match /messages/{messageId} {
+        allow read, write: if request.auth != null
+          && chatId == request.auth.uid + "_CustomerSupport";
+      }
     }
   }
 }

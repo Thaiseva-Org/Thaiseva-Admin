@@ -14,10 +14,10 @@ import {
 } from "@mui/material";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
 import Swal from "sweetalert2";
-import DeleteIcon from "@mui/icons-material/DeleteOutlined";
-import EditIcon from "@mui/icons-material/EditOutlined";
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import { DeleteIcon } from "@icons";
+import { EditIcon } from "@icons";
+import { ExpandMoreIcon } from "@icons";
+import { HelpOutlineIcon } from "@icons";
 import { deleteFAQ, getAdminFAQs, saveFAQ } from "../../../../services/WebsiteConfig";
 import { faqSchema, getZodErrorMessage } from "../../../../validation/websiteConfigSchemas";
 

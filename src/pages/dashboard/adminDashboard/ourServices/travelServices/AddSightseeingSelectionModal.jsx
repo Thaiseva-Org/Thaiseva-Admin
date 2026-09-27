@@ -7,8 +7,8 @@ import {
     Box,
     Paper,
 } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import EditIcon from '@mui/icons-material/Edit';
+import { CloseIcon } from "@icons";
+import { EditIcon } from "@icons";
 import { useNavigate } from 'react-router-dom';
 
 const AddSightseeingSelectionModal = ({ open, onClose }) => {

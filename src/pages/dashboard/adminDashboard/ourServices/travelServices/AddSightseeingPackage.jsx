@@ -17,12 +17,7 @@ import {
     FormControl,
     InputLabel,
 } from "@mui/material";
-import {
-    AddCircle as AddCircleIcon,
-    Close as CloseIcon,
-    Save as SaveIcon,
-    ArrowBack as ArrowBackIcon,
-} from "@mui/icons-material";
+import { AddCircleIcon, CloseIcon, SaveIcon, ArrowBackIcon } from "@icons";
 import { toast } from "react-toastify";
 import { useForm } from "react-hook-form";
 import { v4 as uuid } from "uuid";

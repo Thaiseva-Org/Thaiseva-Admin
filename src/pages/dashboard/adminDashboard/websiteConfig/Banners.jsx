@@ -15,12 +15,12 @@ import { db } from "../../../../firebase/firebase.config";
 import DragDropImageUploader from "../../../../components/websiteConfig/DragDropImageUploader";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
 import Swal from "sweetalert2";
-import SaveIcon from "@mui/icons-material/Save";
-import TitleIcon from "@mui/icons-material/Title";
-import DescriptionIcon from "@mui/icons-material/Description";
-import PersonIcon from "@mui/icons-material/Person";
-import ThumbUpIcon from "@mui/icons-material/ThumbUp";
-import DownloadIcon from "@mui/icons-material/Download";
+import { SaveIcon } from "@icons";
+import { TitleIcon } from "@icons";
+import { DescriptionIcon } from "@icons";
+import { PersonIcon } from "@icons";
+import { ThumbUpIcon } from "@icons";
+import { DownloadIcon } from "@icons";
 
 const Banners = () => {
     const [loading, setLoading] = useState(false);

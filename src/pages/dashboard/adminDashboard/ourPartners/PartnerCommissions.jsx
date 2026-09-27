@@ -13,8 +13,8 @@ import {
     InputLabel
 } from "@mui/material";
 import { useEffect, useState } from "react";
-import CloseIcon from "@mui/icons-material/Close";
-import EditIcon from "@mui/icons-material/Edit";
+import { CloseIcon } from "@icons";
+import { EditIcon } from "@icons";
 import PageHeading from "../../../../components/PageHeading";
 import { getDocs, doc, updateDoc } from "firebase/firestore";
 import { partnersCollection } from "../../../../firebase/firebase.config";

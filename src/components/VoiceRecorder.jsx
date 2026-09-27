@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { IconButton } from "@mui/material";
-import MicIcon from "@mui/icons-material/Mic";
-import StopIcon from "@mui/icons-material/Stop";
+import { MicIcon } from "@icons";
+import { StopIcon } from "@icons";
 
 const VoiceRecorder = ({ onRecordingComplete }) => {
     const [isRecording, setIsRecording] = useState(false);

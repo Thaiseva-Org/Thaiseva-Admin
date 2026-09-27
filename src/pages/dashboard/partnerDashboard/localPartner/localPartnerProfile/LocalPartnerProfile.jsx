@@ -12,7 +12,7 @@ import {
   IconButton,
   TextField,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import { useForm } from "react-hook-form";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
@@ -22,6 +22,7 @@ import {
   usersCollection,
 } from "../../../../../firebase/firebase.config";
 import PageHeading from "../../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
 import { useEffect } from "react";
 import SubTitle from "../../../../../components/SubTitle";
 import { getFileUrl, successNotification } from "../../../../../utils/utils";
@@ -74,7 +75,7 @@ const LocalPartnerProfile = () => {
       bankAddress,
     } = data;
 
-    if (phoneNumber?.length > 11 || phoneNumber?.length < 8) {
+    if (!/^\+?\d{8,15}$/.test(phoneNumber || "")) {
       return setError("Invalid phone number");
     }
 
@@ -203,6 +204,9 @@ const LocalPartnerProfile = () => {
   const textField = (label, name, defaultValue) => {
     return (
       <Grid item xs={12} sm={name === "description" ? 12 : 6}>
+        {name === "phoneNumber" ? (
+          <CountryPhoneInput label={label} defaultValue={defaultValue || ""} required {...register(name, { required: true })} />
+        ) : (
         <TextField
           label={label}
           type={
@@ -216,6 +220,7 @@ const LocalPartnerProfile = () => {
           {...register(name, { required: true })}
           rows={name === "description" ? 3 : ""}
         />
+        )}
         {errors?.name && (
           <span className="text-red-500">{label} is required</span>
         )}

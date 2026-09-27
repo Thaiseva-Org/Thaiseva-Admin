@@ -36,16 +36,16 @@ import {
 import Swal from "sweetalert2";
 import { db } from "../../../../firebase/firebase.config";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
-import SearchIcon from "@mui/icons-material/Search";
-import ArchiveIcon from "@mui/icons-material/Archive";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import CloseIcon from "@mui/icons-material/Close";
-import ScheduleIcon from "@mui/icons-material/Schedule";
-import MailOutlineIcon from "@mui/icons-material/MailOutline";
-import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
-import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
-import PublicIcon from "@mui/icons-material/Public";
+import { SearchIcon } from "@icons";
+import { ArchiveIcon } from "@icons";
+import { ContentCopyIcon } from "@icons";
+import { VisibilityIcon } from "@icons";
+import { CloseIcon } from "@icons";
+import { ScheduleIcon } from "@icons";
+import { MailOutlineIcon } from "@icons";
+import { PersonOutlineIcon } from "@icons";
+import { PhoneIphoneIcon } from "@icons";
+import { PublicIcon } from "@icons";
 
 const ContactUs = () => {
   const [loading, setLoading] = useState(true);

@@ -1,19 +1,19 @@
-import CloseIcon from "@mui/icons-material/Close";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import DoneRoundedIcon from "@mui/icons-material/DoneRounded";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import PersonIcon from "@mui/icons-material/Person";
-import PaymentsIcon from "@mui/icons-material/Payments";
-import EmailIcon from "@mui/icons-material/Email";
-import PhoneIcon from "@mui/icons-material/Phone";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
-import CreditCardIcon from "@mui/icons-material/CreditCard";
-import LuggageIcon from "@mui/icons-material/Luggage";
-import TourIcon from "@mui/icons-material/Tour";
-import DirectionsBusIcon from "@mui/icons-material/DirectionsBus";
-import LocationOnIcon from "@mui/icons-material/LocationOn";
+import { CloseIcon } from "@icons";
+import { CloseRoundedIcon } from "@icons";
+import { DoneRoundedIcon } from "@icons";
+import { CalendarMonthIcon } from "@icons";
+import { FilterListIcon } from "@icons";
+import { RefreshIcon } from "@icons";
+import { PersonIcon } from "@icons";
+import { PaymentsIcon } from "@icons";
+import { EmailIcon } from "@icons";
+import { PhoneIcon } from "@icons";
+import { AttachMoneyIcon } from "@icons";
+import { CreditCardIcon } from "@icons";
+import { LuggageIcon } from "@icons";
+import { TourIcon } from "@icons";
+import { DirectionsBusIcon } from "@icons";
+import { LocationOnIcon } from "@icons";
 import {
   Box,
   Button,
@@ -34,15 +34,8 @@ import {
   FormControl,
   InputLabel,
 } from "@mui/material";
-import { MdDelete, MdVisibility, MdInfo } from "react-icons/md";
-import {
-  ViewList,
-  CalendarMonth,
-  Search,
-  Circle,
-  CheckCircle,
-  VerifiedUser as VerifiedUserIcon,
-} from "@mui/icons-material";
+import { MdDelete, MdVisibility, MdInfo } from "@icons";
+import { ViewList, CalendarMonth, Search, Circle, CheckCircle, VerifiedUserIcon } from "@icons";
 import PaymentStatusBadge from "../../../../../components/bookings/PaymentStatusBadge";
 import {
   VerifyPaymentIconButton,
@@ -52,6 +45,7 @@ import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 import { useContext, useEffect, useMemo, useState } from "react";
 import LoadingContent from "../../../../../components/LoadingContent";
 import PageHeading from "../../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
 import { useNotifications } from "../../../../../contextAPIs/NotificationsProvider";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
@@ -71,7 +65,6 @@ import {
 import {
   calculateDiscountPrice,
   deleteNotification,
-  formatPhoneNumber,
   getDate,
   getDateAndTime,
   successNotification,
@@ -470,10 +463,7 @@ const TravelBookings = () => {
     const targets = rows(sourceBookings).filter(
       (row) =>
         selectedBookings.includes(row.bookingId) &&
-        (isSightseeingPendingReview(row.rawData) ||
-          (isSightseeingPending(row.rawData) &&
-            (isOnsiteSightseeingPayment(row.rawData) ||
-              isThaiQrSightseeingPayment(row.rawData))))
+        isSightseeingPendingReview(row.rawData)
     );
 
     setLoading(true);
@@ -694,6 +684,7 @@ const TravelBookings = () => {
     try {
       const existingConfirmation = bookingData.paymentConfirmation;
       const updateData = {
+        status: "Accepted",
         paymentVerificationStatus: "VERIFIED",
         paymentVerificationNote: isThaiQrSightseeingPayment(bookingData)
           ? "Thai QR transfer verified by admin"
@@ -1398,7 +1389,7 @@ const TravelBookings = () => {
                 </span>
               </div>
               <div className="flex gap-2 pr-4">
-                {(tabValue === 0 || tabValue === 1 || tabValue === 2) && (
+                {(tabValue === 0 || tabValue === 1) && (
                   <button
                     onClick={handleBulkApprove}
                     className="bg-success-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-success-700 transition-colors shadow-sm"
@@ -1513,29 +1504,20 @@ const TravelBookings = () => {
                                   <span className="text-sm text-neutral-600">
                                     {dateDisplay}
                                   </span>
-                                ) : column.property === "paymentStatus" ? (
-                                  <div className="flex flex-col items-center gap-1">
-                                    <PaymentStatusBadge
-                                      statusInfo={getSightseeingPaymentStatusInfo(
-                                        row.rawData
-                                      )}
-                                    />
-                                    {isThaiQrSightseeingPayment(row.rawData) &&
-                                      needsSightseeingPaymentVerification(
-                                        row.rawData
-                                      ) && (
-                                        <span className="text-[9px] font-semibold text-amber-600 uppercase tracking-wide">
-                                          Awaiting verify
-                                        </span>
-                                      )}
-                                  </div>
+                                 ) : column.property === "paymentStatus" ? (
+                                   <PaymentStatusBadge
+                                     statusInfo={getSightseeingPaymentStatusInfo(
+                                       row.rawData
+                                     )}
+                                   />
                                 ) : column.property === "guestName" ||
                                   column.property === "guest" ? (
                                   <div className="text-sm text-left">
                                     <p className="font-semibold text-neutral-800">
                                       {row.guestName}
                                     </p>
-                                    {row.statusLabel && (
+                                    {row.statusLabel &&
+                                      !needsSightseeingPaymentVerification(row.rawData) && (
                                       <span
                                         className={`inline-block mt-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded ${
                                           needsSightseeingPaymentVerification(
@@ -1581,46 +1563,34 @@ const TravelBookings = () => {
                                       </button>
                                     )}
 
-                                    {(isSightseeingPendingReview(row.rawData) ||
-                                      (isSightseeingPending(row.rawData) &&
-                                        (isOnsiteSightseeingPayment(
-                                          row.rawData
-                                        ) ||
-                                          isThaiQrSightseeingPayment(
+                                    {isSightseeingPendingReview(row.rawData) && (
+                                      <button
+                                        onClick={() =>
+                                          handleConfirmBooking(
+                                            row.bookingId,
                                             row.rawData
-                                          )))) && (
-                                      <>
-                                        <button
-                                          onClick={() =>
-                                            handleConfirmBooking(
-                                              row.bookingId,
-                                              row.rawData
-                                            )
-                                          }
-                                          className="p-2 rounded-full bg-success-500 text-white hover:bg-success-600 hover:scale-110 transition-all duration-200"
-                                          title={
-                                            isThaiQrSightseeingPayment(row.rawData)
-                                              ? "Accept Thai QR Booking"
-                                              : isOnsiteSightseeingPayment(row.rawData)
-                                                ? "Accept Onsite Booking"
-                                                : "Approve Request"
-                                          }
-                                        >
-                                          <DoneRoundedIcon className="scale-90" />
-                                        </button>
-                                        <button
-                                          onClick={() =>
-                                            handleDelete(
-                                              row.bookingId,
-                                              row.rawData
-                                            )
-                                          }
-                                          className="p-2 rounded-full bg-danger-500 text-white hover:bg-danger-600 hover:scale-110 transition-all duration-200"
-                                          title="Decline Booking"
-                                        >
-                                          <CloseRoundedIcon className="scale-90" />
-                                        </button>
-                                      </>
+                                          )
+                                        }
+                                        className="p-2 rounded-full bg-success-500 text-white hover:bg-success-600 hover:scale-110 transition-all duration-200"
+                                        title="Approve Request"
+                                      >
+                                        <DoneRoundedIcon className="scale-90" />
+                                      </button>
+                                    )}
+
+                                    {isSightseeingPending(row.rawData) && (
+                                      <button
+                                        onClick={() =>
+                                          handleDelete(
+                                            row.bookingId,
+                                            row.rawData
+                                          )
+                                        }
+                                        className="p-2 rounded-full bg-danger-500 text-white hover:bg-danger-600 hover:scale-110 transition-all duration-200"
+                                        title="Cancel Booking"
+                                      >
+                                        <CloseRoundedIcon className="scale-90" />
+                                      </button>
                                     )}
 
                                     {needsSightseeingPaymentVerification(
@@ -2198,7 +2168,7 @@ const TravelBookings = () => {
                   />
                 </Grid>
                 <Grid item xs={12}>
-                  <TextField
+                  <CountryPhoneInput
                     label="Provider Phone"
                     size="small"
                     value={bookingDetails?.Provider?.phone || ""}
@@ -2207,7 +2177,7 @@ const TravelBookings = () => {
                         ...p,
                         Provider: {
                           ...p.Provider,
-                          phone: formatPhoneNumber(e.target.value),
+                          phone: e.target.value,
                         },
                       }))
                     }
@@ -2245,61 +2215,47 @@ const TravelBookings = () => {
 
         <DialogActions sx={{ p: 3, borderTop: "1px solid #e5e5e5", bgcolor: "white", gap: 1, flexWrap: "wrap" }}>
           {isRealTime &&
-            (isSightseeingPendingReview(bookingDetails.rawData || bookingDetails) ||
-              (isSightseeingPending(bookingDetails.rawData || bookingDetails) &&
-                (isOnsiteSightseeingPayment(
-                  bookingDetails.rawData || bookingDetails
-                ) ||
-                  isThaiQrSightseeingPayment(
-                    bookingDetails.rawData || bookingDetails
-                  )))) && (
-              <>
-                <Button
-                  variant="contained"
-                  onClick={() =>
-                    handleAccept(bookingDetails.bookingId || bookingDetails.id)
-                  }
-                  sx={{
-                    borderRadius: "10px",
-                    textTransform: "none",
-                    fontWeight: 600,
-                    bgcolor: "#10b981",
-                    "&:hover": { bgcolor: "#059669" },
-                  }}
-                >
-                  {isThaiQrSightseeingPayment(
-                    bookingDetails.rawData || bookingDetails
-                  )
-                    ? "Accept Thai QR Booking"
-                    : isOnsiteSightseeingPayment(
-                          bookingDetails.rawData || bookingDetails
-                        )
-                      ? "Accept Onsite Booking"
-                      : "Accept & Confirm"}
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => {
-                    if (confirm("Reject this booking?")) {
-                      handleDelete(
-                        bookingDetails.bookingId || bookingDetails.id,
-                        bookingDetails.rawData || bookingDetails
-                      );
-                      setOpenBookingDetailsModal(false);
-                    }
-                  }}
-                  sx={{
-                    borderRadius: "10px",
-                    textTransform: "none",
-                    fontWeight: 600,
-                    bgcolor: "#ef4444",
-                    "&:hover": { bgcolor: "#dc2626" },
-                  }}
-                >
-                  Decline
-                </Button>
-              </>
+            isSightseeingPendingReview(bookingDetails.rawData || bookingDetails) && (
+              <Button
+                variant="contained"
+                onClick={() =>
+                  handleAccept(bookingDetails.bookingId || bookingDetails.id)
+                }
+                sx={{
+                  borderRadius: "10px",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  bgcolor: "#10b981",
+                  "&:hover": { bgcolor: "#059669" },
+                }}
+              >
+                Accept & Confirm
+              </Button>
             )}
+
+          {isRealTime && isSightseeingPending(bookingDetails.rawData || bookingDetails) && (
+            <Button
+              variant="contained"
+              onClick={() => {
+                if (confirm("Cancel this booking?")) {
+                  handleDelete(
+                    bookingDetails.bookingId || bookingDetails.id,
+                    bookingDetails.rawData || bookingDetails
+                  );
+                  setOpenBookingDetailsModal(false);
+                }
+              }}
+              sx={{
+                borderRadius: "10px",
+                textTransform: "none",
+                fontWeight: 600,
+                bgcolor: "#ef4444",
+                "&:hover": { bgcolor: "#dc2626" },
+              }}
+            >
+              Cancel
+            </Button>
+          )}
 
           {(isAdmin || isSubAdmin) &&
             needsSightseeingPaymentVerification(

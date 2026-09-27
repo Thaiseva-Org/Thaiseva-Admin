@@ -1,7 +1,7 @@
 import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
 
-import CloseIcon from "@mui/icons-material/Close";
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import { CloseIcon } from "@icons";
+import { DeleteForeverIcon } from "@icons";
 import {
   Button,
   Dialog,

@@ -13,13 +13,13 @@ import {
   Tooltip,
   Chip,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import EventAvailableIcon from "@mui/icons-material/EventAvailable";
-import LocationOn from "@mui/icons-material/LocationOn";
-import HotelIcon from "@mui/icons-material/Hotel";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import PauseCircleOutlineIcon from "@mui/icons-material/PauseCircleOutline";
-import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
+import { SearchIcon } from "@icons";
+import { EventAvailableIcon } from "@icons";
+import { LocationOn } from "@icons";
+import { HotelIcon } from "@icons";
+import { CheckCircleOutlineIcon } from "@icons";
+import { PauseCircleOutlineIcon } from "@icons";
+import { HourglassEmptyIcon } from "@icons";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import PageHeading from "../../../../../components/PageHeading";
 import LoadingContent from "../../../../../components/LoadingContent";

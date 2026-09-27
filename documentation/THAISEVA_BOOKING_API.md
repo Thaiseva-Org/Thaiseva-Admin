@@ -564,11 +564,17 @@ POST /createSelfDriveBooking
 ```
 
 Same body fields (no `transportType` required). Writes to `self_driving_bookings`.
+It also accepts `licenceLink` (aliases: `licenseLink`, `drivingLicenceLink`,
+`drivingLicenseLink`) and `passportLink` (alias: `passportDocumentLink`). Both
+documents must exist and be verified by an admin before the booking can be
+accepted.
 
 If client sends `paymentMethod: "STRIPE"` → **400** `TRANSPORT_NO_STRIPE`.  
 If `transportType` is not car/van/taxi/bike → **400** `INVALID_TRANSPORT_TYPE`.
 
 There is **no** `createVanBooking` API. Van is only `transportType: "van"` on `createCarBooking`.
+
+Admin portal: **Van Bookings** page lists `car_bookings` with `transportType: "van"`; **Car Bookings** lists the rest (car / taxi / bike).
 
 ### Fetch after admin sets price
 

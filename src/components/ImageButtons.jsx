@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import ArrowForwardIosRoundedIcon from "@mui/icons-material/ArrowForwardIosRounded";
-import ArrowBackIosRoundedIcon from "@mui/icons-material/ArrowBackIosRounded";
+import { ArrowForwardIosRoundedIcon } from "@icons";
+import { ArrowBackIosRoundedIcon } from "@icons";
 
 const ImageButtons = ({ setActiveBanner, length }) => {
   const [isClickable, setIsClickable] = useState(true);

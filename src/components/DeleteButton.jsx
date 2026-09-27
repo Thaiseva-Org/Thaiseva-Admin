@@ -1,5 +1,5 @@
 import { Tooltip } from "@mui/material";
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+import { DeleteForeverIcon } from "@icons";
 
 const DeleteButton = ({ title = "", handleDelete = () => {}, id = "" }) => {
   const handleClick = () => {

@@ -1,7 +1,7 @@
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useContext, useState } from "react";
 
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import {
   Box,
   Dialog,
@@ -21,6 +21,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { successNotification } from "../../../../../components/Notifications";
 import PageHeading from "../../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
 import StaticMap from "../../../../../components/StaticMap";
 import SubTitle from "../../../../../components/SubTitle";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
@@ -170,6 +171,9 @@ const HotelProfile = ({ partnerDetails }) => {
   const textField = (label, name, defaultValue) => {
     return (
       <Grid item xs={12} sm={name === "description" ? 12 : 6}>
+        {name === "phoneNumber" ? (
+          <CountryPhoneInput label={label} defaultValue={defaultValue || ""} required {...register(name, { required: true })} />
+        ) : (
         <TextField
           label={label}
           type={
@@ -184,6 +188,7 @@ const HotelProfile = ({ partnerDetails }) => {
           rows={name === "description" ? 3 : ""}
           InputLabelProps={{ shrink: true }}
         />
+        )}
         {errors?.name && (
           <span className="text-red-500">{label} is required</span>
         )}

@@ -17,10 +17,10 @@ import {
 import DragDropImageUploader from "../../../../components/websiteConfig/DragDropImageUploader";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
 import Swal from "sweetalert2";
-import DeleteIcon from "@mui/icons-material/DeleteOutlined";
-import EditIcon from "@mui/icons-material/EditOutlined";
-import FormatQuoteIcon from "@mui/icons-material/FormatQuote";
-import SortIcon from "@mui/icons-material/Sort";
+import { DeleteIcon } from "@icons";
+import { EditIcon } from "@icons";
+import { FormatQuoteIcon } from "@icons";
+import { SortIcon } from "@icons";
 import { deleteTestimonial, getAdminTestimonials, saveTestimonial } from "../../../../services/WebsiteConfig";
 import { getZodErrorMessage, testimonialSchema } from "../../../../validation/websiteConfigSchemas";
 

@@ -22,8 +22,8 @@ import {
     Autocomplete,
 } from "@react-google-maps/api";
 import { Controller, useForm } from "react-hook-form";
-import { MdLocationOn, MdPool, MdFitnessCenter, MdWifi, MdRestaurant, MdSpa, MdLocalParking, MdEdit, MdDelete, MdAdd, MdCheck, MdArrowForward, MdArrowBack, MdCloudUpload, MdAttachMoney, MdPeople, MdEmail, MdPhone, MdError, MdClose } from "react-icons/md";
-import { FaStar, FaBed, FaMinus, FaPlus } from "react-icons/fa";
+import { MdLocationOn, MdPool, MdFitnessCenter, MdWifi, MdRestaurant, MdSpa, MdLocalParking, MdEdit, MdDelete, MdAdd, MdCheck, MdArrowForward, MdArrowBack, MdCloudUpload, MdAttachMoney, MdPeople, MdEmail, MdPhone, MdError, MdClose } from "@icons";
+import { FaStar, FaBed, FaMinus, FaPlus } from "@icons";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
@@ -37,6 +37,7 @@ import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from 
 import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc, getDocs, deleteDoc } from "firebase/firestore";
 import { db } from "../../../../../firebase/firebase.config";
 import { getFileUrl, successNotification } from "../../../../../utils/utils";
+import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
 
 import axios from "axios";
 
@@ -696,8 +697,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                             control={control}
                             rules={{ required: "Phone is required" }}
                             render={({ field }) => (
-                                <TextField {...field} label={<span>Phone Number <span className="text-red-500">*</span></span>} fullWidth error={!!errors.phoneNumber} helperText={errors.phoneNumber?.message}
-                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }} />
+                                <CountryPhoneInput {...field} label="Phone Number" required error={!!errors.phoneNumber} helperText={errors.phoneNumber?.message} />
                             )}
                         />
                     </div>

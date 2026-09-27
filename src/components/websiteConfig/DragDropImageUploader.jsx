@@ -1,8 +1,8 @@
 import React, { useRef, useState } from "react";
 import { Box, Typography, Button, IconButton, CircularProgress } from "@mui/material";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import DeleteIcon from "@mui/icons-material/Delete";
-import ImageIcon from "@mui/icons-material/Image";
+import { CloudUploadIcon } from "@icons";
+import { DeleteIcon } from "@icons";
+import { ImageIcon } from "@icons";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../firebase/firebase.config";
 import Swal from "sweetalert2";

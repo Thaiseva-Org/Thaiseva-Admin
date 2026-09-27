@@ -1,7 +1,7 @@
-import { NotificationsRounded } from "@mui/icons-material";
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import EventBusyIcon from '@mui/icons-material/EventBusy';
+import { NotificationsRounded } from "@icons";
+import { DeleteForeverIcon } from "@icons";
+import { AccessTimeIcon } from "@icons";
+import { EventBusyIcon } from "@icons";
 import { removeNotification } from "../services/Notification";
 import { format } from "timeago.js";
 import { Card, Box, Typography, IconButton, Chip, alpha } from "@mui/material";

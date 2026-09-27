@@ -8,7 +8,6 @@ const initializeLegacy = httpsCallable(
   functions,
   "initializeLegacyTransportBooking"
 );
-const seedDemoData = httpsCallable(functions, "seedTransportDemoData");
 
 const actionKey = (action) => {
   if (globalThis.crypto?.randomUUID) return `${action}:${crypto.randomUUID()}`;
@@ -38,13 +37,13 @@ export const archiveTransportResource = async (resourceType, id) => {
   return result.data;
 };
 
-export const initializeLegacyBooking = async (bookingKind, bookingId, source) => {
-  const result = await initializeLegacy({ bookingKind, bookingId, source });
+export const deleteTransportResource = async (resourceType, id) => {
+  const result = await mutateResource({ resourceType, action: "delete", id });
   return result.data;
 };
 
-export const addTransportDemoData = async () => {
-  const result = await seedDemoData();
+export const initializeLegacyBooking = async (bookingKind, bookingId, source) => {
+  const result = await initializeLegacy({ bookingKind, bookingId, source });
   return result.data;
 };
 

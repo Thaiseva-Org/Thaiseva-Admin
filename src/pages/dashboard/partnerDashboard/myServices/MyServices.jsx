@@ -1,4 +1,4 @@
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import {
   Box,
   Button,
@@ -31,6 +31,7 @@ import { v4 as uuid } from "uuid";
 import DeleteButton from "../../../../components/DeleteButton";
 import LoadingContent from "../../../../components/LoadingContent";
 import PageHeading from "../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../components/CountryPhoneInput";
 import ServiceCategoryBtn from "../../../../components/ServiceCategoryBtn";
 import UpdateButton from "../../../../components/UpdateButton";
 import { AuthContext } from "../../../../contextAPIs/AuthProvider";
@@ -43,7 +44,6 @@ import {
 import {
   askingForDelete,
   deleteNotification,
-  formatPhoneNumber,
   successNotification,
 } from "../../../../utils/utils";
 
@@ -197,7 +197,7 @@ const MyServices = () => {
       phoneNumber,
     } = data;
 
-    if (phoneNumber?.length > 11 || phoneNumber?.length < 8) {
+    if (!/^\+?\d{8,15}$/.test(phoneNumber || "")) {
       return setError("Invalid phone number");
     }
 
@@ -431,17 +431,10 @@ const MyServices = () => {
                   control={control}
                   defaultValue={serviceDetails?.phoneNumber || ""}
                   render={({ field }) => (
-                    <TextField
+                    <CountryPhoneInput
                       {...field}
                       label="Phone Number"
-                      type="tel"
                       placeholder="Phone Number"
-                      value={field.value}
-                      onChange={(e) => {
-                        const formatted = formatPhoneNumber(e.target.value);
-                        field.onChange(formatted);
-                      }}
-                      fullWidth
                     />
                   )}
                 />

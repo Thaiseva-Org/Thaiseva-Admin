@@ -34,7 +34,6 @@ const PartnerProvider = ({ children }) => {
     useContext(AuthContext);
   const [chatRoom, setChatRoom] = useState("CustomerSupport");
   const [chatCount, setChatCount] = useState(0);
-  const [restaurantChatCount, setRestaurantChatCount] = useState(0);
   const [hotelChatCount, setHotelChatCount] = useState(0);
   const [partners, setPartners] = useState([]);
   const [refetch, setRefetch] = useState(false);
@@ -569,56 +568,7 @@ const PartnerProvider = ({ children }) => {
     return () => unsub();
   }, [isAdmin, isSubAdmin]);
 
-  // Count restaurant chat messages separately
-  useEffect(() => {
-    if (!(isAdmin || isSubAdmin)) return;
 
-    const unsub = onSnapshot(
-      doc(db, "chatRooms", "CustomerSupport"),
-      async (docSnap) => {
-        const data = docSnap.data();
-
-        if (!data) {
-          setRestaurantChatCount(0);
-          return;
-        }
-
-        const unreadChats = Object.values(data).filter((chat) => chat.isRead === false);
-
-        const restaurantChecks = await Promise.all(
-          unreadChats.map(async (chat) => {
-            const uid = chat?.userInfo?.uid;
-            if (!uid) return false;
-
-            try {
-              const userDocRef = doc(db, "users", uid);
-              const userDoc = await getDoc(userDocRef);
-
-              if (userDoc.exists()) {
-                const userData = userDoc.data();
-                const isRestaurant =
-                  userData.serviceCategory === "Restaurant" ||
-                  userData.role === "Restaurant" ||
-                  chat?.userInfo?.serviceCategory === "Restaurant" ||
-                  chat?.userInfo?.role === "Restaurant";
-
-                return isRestaurant;
-              }
-            } catch (error) {
-              console.warn("Could not fetch chat user for restaurant (permissions):", error.message);
-            }
-            return false;
-          })
-        );
-
-        const restaurantUnreadCount = restaurantChecks.filter(Boolean).length;
-        setRestaurantChatCount(restaurantUnreadCount);
-      },
-      handleSnapshotError("Restaurant chats", () => setRestaurantChatCount(0))
-    );
-
-    return () => unsub();
-  }, [isAdmin, isSubAdmin]);
 
   // Count hotel chat messages separately
   useEffect(() => {
@@ -665,7 +615,6 @@ const PartnerProvider = ({ children }) => {
     driverRequest,
     setChatRoom,
     chatCount,
-    restaurantChatCount,
     hotelChatCount,
     chatRoom,
     roomBookings,

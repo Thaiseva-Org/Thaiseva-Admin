@@ -1,5 +1,5 @@
 import { Tooltip } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
+import { EditIcon } from "@icons";
 
 const UpdateButton = ({ title = "", handleEdit = () => {}, id = "" }) => {
   const handleClick = () => {

@@ -1,8 +1,4 @@
-import {
-  SendRounded,
-  FileUploadRounded,
-  ChangeCircleRounded,
-} from "@mui/icons-material";
+import { SendRounded, FileUploadRounded, ChangeCircleRounded } from "@icons";
 import NotificationCard from "../../../../components/NotificationCard";
 import PageHeading from "../../../../components/PageHeading";
 import {

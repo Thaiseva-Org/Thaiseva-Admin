@@ -18,7 +18,7 @@ import {
   TableRow,
   TextField,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import { useForm } from "react-hook-form";
 import { v4 as uuid } from "uuid";
 import {

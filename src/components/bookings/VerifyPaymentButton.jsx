@@ -1,5 +1,5 @@
 import { Button, CircularProgress } from "@mui/material";
-import { VerifiedUser as VerifiedUserIcon } from "@mui/icons-material";
+import { VerifiedUserIcon } from "@icons";
 
 const iconButtonClassName =
   "p-2 rounded-full bg-emerald-500 text-white hover:bg-emerald-600 hover:scale-110 transition-all duration-200 disabled:opacity-60";

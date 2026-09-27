@@ -18,7 +18,7 @@ import {
   IconButton,
   Tooltip
 } from "@mui/material";
-import { Download as DownloadIcon, FileDownload as FileDownloadIcon, Person as PersonIcon, Article as ArticleIcon, Visibility as VisibilityIcon } from "@mui/icons-material";
+import { DownloadIcon, FileDownloadIcon, PersonIcon, ArticleIcon, VisibilityIcon } from "@icons";
 import { useState, useEffect, useContext } from "react";
 import PageHeading from "../../../../components/PageHeading";
 import LoadingContent from "../../../../components/LoadingContent";

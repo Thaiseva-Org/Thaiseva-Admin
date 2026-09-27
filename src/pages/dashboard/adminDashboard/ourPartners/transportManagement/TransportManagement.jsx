@@ -18,15 +18,7 @@ import {
   TextField,
   Tooltip,
 } from "@mui/material";
-import {
-  Add,
-  ArchiveOutlined,
-  DirectionsCar,
-  EditOutlined,
-  Groups,
-  Search,
-  VisibilityOutlined,
-} from "@mui/icons-material";
+import { Add, ArchiveOutlined, DeleteIcon, DirectionsCar, EditOutlined, Groups, Search, VisibilityOutlined } from "@icons";
 import { onSnapshot } from "firebase/firestore";
 import PageHeading from "../../../../../components/PageHeading";
 import {
@@ -36,15 +28,11 @@ import {
 } from "../../../../../firebase/firebase.config";
 import {
   archiveTransportResource,
+  deleteTransportResource,
   getWorkflowError,
   saveTransportResource,
 } from "../../../../../services/TransportWorkflow";
 import ResourceFormDialog from "./ResourceFormDialog";
-import {
-  DEMO_TRANSPORT_COMPANIES,
-  DEMO_TRANSPORT_DRIVERS,
-  DEMO_TRANSPORT_VEHICLES,
-} from "../../../../../data/transportDemoData";
 
 const tabTypes = ["company", "driver", "vehicle"];
 const plural = { company: "Companies", driver: "Drivers", vehicle: "Vehicles" };
@@ -64,9 +52,9 @@ const SummaryCard = ({ label, value, color = "primary", icon }) => (
 
 const TransportManagement = () => {
   const [tab, setTab] = useState(0);
-  const [companies, setCompanies] = useState(DEMO_TRANSPORT_COMPANIES);
-  const [drivers, setDrivers] = useState(DEMO_TRANSPORT_DRIVERS);
-  const [vehicles, setVehicles] = useState(DEMO_TRANSPORT_VEHICLES);
+  const [companies, setCompanies] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
   const [search, setSearch] = useState("");
   const [availability, setAvailability] = useState("All");
   const [activeFilter, setActiveFilter] = useState("All");
@@ -81,16 +69,13 @@ const TransportManagement = () => {
   useEffect(() => {
     const subscriptions = [
       onSnapshot(transportCompaniesCollection, (snapshot) => {
-        const records = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setCompanies(records.length ? records : DEMO_TRANSPORT_COMPANIES);
+        setCompanies(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter((record) => record.isDemo !== true));
       }),
       onSnapshot(transportDriversCollection, (snapshot) => {
-        const records = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setDrivers(records.length ? records : DEMO_TRANSPORT_DRIVERS);
+        setDrivers(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter((record) => record.isDemo !== true));
       }),
       onSnapshot(transportVehiclesCollection, (snapshot) => {
-        const records = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setVehicles(records.length ? records : DEMO_TRANSPORT_VEHICLES);
+        setVehicles(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter((record) => record.isDemo !== true));
       }),
     ];
     return () => subscriptions.forEach((unsubscribe) => unsubscribe());
@@ -134,6 +119,20 @@ const TransportManagement = () => {
       setSuccess("Record deactivated. It remains available to historical bookings.");
     } catch (archiveError) {
       setError(getWorkflowError(archiveError));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const remove = async (record) => {
+    const name = record.companyName || record.driverName || record.vehicleName;
+    if (!window.confirm(`Permanently delete ${name}? This cannot be undone. Historical booking snapshots will remain.`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      await deleteTransportResource(type, record.id);
+      setSuccess(`${type[0].toUpperCase()}${type.slice(1)} deleted permanently.`);
+    } catch (deleteError) {
+      setError(getWorkflowError(deleteError));
     } finally {
       setBusy(false);
     }
@@ -189,7 +188,7 @@ const TransportManagement = () => {
       <>
           <div className="bg-white border rounded-xl shadow-sm p-4 mb-4 flex flex-wrap gap-3">
             <TextField size="small" placeholder={`Search ${plural[type].toLowerCase()}…`} value={search} onChange={(event) => setSearch(event.target.value)} InputProps={{ startAdornment: <InputAdornment position="start"><Search /></InputAdornment> }} sx={{ flexGrow: 1, minWidth: 240 }} />
-            {type === "company" && <FormControl size="small" sx={{ minWidth: 190 }}><InputLabel>Company type</InputLabel><Select value={companyType} label="Company type" onChange={(event) => setCompanyType(event.target.value)}><MenuItem value="All">All types</MenuItem>{["Taxi Company", "Van Company", "Taxi and Van Company"].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</Select></FormControl>}
+            {type === "company" && <FormControl size="small" sx={{ minWidth: 190 }}><InputLabel>Company type</InputLabel><Select value={companyType} label="Company type" onChange={(event) => setCompanyType(event.target.value)}><MenuItem value="All">All types</MenuItem>{["Taxi Company", "Van Company", "Freelancing"].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</Select></FormControl>}
             {type !== "company" && <FormControl size="small" sx={{ minWidth: 160 }}><InputLabel>Availability</InputLabel><Select value={availability} label="Availability" onChange={(event) => setAvailability(event.target.value)}><MenuItem value="All">All</MenuItem>{["Available", "Assigned", "On Trip", "Unavailable", "Inactive"].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</Select></FormControl>}
             <FormControl size="small" sx={{ minWidth: 140 }}><InputLabel>Status</InputLabel><Select value={activeFilter} label="Status" onChange={(event) => setActiveFilter(event.target.value)}>{["All", "Active", "Inactive"].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}</Select></FormControl>
             <Button variant="contained" startIcon={<Add />} onClick={() => openForm()}>Add {type}</Button>
@@ -198,7 +197,7 @@ const TransportManagement = () => {
             <table className="w-full min-w-[760px]">
               <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white"><tr>{displayFields({}).map(([label]) => <th key={label} className="px-4 py-3 text-left text-xs uppercase">{label}</th>)}<th className="px-4 py-3 text-left text-xs uppercase">Status</th><th className="px-4 py-3 text-left text-xs uppercase">Actions</th></tr></thead>
               <tbody className="divide-y">
-                {filtered.map((record) => <tr key={record.id} className="hover:bg-primary-50/50">{displayFields(record).map(([label, value]) => <td key={label} className="px-4 py-3 text-sm">{value || "—"}</td>)}<td className="px-4 py-3"><Chip size="small" color={record.active !== false ? "success" : "default"} label={record.active !== false ? "Active" : "Inactive"} /></td><td className="px-4 py-3 whitespace-nowrap"><Tooltip title="View"><IconButton size="small" onClick={() => setViewing(record)}><VisibilityOutlined fontSize="small" /></IconButton></Tooltip><Tooltip title="Edit"><IconButton size="small" onClick={() => openForm(record)}><EditOutlined fontSize="small" /></IconButton></Tooltip>{record.active !== false && <Tooltip title="Deactivate"><IconButton disabled={busy} color="warning" size="small" onClick={() => archive(record)}><ArchiveOutlined fontSize="small" /></IconButton></Tooltip>}</td></tr>)}
+                {filtered.map((record) => <tr key={record.id} className="hover:bg-primary-50/50">{displayFields(record).map(([label, value]) => <td key={label} className="px-4 py-3 text-sm">{value || "—"}</td>)}<td className="px-4 py-3"><Chip size="small" color={record.active !== false ? "success" : "default"} label={record.active !== false ? "Active" : "Inactive"} /></td><td className="px-4 py-3 whitespace-nowrap"><Tooltip title="View"><IconButton size="small" onClick={() => setViewing(record)}><VisibilityOutlined fontSize="small" /></IconButton></Tooltip><Tooltip title="Edit"><IconButton size="small" onClick={() => openForm(record)}><EditOutlined fontSize="small" /></IconButton></Tooltip>{record.active !== false && <Tooltip title="Deactivate"><IconButton disabled={busy} color="warning" size="small" onClick={() => archive(record)}><ArchiveOutlined fontSize="small" /></IconButton></Tooltip>}<Tooltip title="Delete permanently"><IconButton disabled={busy} color="error" size="small" onClick={() => remove(record)}><DeleteIcon fontSize="small" /></IconButton></Tooltip></td></tr>)}
                 {!filtered.length && <tr><td colSpan={8} className="text-center py-14 text-neutral-500">No matching {plural[type].toLowerCase()} found.</td></tr>}
               </tbody>
             </table>

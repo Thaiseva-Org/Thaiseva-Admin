@@ -9,7 +9,7 @@ import {
   IconButton,
   TextField,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 
 import {
   GoogleMap,

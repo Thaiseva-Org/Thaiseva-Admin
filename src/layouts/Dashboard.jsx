@@ -1,3 +1,9 @@
+/**
+ * @file Dashboard.jsx
+ * @description Main dashboard layout for the Thaiseva Admin Portal.
+ * Handles routing, navigation drawers (sidebar), app bars, and user sessions
+ * for Admin, SubAdmin, and Partners.
+ */
 import { ExpandLess, ExpandMore, Logout } from "@icons";
 import { NotificationsIcon } from "@icons";
 import {
@@ -62,6 +68,14 @@ import { DRAWER_WIDTH, NAVBAR_HEIGHT } from "../utils/constants";
 
 // const drawerWidth = "245px";
 
+/**
+ * Dashboard Layout Component
+ *
+ * @component
+ * @param {Object} props - Component properties.
+ * @param {Function} [props.window] - Injected by the documentation to work in an iframe.
+ * @returns {JSX.Element} The rendered Dashboard layout.
+ */
 function Dashboard(props) {
   const { notifications } = useNotifications();
   const { window } = props;
@@ -91,16 +105,28 @@ function Dashboard(props) {
 
   const isSuspended = !!userData?.isSuspended;
 
-  // Scroll to top of main container on route change
+  /**
+   * Scroll to top of main container on route change
+   */
   React.useLayoutEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo(0, 0);
     }
   }, [location.pathname]);
+
+  /**
+   * Toggles the mobile drawer open or closed.
+   */
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  /**
+   * Updates the query text and active status index.
+   *
+   * @param {string} text - The search query or filter text.
+   * @param {number} i - The active status index.
+   */
   const handleChangeQueryText = (text, i) => {
     setQueryText(text);
     setActiveStatus(i);
@@ -165,11 +191,18 @@ function Dashboard(props) {
     });
   }
 
+  /**
+   * Handles user logout.
+   */
   const handleLogOut = () => {
     logOut();
   };
 
-  // handling changing chat room
+  /**
+   * Updates the current chat room state based on the selected link.
+   *
+   * @param {string} link - The route link corresponding to the chat room.
+   */
   const handleChatRooom = (link) => {
     // console.log(link);
     setChatRoom(
@@ -994,15 +1027,35 @@ function Dashboard(props) {
 
   const avaterMenu = Boolean(anchorEl);
   const notificationOpen = Boolean(anchorE2);
+
+  /**
+   * Opens the notifications menu.
+   *
+   * @param {React.MouseEvent<HTMLElement>} event - The click event.
+   */
   const handleNClick = (event) => {
     setAnchorE2(event.currentTarget);
   };
+
+  /**
+   * Closes the notifications menu.
+   */
   const handleNClose = () => {
     setAnchorE2(null);
   };
+
+  /**
+   * Opens the user avatar menu.
+   *
+   * @param {React.MouseEvent<HTMLElement>} event - The click event.
+   */
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
   };
+
+  /**
+   * Closes the user avatar menu.
+   */
   const handleClose = () => {
     setAnchorEl(null);
   };

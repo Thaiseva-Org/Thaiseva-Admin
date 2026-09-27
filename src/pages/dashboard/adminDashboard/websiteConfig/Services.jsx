@@ -26,11 +26,11 @@ import { db } from "../../../../firebase/firebase.config";
 import DragDropImageUploader from "../../../../components/websiteConfig/DragDropImageUploader";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
 import Swal from "sweetalert2";
-import DeleteIcon from "@mui/icons-material/DeleteOutlined";
-import EditIcon from "@mui/icons-material/EditOutlined";
-import LinkIcon from "@mui/icons-material/Link";
-import PaletteIcon from "@mui/icons-material/Palette";
-import AppsIcon from "@mui/icons-material/Apps";
+import { DeleteIcon } from "@icons";
+import { EditIcon } from "@icons";
+import { LinkIcon } from "@icons";
+import { PaletteIcon } from "@icons";
+import { AppsIcon } from "@icons";
 
 // Custom Modal Components
 import Dialog from "@mui/material/Dialog";

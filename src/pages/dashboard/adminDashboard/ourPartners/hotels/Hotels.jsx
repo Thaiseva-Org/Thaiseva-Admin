@@ -1,5 +1,5 @@
-import CloseIcon from "@mui/icons-material/Close";
-import { MdVisibility, MdEdit, MdDelete, MdMeetingRoom, MdAdd, MdEventAvailable } from "react-icons/md"; // Icons
+import { CloseIcon } from "@icons";
+import { MdVisibility, MdEdit, MdDelete, MdMeetingRoom, MdAdd, MdEventAvailable } from "@icons"; // Icons
 import AddHotelForm from "./AddHotelForm"; // Import Form
 import {
   Button,
@@ -41,7 +41,7 @@ import {
   updateDoc,
   collection
 } from "firebase/firestore";
-import { GridView, ViewList, LocationOn, Star, Search } from "@mui/icons-material";
+import { GridView, ViewList, LocationOn, Star, Search } from "@icons";
 import { useContext, useEffect, useState } from "react";
 import DeleteButton from "../../../../../components/DeleteButton";
 import LoadingContent from "../../../../../components/LoadingContent";
@@ -65,7 +65,7 @@ import {
 
 import AddHotelSelectionModal from "./AddHotelSelectionModal";
 import { useNavigate } from "react-router-dom";
-import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import { MeetingRoomIcon } from "@icons";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
 

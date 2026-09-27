@@ -1,3 +1,10 @@
+/**
+ * @fileoverview Main entry point for the React application.
+ * This file is responsible for initializing the React application and rendering it into the DOM.
+ * It wraps the application's router with all the necessary global context providers such as
+ * authentication, partners, requirements, chat, notifications, maps, and snackbar notifications.
+ * It also applies React.StrictMode for highlighting potential problems in the application.
+ */
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";

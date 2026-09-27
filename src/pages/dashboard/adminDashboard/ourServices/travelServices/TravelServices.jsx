@@ -28,8 +28,8 @@ import {
   query,
   startAfter,
 } from "firebase/firestore";
-import { MdEdit, MdDelete, MdInfo } from "react-icons/md";
-import { GridView, ViewList, AccessTime, LocationOn, MonetizationOn, Star, Search } from "@mui/icons-material";
+import { MdEdit, MdDelete, MdInfo } from "@icons";
+import { GridView, ViewList, AccessTime, LocationOn, MonetizationOn, Star, Search } from "@icons";
 import { useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Loading from "../../../../../components/Loading";
@@ -47,7 +47,7 @@ import {
 } from "../../../../../utils/utils";
 import AddSightseeingSelectionModal from "./AddSightseeingSelectionModal";
 import SightseeingSettingsModal from "./SightseeingSettingsModal";
-import { MdSettings } from "react-icons/md";
+import { MdSettings } from "@icons";
 
 const TravelServices = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);

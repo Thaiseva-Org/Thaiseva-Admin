@@ -22,10 +22,11 @@ import {
 } from "@mui/material";
 import { Autocomplete } from "@react-google-maps/api";
 import { useEffect, useState } from "react";
-import CloseIcon from "@mui/icons-material/Close";
-import { MdEdit, MdDelete, MdSearch, MdCheckCircle, MdCancel, MdPending, MdLocalOffer, MdAccountBalance } from "react-icons/md";
+import { CloseIcon } from "@icons";
+import { MdEdit, MdDelete, MdSearch, MdCheckCircle, MdCancel, MdPending, MdLocalOffer, MdAccountBalance } from "@icons";
 import PartnerPackagesModal from "./PartnerPackagesModal";
 import PageHeading from "../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../components/CountryPhoneInput";
 import { getDocs, doc, updateDoc, deleteDoc, addDoc, serverTimestamp } from "firebase/firestore";
 import { generalPartnersCollection } from "../../../../firebase/firebase.config";
 import LoadingContent from "../../../../components/LoadingContent";
@@ -681,10 +682,9 @@ const ManagePartners = () => {
                             />
                         </Grid>
                         <Grid item xs={12} sm={6}>
-                            <TextField
+                            <CountryPhoneInput
                                 label="Phone Number"
                                 name="phoneNumber"
-                                fullWidth
                                 value={formData.phoneNumber}
                                 onChange={handleInputChange}
                                 size="small"

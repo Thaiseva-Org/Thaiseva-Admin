@@ -7,11 +7,11 @@ import {
   InputAdornment,
   IconButton,
 } from "@mui/material";
-import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { Visibility, VisibilityOff } from "@icons";
 import { useRef, useState } from "react";
 import axios from "axios";
 import { useForm, Controller } from "react-hook-form";
-import { MdLocationOn } from "react-icons/md";
+import { MdLocationOn } from "@icons";
 import {
   chatRoomsCollection,
   chatsCollection,
@@ -29,6 +29,7 @@ import { useContext } from "react";
 import { AuthContext } from "../../contextAPIs/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import SubTitle from "../../components/SubTitle";
+import CountryPhoneInput from "../../components/CountryPhoneInput";
 import { getFileUrl } from "../../utils/utils";
 
 const DriverOnBoarding = () => {
@@ -230,18 +231,18 @@ const DriverOnBoarding = () => {
   const textField = (label, name, placeholder) => {
     return (
       <Grid item xs={12} sm={6} md={4}>
-        <TextField
-          label={label}
-          type={
-            name === "phoneNumber" || name === "accountNumber"
-              ? "number"
-              : "text"
-          }
-          placeholder={placeholder}
-          defaultValue=""
-          fullWidth
-          {...register(name, { required: true })}
-        />
+        {name === "phoneNumber" ? (
+          <CountryPhoneInput label={label} placeholder={placeholder} required {...register(name, { required: true })} />
+        ) : (
+          <TextField
+            label={label}
+            type={name === "accountNumber" ? "number" : "text"}
+            placeholder={placeholder}
+            defaultValue=""
+            fullWidth
+            {...register(name, { required: true })}
+          />
+        )}
         {errors?.name && (
           <span className="text-red-500">{label} is required</span>
         )}

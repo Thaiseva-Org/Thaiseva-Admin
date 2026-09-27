@@ -1,6 +1,18 @@
+/**
+ * @fileoverview GlobalError component serves as a boundary error page.
+ * It is used to catch and display unexpected routing errors in the application.
+ */
+
 import React from "react";
 import { useRouteError } from "react-router-dom";
 
+/**
+ * GlobalError is a React component that displays an error message when an unexpected
+ * error occurs during routing. It utilizes the `useRouteError` hook from react-router-dom
+ * to capture and display the error details.
+ *
+ * @returns {React.JSX.Element} The rendered error page component with an option to reload.
+ */
 const GlobalError = () => {
     const error = useRouteError();
     console.error(error);

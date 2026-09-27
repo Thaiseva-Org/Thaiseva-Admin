@@ -26,7 +26,7 @@ import {
 import { useContext } from "react";
 import { useState } from "react";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import { useEffect } from "react";
 import { RequirementContext } from "../../../../../contextAPIs/RequirementsProvider";
 import { travelRequirementsCollection } from "../../../../../firebase/firebase.config";

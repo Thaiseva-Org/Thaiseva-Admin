@@ -12,6 +12,9 @@ const RoomBookings = lazy(() =>
 const CarBookings = lazy(() =>
   import("./dashboard/adminDashboard/clientOrders/carBookings/CarBookings")
 );
+const VanBookings = lazy(() =>
+  import("./dashboard/adminDashboard/clientOrders/vanBookings/VanBookings")
+);
 const SelfDriveBookings = lazy(() =>
   import(
     "./dashboard/adminDashboard/clientOrders/carBookings/SelfDriveBookings"
@@ -70,9 +73,6 @@ const LocalPartners = lazy(() =>
 const Drivers = lazy(() =>
   import("./dashboard/adminDashboard/ourPartners/drivers/Drivers")
 );
-const Restaurants = lazy(() =>
-  import("./dashboard/adminDashboard/ourPartners/restaurants/Restaurants")
-);
 const ManagePartners = lazy(() =>
   import("./dashboard/adminDashboard/ourPartners/ManagePartners")
 );
@@ -122,14 +122,14 @@ const TravelRequirements = lazy(() =>
 const CustomerChat = lazy(() =>
   import("./dashboard/communication/customerSupport/CustomerChat")
 );
+const AppChat = lazy(() =>
+  import("./dashboard/communication/appSupport/AppChat")
+);
 const HotelSupport = lazy(() =>
   import("./dashboard/communication/hotelSupport/HotelSupport")
 );
 const LocalPartnerSupport = lazy(() =>
   import("./dashboard/communication/localPartnerSupport/LocalPartnerSupport")
-);
-const RestaurantChat = lazy(() =>
-  import("./dashboard/communication/restaurantSupport/RestaurantChat")
 );
 const ChatWithAdmin = lazy(() =>
   import("./dashboard/partnerDashboard/messages/ChatWithAdmin")
@@ -167,10 +167,6 @@ const CreateRoom = lazy(() =>
 const TodayArriving = lazy(() =>
   import("./dashboard/partnerDashboard/hotel/bookings/TodayArriving")
 );
-// ----- not in use for now -----
-const AddedMenu = lazy(() =>
-  import("./dashboard/partnerDashboard/restaurants/addedMenu/AddedMenu")
-);
 // ========== Partner Pages End ==========
 
 // ========== Clubs and Shops Pages ==========
@@ -192,9 +188,6 @@ const MyLocalRequirements = lazy(() =>
 );
 const Bookings = lazy(() =>
   import("./dashboard/partnerDashboard/hotel/bookings/Bookings")
-);
-const FoodOrders = lazy(() =>
-  import("./dashboard/partnerDashboard/restaurants/foodOrders/FoodOrders")
 );
 // ========== Partner Dashboard Pages End ==========
 
@@ -250,7 +243,6 @@ export {
   AddHotelForm,
   LocalPartners,
   Drivers,
-  Restaurants,
   ManagePartners,
 
   // Primary Admin export
@@ -269,9 +261,9 @@ export {
 
   // Chats export
   CustomerChat,
+  AppChat,
   HotelSupport,
   LocalPartnerSupport,
-  RestaurantChat,
   ChatWithAdmin,
   DriverChat,
 
@@ -288,7 +280,6 @@ export {
   AddedRooms,
   CreateRoom,
   TodayArriving,
-  AddedMenu,
 
   // Clubs and Shops export
   ShoppingMalls,
@@ -299,7 +290,6 @@ export {
   MyDrivingRequirements,
   MyLocalRequirements,
   Bookings,
-  FoodOrders,
 
   // Dashboard exports
   AdminDashboard,
@@ -309,6 +299,7 @@ export {
   HotelRoomAvailabilityPage,
   HotelRoomAvailabilityHub,
   Vans,
+  VanBookings,
 
   // Website Config export
   Blogs,

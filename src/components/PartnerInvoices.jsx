@@ -1,5 +1,5 @@
-import CloseIcon from "@mui/icons-material/Close";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import { CloseIcon } from "@icons";
+import { FileDownloadIcon } from "@icons";
 import {
   Box,
   Button,
@@ -39,6 +39,7 @@ import {
 } from "../utils/utils";
 import DeleteButton from "./DeleteButton";
 import LoadingContent from "./LoadingContent";
+import CountryPhoneInput from "./CountryPhoneInput";
 import Invoice from "./reports/Invoice";
 import { AuthContext } from "../contextAPIs/AuthProvider";
 
@@ -355,9 +356,8 @@ const PartnerInvoices = ({ partnerUid, paymentTo, category }) => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
+                <CountryPhoneInput
                   label="Partner Phone"
-                  type="text"
                   value={newInvoice.paymentTo.partnerPhone}
                   onChange={(e) =>
                     setNewInvoice((p) => ({
@@ -368,10 +368,7 @@ const PartnerInvoices = ({ partnerUid, paymentTo, category }) => {
                       },
                     }))
                   }
-                  InputProps={{
-                    readOnly: paymentTo.partnerPhone,
-                  }}
-                  fullWidth
+                  readOnly={Boolean(paymentTo.partnerPhone)}
                 />
               </Grid>
 

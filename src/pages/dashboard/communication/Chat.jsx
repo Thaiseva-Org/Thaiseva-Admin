@@ -1,5 +1,5 @@
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
-import MenuIcon from "@mui/icons-material/Menu";
+import { DeleteForeverIcon } from "@icons";
+import { MenuIcon } from "@icons";
 import { deleteDoc, deleteField, doc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { useContext, useState } from "react";

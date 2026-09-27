@@ -1,8 +1,8 @@
 import { useContext } from "react";
 import { AuthContext } from "../../../../contextAPIs/AuthProvider";
 import { PartnerChatContext } from "../../../../contextAPIs/PartnerChatProvider";
-import DownloadForOfflineRoundedIcon from "@mui/icons-material/DownloadForOfflineRounded";
-import DeleteIcon from "@mui/icons-material/Delete";
+import { DownloadForOfflineRoundedIcon } from "@icons";
+import { DeleteIcon } from "@icons";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../../../../firebase/firebase.config";
 import { PartnerContext } from "../../../../contextAPIs/PartnerProvider";

@@ -162,6 +162,51 @@ const buildHandler = (
       300,
     );
     const notes = stringValue(body.notes || body.specialRequests, 500);
+    let licenceLink = isCar ? "" : stringValue(
+      body.licenceLink ||
+        body.licenseLink ||
+        body.drivingLicenceLink ||
+        body.drivingLicenseLink ||
+        body.licenceUrl ||
+        body.licenseUrl ||
+        body.drivingLicenceUrl ||
+        body.drivingLicenseUrl ||
+        body.licence ||
+        body.license,
+      2000,
+    );
+    let passportLink = isCar ? "" : stringValue(
+      body.passportLink ||
+        body.passportDocumentLink ||
+        body.passportUrl ||
+        body.passportDocumentUrl ||
+        body.passport ||
+        body.passportImage,
+      2000,
+    );
+
+    if (!isCar && (!licenceLink || !passportLink)) {
+      try {
+        const userSnap = await db().collection("users").doc(userId).get();
+        if (userSnap.exists) {
+          const userData = userSnap.data() || {};
+          if (!licenceLink) {
+            licenceLink = stringValue(
+              userData.licenceLink || userData.licenseLink,
+              2000,
+            );
+          }
+          if (!passportLink) {
+            passportLink = stringValue(
+              userData.passportLink || userData.passportUrl,
+              2000,
+            );
+          }
+        }
+      } catch (e) {
+        // Ignore fetch errors, just proceed with what we have
+      }
+    }
 
     // seats (mobile); optional
     const seatsRaw = body.seats ?? body.seatCount ?? body.passengers;
@@ -284,7 +329,7 @@ const buildHandler = (
       vehicleType: isCar ?
         String(transportType).charAt(0).toUpperCase() +
           String(transportType).slice(1) :
-        "Self Drive",
+        stringValue(body.vehicleType || body.vehicle || "Self Drive", 40),
       bookingStatus: "Pending",
       isPaymentDone: false,
       paymentVerificationStatus: "NOT_APPLICABLE",
@@ -296,6 +341,12 @@ const buildHandler = (
       orderedAt: admin.firestore.FieldValue.serverTimestamp(),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      ...(isCar ? {} : {
+        licenceLink: licenceLink || null,
+        passportLink: passportLink || null,
+        licenceVerificationStatus: "Pending",
+        passportVerificationStatus: "Pending",
+      }),
     };
 
     const ref = db().collection(collection).doc();

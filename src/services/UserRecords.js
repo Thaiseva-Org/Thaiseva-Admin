@@ -1,3 +1,8 @@
+/**
+ * @fileoverview Service for interacting with user records in Firestore.
+ * Provides functions to fetch user data, with support for pagination.
+ */
+
 import {
   getCountFromServer,
   getDocs,
@@ -9,6 +14,12 @@ import {
 } from "firebase/firestore";
 import { usersCollection } from "../firebase/firebase.config";
 
+/**
+ * Fetches all app users ordered by creation date in descending order.
+ * 
+ * @async
+ * @returns {Promise<Array<Object>>} A promise that resolves to an array of user objects. Returns an empty array if an error occurs.
+ */
 export const usersData = async () => {
   try {
     const q = query(
@@ -28,6 +39,15 @@ export const usersData = async () => {
   }
 };
 
+/**
+ * Fetches a paginated list of app users.
+ * 
+ * @async
+ * @param {number} page - The current page index (0-indexed).
+ * @param {Array<Object>} lastDocs - An array containing the last document snapshot for each fetched page.
+ * @param {number} size - The number of user records to fetch per page.
+ * @returns {Promise<{data: Array<Object>, lastDoc: Object|null}>} A promise that resolves to an object containing the fetched user `data` array and the `lastDoc` snapshot for pagination.
+ */
 export const fetchUserData = async (page, lastDocs, size) => {
   let q = query(
     usersCollection,
@@ -60,6 +80,12 @@ export const fetchUserData = async (page, lastDocs, size) => {
   return { data: newData, lastDoc };
 };
 
+/**
+ * Fetches the total count of app users to calculate the total number of pages.
+ * 
+ * @async
+ * @returns {Promise<number>} A promise that resolves to the total count of app users.
+ */
 export const fetchUserDataPages = async () => {
   let q = query(
     usersCollection,

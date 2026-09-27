@@ -6,7 +6,7 @@ import HotelRoomsManager from "./HotelRoomsManager";
 import PageHeading from "../../../../../components/PageHeading";
 import LoadingContent from "../../../../../components/LoadingContent";
 import { Button } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { ArrowBackIcon } from "@icons";
 
 /** Normalize hotel fields across gold-standard and legacy shapes. */
 const hotelDisplay = (data, docId) => {

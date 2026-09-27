@@ -172,7 +172,8 @@ Transport APIs: **`createCarBooking`** (`transportType`: car \| van \| taxi \| b
 | `/dashboard/hotel-room-availability` | `HotelDB`, `availability`, rooms, `hotelBookingData` (stats + calendar) |
 | `/dashboard/hotel-room-availability/:hotelId` | Same + per-type inventory (`totalRooms`), `availability/config` |
 | `/dashboard/travel-bookings` | `travelBookingDetails` |
-| `/dashboard/car-bookings` | `car_bookings` (car / van / taxi / bike) |
+| `/dashboard/car-bookings` | `car_bookings` (non-van: car / taxi / bike) |
+| `/dashboard/van-bookings` | `car_bookings` where `transportType` is van |
 | `/dashboard/self-drive-bookings` | `self_driving_bookings` |
 
 ---

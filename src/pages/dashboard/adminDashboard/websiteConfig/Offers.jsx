@@ -31,10 +31,10 @@ import AddBannerForm from "../../../../components/AddBannerForm"; // We'll keep 
 import DragDropImageUploader from "../../../../components/websiteConfig/DragDropImageUploader";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
 import Swal from "sweetalert2";
-import DeleteIcon from "@mui/icons-material/DeleteOutlined";
-import EditIcon from "@mui/icons-material/EditOutlined";
-import SearchIcon from "@mui/icons-material/Search";
-import FilterListIcon from "@mui/icons-material/FilterList";
+import { DeleteIcon } from "@icons";
+import { EditIcon } from "@icons";
+import { SearchIcon } from "@icons";
+import { FilterListIcon } from "@icons";
 
 // Custom Modal Components
 import Dialog from "@mui/material/Dialog";

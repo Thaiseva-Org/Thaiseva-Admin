@@ -1,7 +1,7 @@
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { useContext, useEffect, useState } from "react";
 
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import {
   Box,
   Button,
@@ -17,6 +17,7 @@ import {
 import { useForm } from "react-hook-form";
 import { successNotification } from "../../../../../components/Notifications";
 import PageHeading from "../../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import {
@@ -287,12 +288,10 @@ const DriverProfile = ({ partnerDetails }) => {
 
               {/* Phone */}
               <Grid item xs={12} sm={6}>
-                <TextField
+                <CountryPhoneInput
                   label="Phone Number"
                   placeholder="12 345 6789"
-                  type="tel"
                   defaultValue={partnerDetails?.driverInformation?.phoneNumber}
-                  fullWidth
                   {...register("phoneNumber", { required: true })}
                 />
                 {errors.phoneNumber && (

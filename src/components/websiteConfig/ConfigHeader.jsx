@@ -1,8 +1,8 @@
 import React from "react";
 import { Button, Typography, Breadcrumbs } from "@mui/material";
 import { Link } from "react-router-dom";
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
-import AddIcon from "@mui/icons-material/Add";
+import { NavigateNextIcon } from "@icons";
+import { AddIcon } from "@icons";
 
 const ConfigHeader = ({
     title,

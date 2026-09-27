@@ -30,6 +30,39 @@ const VALID_TRANSITIONS: Record<string, Set<string>> = {
 const stringValue = (value: unknown): string =>
   typeof value === "string" ? value.trim() : "";
 
+const personValue = (...values: unknown[]): string => {
+  for (const value of values) {
+    const normalized = stringValue(value);
+    if (normalized && !/^(?:n\/?a|not assigned|[-—])$/i.test(normalized)) {
+      return normalized;
+    }
+  }
+  return "";
+};
+
+const hasSelfDriveDocuments = (booking: Data): boolean => Boolean(
+  stringValue(
+    booking.licenceLink || booking.licenseLink ||
+    booking.drivingLicenceLink || booking.drivingLicenseLink ||
+    booking.licenceUrl || booking.licenseUrl ||
+    booking.drivingLicenceUrl || booking.drivingLicenseUrl ||
+    booking.licence || booking.license,
+  ) && stringValue(
+    booking.passportLink || booking.passportDocumentLink ||
+    booking.passportUrl || booking.passportDocumentUrl ||
+    booking.passport || booking.passportImage,
+  ),
+);
+
+// Values such as __na__ and __custom__ are UI selection sentinels, not
+// Firestore document IDs. Older bookings may still contain those values, so
+// sanitize both incoming assignments and persisted legacy fields before
+// constructing a DocumentReference.
+const managedResourceId = (value: unknown): string => {
+  const id = stringValue(value);
+  return /^__.*__$/.test(id) ? "" : id;
+};
+
 const numberValue = (value: unknown, fallback = 0): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -195,7 +228,19 @@ const assignmentPatch = async (
         "Driving licence and passport must both be verified before acceptance.",
       );
     }
+    if (!hasSelfDriveDocuments(booking)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Driving licence and passport documents must exist before acceptance.",
+      );
+    }
     const vehicleSelection = required(input, "vehicleId", "Select a managed vehicle or Custom.");
+    if (vehicleSelection === "__na__") {
+      throw new HttpsError(
+        "failed-precondition",
+        "A vehicle must be assigned before a self-drive booking can be accepted.",
+      );
+    }
     const customVehicle = vehicleSelection === "__custom__";
     const db = getFirestore();
     const vehicleSnap = customVehicle ? null : await db.doc(`transportVehicles/${vehicleSelection}`).get();
@@ -228,8 +273,27 @@ const assignmentPatch = async (
     if (!providerName || !providerPhone || !vehicleName || !registrationNumber) {
       throw new HttpsError("failed-precondition", "Complete the selected vehicle and company details in management.");
     }
-    const handoverName = required(input, "handoverName", "Handover person is required.");
-    const handoverPhone = required(input, "handoverPhone", "Handover phone is required.");
+    const handoverName = personValue(
+      input.handoverName,
+      booking.customerName,
+      booking.name,
+      booking.username,
+      booking.guestName,
+    );
+    const handoverPhone = personValue(
+      input.handoverPhone,
+      booking.customerPhone,
+      booking.contact,
+      booking.phoneNo,
+      booking.guestPhone,
+      booking.phone,
+    );
+    if (!handoverName || !handoverPhone) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Handover person and phone are required. Add them to the booking or assignment.",
+      );
+    }
     const pickupLocation = required(input, "pickupLocation", "Physical pickup location is required.");
     const window = customVehicle ? null : getAssignmentWindow(booking, input);
     if (window) {
@@ -238,6 +302,7 @@ const assignmentPatch = async (
     return {
       companyId,
       vehicleId: customVehicle ? null : vehicleSelection,
+      vehicleAssignmentMode: customVehicle ? "custom" : "managed",
       companySnapshot: {
         name: providerName,
         phone: providerPhone,
@@ -265,15 +330,18 @@ const assignmentPatch = async (
   const companySelection = required(input, "companyId", "Company is required.");
   const driverSelection = required(input, "driverId", "Driver is required.");
   const vehicleSelection = required(input, "vehicleId", "Vehicle is required.");
+  const noCompany = companySelection === "__na__";
+  const noDriver = driverSelection === "__na__";
+  const noVehicle = vehicleSelection === "__na__";
   const customCompany = companySelection === "__custom__";
   const customDriver = driverSelection === "__custom__";
   const customVehicle = vehicleSelection === "__custom__";
   if (customCompany && (!customDriver || !customVehicle)) {
     throw new HttpsError("failed-precondition", "A custom company requires custom driver and vehicle details.");
   }
-  const companyId = customCompany ? null : companySelection;
-  const driverId = customDriver ? null : driverSelection;
-  const vehicleId = customVehicle ? null : vehicleSelection;
+  const companyId = customCompany || noCompany ? null : companySelection;
+  const driverId = customDriver || noDriver ? null : driverSelection;
+  const vehicleId = customVehicle || noVehicle ? null : vehicleSelection;
   const db = getFirestore();
   const [companySnap, driverSnap, vehicleSnap] = await Promise.all([
     companyId ? db.doc(`transportCompanies/${companyId}`).get() : null,
@@ -283,24 +351,38 @@ const assignmentPatch = async (
   if ((companySnap && !companySnap.exists) || (driverSnap && !driverSnap.exists) || (vehicleSnap && !vehicleSnap.exists)) {
     throw new HttpsError("not-found", "Company, driver, or vehicle was not found.");
   }
-  const company = companySnap?.data() || {
+  const company = companySnap?.data() || (noCompany ? {
+    companyName: "N/A",
+    phone: "N/A",
+    companyType: "Not assigned",
+  } : {
     companyName: required(input, "customCompanyName", "Custom company name is required."),
     phone: required(input, "customCompanyPhone", "Custom company phone is required."),
     companyType: "Custom",
-  };
-  const driver = driverSnap?.data() || {
+  });
+  const driver = driverSnap?.data() || (noDriver ? {
+    driverName: "N/A",
+    name: "N/A",
+    phone: "N/A",
+  } : {
     driverName: required(input, "customDriverName", "Custom driver name is required."),
     phone: required(input, "customDriverPhone", "Custom driver phone is required."),
-  };
-  const vehicle = vehicleSnap?.data() || {
+  });
+  const vehicle = vehicleSnap?.data() || (noVehicle ? {
+    vehicleName: "N/A",
+    name: "N/A",
+    vehicleType: kind === "van" ? "Van" : "Taxi",
+    registrationNumber: "N/A",
+  } : {
     vehicleName: required(input, "customVehicleName", "Custom vehicle name is required."),
     vehicleType: stringValue(input.customVehicleType) || (kind === "van" ? "Van" : "Taxi"),
     registrationNumber: required(input, "customRegistrationNumber", "Custom registration number is required."),
-  };
+  });
   if (company.active === false || driver.active === false || vehicle.active === false) {
     throw new HttpsError("failed-precondition", "Inactive assignments cannot be used.");
   }
-  if ((driverId && driver.companyId !== companyId) || (vehicleId && vehicle.companyId !== companyId)) {
+  if ((companyId && driverId && driver.companyId !== companyId) ||
+      (companyId && vehicleId && vehicle.companyId !== companyId)) {
     throw new HttpsError("failed-precondition", "Driver and vehicle must belong to the selected company.");
   }
   if (!new Set(["Available", "Assigned"]).has(stringValue(driver.availabilityStatus) || "Available") ||
@@ -314,6 +396,9 @@ const assignmentPatch = async (
     companyId,
     driverId,
     vehicleId,
+    companyAssignmentMode: noCompany ? "na" : customCompany ? "custom" : "managed",
+    driverAssignmentMode: noDriver ? "na" : customDriver ? "custom" : "managed",
+    vehicleAssignmentMode: noVehicle ? "na" : customVehicle ? "custom" : "managed",
     companySnapshot: {
       name: company.companyName || company.name || "",
       phone: company.phone || company.contact || "",
@@ -477,6 +562,9 @@ export const manageTransportBooking = onCall(
       activityAction = "Booking canceled";
     } else if (action === "verifyDocument") {
       if (kind !== "selfDrive") throw new HttpsError("failed-precondition", "Document verification is for self-drive bookings.");
+      if (currentStatus !== "Pending") {
+        throw new HttpsError("failed-precondition", "Documents can only be verified while the booking is pending.");
+      }
       const documentType = required(input, "documentType", "Document type is required.");
       if (!new Set(["licence", "passport"]).has(documentType)) {
         throw new HttpsError("invalid-argument", "Unknown document type.");
@@ -484,6 +572,23 @@ export const manageTransportBooking = onCall(
       const verificationStatus = required(input, "verificationStatus", "Verification status is required.");
       if (!VALID_DOCUMENT_STATUSES.has(verificationStatus)) {
         throw new HttpsError("invalid-argument", "Invalid verification status.");
+      }
+      const documentLink = documentType === "licence" ? stringValue(
+        booking.licenceLink || booking.licenseLink ||
+        booking.drivingLicenceLink || booking.drivingLicenseLink ||
+        booking.licenceUrl || booking.licenseUrl ||
+        booking.drivingLicenceUrl || booking.drivingLicenseUrl ||
+        booking.licence || booking.license,
+      ) : stringValue(
+        booking.passportLink || booking.passportDocumentLink ||
+        booking.passportUrl || booking.passportDocumentUrl ||
+        booking.passport || booking.passportImage,
+      );
+      if (!documentLink) {
+        throw new HttpsError(
+          "failed-precondition",
+          `${documentType === "licence" ? "Driving licence" : "Passport"} document is missing.`,
+        );
       }
       patch = {
         [`${documentType}VerificationStatus`]: verificationStatus,
@@ -574,14 +679,23 @@ export const manageTransportBooking = onCall(
       if (freshStatus !== currentStatus) {
         throw new HttpsError("aborted", "Booking changed. Refresh and try again.");
       }
-      const assignedDriverId = stringValue(
+      if (action === "accept" && kind === "selfDrive" &&
+          (stringValue(fresh.licenceVerificationStatus) !== "Verified" ||
+           stringValue(fresh.passportVerificationStatus) !== "Verified" ||
+           !hasSelfDriveDocuments(fresh))) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Driving licence and passport must still be verified before acceptance.",
+        );
+      }
+      const assignedDriverId = managedResourceId(
         Object.prototype.hasOwnProperty.call(patch, "driverId") ? patch.driverId : fresh.driverId,
       );
-      const assignedVehicleId = stringValue(
+      const assignedVehicleId = managedResourceId(
         Object.prototype.hasOwnProperty.call(patch, "vehicleId") ? patch.vehicleId : fresh.vehicleId,
       );
-      const previousDriverId = stringValue(fresh.driverId);
-      const previousVehicleId = stringValue(fresh.vehicleId);
+      const previousDriverId = managedResourceId(fresh.driverId);
+      const previousVehicleId = managedResourceId(fresh.vehicleId);
       const driverRef = assignedDriverId ?
         getFirestore().doc(`transportDrivers/${assignedDriverId}`) : null;
       const vehicleRef = assignedVehicleId ?
@@ -899,6 +1013,71 @@ export const manageTransportResource = onCall(
       return {ok: true, id};
     }
 
+    if (action === "delete") {
+      if (!id) throw new HttpsError("invalid-argument", "Resource ID is required.");
+      if (resourceType === "company") {
+        const [drivers, vehicles] = await Promise.all([
+          db.collection("transportDrivers").where("companyId", "==", id).limit(1).get(),
+          db.collection("transportVehicles").where("companyId", "==", id).limit(1).get(),
+        ]);
+        if (!drivers.empty || !vehicles.empty) {
+          throw new HttpsError(
+            "failed-precondition",
+            "Delete or move this company's drivers and vehicles first.",
+          );
+        }
+        const company = await target.get();
+        if (!company.exists) throw new HttpsError("not-found", "Company was not found.");
+        await target.delete();
+      } else if (resourceType === "driver") {
+        await db.runTransaction(async (transaction) => {
+          const driver = await transaction.get(target);
+          if (!driver.exists) throw new HttpsError("not-found", "Driver was not found.");
+          if (stringValue(driver.data()?.currentBookingId)) {
+            throw new HttpsError("failed-precondition", "This driver is assigned to an active booking.");
+          }
+          const assignedVehicleId = stringValue(driver.data()?.assignedVehicleId);
+          const vehicleRef = assignedVehicleId ? db.doc(`transportVehicles/${assignedVehicleId}`) : null;
+          const vehicle = vehicleRef ? await transaction.get(vehicleRef) : null;
+          transaction.delete(target);
+          if (vehicleRef && vehicle?.data()?.assignedDriverId === id) {
+            transaction.set(vehicleRef, {
+              assignedDriverId: FieldValue.delete(),
+              assignedDriverName: FieldValue.delete(),
+              updatedAt: now,
+            }, {merge: true});
+          }
+        });
+      } else {
+        await db.runTransaction(async (transaction) => {
+          const vehicle = await transaction.get(target);
+          if (!vehicle.exists) throw new HttpsError("not-found", "Vehicle was not found.");
+          if (stringValue(vehicle.data()?.currentBookingId)) {
+            throw new HttpsError("failed-precondition", "This vehicle is assigned to an active booking.");
+          }
+          const assignedDriverId = stringValue(vehicle.data()?.assignedDriverId);
+          const normalized = stringValue(vehicle.data()?.registrationNumberNormalized);
+          const registryId = normalized.replace(/[^A-Z0-9_-]/gi, "_");
+          const driverRef = assignedDriverId ? db.doc(`transportDrivers/${assignedDriverId}`) : null;
+          const registryRef = registryId ? db.doc(`transportRegistrationNumbers/${registryId}`) : null;
+          const driver = driverRef ? await transaction.get(driverRef) : null;
+          const registry = registryRef ? await transaction.get(registryRef) : null;
+          transaction.delete(target);
+          if (driverRef && driver?.data()?.assignedVehicleId === id) {
+            transaction.set(driverRef, {
+              assignedVehicleId: null,
+              assignedVehicleSnapshot: null,
+              updatedAt: now,
+            }, {merge: true});
+          }
+          if (registryRef && registry?.data()?.vehicleId === id) {
+            transaction.delete(registryRef);
+          }
+        });
+      }
+      return {ok: true, id};
+    }
+
     let assignedVehicleData: Data | null = null;
     if (resourceType === "company") {
       required(values, "companyName", "Company name is required.");
@@ -1069,148 +1248,5 @@ export const initializeLegacyTransportBooking = onCall(
     });
     logger.info("Initialized legacy transport booking", {collectionName, bookingId});
     return {ok: true};
-  },
-);
-
-export const seedTransportDemoData = onCall(
-  {region: REGION, cors: true},
-  async (request) => {
-    await assertAdmin(request.auth);
-    if (!request.auth) {
-      throw new HttpsError("unauthenticated", "Sign in is required.");
-    }
-    const db = getFirestore();
-    const now = Timestamp.now();
-    const seededBy = actor(request.auth);
-    const companies = [
-      {
-        id: "demo_taxi_company",
-        companyName: "Siam City Taxi Co.",
-        companyType: "Taxi Company",
-        contactPerson: "Niran Chai",
-        phone: "+66 81 555 0101",
-        alternativePhone: "+66 82 555 0101",
-        email: "dispatch@siamcitytaxi.example",
-        address: "99 Sukhumvit Road, Bangkok",
-        defaultCommissionPercentage: 15,
-        notes: "Demo taxi operator for testing assignments.",
-      },
-      {
-        id: "demo_van_company",
-        companyName: "Andaman Van Services",
-        companyType: "Van Company",
-        contactPerson: "Malee Srisuk",
-        phone: "+66 83 555 0202",
-        alternativePhone: "+66 84 555 0202",
-        email: "bookings@andamanvans.example",
-        address: "24 Thepkrasattri Road, Phuket",
-        defaultCommissionPercentage: 12,
-        notes: "Demo van operator for airport and group transfers.",
-      },
-      {
-        id: "demo_mixed_company",
-        companyName: "ThaiSeva Mobility Partners",
-        companyType: "Taxi and Van Company",
-        contactPerson: "Pim Arun",
-        phone: "+66 85 555 0303",
-        alternativePhone: "+66 86 555 0303",
-        email: "operations@thaisevamobility.example",
-        address: "18 Nimman Road, Chiang Mai",
-        defaultCommissionPercentage: 18,
-        notes: "Demo mixed fleet provider.",
-      },
-    ];
-    const drivers = [
-      ["demo_driver_taxi_1", "demo_taxi_company", "Somchai Prasert", "+66 91 555 1001", "TH-DL-10001", "Available", "demo_vehicle_taxi_1"],
-      ["demo_driver_taxi_2", "demo_taxi_company", "Kanya Wattan", "+66 91 555 1002", "TH-DL-10002", "Unavailable", ""],
-      ["demo_driver_van_1", "demo_van_company", "Anan Boonmee", "+66 92 555 2001", "TH-DL-20001", "Available", "demo_vehicle_van_1"],
-      ["demo_driver_van_2", "demo_van_company", "Siriporn Dee", "+66 92 555 2002", "TH-DL-20002", "On Trip", "demo_vehicle_van_2"],
-      ["demo_driver_mixed_1", "demo_mixed_company", "Virote Kitti", "+66 93 555 3001", "TH-DL-30001", "Available", "demo_vehicle_mixed_1"],
-      ["demo_driver_mixed_2", "demo_mixed_company", "Nok Saelim", "+66 93 555 3002", "TH-DL-30002", "Available", "demo_vehicle_mixed_2"],
-    ];
-    const vehicles = [
-      ["demo_vehicle_taxi_1", "demo_taxi_company", "Toyota Corolla Taxi", "Taxi", "Toyota", "Corolla Altis", "DM-TAXI-1001", 4, "Hybrid", "Available", "demo_driver_taxi_1", "Somchai Prasert"],
-      ["demo_vehicle_taxi_2", "demo_taxi_company", "Honda City Taxi", "Taxi", "Honda", "City", "DM-TAXI-1002", 4, "Petrol", "Unavailable"],
-      ["demo_vehicle_van_1", "demo_van_company", "Toyota Commuter", "Van", "Toyota", "Commuter", "DM-VAN-2001", 12, "Diesel", "Available", "demo_driver_van_1", "Anan Boonmee"],
-      ["demo_vehicle_van_2", "demo_van_company", "Hyundai H-1", "Luxury Van", "Hyundai", "H-1", "DM-VAN-2002", 9, "Diesel", "On Trip", "demo_driver_van_2", "Siriporn Dee"],
-      ["demo_vehicle_mixed_1", "demo_mixed_company", "Toyota Fortuner", "SUV Taxi", "Toyota", "Fortuner", "DM-MIX-3001", 6, "Diesel", "Available", "demo_driver_mixed_1", "Virote Kitti"],
-      ["demo_vehicle_mixed_2", "demo_mixed_company", "Toyota Majesty", "Luxury Van", "Toyota", "Majesty", "DM-MIX-3002", 10, "Diesel", "Available", "demo_driver_mixed_2", "Nok Saelim"],
-    ];
-    const batch = db.batch();
-    companies.forEach(({id, ...company}) => {
-      batch.set(db.doc(`transportCompanies/${id}`), {
-        ...company,
-        active: true,
-        archived: false,
-        isDemo: true,
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: seededBy,
-      }, {merge: true});
-    });
-    drivers.forEach(([id, companyId, driverName, phone, licenceNumber, availabilityStatus, assignedVehicleId]) => {
-      batch.set(db.doc(`transportDrivers/${id}`), {
-        companyId,
-        driverName,
-        phone,
-        alternativePhone: "",
-        licenceNumber,
-        licenceExpiryDate: "2028-12-31",
-        idProofUrl: "",
-        address: "Thailand",
-        notes: "Demo driver record.",
-        availabilityStatus,
-        assignedVehicleId: assignedVehicleId || null,
-        active: true,
-        archived: false,
-        isDemo: true,
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: seededBy,
-      }, {merge: true});
-    });
-    vehicles.forEach(([
-      id, companyId, vehicleName, vehicleType, brand, model,
-      registrationNumber, seatingCapacity, fuelType, availabilityStatus,
-      assignedDriverId, assignedDriverName,
-    ]) => {
-      const normalized = stringValue(registrationNumber).replace(/\s+/g, "");
-      batch.set(db.doc(`transportVehicles/${id}`), {
-        companyId,
-        vehicleName,
-        vehicleType,
-        brand,
-        model,
-        registrationNumber,
-        registrationNumberNormalized: normalized,
-        seatingCapacity,
-        fuelType,
-        insuranceExpiryDate: "2028-06-30",
-        permitExpiryDate: "2028-06-30",
-        documentUrl: "",
-        notes: "Demo vehicle record.",
-        availabilityStatus,
-        assignedDriverId: assignedDriverId || null,
-        assignedDriverName: assignedDriverName || null,
-        active: true,
-        archived: false,
-        isDemo: true,
-        createdAt: now,
-        updatedAt: now,
-        updatedBy: seededBy,
-      }, {merge: true});
-      batch.set(db.doc(`transportRegistrationNumbers/${normalized}`), {
-        vehicleId: id,
-        registrationNumberNormalized: normalized,
-        updatedAt: now,
-      }, {merge: true});
-    });
-    await batch.commit();
-    return {
-      ok: true,
-      companies: companies.length,
-      drivers: drivers.length,
-      vehicles: vehicles.length,
-    };
   },
 );

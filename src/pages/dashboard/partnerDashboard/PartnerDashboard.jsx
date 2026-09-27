@@ -5,7 +5,6 @@ import {
   MyDrivingRequirements,
   MyLocalRequirements,
   Bookings,
-  FoodOrders,
 } from "../..";
 import Loading from "../../../components/Loading";
 
@@ -48,18 +47,6 @@ const PartnerDashboard = () => {
         }
       >
         <Bookings />
-      </Suspense>
-    );
-  } else if (userData?.serviceCategory === "Restaurant") {
-    return (
-      <Suspense
-        fallback={
-          <div className="h-full flex items-center">
-            <Loading />
-          </div>
-        }
-      >
-        <FoodOrders />
       </Suspense>
     );
   }

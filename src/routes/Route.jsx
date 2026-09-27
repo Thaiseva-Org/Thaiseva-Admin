@@ -1,3 +1,11 @@
+/**
+ * @file Route.jsx
+ * @description Defines the main routing configuration for the Thaiseva Admin Portal.
+ * It uses React Router's createBrowserRouter to set up paths for the main application,
+ * dashboard, and onboarding forms, incorporating code splitting (Suspense) and role-based
+ * route protection (PrivetRouter, AdminRoute, PartnerRoute, HeadAdminRoute).
+ */
+
 import { createBrowserRouter } from "react-router-dom";
 import PrivetRouter from "./PrivetRouter";
 import PartnerRoute from "./PartnerRoute";
@@ -16,7 +24,6 @@ import {
   LocalServices,
   Hotels,
   LocalPartners,
-  Restaurants,
   ManagePartners,
   SubAdmins,
   AdminStatistics,
@@ -26,10 +33,10 @@ import {
   TodayBookings,
   LocalRequirements,
   CustomerChat,
+  AppChat,
   HotelSupport,
   LocalPartnerSupport,
   ChatWithAdmin,
-  RestaurantChat,
   Login,
   PartnerOnboarding,
   MyServices,
@@ -46,6 +53,7 @@ import {
   HotelRoomAvailabilityHub,
   AddHotelForm,
   Vans,
+  VanBookings,
   Blogs,
   Services,
   FAQs,
@@ -57,6 +65,18 @@ import { Suspense } from "react";
 import Loading from "../components/Loading";
 import ScrollToTop from "../components/ScrollToTop";
 
+/**
+ * The main router configuration object for the application.
+ * Defines the mapping between URL paths and their corresponding React components.
+ * 
+ * Includes:
+ * - Root path `/` rendering the Main layout.
+ * - Dashboard paths `/dashboard/*` protected by authentication and role-based guards.
+ * - Onboarding and authentication paths (`/partner-onboarding`, `/login`).
+ * - Catch-all path `*` rendering the NotFound component.
+ * 
+ * @type {import('@remix-run/router').Router}
+ */
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -186,6 +206,14 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <CarBookings />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/van-bookings",
+        element: (
+          <AdminRoute>
+            <VanBookings />
           </AdminRoute>
         ),
       },
@@ -323,14 +351,6 @@ export const router = createBrowserRouter([
                          Our Partners
       =================================================*/
       {
-        path: "/dashboard/restaurants",
-        element: (
-          <AdminRoute>
-            <Restaurants />
-          </AdminRoute>
-        ),
-      },
-      {
         path: "/dashboard/hotels",
         element: (
           <AdminRoute>
@@ -426,6 +446,14 @@ export const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
+      {
+        path: "/dashboard/app-chat",
+        element: (
+          <AdminRoute>
+            <AppChat />
+          </AdminRoute>
+        ),
+      },
       // {
       //   path: "/dashboard/driver-chat",
       //   element: (
@@ -447,14 +475,6 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <HotelSupport />
-          </AdminRoute>
-        ),
-      },
-      {
-        path: "/dashboard/restaurant-chat",
-        element: (
-          <AdminRoute>
-            <RestaurantChat />
           </AdminRoute>
         ),
       },

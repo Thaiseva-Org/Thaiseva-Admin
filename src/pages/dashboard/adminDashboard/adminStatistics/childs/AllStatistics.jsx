@@ -17,11 +17,11 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import FilterAltIcon from "@mui/icons-material/FilterAlt";
-import CalendarMonthRoundedIcon from "@mui/icons-material/CalendarMonthRounded";
-import InsightsRoundedIcon from "@mui/icons-material/InsightsRounded";
-import PaidRoundedIcon from "@mui/icons-material/PaidRounded";
-import TimelineRoundedIcon from "@mui/icons-material/TimelineRounded";
+import { FilterAltIcon } from "@icons";
+import { CalendarMonthRoundedIcon } from "@icons";
+import { InsightsRoundedIcon } from "@icons";
+import { PaidRoundedIcon } from "@icons";
+import { TimelineRoundedIcon } from "@icons";
 import { StatisticsContext } from "../../../../../contextAPIs/StatisticsProvider";
 import BarEarningChart from "../../../../../components/BarEarningChart";
 

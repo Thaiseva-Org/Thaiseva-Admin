@@ -25,17 +25,9 @@ import {
 } from "@mui/material";
 import { useState, useEffect, useContext, useOptimistic, useTransition } from "react";
 import LoadingContent from "../../../../components/LoadingContent";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import RemoveRedEyeIcon from "@mui/icons-material/RemoveRedEye";
-import {
-  CalendarMonth,
-  Delete,
-  Category,
-  FilterList,
-  CloudDownload,
-  CheckCircle,
-  Close as CloseIcon,
-} from "@mui/icons-material";
+import { FileDownloadIcon } from "@icons";
+import { RemoveRedEyeIcon } from "@icons";
+import { CalendarMonth, Delete, Category, FilterList, CloudDownload, CheckCircle, CloseIcon } from "@icons";
 import {
   fetchBookingsTotalPages,
   fetchTodayBooking,

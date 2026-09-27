@@ -1,8 +1,11 @@
 /**
- * Admin portal hotel availability — simple stock numbers.
+ * @file Admin portal hotel availability — simple stock numbers.
  * free = total - locked - booked
  * Reads: hotelStock nights (Firestore).
  * Writes: Cloud Functions (manageHotelAvailability / unlock).
+ *
+ * This service manages hotel room availability, locks, holds, and bookings
+ * for the admin portal, interfacing with Firebase Firestore and Functions.
  */
 import {
   collection,
@@ -21,26 +24,64 @@ import {
   app,
 } from "../firebase/firebase.config";
 
+/**
+ * Default number of rooms available if not otherwise specified.
+ * @constant {number}
+ */
 export const DEFAULT_ROOM_INVENTORY = 5;
 
+/**
+ * Regular expression to match date strings in YYYY-MM-DD format.
+ * @constant {RegExp}
+ */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The timezone used for date calculations (Bangkok time).
+ * @constant {string}
+ */
 const BANGKOK_TZ = "Asia/Bangkok";
 
+/**
+ * Firebase Functions instance for the 'asia-east2' region.
+ * @constant {import("firebase/functions").Functions}
+ */
 const functions = getFunctions(app, "asia-east2");
+
+/**
+ * Callable Cloud Function to manage hotel availability.
+ * @constant {import("firebase/functions").HttpsCallable}
+ */
 const manageAvailabilityCallable = httpsCallable(
   functions,
   "manageHotelAvailability"
 );
+
+/**
+ * Callable Cloud Function to release hotel inventory.
+ * @constant {import("firebase/functions").HttpsCallable}
+ */
 const releaseInventoryCallable = httpsCallable(
   functions,
   "releaseHotelInventory"
 );
+
+/**
+ * Callable Cloud Function to unlock a hotel room lock.
+ * @constant {import("firebase/functions").HttpsCallable}
+ */
 const unlockRoomLockCallable = httpsCallable(
   functions,
   "unlockHotelRoomLock"
 );
 
-/** Format as YYYY-MM-DD in Asia/Bangkok (matches Cloud Functions). */
+/** 
+ * Format a date value as YYYY-MM-DD in Asia/Bangkok timezone.
+ * Matches Cloud Functions logic.
+ * 
+ * @param {string|Date|object} value - The date to format. Can be a string, Date object, or Firestore Timestamp.
+ * @returns {string|null} The formatted date string, or null if invalid.
+ */
 const toYmd = (value) => {
   if (!value) return null;
   if (typeof value === "string" && DATE_RE.test(value.trim())) {
@@ -63,6 +104,13 @@ const toYmd = (value) => {
   }).format(d);
 };
 
+/**
+ * Generate a list of inclusive dates between a start and end date.
+ * 
+ * @param {string} startDate - The start date in YYYY-MM-DD format.
+ * @param {string} endDate - The end date in YYYY-MM-DD format.
+ * @returns {string[]} An array of date strings in YYYY-MM-DD format.
+ */
 const listInclusiveDates = (startDate, endDate) => {
   if (!startDate || !endDate || startDate > endDate) return [];
   const dates = [];
@@ -78,7 +126,14 @@ const listInclusiveDates = (startDate, endDate) => {
   return dates;
 };
 
-/** Sum active extra/blocked for a date (source of truth for date-based capacity). */
+/** 
+ * Sum active extra/blocked adjustments for a specific date.
+ * This is the source of truth for date-based capacity.
+ * 
+ * @param {object[]} adjustments - Array of adjustment objects.
+ * @param {string} date - The date to check in YYYY-MM-DD format.
+ * @returns {{ extra: number, blocked: number }} The summed extra and blocked quantities.
+ */
 const sumAdjustmentsForDate = (adjustments, date) => {
   let extra = 0;
   let blocked = 0;
@@ -93,9 +148,21 @@ const sumAdjustmentsForDate = (adjustments, date) => {
   return { extra, blocked };
 };
 
+/**
+ * Get the display label for a room.
+ * 
+ * @param {object} room - The room object.
+ * @returns {string} The room label or "Room" as a fallback.
+ */
 const roomLabel = (room) =>
   room?.roomName || room?.packageName || room?.name || room?.id || "Room";
 
+/**
+ * Extract the base room quantity from a room object.
+ * 
+ * @param {object} room - The room object.
+ * @returns {number} The base quantity of rooms available.
+ */
 const roomBaseQty = (room) => {
   const raw = room?.totalRooms ?? room?.quantity ?? room?.numberOfRooms;
   if (raw === undefined || raw === null || raw === "") {
@@ -107,23 +174,48 @@ const roomBaseQty = (room) => {
   return Math.floor(n);
 };
 
+/**
+ * Check if a booking is considered accepted.
+ * 
+ * @param {object} b - The booking object.
+ * @returns {boolean} True if the booking is accepted/confirmed, false otherwise.
+ */
 const isAcceptedBooking = (b) => {
   const s = String(b.bookingStatus || b.status || "").toUpperCase();
   if (["ACCEPTED", "CONFIRMED"].includes(s)) return true;
   return b.isBookingConfirmed === true;
 };
 
+/**
+ * Check if a booking is considered canceled.
+ * 
+ * @param {object} b - The booking object.
+ * @returns {boolean} True if the booking is canceled/rejected/denied, false otherwise.
+ */
 const isCanceledBooking = (b) => {
   const s = String(b.bookingStatus || b.status || "").toUpperCase();
   return ["CANCELED", "CANCELLED", "REJECTED", "DENIED"].includes(s);
 };
 
+/**
+ * Get the number of rooms associated with a booking.
+ * 
+ * @param {object} b - The booking object.
+ * @returns {number} The number of rooms booked (defaults to 1).
+ */
 const roomsFromBooking = (b) => {
   const n = Number(b.rooms ?? b.noOfRooms ?? b.roomCount ?? 1);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
 };
 
-/** Nights occupied: [checkIn, checkOut) */
+/** 
+ * Check if a booking covers a specific date.
+ * Nights occupied: [checkIn, checkOut)
+ * 
+ * @param {object} booking - The booking object.
+ * @param {string} dateYmd - The date to check in YYYY-MM-DD format.
+ * @returns {boolean} True if the booking covers the given date, false otherwise.
+ */
 const bookingCoversDate = (booking, dateYmd) => {
   const checkIn = toYmd(booking.checkInDate || booking.checkIn);
   const checkOut = toYmd(booking.checkOutDate || booking.checkOut);
@@ -131,6 +223,12 @@ const bookingCoversDate = (booking, dateYmd) => {
   return dateYmd >= checkIn && dateYmd < checkOut;
 };
 
+/**
+ * Read the availability configuration from hotel data.
+ * 
+ * @param {object} [hotelData={}] - The raw hotel data document.
+ * @returns {object} The standardized availability configuration.
+ */
 const readAvailabilityConfig = (hotelData = {}) => {
   const nested =
     hotelData.availabilityConfig ||
@@ -148,18 +246,43 @@ const readAvailabilityConfig = (hotelData = {}) => {
   };
 };
 
-/** Firestore path segments and equality filters must be strings. */
+/** 
+ * Convert a value to a string suitable for Firestore path segments or equality filters.
+ * 
+ * @param {any} value - The value to convert.
+ * @returns {string} The string representation or empty string if null/undefined.
+ */
 const asId = (value) => {
   if (value == null || value === "") return "";
   return String(value);
 };
 
+/**
+ * Get the collection reference for a hotel's availability.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @returns {import("firebase/firestore").CollectionReference} The Firestore collection reference.
+ */
 const availabilityCollection = (hotelUid) =>
   collection(db, "HotelDB", asId(hotelUid), "availability");
 
+/**
+ * Get the document reference for a hotel's availability configuration.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @returns {import("firebase/firestore").DocumentReference} The Firestore document reference.
+ */
 const availabilityConfigRef = (hotelUid) =>
   doc(db, "HotelDB", asId(hotelUid), "availability", "config");
 
+/**
+ * Load the availability configuration for a hotel.
+ * Attempts to load from the dedicated config doc, falling back to legacy hotel data.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @param {object} [legacyHotelData={}] - Legacy hotel data to use as a fallback.
+ * @returns {Promise<object>} A promise resolving to the availability configuration object.
+ */
 const loadAvailabilityConfig = async (hotelUid, legacyHotelData = {}) => {
   try {
     const snap = await getDoc(availabilityConfigRef(hotelUid));
@@ -183,6 +306,13 @@ const loadAvailabilityConfig = async (hotelUid, legacyHotelData = {}) => {
   };
 };
 
+/**
+ * Load room details from a hotel.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @param {string} packageId - The ID of the room/package.
+ * @returns {Promise<object|null>} A promise resolving to the room object or null if not found.
+ */
 const loadRoom = async (hotelUid, packageId) => {
   const hid = asId(hotelUid);
   const rid = asId(packageId);
@@ -192,6 +322,13 @@ const loadRoom = async (hotelUid, packageId) => {
   return { id: snap.id, ...snap.data() };
 };
 
+/**
+ * Load capacity adjustments (extra/blocked) for a specific room.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @param {string} packageId - The ID of the room/package.
+ * @returns {Promise<object[]>} A promise resolving to an array of adjustment objects.
+ */
 const loadAdjustments = async (hotelUid, packageId) => {
   const hid = asId(hotelUid);
   const rid = asId(packageId);
@@ -237,6 +374,14 @@ const loadAdjustments = async (hotelUid, packageId) => {
   return results;
 };
 
+/**
+ * Check if a booking matches a given room type.
+ * 
+ * @param {object} b - The booking object.
+ * @param {string} packageId - The ID of the package/room type.
+ * @param {string} [roomNameHint] - Optional room name hint for legacy bookings without a packageId.
+ * @returns {boolean} True if the booking matches the room type.
+ */
 const matchesRoomType = (b, packageId, roomNameHint) => {
   const rid = asId(packageId);
   if (!rid) return true;
@@ -254,6 +399,14 @@ const matchesRoomType = (b, packageId, roomNameHint) => {
   return false;
 };
 
+/**
+ * Load accepted bookings for a specific hotel and room type.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @param {string} packageId - The ID of the package/room type.
+ * @param {string} [roomNameHint=""] - Optional room name hint for matching legacy bookings.
+ * @returns {Promise<object[]>} A promise resolving to an array of accepted bookings.
+ */
 const loadAcceptedBookings = async (hotelUid, packageId, roomNameHint = "") => {
   const hid = asId(hotelUid);
   const rid = asId(packageId);
@@ -318,6 +471,13 @@ const loadAcceptedBookings = async (hotelUid, packageId, roomNameHint = "") => {
   return mergeById(chunks);
 };
 
+/**
+ * Load active locks or holds for a specific room type.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @param {string} packageId - The ID of the package/room type.
+ * @returns {Promise<object[]>} A promise resolving to an array of active lock objects.
+ */
 const loadActiveLocks = async (hotelUid, packageId) => {
   const hid = asId(hotelUid);
   const rid = asId(packageId);
@@ -344,6 +504,12 @@ const loadActiveLocks = async (hotelUid, packageId) => {
   }
 };
 
+/**
+ * Extract the guest name from a booking object.
+ * 
+ * @param {object} b - The booking object.
+ * @returns {string} The guest's name, or "Guest" as a fallback.
+ */
 const guestNameOf = (b) =>
   b.fullName ||
   b.guestDetails?.name ||
@@ -352,6 +518,12 @@ const guestNameOf = (b) =>
   b.customerName ||
   "Guest";
 
+/**
+ * Summarize a booking object to its core details.
+ * 
+ * @param {object} b - The raw booking object.
+ * @returns {object} A summarized booking object.
+ */
 const summarizeBooking = (b) => ({
   id: b.id || b.bookingId || "",
   guest: guestNameOf(b),
@@ -363,7 +535,13 @@ const summarizeBooking = (b) => ({
   roomName: b.roomName || b.packageName || "",
 });
 
-/** Dates in range that have at least one accepted booking (for list UI). */
+/** 
+ * Build a list of dates in range that have at least one accepted booking.
+ * Used for listing occupied dates in the UI.
+ * 
+ * @param {object[]} nights - Array of night stock objects.
+ * @returns {object[]} Array of booked date summaries.
+ */
 const buildBookedDatesList = (nights) =>
   (nights || [])
     .filter((n) => (n.reserved || 0) > 0)
@@ -375,11 +553,27 @@ const buildBookedDatesList = (nights) =>
       bookings: n.bookings || [],
     }));
 
-/** free = total - locked - booked */
+/** 
+ * Calculate the number of free rooms.
+ * formula: free = total - locked - booked
+ * 
+ * @param {number} total - Total rooms available.
+ * @param {number} locked - Number of rooms locked/held.
+ * @param {number} booked - Number of rooms confirmed booked.
+ * @returns {number} The calculated free rooms (min 0).
+ */
 const freeOf = (total, locked, booked) =>
   Math.max(0, Number(total || 0) - Number(locked || 0) - Number(booked || 0));
 
-/** Simple stock night path (shared with website lock/check). */
+/** 
+ * Get the Firestore document reference for a simple stock night.
+ * Shared path with the website's lock/check logic.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @param {string} packageId - The ID of the package/room type.
+ * @param {string} date - The date string (YYYY-MM-DD).
+ * @returns {import("firebase/firestore").DocumentReference} The Firestore document reference.
+ */
 const stockNightRef = (hotelUid, packageId, date) =>
   doc(
     db,
@@ -389,6 +583,15 @@ const stockNightRef = (hotelUid, packageId, date) =>
     asId(date)
   );
 
+/**
+ * Read the stock availability for a specific night.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @param {string} packageId - The ID of the package/room type.
+ * @param {string} date - The date string (YYYY-MM-DD).
+ * @param {number} defaultTotal - The default total rooms if the document doesn't exist.
+ * @returns {Promise<object>} A promise resolving to the stock object for that night.
+ */
 const readStockNight = async (hotelUid, packageId, date, defaultTotal) => {
   const snap = await getDoc(stockNightRef(hotelUid, packageId, date));
   if (!snap.exists()) {
@@ -414,7 +617,16 @@ const readStockNight = async (hotelUid, packageId, date, defaultTotal) => {
 };
 
 /**
- * Admin calendar for Manage Room Availability UI.
+ * Generate an admin calendar for the Manage Room Availability UI.
+ * Aggregates stock, bookings, and holds over a date range.
+ * 
+ * @param {object} params - The calendar parameters.
+ * @param {string} params.hotelUid - The UID of the hotel.
+ * @param {string} params.packageId - The ID of the room package.
+ * @param {string} params.startDate - The start date in YYYY-MM-DD format.
+ * @param {string} params.endDate - The end date in YYYY-MM-DD format.
+ * @returns {Promise<object>} A promise resolving to the calendar payload for the UI.
+ * @throws {Error} If required parameters are missing.
  */
 export const getHotelAvailabilityCalendar = async ({
   hotelUid,
@@ -535,7 +747,16 @@ export const getHotelAvailabilityCalendar = async ({
 };
 
 /**
- * Admin preview for a stay range.
+ * Fetch an admin preview of availability for a specific stay range.
+ * Assesses whether the requested rooms are available for the entire duration.
+ * 
+ * @param {object} params - The preview parameters.
+ * @param {string} params.hotelUid - The UID of the hotel.
+ * @param {string} params.packageId - The ID of the room package.
+ * @param {string} params.checkIn - The check-in date (YYYY-MM-DD).
+ * @param {string} params.checkOut - The check-out date (YYYY-MM-DD).
+ * @param {number} [params.rooms=1] - The number of rooms requested.
+ * @returns {Promise<object>} A promise resolving to the availability status and reason.
  */
 export const getHotelAvailability = async ({
   hotelUid,
@@ -609,8 +830,20 @@ export const getHotelAvailability = async ({
 };
 
 /**
- * Use the Cloud Function so inventory and its audit/allocation records are updated
- * atomically. A failed server update must never fall back to partial client writes.
+ * Update hotel availability using the Cloud Function.
+ * This ensures inventory and its audit/allocation records are updated atomically.
+ * A failed server update must never fall back to partial client writes.
+ * 
+ * @param {object} payload - The payload containing the action and parameters.
+ * @param {string} [payload.action] - The action to perform (e.g., 'setTotalRooms', 'addExtra').
+ * @param {string} [payload.hotelUid] - The hotel UID.
+ * @param {string} [payload.hotelId] - Alternative for hotel UID.
+ * @param {string} [payload.startDate] - Start date of the change.
+ * @param {string} [payload.endDate] - End date of the change.
+ * @param {number} [payload.delta] - Change quantity.
+ * @param {number} [payload.quantity] - Alternative for change quantity.
+ * @returns {Promise<object>} A promise resolving to the result of the Cloud Function.
+ * @throws {Error} If the server update fails.
  */
 export const manageHotelAvailability = async (payload) => {
   const action = payload?.action;
@@ -639,6 +872,13 @@ export const manageHotelAvailability = async (payload) => {
   }
 };
 
+/**
+ * Configure the bookable window and auto-booking for a hotel.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @param {object} config - Configuration object containing window settings.
+ * @returns {Promise<object>} Response from the Cloud Function.
+ */
 export const setBookableWindow = async (hotelUid, config) =>
   manageHotelAvailability({
     action: "setBookableWindow",
@@ -648,6 +888,14 @@ export const setBookableWindow = async (hotelUid, config) =>
     ...config,
   });
 
+/**
+ * Set the total number of rooms for a specific package.
+ * 
+ * @param {string} hotelUid - The UID of the hotel.
+ * @param {string} packageId - The ID of the room package.
+ * @param {number} totalRooms - The new total capacity.
+ * @returns {Promise<object>} Response from the Cloud Function.
+ */
 export const setTotalRooms = async (hotelUid, packageId, totalRooms) =>
   manageHotelAvailability({
     action: "setTotalRooms",
@@ -656,13 +904,29 @@ export const setTotalRooms = async (hotelUid, packageId, totalRooms) =>
     totalRooms,
   });
 
+/**
+ * Add extra room availability for a date range.
+ * 
+ * @param {object} payload - Action parameters (hotelUid, packageId, startDate, endDate, delta).
+ * @returns {Promise<object>} Response from the Cloud Function.
+ */
 export const addExtraRooms = async (payload) =>
   manageHotelAvailability({ action: "addExtra", ...payload });
 
+/**
+ * Block room availability for a date range.
+ * 
+ * @param {object} payload - Action parameters (hotelUid, packageId, startDate, endDate, delta).
+ * @returns {Promise<object>} Response from the Cloud Function.
+ */
 export const blockRooms = async (payload) =>
   manageHotelAvailability({ action: "block", ...payload });
 
-/** @deprecated Adjustments removed — use setTotalRange / addExtra / block on stock totals. */
+/** 
+ * End a legacy availability adjustment.
+ * @deprecated Adjustments removed — use setTotalRange / addExtra / block on stock totals.
+ * @returns {Promise<{ ok: boolean, deprecated: boolean, message: string }>} 
+ */
 export const endAvailabilityAdjustment = async () => ({
   ok: true,
   deprecated: true,
@@ -672,6 +936,10 @@ export const endAvailabilityAdjustment = async () => ({
 /**
  * Admin ops — free night-ledger rooms for a booking (not just flags).
  * Prefer Cloud Function; never clear inventoryReserved without ledger decrement.
+ * 
+ * @param {string} bookingId - The ID of the booking to release.
+ * @returns {Promise<object>} Response from the Cloud Function.
+ * @throws {Error} If bookingId is missing or if the server call fails.
  */
 export const releaseHotelInventory = async (bookingId) => {
   if (!bookingId) throw new Error("bookingId is required.");
@@ -696,15 +964,17 @@ export const releaseHotelInventory = async (bookingId) => {
  * Full unlock: free rooms for the whole stay (check-in → check-out) and
  * remove the lock document when it is a hold.
  *
- * @param {object} payload
- * @param {string} [payload.holdId] — soft hold: free nights + delete hold doc
- * @param {string} [payload.bookingId] — booking: free nights + delete related holds
- * @param {string} [payload.hotelUid] — with packageId/checkIn/checkOut for manual force unlock
- * @param {string} [payload.packageId]
- * @param {string} [payload.checkIn]
- * @param {string} [payload.checkOut]
- * @param {number} [payload.rooms]
- * @param {boolean} [payload.force] — re-free ledger even if already marked released
+ * @param {object} payload - Parameters determining what to unlock.
+ * @param {string} [payload.holdId] - Soft hold: free nights + delete hold doc.
+ * @param {string} [payload.bookingId] - Booking: free nights + delete related holds.
+ * @param {string} [payload.hotelUid] - Used with packageId/checkIn/checkOut for manual force unlock.
+ * @param {string} [payload.packageId] - The ID of the room package.
+ * @param {string} [payload.checkIn] - Check-in date.
+ * @param {string} [payload.checkOut] - Check-out date.
+ * @param {number} [payload.rooms] - Number of rooms to unlock.
+ * @param {boolean} [payload.force] - Re-free ledger even if already marked released.
+ * @returns {Promise<object>} Response from the Cloud Function.
+ * @throws {Error} If missing identifying fields or server call fails.
  */
 export const unlockHotelRoomLock = async (payload = {}) => {
   const hasTarget =
@@ -738,6 +1008,12 @@ export const unlockHotelRoomLock = async (payload = {}) => {
   }
 };
 
+/**
+ * Determine the visual color indicator based on a night's availability.
+ * 
+ * @param {object} night - The night stock object.
+ * @returns {string} The color name ('red', 'orange', 'green', or 'grey').
+ */
 export const availabilityColour = (night) => {
   if (!night) return "grey";
   const free = night.free ?? night.remaining ?? 0;
@@ -749,7 +1025,11 @@ export const availabilityColour = (night) => {
   return "green";
 };
 
-/** Theme-aligned cell colours (primary blue system). */
+/** 
+ * Theme-aligned cell colours (primary blue system).
+ * Maps color names to Tailwind CSS utility classes.
+ * @constant {object}
+ */
 export const colourClasses = {
   green: "bg-emerald-50 text-emerald-800 border-emerald-200",
   orange: "bg-amber-50 text-amber-900 border-amber-200",

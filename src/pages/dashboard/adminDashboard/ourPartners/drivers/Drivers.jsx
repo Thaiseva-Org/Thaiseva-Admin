@@ -26,7 +26,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import {
   driversCollection,
   travelRequirementsCollection,
@@ -37,11 +37,12 @@ import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import SubTitle from "../../../../../components/SubTitle";
 import ViewDetailsIcon from "../../../../../components/ViewDetailsIcon";
 import PageHeading from "../../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
 import DeleteButton from "../../../../../components/DeleteButton";
 import ServiceCategoryBtn from "../../../../../components/ServiceCategoryBtn";
 import { successNotification } from "../../../../../utils/utils";
-import AddTaskIcon from "@mui/icons-material/AddTask";
-import PersonIcon from "@mui/icons-material/Person";
+import { AddTaskIcon } from "@icons";
+import { PersonIcon } from "@icons";
 import { v4 as uuid } from "uuid";
 import { Link } from "react-router-dom";
 import SearchBar from "../../../../../components/SearchBar";
@@ -648,13 +649,10 @@ const Drivers = () => {
 
               {/* Client's Number */}
               <Grid item xs={12} sm={6}>
-                <TextField
+                <CountryPhoneInput
                   label="Client's Number"
-                  type="number"
                   name="clientNumber"
-                  InputLabelProps={{ shrink: true }}
                   placeholder="Phone Number"
-                  fullWidth
                 />
                 {error.for === "number" && (
                   <span className="text-red-500 text-sm">{error.text}</span>

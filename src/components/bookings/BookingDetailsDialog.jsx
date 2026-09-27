@@ -32,6 +32,7 @@ const BookingDetailsDialog = ({ open, booking, busy, error, onClose, onVerifyDoc
   const commission = Number(booking.businessCommission) || booking.finalAmount * (Number(booking.commissionPercentage) || 0) / 100;
   const payout = Number(booking.providerPayout) || booking.finalAmount - commission;
   const activities = booking.activityHistory.length ? booking.activityHistory : booking.statusHistory;
+  const documentsEditable = booking.bookingStatus === "Pending";
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="lg" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
@@ -130,16 +131,17 @@ const BookingDetailsDialog = ({ open, booking, busy, error, onClose, onVerifyDoc
         )}
         {booking.kind === "selfDrive" && tab === 3 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {!documentsEditable && <Alert severity="info" sx={{ gridColumn: "1 / -1" }}>Document verification is read-only after the booking is accepted or closed.</Alert>}
             {[
-              ["licence", "Driving licence", booking.licenceLink || booking.licenseLink, booking.licenceVerificationStatus],
-              ["passport", "Passport", booking.passportLink, booking.passportVerificationStatus],
+              ["licence", "Driving licence", booking.licenceLink || booking.licenseLink || booking.drivingLicenceLink || booking.drivingLicenseLink || booking.licenceUrl || booking.licenseUrl || booking.drivingLicenceUrl || booking.drivingLicenseUrl || booking.licence || booking.license, booking.licenceVerificationStatus],
+              ["passport", "Passport", booking.passportLink || booking.passportDocumentLink || booking.passportUrl || booking.passportDocumentUrl || booking.passport || booking.passportImage, booking.passportVerificationStatus],
             ].map(([type, label, link, status]) => (
               <div key={type} className="border rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2"><h3 className="font-bold">{label}</h3><BookingStatusBadge status={status} /></div>
                 {link ? <a href={link} target="_blank" rel="noreferrer"><img src={link} alt={label} className="w-full h-52 object-contain bg-neutral-50 rounded-lg" /></a> : <p className="h-52 grid place-items-center bg-neutral-50 rounded-lg text-neutral-500">Not uploaded</p>}
                 <div className="flex gap-2">
-                  <Button disabled={busy || !link} size="small" color="success" variant="outlined" onClick={() => onVerifyDocument(type, "Verified")}>Verify</Button>
-                  <Button disabled={busy || !link} size="small" color="error" variant="outlined" onClick={() => onVerifyDocument(type, "Rejected")}>Reject</Button>
+                  <Button disabled={busy || !link || !documentsEditable} size="small" color="success" variant="outlined" onClick={() => onVerifyDocument(type, "Verified")}>Verify</Button>
+                  <Button disabled={busy || !link || !documentsEditable} size="small" color="error" variant="outlined" onClick={() => onVerifyDocument(type, "Rejected")}>Reject</Button>
                 </div>
               </div>
             ))}

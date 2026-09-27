@@ -1,4 +1,4 @@
-import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { Visibility, VisibilityOff } from "@icons";
 import {
   Alert,
   Box,
@@ -18,19 +18,19 @@ import axios from "axios";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { useContext, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { MdLocationOn } from "react-icons/md";
+import { MdLocationOn } from "@icons";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { logo } from "../../assets";
 import SubTitle from "../../components/SubTitle";
+import CountryPhoneInput from "../../components/CountryPhoneInput";
 import { AuthContext } from "../../contextAPIs/AuthProvider";
 import {
   hotelsCollection,
   usersCollection,
 } from "../../firebase/firebase.config";
 import {
-  formatPhoneNumber,
   getFileUrl,
   successNotification,
 } from "../../utils/utils";
@@ -504,17 +504,11 @@ const HotelOnboarding = () => {
                 control={control}
                 defaultValue=""
                 render={({ field }) => (
-                  <TextField
+                  <CountryPhoneInput
                     {...field}
                     label="Phone Number"
-                    type="tel"
                     placeholder="012 1234 1234"
-                    value={field.value}
-                    onChange={(e) => {
-                      const formatted = formatPhoneNumber(e.target.value);
-                      field.onChange(formatted);
-                    }}
-                    fullWidth
+                    required
                   />
                 )}
               />

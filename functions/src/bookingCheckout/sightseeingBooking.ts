@@ -89,7 +89,7 @@ const buildDocId = (
   arrival: string,
   departure: string,
 ) =>
-  `pkg_${userId}_${packageId}_${arrival}_${departure}`
+  `pkg_${userId}_${packageId}_${arrival}_${departure}_${Date.now()}`
     .replace(/[^a-zA-Z0-9_-]/g, "_")
     .slice(0, 140);
 
@@ -140,9 +140,18 @@ export const createSightseeingBooking = onRequest(
     const arrivalDate = toDateStr(
       body.arrivalDate || body.travelDate || body.date || body.pickUpTime,
     );
-    const departureDate = toDateStr(
-      body.departureDate || body.endDate || arrivalDate,
-    );
+    let departureDate = arrivalDate;
+    if (arrivalDate && /^\d{4}-\d{2}-\d{2}$/.test(arrivalDate)) {
+      const durationDays = parsePositiveInt(
+        pkg.period ?? (pkg.duration as Record<string, unknown>)?.days,
+        1,
+      );
+      if (durationDays > 1) {
+        const d = new Date(arrivalDate);
+        d.setDate(d.getDate() + durationDays - 1);
+        departureDate = d.toISOString().slice(0, 10);
+      }
+    }
     const packageName = stringValue(
       pkg.title || pkg.packageName || body.packageName,
       200,

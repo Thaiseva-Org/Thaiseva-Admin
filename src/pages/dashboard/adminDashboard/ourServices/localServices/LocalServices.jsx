@@ -1,5 +1,5 @@
-import AddTaskIcon from "@mui/icons-material/AddTask";
-import CloseIcon from "@mui/icons-material/Close";
+import { AddTaskIcon } from "@icons";
+import { CloseIcon } from "@icons";
 import {
   Box,
   Dialog,
@@ -16,6 +16,7 @@ import { useContext, useEffect, useState } from "react";
 import { v4 as uuid } from "uuid";
 import LoadingContent from "../../../../../components/LoadingContent";
 import PageHeading from "../../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
 import SearchBar from "../../../../../components/SearchBar";
 import ServiceCategoryBtn from "../../../../../components/ServiceCategoryBtn";
 import ViewDetailsIcon from "../../../../../components/ViewDetailsIcon";
@@ -31,7 +32,6 @@ import {
   localServicesTotalPages,
 } from "../../../../../services/LocalRelated";
 import {
-  formatPhoneNumber,
   successNotification,
 } from "../../../../../utils/utils";
 
@@ -786,19 +786,11 @@ const LocalServices = () => {
 
               {/* Client's Number */}
               <Grid item xs={12} sm={6}>
-                <TextField
+                <CountryPhoneInput
                   label="Client's Number"
-                  type="tel"
                   name="clientNumber"
-                  autoComplete="off"
-                  autoCorrect="off"
-                  InputLabelProps={{ shrink: true }}
                   placeholder="Phone Number"
-                  onChange={(e) => {
-                    const formatted = formatPhoneNumber(e.target.value);
-                    e.target.value = formatted;
-                  }}
-                  fullWidth
+                  inputProps={{ autoComplete: "off", autoCorrect: "off" }}
                 />
                 {error.includes("Client Number") && (
                   <span className="text-red-500 text-sm">{error}</span>

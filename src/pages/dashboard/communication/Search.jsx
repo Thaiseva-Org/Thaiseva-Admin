@@ -1,5 +1,5 @@
-import CloseIcon from "@mui/icons-material/Close";
-import SearchIcon from "@mui/icons-material/Search";
+import { CloseIcon } from "@icons";
+import { SearchIcon } from "@icons";
 import { Tooltip } from "@mui/material";
 import {
   doc,

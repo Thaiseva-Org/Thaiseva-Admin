@@ -22,20 +22,20 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
-import ArrowForwardIosIcon from "@mui/icons-material/ArrowForwardIos";
-import AddIcon from "@mui/icons-material/Add";
-import BlockIcon from "@mui/icons-material/Block";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import SettingsIcon from "@mui/icons-material/Settings";
-import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
-import EventBusyIcon from "@mui/icons-material/EventBusy";
-import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import LayersIcon from "@mui/icons-material/Layers";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
-import ExpandLessIcon from "@mui/icons-material/ExpandLess";
+import { ArrowBackIcon } from "@icons";
+import { ArrowBackIosNewIcon } from "@icons";
+import { ArrowForwardIosIcon } from "@icons";
+import { AddIcon } from "@icons";
+import { BlockIcon } from "@icons";
+import { RefreshIcon } from "@icons";
+import { CalendarMonthIcon } from "@icons";
+import { SettingsIcon } from "@icons";
+import { MeetingRoomIcon } from "@icons";
+import { EventBusyIcon } from "@icons";
+import { WarningAmberIcon } from "@icons";
+import { LayersIcon } from "@icons";
+import { ExpandMoreIcon } from "@icons";
+import { ExpandLessIcon } from "@icons";
 import {
   collection,
   doc,

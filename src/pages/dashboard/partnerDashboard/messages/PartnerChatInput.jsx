@@ -1,4 +1,4 @@
-import InsertPhotoIcon from "@mui/icons-material/InsertPhoto";
+import { InsertPhotoIcon } from "@icons";
 import { useContext, useEffect } from "react";
 import { useState } from "react";
 import { v4 as uuid } from "uuid";

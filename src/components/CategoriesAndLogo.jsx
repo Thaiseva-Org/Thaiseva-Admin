@@ -14,7 +14,7 @@ import {
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { useRef, useState, useCallback, useEffect } from "react";
 import { settingsCollection } from "../firebase/firebase.config";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import { v4 as uuid } from "uuid";
 import {
   askingForDelete,

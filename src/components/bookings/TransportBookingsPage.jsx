@@ -7,14 +7,7 @@ import {
   TablePagination,
   Tooltip,
 } from "@mui/material";
-import {
-  CancelOutlined,
-  CheckCircleOutline,
-  DoneAll,
-  EditOutlined,
-  PaymentsOutlined,
-  VisibilityOutlined,
-} from "@mui/icons-material";
+import { CancelOutlined, CheckCircleOutline, EditOutlined, PaymentsOutlined, VisibilityOutlined } from "@icons";
 import { onSnapshot } from "firebase/firestore";
 import PageHeading from "../PageHeading";
 import {
@@ -74,15 +67,21 @@ const TransportBookingsPage = ({ kind, title, subtitle, icon, headerAction }) =>
   useEffect(() => {
     setLoading(true);
     setLoadError("");
-    // car bookings (kind taxi) include all transportType: car | van | taxi | bike
-    const sources = [[
-      kind === "taxi" ? carBookingsCollection : selfDriveBookingCollection,
-      "mobile",
-    ]];
+    // taxi + van both read car_bookings; selfDrive reads self_driving_bookings
+    const collectionRef =
+      kind === "selfDrive" ? selfDriveBookingCollection : carBookingsCollection;
+    const sources = [[collectionRef, "mobile"]];
     const results = new Map();
     const publish = () => {
       if (results.size < sources.length) return;
-      const combined = [...results.values()].flat();
+      const combined = [...results.values()].flat().filter((booking) => {
+        const isVan = String(booking.transportType || booking.vehicleType || "")
+          .toLowerCase()
+          .includes("van");
+        if (kind === "van") return isVan;
+        if (kind === "taxi") return !isVan;
+        return true;
+      });
       combined.sort((a, b) => {
         if (a.bookingStatus === "Pending" && b.bookingStatus !== "Pending") return -1;
         if (a.bookingStatus !== "Pending" && b.bookingStatus === "Pending") return 1;
@@ -91,8 +90,8 @@ const TransportBookingsPage = ({ kind, title, subtitle, icon, headerAction }) =>
       setBookings(combined);
       setLoading(false);
     };
-    const unsubscribers = sources.map(([collectionRef, source]) => onSnapshot(
-      collectionRef,
+    const unsubscribers = sources.map(([colRef, source]) => onSnapshot(
+      colRef,
       (snapshot) => {
         results.set(source, snapshot.docs.map((doc) => normalizeTransportBooking({ id: doc.id, ...doc.data() }, kind, source)));
         publish();
@@ -212,11 +211,11 @@ const TransportBookingsPage = ({ kind, title, subtitle, icon, headerAction }) =>
           <div className="py-20 grid place-items-center"><CircularProgress /></div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px]">
+            <table className="w-full min-w-[900px]">
               <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white">
                 <tr>
                   {[
-                    "Reference", "Customer", "Trip", "Travel date", "Assignment", "Amount", "Booking", "Payment", "Actions",
+                    "Customer", "Trip", "Travel date", "Assignment", "Amount", "Booking", "Payment", "Actions",
                   ].map((label) => <th key={label} className="px-4 py-3 text-left text-xs font-bold uppercase tracking-wide">{label}</th>)}
                 </tr>
               </thead>
@@ -225,7 +224,6 @@ const TransportBookingsPage = ({ kind, title, subtitle, icon, headerAction }) =>
                   const actions = rowActions(booking);
                   return (
                     <tr key={`${booking.source}-${booking.id}`} className="hover:bg-primary-50/50">
-                      <td className="px-4 py-4 text-sm font-semibold">{booking.bookingReference}<span className="block text-[10px] uppercase text-neutral-400">{booking.source}</span></td>
                       <td className="px-4 py-4 text-sm"><span className="font-medium">{booking.customerName}</span><span className="block text-xs text-neutral-500">{booking.customerPhone}</span></td>
                       <td className="px-4 py-4 text-sm max-w-[190px]"><span className="block truncate" title={booking.pickup}>{booking.pickup}</span><span className="block truncate text-neutral-500" title={booking.destination}>→ {booking.destination}</span></td>
                       <td className="px-4 py-4 text-sm whitespace-nowrap">{formatTransportDate(booking.travelDateValue)}</td>
@@ -239,14 +237,13 @@ const TransportBookingsPage = ({ kind, title, subtitle, icon, headerAction }) =>
                         {actions.includes("accept") && <Tooltip title="Accept / confirm"><IconButton color="success" size="small" onClick={() => openDialog(booking, "assignment")}><CheckCircleOutline fontSize="small" /></IconButton></Tooltip>}
                         {actions.includes("assignment") && <Tooltip title="Edit assignment"><IconButton size="small" onClick={() => openDialog(booking, "editAssignment")}><EditOutlined fontSize="small" /></IconButton></Tooltip>}
                         {actions.includes("payment") && booking.remainingBalance > 0 && <Tooltip title="Record payment"><IconButton color="primary" size="small" onClick={() => openDialog(booking, "payment")}><PaymentsOutlined fontSize="small" /></IconButton></Tooltip>}
-                        {actions.includes("complete") && <Tooltip title="Mark completed"><IconButton color="success" size="small" onClick={() => openDialog(booking, "complete")}><DoneAll fontSize="small" /></IconButton></Tooltip>}
                         {actions.includes("reject") && <Tooltip title="Reject"><IconButton color="error" size="small" onClick={() => openDialog(booking, "reject")}><CancelOutlined fontSize="small" /></IconButton></Tooltip>}
                         {actions.includes("cancel") && <Tooltip title="Cancel"><IconButton color="error" size="small" onClick={() => openDialog(booking, "cancel")}><CancelOutlined fontSize="small" /></IconButton></Tooltip>}
                       </div></td>
                     </tr>
                   );
                 })}
-                {!filtered.length && <tr><td colSpan={9} className="py-16 text-center text-neutral-500"><p className="text-lg font-semibold">No bookings match these filters</p><p className="text-sm mt-1">Reset the filters or select another status.</p><Button sx={{ mt: 2 }} onClick={() => setFilters(defaultFilters)}>Reset filters</Button></td></tr>}
+                {!filtered.length && <tr><td colSpan={8} className="py-16 text-center text-neutral-500"><p className="text-lg font-semibold">No bookings match these filters</p><p className="text-sm mt-1">Reset the filters or select another status.</p><Button sx={{ mt: 2 }} onClick={() => setFilters(defaultFilters)}>Reset filters</Button></td></tr>}
               </tbody>
             </table>
           </div>

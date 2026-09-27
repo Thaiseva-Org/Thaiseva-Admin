@@ -10,9 +10,11 @@ The official administrative and partner management portal for **Thaiseva**. This
 
 ---
 
-## 📚 Booking API (website & app)
+## 📚 Project Documentation
 
-**Share this one file only:**
+The following detailed documentation artifacts have been generated for this project:
+- [Architecture & Configuration Flows](./Thaiseva_Architecture_Flows.md)
+- [Dashboard User Manual](./Thaiseva_Dashboard_Manual.md)
 
 ### [documentation/THAISEVA_BOOKING_API.md](./documentation/THAISEVA_BOOKING_API.md)
 

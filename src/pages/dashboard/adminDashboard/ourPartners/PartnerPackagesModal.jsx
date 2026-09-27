@@ -24,9 +24,9 @@ import {
     Paper,
     Autocomplete
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AddCircleIcon from "@mui/icons-material/AddCircle";
+import { CloseIcon } from "@icons";
+import { DeleteIcon } from "@icons";
+import { AddCircleIcon } from "@icons";
 import {
     collection,
     doc,

@@ -1,5 +1,5 @@
 import { Tooltip } from "@mui/material";
-import RemoveRedEyeIcon from "@mui/icons-material/RemoveRedEye";
+import { RemoveRedEyeIcon } from "@icons";
 
 const ViewDetailsIcon = ({ title = "", handleView = () => {}, id = "" }) => {
   const handleClick = () => {

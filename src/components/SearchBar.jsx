@@ -1,6 +1,6 @@
 import { Grid, TextField, InputAdornment } from "@mui/material";
 import { Link } from "react-router-dom";
-import SearchIcon from "@mui/icons-material/Search";
+import { SearchIcon } from "@icons";
 
 const SearchBar = ({
   handleSearch,

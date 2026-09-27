@@ -23,6 +23,7 @@ import {
 } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
 import PageHeading from "../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../components/CountryPhoneInput";
 import { PartnerContext } from "../../../../contextAPIs/PartnerProvider";
 import LoadingContent from "../../../../components/LoadingContent";
 import {
@@ -31,13 +32,13 @@ import {
   deleteNotification,
   successNotification,
 } from "../../../../utils/utils";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import { FileDownloadIcon } from "@icons";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import Invoice from "../../../../components/reports/Invoice";
 
 import { deleteDoc, doc, setDoc } from "firebase/firestore";
 import { invoicesCollection } from "../../../../firebase/firebase.config";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import DeleteButton from "../../../../components/DeleteButton";
 import SearchBar from "../../../../components/SearchBar";
 import PartnerInvoice from "../../../../components/reports/PartnerInvoice";
@@ -413,9 +414,8 @@ const Invoices = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField
+                <CountryPhoneInput
                   label="Partner Phone"
-                  type="text"
                   value={newInvoice.paymentTo.partnerPhone}
                   onChange={(e) =>
                     setNewInvoice((p) => ({
@@ -426,7 +426,6 @@ const Invoices = () => {
                       },
                     }))
                   }
-                  fullWidth
                 />
               </Grid>
 

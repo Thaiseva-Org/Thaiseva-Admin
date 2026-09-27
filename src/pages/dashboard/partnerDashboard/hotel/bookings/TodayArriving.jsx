@@ -18,10 +18,11 @@ import {
 } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
 import PageHeading from "../../../../../components/PageHeading";
+import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 // import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
 // import EditIcon from "@mui/icons-material/Edit";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import {
   doc,
   getDoc,
@@ -44,7 +45,6 @@ import { backfillCreatedAt } from "../../../../../utils/bookingTimestamps";
 import {
   calculateDiscountPrice,
   deleteNotification,
-  formatPhoneNumber,
   getDate,
   successNotification,
 } from "../../../../../utils/utils";
@@ -231,7 +231,7 @@ const TodayArriving = () => {
       setOpenBookingDetailsModal(false);
       return;
     }
-    if (data?.managerPhone?.length < 11) {
+    if (!/^\+?\d{8,15}$/.test(data?.managerPhone || "")) {
       return setError("Invalid manager phone number");
     } else if (data?.roomNumbers?.length > bookingDetails?.noOfRooms) {
       return setError("Rooms provided are more than required!");
@@ -555,18 +555,16 @@ const TodayArriving = () => {
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-2">
                     <div className="flex-1">
-                      <TextField
+                      <CountryPhoneInput
                         label="Manager's Number"
-                        type="tel"
                         value={data?.managerPhone}
                         placeholder="Manager's Phone Number"
                         onChange={(e) =>
                           setData((p) => ({
                             ...p,
-                            managerPhone: formatPhoneNumber(e.target.value),
+                            managerPhone: e.target.value,
                           }))
                         }
-                        fullWidth
                       />
                     </div>
                     <div className="flex-1 flex gap-2 items-center">

@@ -18,13 +18,23 @@ import {
   transportDriversCollection,
   transportVehiclesCollection,
 } from "../../firebase/firebase.config";
-import {
-  DEMO_TRANSPORT_COMPANIES,
-  DEMO_TRANSPORT_DRIVERS,
-  DEMO_TRANSPORT_VEHICLES,
-} from "../../data/transportDemoData";
+import CountryPhoneInput from "../CountryPhoneInput";
+import { toDateValue } from "../../utils/transportBooking";
 
 const CUSTOM_ID = "__custom__";
+const NOT_ASSIGNED_ID = "__na__";
+
+const personValue = (...values) => values.find((value) => {
+  const normalized = String(value || "").trim();
+  return normalized && !/^(?:n\/?a|not assigned|[-—])$/i.test(normalized);
+}) || "";
+
+const toLocalInput = (value) => {
+  const date = toDateValue(value);
+  if (!date) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 16);
+};
 
 const baseForm = {
   companyId: "",
@@ -52,26 +62,34 @@ const baseForm = {
 
 const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onClose, onSubmit }) => {
   const [form, setForm] = useState(baseForm);
-  const [companies, setCompanies] = useState(DEMO_TRANSPORT_COMPANIES);
-  const [drivers, setDrivers] = useState(DEMO_TRANSPORT_DRIVERS);
-  const [vehicles, setVehicles] = useState(DEMO_TRANSPORT_VEHICLES);
+  const [companies, setCompanies] = useState([]);
+  const [drivers, setDrivers] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
 
   useEffect(() => {
     if (!open) return undefined;
     setForm({
       ...baseForm,
-      companyId: booking?.companyId || (kind !== "selfDrive" && booking?.companySnapshot ? CUSTOM_ID : ""),
-      driverId: booking?.driverId || (kind !== "selfDrive" && booking?.driverSnapshot ? CUSTOM_ID : ""),
-      vehicleId: booking?.vehicleId || (booking?.vehicleSnapshot ? CUSTOM_ID : ""),
+      companyId: booking?.companyAssignmentMode === "na"
+        ? NOT_ASSIGNED_ID
+        : booking?.companyId || (kind !== "selfDrive" && booking?.companySnapshot ? CUSTOM_ID : ""),
+      driverId: booking?.driverAssignmentMode === "na"
+        ? NOT_ASSIGNED_ID
+        : booking?.driverId || (kind !== "selfDrive" && booking?.driverSnapshot ? CUSTOM_ID : ""),
+      vehicleId: booking?.vehicleAssignmentMode === "na"
+        ? NOT_ASSIGNED_ID
+        : booking?.vehicleId || (booking?.vehicleSnapshot ? CUSTOM_ID : ""),
       finalAmount: booking?.finalAmount || "",
       commissionPercentage: booking?.commissionPercentage ?? booking?.comission ?? "",
+      travelAt: toLocalInput(booking?.travelDateValue),
+      durationHours: booking?.assumedDurationHours || baseForm.durationHours,
       providerName: booking?.providerSnapshot?.name || booking?.Provider?.name || "",
       providerPhone: booking?.providerSnapshot?.phone || booking?.Provider?.phone || "",
       vehicleName: booking?.vehicleSnapshot?.name || booking?.vehicleDetails?.vehicle || "",
       registrationNumber: booking?.vehicleSnapshot?.registrationNumber || booking?.vehicleDetails?.vehicleNumber || "",
-      handoverName: booking?.handoverSnapshot?.name || booking?.dropDetails?.name || "",
-      handoverPhone: booking?.handoverSnapshot?.phone || booking?.dropDetails?.phone || "",
-      pickupLocation: booking?.PickUpLocation || booking?.pickupLocation || "",
+      handoverName: personValue(booking?.handoverSnapshot?.name, booking?.dropDetails?.name, booking?.customerName),
+      handoverPhone: personValue(booking?.handoverSnapshot?.phone, booking?.dropDetails?.phone, booking?.customerPhone),
+      pickupLocation: booking?.PickUpLocation || booking?.pickupLocation || (booking?.pickup === "â€”" ? "" : booking?.pickup) || "",
       customCompanyName: booking?.companyId ? "" : booking?.companySnapshot?.name || "",
       customCompanyPhone: booking?.companyId ? "" : booking?.companySnapshot?.phone || "",
       customDriverName: booking?.driverId ? "" : booking?.driverSnapshot?.name || booking?.Driver?.name || "",
@@ -82,16 +100,13 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
     });
     const unsubs = [
       onSnapshot(query(transportCompaniesCollection, where("active", "==", true)), (snap) => {
-        const records = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setCompanies(records.length ? records : DEMO_TRANSPORT_COMPANIES);
+        setCompanies(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter((record) => record.isDemo !== true));
       }),
       onSnapshot(query(transportDriversCollection, where("active", "==", true)), (snap) => {
-        const records = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setDrivers(records.length ? records : DEMO_TRANSPORT_DRIVERS);
+        setDrivers(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter((record) => record.isDemo !== true));
       }),
       onSnapshot(query(transportVehiclesCollection, where("active", "==", true)), (snap) => {
-        const records = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-        setVehicles(records.length ? records : DEMO_TRANSPORT_VEHICLES);
+        setVehicles(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })).filter((record) => record.isDemo !== true));
       }),
     ];
     return () => unsubs.forEach((unsubscribe) => unsubscribe());
@@ -99,22 +114,33 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
 
   const eligibleCompanies = useMemo(() => companies.filter((company) => {
     const type = company.companyType;
-    // Car bookings accept taxi, van, and mixed companies
-    return ["Taxi Company", "Van Company", "Taxi and Van Company"].includes(type);
-  }), [companies]);
+    return kind === "van"
+      ? ["Van Company", "Taxi and Van Company"].includes(type)
+      : ["Taxi Company", "Taxi and Van Company"].includes(type);
+  }), [companies, kind]);
+  const availableForBooking = (resource) => {
+    const status = resource.availabilityStatus || "Available";
+    return status === "Available" ||
+      (status === "Assigned" && (!resource.currentBookingId || resource.currentBookingId === booking?.id));
+  };
+  const companyIsNotAssigned = form.companyId === NOT_ASSIGNED_ID;
   const eligibleDrivers = drivers.filter((driver) =>
-    driver.companyId === form.companyId && ["Available", "Assigned"].includes(driver.availabilityStatus || "Available"));
-  const eligibleVehicles = vehicles.filter((vehicle) =>
-    vehicle.companyId === form.companyId &&
-    ["Available", "Assigned"].includes(vehicle.availabilityStatus || "Available"));
-  const selfDriveVehicles = vehicles.filter((vehicle) => vehicle.active !== false);
+    (companyIsNotAssigned || driver.companyId === form.companyId) && availableForBooking(driver));
+  const eligibleVehicles = vehicles.filter((vehicle) => {
+    if ((!companyIsNotAssigned && vehicle.companyId !== form.companyId) || !availableForBooking(vehicle)) return false;
+    const isVan = String(vehicle.vehicleType || "").toLowerCase().includes("van");
+    return kind === "van" ? isVan : !isVan;
+  });
+  const selfDriveVehicles = vehicles.filter((vehicle) => vehicle.active !== false && availableForBooking(vehicle));
   const selectedCompany = companies.find((company) => company.id === form.companyId);
 
   const set = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
   const validMoney = Number(form.finalAmount) > 0 && Number(form.commissionPercentage) >= 0 && Number(form.commissionPercentage) <= 100;
   const documentsVerified = booking?.licenceVerificationStatus === "Verified" && booking?.passportVerificationStatus === "Verified";
   const assignmentValid = kind === "selfDrive"
-    ? form.vehicleId && form.providerName && form.providerPhone && form.vehicleName && form.registrationNumber && form.handoverName && form.handoverPhone && form.pickupLocation && documentsVerified
+    ? form.vehicleId &&
+      form.providerName && form.providerPhone && form.vehicleName && form.registrationNumber &&
+      form.handoverName && form.handoverPhone && form.pickupLocation && documentsVerified
     : form.companyId && form.driverId && form.vehicleId &&
       (form.companyId !== CUSTOM_ID || (form.customCompanyName && form.customCompanyPhone)) &&
       (form.driverId !== CUSTOM_ID || (form.customDriverName && form.customDriverPhone)) &&
@@ -123,7 +149,7 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{edit ? "Edit assignment" : "Accept booking"}</DialogTitle>
+      <DialogTitle>{edit ? "Edit assignment" : kind === "van" ? "Confirm van booking" : "Accept booking"}</DialogTitle>
       <DialogContent dividers>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
           {error && <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{error}</Alert>}
@@ -152,17 +178,19 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
                   {selfDriveVehicles.map((vehicle) => {
                     const company = companies.find((item) => item.id === vehicle.companyId);
                     const availability = vehicle.availabilityStatus || "Available";
-                    return <MenuItem key={vehicle.id} value={vehicle.id} disabled={!['Available', 'Assigned'].includes(availability)}>{vehicle.vehicleName} · {vehicle.registrationNumber} · {company?.companyName || "No company"} · {availability}</MenuItem>;
+                    return <MenuItem key={vehicle.id} value={vehicle.id}>{vehicle.vehicleName} · {vehicle.registrationNumber} · {company?.companyName || "No company"} · {availability}</MenuItem>;
                   })}
                   <MenuItem value={CUSTOM_ID}>Custom / unregistered vehicle</MenuItem>
                 </Select>
               </FormControl>
-              <TextField required label="Vehicle provider" value={form.providerName} onChange={set("providerName")} InputProps={{ readOnly: form.vehicleId !== CUSTOM_ID }} />
-              <TextField required label="Provider phone" value={form.providerPhone} onChange={set("providerPhone")} InputProps={{ readOnly: form.vehicleId !== CUSTOM_ID }} />
-              <TextField required label="Vehicle name" value={form.vehicleName} onChange={set("vehicleName")} InputProps={{ readOnly: form.vehicleId !== CUSTOM_ID }} />
-              <TextField required label="Registration number" value={form.registrationNumber} onChange={set("registrationNumber")} InputProps={{ readOnly: form.vehicleId !== CUSTOM_ID }} />
+              <>
+                <TextField required label="Vehicle provider" value={form.providerName} onChange={set("providerName")} InputProps={{ readOnly: form.vehicleId !== CUSTOM_ID }} />
+                <CountryPhoneInput required label="Provider phone" value={form.providerPhone} onChange={set("providerPhone")} readOnly={form.vehicleId !== CUSTOM_ID} />
+                <TextField required label="Vehicle name" value={form.vehicleName} onChange={set("vehicleName")} InputProps={{ readOnly: form.vehicleId !== CUSTOM_ID }} />
+                <TextField required label="Registration number" value={form.registrationNumber} onChange={set("registrationNumber")} InputProps={{ readOnly: form.vehicleId !== CUSTOM_ID }} />
+              </>
               <TextField required label="Handover person" value={form.handoverName} onChange={set("handoverName")} />
-              <TextField required label="Handover phone" value={form.handoverPhone} onChange={set("handoverPhone")} />
+              <CountryPhoneInput required label="Handover phone" value={form.handoverPhone} onChange={set("handoverPhone")} />
               <TextField required label="Physical pickup location" value={form.pickupLocation} onChange={set("pickupLocation")} sx={{ gridColumn: { md: "1 / -1" } }} />
             </>
           ) : (
@@ -172,21 +200,31 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
                 <Select
                   value={form.companyId}
                   label="Company"
-                  onChange={(event) => setForm({
-                    ...form,
-                    companyId: event.target.value,
-                    driverId: event.target.value === CUSTOM_ID ? CUSTOM_ID : "",
-                    vehicleId: event.target.value === CUSTOM_ID ? CUSTOM_ID : "",
-                    commissionPercentage: companies.find((item) => item.id === event.target.value)?.defaultCommissionPercentage ?? form.commissionPercentage,
-                  })}
+                  onChange={(event) => {
+                    const companyId = event.target.value;
+                    setForm((current) => ({
+                      ...current,
+                      companyId,
+                      driverId: companyId === NOT_ASSIGNED_ID || [CUSTOM_ID, NOT_ASSIGNED_ID].includes(current.driverId) ||
+                        drivers.some((driver) => driver.id === current.driverId && driver.companyId === companyId)
+                        ? current.driverId
+                        : "",
+                      vehicleId: companyId === NOT_ASSIGNED_ID || [CUSTOM_ID, NOT_ASSIGNED_ID].includes(current.vehicleId) ||
+                        vehicles.some((vehicle) => vehicle.id === current.vehicleId && vehicle.companyId === companyId)
+                        ? current.vehicleId
+                        : "",
+                      commissionPercentage: companies.find((item) => item.id === companyId)?.defaultCommissionPercentage ?? current.commissionPercentage,
+                    }));
+                  }}
                 >
                   {eligibleCompanies.map((company) => <MenuItem key={company.id} value={company.id}>{company.companyName}</MenuItem>)}
+                  <MenuItem value={NOT_ASSIGNED_ID}>N/A / Not assigned</MenuItem>
                   <MenuItem value={CUSTOM_ID}>Custom / unregistered company</MenuItem>
                 </Select>
               </FormControl>
               {form.companyId === CUSTOM_ID && <>
                 <TextField required label="Custom company name" value={form.customCompanyName} onChange={set("customCompanyName")} />
-                <TextField required label="Custom company phone" value={form.customCompanyPhone} onChange={set("customCompanyPhone")} />
+                <CountryPhoneInput required label="Custom company phone" value={form.customCompanyPhone} onChange={set("customCompanyPhone")} />
               </>}
               <FormControl required fullWidth disabled={!form.companyId}>
                 <InputLabel>Driver</InputLabel>
@@ -205,17 +243,19 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
                   }}
                 >
                   <MenuItem value={CUSTOM_ID}>Custom / unregistered driver</MenuItem>
+                  <MenuItem value={NOT_ASSIGNED_ID}>N/A / Not assigned</MenuItem>
                   {eligibleDrivers.map((driver) => <MenuItem key={driver.id} value={driver.id}>{driver.driverName} · {driver.phone}</MenuItem>)}
                 </Select>
               </FormControl>
               {form.driverId === CUSTOM_ID && <>
                 <TextField required label="Custom driver name" value={form.customDriverName} onChange={set("customDriverName")} />
-                <TextField required label="Custom driver phone" value={form.customDriverPhone} onChange={set("customDriverPhone")} />
+                <CountryPhoneInput required label="Custom driver phone" value={form.customDriverPhone} onChange={set("customDriverPhone")} />
               </>}
               <FormControl required fullWidth disabled={!form.companyId}>
                 <InputLabel>Vehicle</InputLabel>
                 <Select value={form.vehicleId} label="Vehicle" onChange={set("vehicleId")}>
                   <MenuItem value={CUSTOM_ID}>Custom / unregistered vehicle</MenuItem>
+                  <MenuItem value={NOT_ASSIGNED_ID}>N/A / Not assigned</MenuItem>
                   {eligibleVehicles.map((vehicle) => <MenuItem key={vehicle.id} value={vehicle.id}>{vehicle.vehicleName} · {vehicle.registrationNumber}</MenuItem>)}
                 </Select>
               </FormControl>
@@ -231,7 +271,7 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
                 value={form.travelAt}
                 onChange={set("travelAt")}
                 InputLabelProps={{ shrink: true }}
-                helperText="If no trip end is supplied, a 6-hour duration is used for conflict checks."
+                helperText="Loaded from the booking. Change it only when the assignment time differs."
               />
               <TextField type="number" label="Assumed duration (hours)" value={form.durationHours} onChange={set("durationHours")} inputProps={{ min: 1, max: 168 }} />
               {selectedCompany && <Alert severity="info">Default commission: {selectedCompany.defaultCommissionPercentage || 0}%</Alert>}

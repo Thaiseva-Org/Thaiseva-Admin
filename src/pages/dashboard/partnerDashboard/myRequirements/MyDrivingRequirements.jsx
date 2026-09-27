@@ -1,5 +1,5 @@
-import CloseIcon from "@mui/icons-material/Close";
-import RemoveRedEyeIcon from "@mui/icons-material/RemoveRedEye";
+import { CloseIcon } from "@icons";
+import { RemoveRedEyeIcon } from "@icons";
 import {
   Box,
   Button,

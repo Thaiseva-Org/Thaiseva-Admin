@@ -17,7 +17,7 @@ import {
   TableHead,
   TableRow,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 import { doc, getDoc } from "firebase/firestore";
 import { restaurentsCollection } from "../../../../../firebase/firebase.config";
 import PageHeading from "../../../../../components/PageHeading";

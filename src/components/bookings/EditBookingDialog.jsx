@@ -8,6 +8,7 @@ import {
   DialogTitle,
   TextField,
 } from "@mui/material";
+import CountryPhoneInput from "../CountryPhoneInput";
 
 const toLocalInput = (date) => {
   if (!date) return "";
@@ -35,7 +36,7 @@ const EditBookingDialog = ({ open, booking, busy, error, onClose, onSubmit }) =>
       <DialogContent dividers><div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
         {error && <Alert severity="error" sx={{ gridColumn: "1 / -1" }}>{error}</Alert>}
         <TextField required label="Customer name" value={form.customerName} onChange={set("customerName")} />
-        <TextField required label="Customer phone" value={form.customerPhone} onChange={set("customerPhone")} />
+        <CountryPhoneInput required label="Customer phone" value={form.customerPhone} onChange={set("customerPhone")} />
         <TextField required label="Pickup" value={form.pickup} onChange={set("pickup")} />
         <TextField required label="Destination" value={form.destination} onChange={set("destination")} />
         <TextField type="datetime-local" label="Travel date and time" value={form.travelAt} onChange={set("travelAt")} InputLabelProps={{ shrink: true }} sx={{ gridColumn: { sm: "1 / -1" } }} />

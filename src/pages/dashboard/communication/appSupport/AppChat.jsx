@@ -2,7 +2,7 @@ import Sidebar from "../Sidebar";
 import Chat from "../Chat";
 import { useState } from "react";
 
-const RestaurantChat = () => {
+const AppChat = () => {
   const [openSidebar, setOpenSidebar] = useState(false);
 
   return (
@@ -15,7 +15,8 @@ const RestaurantChat = () => {
             openSidebar ? "left-0" : "-left-full lg:left-0"
           }`}
         >
-          <Sidebar setOpenSidebar={setOpenSidebar} filterType="restaurant" />
+          {/* We do not filter this so all app users show up */}
+          <Sidebar setOpenSidebar={setOpenSidebar} />
         </div>
         
         {/* Chat Area */}
@@ -27,5 +28,4 @@ const RestaurantChat = () => {
   );
 };
 
-export default RestaurantChat;
-
+export default AppChat;

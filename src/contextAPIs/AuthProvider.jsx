@@ -1,3 +1,9 @@
+/**
+ * @file AuthProvider.jsx
+ * @description Provides authentication context for the application, integrating Firebase Auth and Firestore.
+ * Handles user state, authentication functions, role-based access control, and user data fetching.
+ */
+
 import { createContext, useEffect, useState } from "react";
 import { app, db } from "../firebase/firebase.config";
 import {
@@ -9,9 +15,25 @@ import {
   updateProfile,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
+
+/**
+ * Context for authentication state and functions.
+ * @type {React.Context<any>}
+ */
 export const AuthContext = createContext();
+
+/**
+ * Firebase Auth instance.
+ * @type {import("firebase/auth").Auth}
+ */
 const auth = getAuth(app);
 
+/**
+ * Provides authentication context to the application.
+ * @param {Object} props - The component props.
+ * @param {React.ReactNode} props.children - The child components to be wrapped by the provider.
+ * @returns {JSX.Element} The AuthContext provider wrapping the children.
+ */
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -21,22 +43,40 @@ const AuthProvider = ({ children }) => {
   const [isVerifiedPartner, setIsVerifiedPartner] = useState(false);
   const [userData, setUserData] = useState({});
 
-  // creating user with email and password
+  /**
+   * Creates a new user with email and password.
+   * @param {string} email - The user's email address.
+   * @param {string} password - The user's password.
+   * @returns {Promise<import("firebase/auth").UserCredential>} A promise that resolves with the user credential.
+   */
   const createUser = (email, password) => {
     return createUserWithEmailAndPassword(auth, email, password);
   };
 
-  //   login user with email and password
+  /**
+   * Logs in a user with email and password.
+   * @param {string} email - The user's email address.
+   * @param {string} password - The user's password.
+   * @returns {Promise<import("firebase/auth").UserCredential>} A promise that resolves with the user credential.
+   */
   const logInUser = (email, password) => {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  // logout user
+  /**
+   * Logs out the current user.
+   * @returns {Promise<void>} A promise that resolves when the user is logged out.
+   */
   const logOut = () => {
     return signOut(auth);
   };
 
-  // updating user name and img
+  /**
+   * Updates the current user's profile information.
+   * @param {string} name - The user's display name.
+   * @param {string} profile - The URL of the user's profile picture.
+   * @returns {Promise<void>} A promise that resolves when the profile is updated.
+   */
   const updateUserProfile = (name, profile) => {
     return updateProfile(auth.currentUser, {
       displayName: name,
@@ -108,6 +148,11 @@ const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
+  /**
+   * Validates a password against security criteria.
+   * @param {string} password - The password to validate.
+   * @returns {string} Returns "valid" if the password meets all criteria, otherwise returns an error message.
+   */
   const validatePassword = (password) => {
     if (password.length < 6) {
       return "Password must be at least 6 characters long.";
@@ -127,6 +172,10 @@ const AuthProvider = ({ children }) => {
     return "valid";
   };
 
+  /**
+   * The authentication state and context values provided to consumers.
+   * @type {Object}
+   */
   const authInfo = {
     user,
     loading,

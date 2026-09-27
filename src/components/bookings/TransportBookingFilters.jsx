@@ -9,10 +9,10 @@ import {
   Tab,
   Tabs,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import RestartAltIcon from "@mui/icons-material/RestartAlt";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import { SearchIcon } from "@icons";
+import { RestartAltIcon } from "@icons";
+import { FilterListIcon } from "@icons";
+import { CalendarMonthIcon } from "@icons";
 import {
   BOOKING_STATUSES,
   PAYMENT_STATUSES,

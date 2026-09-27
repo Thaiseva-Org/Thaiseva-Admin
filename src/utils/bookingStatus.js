@@ -464,8 +464,15 @@ export const isSightseeingPendingReview = (booking = {}) =>
   !isPaymentVerified(booking);
 
 export const needsSightseeingPaymentVerification = (booking = {}) => {
-  if (!isSightseeingAccepted(booking)) return false;
+  if (isSightseeingCanceled(booking)) return false;
   if (isPaymentVerified(booking)) return false;
+  if (
+    isThaiQrSightseeingPayment(booking) ||
+    isOnsiteSightseeingPayment(booking)
+  ) {
+    return isSightseeingPending(booking) || isSightseeingAccepted(booking);
+  }
+  if (!isSightseeingAccepted(booking)) return false;
 
   return true;
 };
@@ -558,14 +565,14 @@ export const getSightseeingPaymentStatusInfo = (booking = {}) => {
   ) {
     if (isThaiQrSightseeingPayment(booking)) {
       return {
-        label: "Thai QR · Pending",
+        label: "Thai QR · Awaiting Verification",
         className:
           "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20",
       };
     }
     if (isOnsiteSightseeingPayment(booking)) {
       return {
-        label: "Onsite · Pending",
+        label: "Onsite · Awaiting Verification",
         className:
           "bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20",
       };

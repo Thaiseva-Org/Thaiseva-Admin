@@ -11,7 +11,7 @@ import {
   MenuItem,
   TextField,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
+import { CloseIcon } from "@icons";
 
 const AddBannerForm = ({
   title,

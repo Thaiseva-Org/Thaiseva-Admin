@@ -2,15 +2,7 @@ import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../contextAPIs/AuthProvider";
 // import { Box, Button, Grid, Modal, Paper, TextField } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import {
-  FaEnvelope,
-  FaLock,
-  FaExclamationCircle,
-  FaUser,
-  FaRegEyeSlash,
-  FaRegEye,
-  // FaCar,
-} from "react-icons/fa";
+import { FaEnvelope, FaLock, FaExclamationCircle, FaUser, FaRegEyeSlash, FaRegEye } from "@icons";
 // import { IoRestaurant } from "react-icons/io5";
 import { logo } from "../../assets";
 

@@ -17,7 +17,7 @@ import {
     InputLabel,
     Box
 } from "@mui/material";
-import { MdClose, MdDelete, MdAdd } from "react-icons/md";
+import { MdClose, MdDelete, MdAdd } from "@icons";
 import { doc, setDoc, updateDoc, addDoc } from "firebase/firestore";
 import { vanCompaniesCollection } from "../../../../../firebase/firebase.config";
 import { successNotification } from "../../../../../utils/utils";

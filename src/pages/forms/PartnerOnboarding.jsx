@@ -1,20 +1,4 @@
-import {
-  AccountCircle,
-  ArrowBack,
-  Business,
-  Email,
-  Lock,
-  Map,
-  Person,
-  Phone,
-  Visibility,
-  VisibilityOff,
-  AccountBalance,
-  CreditCard,
-  LocationCity,
-  Category,
-  ListAlt
-} from "@mui/icons-material";
+import { AccountCircle, ArrowBack, Business, Email, Lock, Map, Person, Visibility, VisibilityOff, AccountBalance, CreditCard, LocationCity, Category, ListAlt } from "@icons";
 import {
   Box,
   Button,
@@ -47,7 +31,7 @@ import {
 } from "firebase/firestore";
 import { useContext, useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
-import { MdCloudUpload, MdLocationOn } from "react-icons/md";
+import { MdCloudUpload, MdLocationOn } from "@icons";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { logo } from "../../assets";
@@ -58,7 +42,8 @@ import {
   usersCollection,
   partnersCollection,
 } from "../../firebase/firebase.config";
-import { formatPhoneNumber, getFileUrl } from "../../utils/utils";
+import { getFileUrl } from "../../utils/utils";
+import CountryPhoneInput from "../../components/CountryPhoneInput";
 
 const center = { lat: 48.8584, lng: 2.2945 };
 
@@ -165,7 +150,7 @@ const PartnerOnboarding = () => {
       return setError({ for: "password", text: "Password does not match." });
     } else if (!profileURL) {
       return setError({ for: "profile", text: "Provide a valid profile photo" });
-    } else if (phoneNumber?.length < 10) {
+    } else if (!/^\+?\d{8,15}$/.test(phoneNumber || "")) {
       return setError({ for: "phone", text: "Invalid Number" });
     }
 
@@ -567,40 +552,11 @@ const PartnerOnboarding = () => {
                     rules={{ required: true }}
                     defaultValue=""
                     render={({ field }) => (
-                      <TextField
+                      <CountryPhoneInput
                         {...field}
                         label="Phone Number"
-                        type="tel"
                         placeholder="012 345 6789"
-                        fullWidth
-                        variant="filled"
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start" className="text-gray-500">
-                              <Phone fontSize="small" />
-                            </InputAdornment>
-                          ),
-                          disableUnderline: true,
-                          style: { borderRadius: "12px" }
-                        }}
-                        onChange={(e) => {
-                          const formatted = formatPhoneNumber(e.target.value);
-                          field.onChange(formatted);
-                        }}
-                        sx={{
-                          "& .MuiFilledInput-root": {
-                            backgroundColor: "#f9fafb",
-                            border: "1px solid #e5e7eb",
-                            "&:hover": { backgroundColor: "#f3f4f6" },
-                            "&.Mui-focused": {
-                              backgroundColor: "#ffffff",
-                              border: "1px solid #3b82f6",
-                              boxShadow: "0 0 0 4px rgba(59, 130, 246, 0.1)"
-                            },
-                            borderRadius: "12px",
-                            transition: "all 0.2s ease-in-out"
-                          },
-                        }}
+                        required
                       />
                     )}
                   />

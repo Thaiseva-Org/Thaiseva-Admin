@@ -66,7 +66,7 @@ const Chats = ({ setOpenSidebar, filterType }) => {
         } catch (error) {
           console.warn("Could not fetch chat user metadata (permissions):", error.message);
         }
-        return null;
+        return { uid, notFound: true };
       });
 
       const results = await Promise.all(fetchPromises);
@@ -74,11 +74,13 @@ const Chats = ({ setOpenSidebar, filterType }) => {
       // Update cache with all fetched data
       const newCache = { ...userDataCache };
       results.forEach(result => {
-        if (result) {
+        if (result && !result.notFound) {
           newCache[result.uid] = {
             serviceCategory: result.serviceCategory,
             role: result.role,
           };
+        } else if (result && result.notFound) {
+          newCache[result.uid] = { notFound: true };
         }
       });
       

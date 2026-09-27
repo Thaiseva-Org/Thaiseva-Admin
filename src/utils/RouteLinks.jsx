@@ -111,11 +111,6 @@ export const communicationChild = [
 ];
 
 export const ourPartnerLinks = [
-  {
-    url: "/dashboard/restaurants",
-    lable: "Restaurants",
-    icon: <RestaurantIcon />,
-  },
   { url: "/dashboard/hotels", lable: "Hotels", icon: <ApartmentIcon /> },
   {
     url: "/dashboard/partner-commissions",
@@ -230,6 +225,11 @@ export const Travellinks = [
     icon: <DirectionsBusIcon />,
   },
   {
+    url: "/dashboard/van-bookings",
+    lable: "Van Bookings",
+    icon: <DirectionsBusIcon />,
+  },
+  {
     url: "/dashboard/car-bookings",
     lable: "Car Bookings",
     icon: <LocalTaxiIcon />,
@@ -258,6 +258,11 @@ export const localAssislinks = [
     lable: "Customer Chat",
   },
   {
+    icon: <ForumIcon />,
+    url: "/dashboard/app-chat",
+    lable: "App Chat",
+  },
+  {
     url: "/dashboard/local-partners",
     lable: "Local Partners",
     icon: <ManageAccountsIcon />,
@@ -272,24 +277,6 @@ export const localAssislinks = [
     url: "/dashboard/partner-chat",
     lable: "Partner Chat",
   },
-];
-
-export const restaurantlinks = [
-  {
-    icon: <RestaurantIcon />,
-    url: "/dashboard/restaurants",
-    lable: "Restaurants",
-  },
-  {
-    icon: <FastfoodIcon />,
-    url: "/dashboard/restaurant-chat",
-    lable: "Restaurant Chat",
-  },
-  // {
-  //   url: "/dashboard/food-services",
-  //   lable: "Food Services",
-  //   icon: <FastfoodIcon />,
-  // },
 ];
 
 export const primelocationslinks = [

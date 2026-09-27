@@ -1,8 +1,4 @@
-import {
-  VerifiedUser as VerifiedUserIcon,
-  Payments as PaymentsIcon,
-  CreditCard as CreditCardIcon,
-} from "@mui/icons-material";
+import { VerifiedUserIcon, PaymentsIcon, CreditCardIcon } from "@icons";
 
 const STATUS_ICONS = {
   verified: VerifiedUserIcon,

@@ -14,6 +14,8 @@ import {
   Select,
   TextField,
 } from "@mui/material";
+import DragDropImageUploader from "../../../../../components/websiteConfig/DragDropImageUploader";
+import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
 
 const defaults = {
   company: {
@@ -21,7 +23,6 @@ const defaults = {
     companyType: "Taxi Company",
     contactPerson: "",
     phone: "",
-    alternativePhone: "",
     email: "",
     address: "",
     defaultCommissionPercentage: 0,
@@ -33,7 +34,6 @@ const defaults = {
     assignedVehicleId: "",
     driverName: "",
     phone: "",
-    alternativePhone: "",
     licenceNumber: "",
     licenceExpiryDate: "",
     idProofUrl: "",
@@ -63,10 +63,9 @@ const defaults = {
 const fields = {
   company: [
     ["companyName", "Company name", "text", true],
-    ["companyType", "Company type", "select", true, ["Taxi Company", "Van Company", "Taxi and Van Company"]],
+    ["companyType", "Company type", "select", true, ["Taxi Company", "Van Company", "Freelancing"]],
     ["contactPerson", "Contact person"],
     ["phone", "Phone number", "tel", true],
-    ["alternativePhone", "Alternative phone", "tel"],
     ["email", "Email", "email"],
     ["address", "Address", "multiline"],
     ["defaultCommissionPercentage", "Default commission %", "number"],
@@ -77,7 +76,6 @@ const fields = {
     ["assignedVehicleId", "Assigned car / vehicle", "vehicle"],
     ["driverName", "Driver name", "text", true],
     ["phone", "Phone number", "tel", true],
-    ["alternativePhone", "Alternative phone", "tel"],
     ["licenceNumber", "Driving licence number", "text", true],
     ["licenceExpiryDate", "Licence expiry date", "date"],
     ["idProofUrl", "ID proof / document URL", "url"],
@@ -144,13 +142,38 @@ const ResourceFormDialog = ({ open, type, record, companies, vehicles = [], busy
                 </FormControl>
               );
             }
+            if (inputType === "url") {
+              return (
+                <div key={name} className="md:col-span-1">
+                  <DragDropImageUploader
+                    label={label}
+                    image={form[name] || ""}
+                    onImageChange={(url) => setForm((current) => ({ ...current, [name]: url }))}
+                    folder="transport_documents"
+                    height={150}
+                  />
+                </div>
+              );
+            }
+            if (inputType === "tel") {
+              return (
+                <CountryPhoneInput
+                  key={name}
+                  name={name}
+                  required={required}
+                  label={label}
+                  value={form[name] ?? ""}
+                  onChange={set(name)}
+                />
+              );
+            }
             return (
               <TextField
                 key={name}
                 required={required}
                 fullWidth
                 label={label}
-                type={["multiline", "url"].includes(inputType) ? "text" : inputType}
+                type={inputType === "multiline" ? "text" : inputType}
                 value={form[name] ?? ""}
                 onChange={set(name)}
                 multiline={inputType === "multiline"}

@@ -16,7 +16,6 @@ import {
 import { deleteUserFunction } from "./accountDeletion";
 import {
   initializeLegacyTransportBooking,
-  seedTransportDemoData,
   manageTransportBooking,
   manageTransportResource,
 } from "./transportWorkflow";
@@ -71,7 +70,6 @@ exports.deleteUserFunction = deleteUserFunction;
 exports.manageTransportBooking = manageTransportBooking;
 exports.manageTransportResource = manageTransportResource;
 exports.initializeLegacyTransportBooking = initializeLegacyTransportBooking;
-exports.seedTransportDemoData = seedTransportDemoData;
 
 // --- Simple hotel stock (primary) ---
 exports.checkHotelStock = checkHotelStock;

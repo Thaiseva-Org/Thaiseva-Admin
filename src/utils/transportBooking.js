@@ -135,6 +135,29 @@ export const normalizeTransportBooking = (data = {}, kind, source = "manual") =>
     ...payment,
     licenceVerificationStatus: data.licenceVerificationStatus || "Pending",
     passportVerificationStatus: data.passportVerificationStatus || "Pending",
+    licenceLink: first(
+      data.licenceLink,
+      data.licenseLink,
+      data.drivingLicenceLink,
+      data.drivingLicenseLink,
+      data.licenceUrl,
+      data.licenseUrl,
+      data.drivingLicenceUrl,
+      data.drivingLicenseUrl,
+      data.licenceDocumentLink,
+      data.licenseDocumentLink,
+      data.licence,
+      data.license
+    ),
+    passportLink: first(
+      data.passportLink,
+      data.passportDocumentLink,
+      data.passportUrl,
+      data.passportDocumentUrl,
+      data.passport,
+      data.passportImage,
+      data.passportPhoto
+    ),
     paymentTransactions: Array.isArray(data.paymentTransactions) ? data.paymentTransactions : [],
     refundTransactions: Array.isArray(data.refundTransactions) ? data.refundTransactions : [],
     activityHistory: Array.isArray(data.activityHistory) ? data.activityHistory : [],
@@ -155,8 +178,8 @@ export const formatTransportDate = (value) => {
 };
 
 export const validActionsFor = (status) => {
-  if (status === "Pending") return ["view", "edit", "accept", "reject", "cancel"];
-  if (status === "Accepted") return ["view", "payment", "assignment", "complete", "cancel"];
+  if (status === "Pending") return ["view", "edit", "accept", "reject"];
+  if (status === "Accepted") return ["view", "payment", "assignment", "cancel"];
   if (status === "Completed") return ["view", "payment"];
   return ["view"];
 };
