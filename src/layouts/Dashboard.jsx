@@ -1,5 +1,5 @@
-import { ExpandLess, ExpandMore, Logout } from "@mui/icons-material";
-import NotificationsIcon from "@mui/icons-material/Notifications";
+import { ExpandLess, ExpandMore, Logout } from "@icons";
+import { NotificationsIcon } from "@icons";
 import {
   AppBar,
   Avatar,
@@ -53,8 +53,6 @@ import {
   newprimaryLinks,
   partnerStatus,
   primelocationslinks,
-  restaurantlinks,
-  // restaurantlinks,
   // driverRequest,
   Travellinks,
   partnerManagementLinks,
@@ -75,7 +73,6 @@ function Dashboard(props) {
     totalRequest,
     setChatRoom,
     chatCount,
-    restaurantChatCount,
     hotelChatCount,
     travelBookings,
     carBookings,
@@ -177,6 +174,7 @@ function Dashboard(props) {
     // console.log(link);
     setChatRoom(
       (link === "/dashboard/customer-chat" && "CustomerSupport") ||
+      (link === "/dashboard/app-chat" && "AppSupport") ||
       (link === "/dashboard/driver-chat" && "DriversSupport") ||
       (link === "/dashboard/partner-chat" && "LocalPartnerSupport") ||
       (link === "/dashboard/hotel-chat" && "HotelSupport") ||
@@ -193,10 +191,10 @@ function Dashboard(props) {
   React.useEffect(() => {
     const path = location.pathname;
     if (path === "/dashboard/customer-chat") setChatRoom("CustomerSupport");
+    else if (path === "/dashboard/app-chat") setChatRoom("AppSupport");
     else if (path === "/dashboard/driver-chat") setChatRoom("DriversSupport");
     else if (path === "/dashboard/partner-chat") setChatRoom("LocalPartnerSupport");
     else if (path === "/dashboard/hotel-chat") setChatRoom("HotelSupport");
-    else if (path === "/dashboard/restaurant-chat") setChatRoom("CustomerSupport");
   }, [location.pathname, setChatRoom]);
 
   // showig dashboard title based on user category
@@ -903,7 +901,8 @@ function Dashboard(props) {
                     }`}
                   onClick={
                     route?.url === "/dashboard/customer-chat" ||
-                      route.url === "/dashboard/partner-chat"
+                      route.url === "/dashboard/partner-chat" ||
+                      route.url === "/dashboard/app-chat"
                       ? () => handleChatRooom(route.url)
                       : undefined
                   }
@@ -944,46 +943,6 @@ function Dashboard(props) {
               </Link>
             ))}
 
-            <div className="text-[var(--drawer-heading-color)] border-b-2 mt-4 mb-2 border-[var(--drawer-heading-color)] pl-2 text-lg font-bold  py-1 z-10 overflow-hidden">
-              Restaurant Related
-            </div>
-            {restaurantlinks?.map((route, i) => (
-              <Link to={route.url} key={i}>
-                <ListItem
-                  sx={{ py: 1.5, mb: 0.5 }}
-                  className={`justify-between relative py-3 px-4 pl-5 hover:bg-[var(--drawer-hover-color)] ${location.pathname === route.url ? "sidebar-active-tab" : ""
-                    }`}
-                  onClick={
-                    route?.url === "/dashboard/restaurant-chat"
-                      ? () => handleChatRooom(route.url)
-                      : undefined
-                  }
-                >
-                  {route.icon}
-                  <span className="grow ml-2">{route.lable}</span>
-                  {route.url === "/dashboard/restaurant-chat" && restaurantChatCount > 0 && (
-                    <Badge color="primary" badgeContent={`${restaurantChatCount}`} />
-                  )}
-                </ListItem>
-              </Link>
-            ))}
-
-            {/* <div className="text-[var(--drawer-heading-color)] border-b-2 mt-4 mb-2 border-[var(--drawer-heading-color)] pl-2 text-lg font-bold  py-1 z-10 overflow-hidden">
-              Restaurant Related
-            </div>
-            {restaurantlinks?.map((route, i) => (
-              <Link to={route.url} key={i}>
-                <ListItem
-                  sx={{ py: 1.5, mb: 0.5 }}
-                  className={`justify-between relative py-3 px-4 pl-5 hover:bg-[var(--drawer-hover-color)] ${
-                    location.pathname === route.url ? "sidebar-active-tab" : ""
-                  }`}
-                >
-                  {route.icon}
-                  <span className="grow ml-2">{route.lable}</span>
-                </ListItem>
-              </Link>
-            ))} */}
           </>
         )}
 
@@ -1099,10 +1058,9 @@ function Dashboard(props) {
                       "drop-shadow-[0px_0px_10px_rgba(239,68,68,0.5)]"
                       }`}
                   >
-                    <NotificationsIcon fontSize="medium" />
-                    {notifications?.length > 0 && (
-                      <div className="bg-red-500 absolute text-sm flex justify-center items-center w-[0.6rem] h-[0.6rem] text-white rounded-full top-1 right-0 shadow shadow-red-500"></div>
-                    )}
+                    <Badge badgeContent={notifications?.length} color="error">
+                      <NotificationsIcon fontSize="medium" />
+                    </Badge>
                   </i>
                 </div>
 

@@ -1,7 +1,7 @@
 import { useContext, useMemo } from "react";
 import { useState } from "react";
 import { useEffect } from "react";
-import { MdVisibility, MdInfo } from "react-icons/md";
+import { MdVisibility, MdInfo } from "@icons";
 import {
   Box,
   Button,
@@ -16,29 +16,29 @@ import {
   Tabs,
   Typography,
 } from "@mui/material";
-import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
-import CloseIcon from "@mui/icons-material/Close";
-import CheckBoxIcon from "@mui/icons-material/CheckBox";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import FilterListIcon from "@mui/icons-material/FilterList";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import CheckIcon from "@mui/icons-material/Check";
-import ClearIcon from "@mui/icons-material/Clear";
-import DoneRoundedIcon from "@mui/icons-material/DoneRounded";
-import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
-import HotelIcon from "@mui/icons-material/Hotel";
-import PersonIcon from "@mui/icons-material/Person";
-import PaymentsIcon from "@mui/icons-material/Payments";
-import EmailIcon from "@mui/icons-material/Email";
-import PhoneIcon from "@mui/icons-material/Phone";
-import PublicIcon from "@mui/icons-material/Public";
+import { DeleteForeverIcon } from "@icons";
+import { CloseIcon } from "@icons";
+import { CheckBoxIcon } from "@icons";
+import { CalendarMonthIcon } from "@icons";
+import { FilterListIcon } from "@icons";
+import { RefreshIcon } from "@icons";
+import { CheckIcon } from "@icons";
+import { ClearIcon } from "@icons";
+import { DoneRoundedIcon } from "@icons";
+import { CloseRoundedIcon } from "@icons";
+import { HotelIcon } from "@icons";
+import { PersonIcon } from "@icons";
+import { PaymentsIcon } from "@icons";
+import { EmailIcon } from "@icons";
+import { PhoneIcon } from "@icons";
+import { PublicIcon } from "@icons";
 
-import MeetingRoomIcon from "@mui/icons-material/MeetingRoom";
-import NumbersIcon from "@mui/icons-material/Numbers";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
-import CreditCardIcon from "@mui/icons-material/CreditCard";
-import BedroomParentIcon from "@mui/icons-material/BedroomParent";
-import { ViewList, CalendarMonth, Search, Circle, CheckCircle, VerifiedUser as VerifiedUserIcon } from "@mui/icons-material";
+import { MeetingRoomIcon } from "@icons";
+import { NumbersIcon } from "@icons";
+import { AttachMoneyIcon } from "@icons";
+import { CreditCardIcon } from "@icons";
+import { BedroomParentIcon } from "@icons";
+import { ViewList, CalendarMonth, Search, Circle, CheckCircle, VerifiedUserIcon } from "@icons";
 import { Select, MenuItem, FormControl, InputLabel } from "@mui/material";
 import PaymentStatusBadge from "../../../../../components/bookings/PaymentStatusBadge";
 import {
@@ -1357,6 +1357,15 @@ const RoomBookings = () => {
                     false,
                     "text-amber-600 bg-amber-50"
                   )}
+                {bookingDetails?.extraBed && renderDetailItem(
+                  "Extra Beds",
+                  bookingDetails.extraBedCount !== bookingDetails.extraBedCountRequested && bookingDetails.extraBedCount != null
+                    ? `${bookingDetails.extraBedCount} applied (${bookingDetails.extraBedCountRequested} requested)`
+                    : `${bookingDetails.extraBedCountRequested || bookingDetails.extraBedCount || 0} requested`,
+                  <BedroomParentIcon fontSize="small" />,
+                  false,
+                  "text-blue-600 bg-blue-50"
+                )}
                 {renderDetailItem("Nights", bookingDetails?.nights || "N/A", <NumbersIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
                 {renderDetailItem("Check In", bookingDetails?.checkIn || "N/A", <CalendarMonthIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
                 {renderDetailItem("Check Out", bookingDetails?.checkOut || "N/A", <CalendarMonthIcon fontSize="small" />, false, "text-blue-600 bg-blue-50")}
@@ -1391,6 +1400,22 @@ const RoomBookings = () => {
               </div>
               <Grid container spacing={1}>
                 {renderDetailItem("Amount (THB)", `฿${bookingDetails?.amountTHB || bookingDetails?.amount || 0}`, <AttachMoneyIcon fontSize="small" />, false, "text-emerald-600 bg-emerald-50")}
+                {Number(bookingDetails?.roomAmountTHB) > 0 &&
+                  renderDetailItem(
+                    "Room Amount",
+                    `฿${bookingDetails.roomAmountTHB}`,
+                    <AttachMoneyIcon fontSize="small" />,
+                    false,
+                    "text-emerald-600 bg-emerald-50"
+                  )}
+                {Number(bookingDetails?.extraBedAmountTHB) > 0 &&
+                  renderDetailItem(
+                    "Extra Bed Amount",
+                    `฿${bookingDetails.extraBedAmountTHB}`,
+                    <AttachMoneyIcon fontSize="small" />,
+                    false,
+                    "text-emerald-600 bg-emerald-50"
+                  )}
                 {Number(bookingDetails?.amountDue) > 0 &&
                   renderDetailItem(
                     "Amount Due",
