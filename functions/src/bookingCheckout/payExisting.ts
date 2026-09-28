@@ -22,6 +22,7 @@ import {
 } from "../payments/markBookingPaid";
 import {trustedSightseeingAmount} from "../payments/packagePricing";
 import {okStripe} from "./response";
+import {createInstantHotelCheckout} from "../payments/instantHotelCheckout";
 
 const db = () => admin.firestore();
 
@@ -172,6 +173,16 @@ const bookingTypeFor = (collection: string): string => {
 export const createCheckoutSession = onRequest(
   httpsOpts,
   withBookingHttp(async ({res, body, auth}) => {
+    if ((body.holdId || body.lockId) && !body.bookingId && !body.id) {
+      const {holdId, amount, session} = await createInstantHotelCheckout(
+        body, auth.uid, auth.email,
+      );
+      res.status(200).json(okStripe({
+        bookingId: null, bookingCollection: "hotelBookingData",
+        holdId, amount, currency: "thb", payNow: true,
+      }, session));
+      return;
+    }
     const bookingId = stringValue(body.bookingId || body.id, 200);
     const collectionRaw = stringValue(
       body.bookingCollection || body.collection || body.bookingType,
@@ -243,7 +254,8 @@ export const createCheckoutSession = onRequest(
     }
 
     // Trusted amount: re-price packages from catalog (blocks client underpayment)
-    let amount = amountFromBooking(data);
+    let amount = collection === "hotelBookingData" ?
+      parseNumber(data.amountDue, 0) : amountFromBooking(data);
     if (collection === "travelBookingDetails") {
       const trusted = await trustedSightseeingAmount(data);
       if (trusted != null && trusted > 0) {

@@ -536,7 +536,21 @@ export const lockStock = async (
         }
         const lock = lSnap.data() || {};
         const status = String(lock.status || "");
+        if (params.userId && String(lock.userId || "") !== params.userId) {
+          return {
+            ok: false as const,
+            error: "This hold belongs to another user.",
+            code: "NOT_OWNER",
+          };
+        }
         if (status === "converted") {
+          if (params.bookingId && lock.bookingId !== params.bookingId) {
+            return {
+              ok: false as const,
+              error: "Hold was converted for another booking.",
+              code: "ALREADY_CONVERTED",
+            };
+          }
           return {
             ok: true as const,
             lockId,

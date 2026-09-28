@@ -15,6 +15,7 @@ import {
   getRoomPricing,
 } from "./utils/hotelStock";
 import {listStayNights, toDateString} from "./utils/hotelAvailability";
+import {hotelStayAmount, requestedExtraBedCount} from "./utils/hotelBedPricing";
 
 const REGION = "asia-east2";
 const HOTEL_COLLECTION = "hotelBookingData";
@@ -101,14 +102,9 @@ const computeAmount = (
   nights: number,
   rooms: number,
   extraBedPrice: number,
-  extraBed: boolean,
+  extraBedCount: number,
 ) => {
-  const base = Math.max(0, roomPrice) * Math.max(1, nights) * Math.max(1, rooms);
-  const extra =
-    extraBed && extraBedPrice > 0 ?
-      extraBedPrice * nights * rooms :
-      0;
-  return base + extra;
+  return hotelStayAmount(roomPrice, rooms, nights, extraBedPrice, extraBedCount);
 };
 
 const buildBookingDoc = (params: {
@@ -128,7 +124,7 @@ const buildBookingDoc = (params: {
   guestPhone: string;
   amountTHB: number;
   roomPrice: number;
-  extraBed: boolean;
+  extraBedCountRequested: number;
   extraBedPrice: number;
   accepted: boolean;
   stockLockId: string | null;
@@ -151,7 +147,7 @@ const buildBookingDoc = (params: {
     guestPhone,
     amountTHB,
     roomPrice,
-    extraBed,
+    extraBedCountRequested,
     extraBedPrice,
     accepted,
     stockLockId,
@@ -184,11 +180,15 @@ const buildBookingDoc = (params: {
     phone: guestPhone,
     email: guestEmail,
     amountTHB,
+    amountDue: accepted ? amountTHB : 0,
     totalAmount: amountTHB,
     totalPrice: amountTHB,
     roomPrice,
     pricePerNight: roomPrice,
-    extraBedRequested: extraBed,
+    extraBed: extraBedCountRequested > 0,
+    extraBedRequested: extraBedCountRequested > 0,
+    extraBedCountRequested,
+    extraBedCount: Math.min(extraBedCountRequested, accepted ? rooms : 0),
     extraBedPrice,
     notes: notes || "",
     bookingStatus: accepted ? "ACCEPTED" : "PENDING",
@@ -227,10 +227,12 @@ export async function runCreateHotelBookingWithAvailability(
   const fullName = stringValue(body.fullName || body.guestName, 120);
   const guestEmail = stringValue(body.guestEmail || body.email, 200).toLowerCase();
   const guestPhone = stringValue(body.guestPhone || body.phone, 40);
-  const extraBed =
-    body.extraBed === true ||
-    body.extraBedRequested === true ||
-    body.hasExtraBed === true;
+  let extraBedCountRequested: number;
+  try {
+    extraBedCountRequested = requestedExtraBedCount(body, rooms);
+  } catch (error) {
+    throw new HttpsError("invalid-argument", (error as Error).message);
+  }
   const notes = stringValue(body.notes || body.specialRequests, 1000);
 
   if (!hotelId || !checkIn || !checkOut) {
@@ -268,7 +270,7 @@ export async function runCreateHotelBookingWithAvailability(
     nightsList.length,
     rooms,
     pricing.extraBedPrice,
-    extraBed,
+    extraBedCountRequested,
   );
 
   const canAuto = stock.canLock;
@@ -325,7 +327,7 @@ export async function runCreateHotelBookingWithAvailability(
       guestPhone,
       amountTHB,
       roomPrice: pricing.roomPrice,
-      extraBed,
+      extraBedCountRequested,
       extraBedPrice: pricing.extraBedPrice,
       accepted,
       stockLockId,
@@ -434,8 +436,12 @@ export async function runCompleteHotelBookingHold(
   const guestPhone = stringValue(body.guestPhone || body.phone, 40);
   const adults = Math.max(1, parsePositiveInt(body.adults, 1));
   const children = Math.max(0, parsePositiveInt(body.children, 0));
-  const extraBed =
-    body.extraBed === true || body.extraBedRequested === true;
+  let extraBedCountRequested: number;
+  try {
+    extraBedCountRequested = requestedExtraBedCount(body, rooms);
+  } catch (error) {
+    throw new HttpsError("invalid-argument", (error as Error).message);
+  }
   const notes = stringValue(body.notes, 1000);
 
   const converted = await lockStock(db(), {
@@ -464,7 +470,7 @@ export async function runCompleteHotelBookingHold(
     nightsList.length,
     rooms,
     pricing.extraBedPrice,
-    extraBed,
+    extraBedCountRequested,
   );
 
   const bookingRef = db().collection(HOTEL_COLLECTION).doc();
@@ -496,7 +502,7 @@ export async function runCompleteHotelBookingHold(
       guestPhone,
       amountTHB,
       roomPrice: pricing.roomPrice,
-      extraBed,
+      extraBedCountRequested,
       extraBedPrice: pricing.extraBedPrice,
       accepted: true,
       stockLockId: lockId,
@@ -567,17 +573,33 @@ export const acceptHotelBookingWithAvailability = onCall(
       throw new HttpsError("failed-precondition", "Cannot accept cancelled booking.");
     }
 
-    if (
-      booking.inventoryReserved === true &&
-      booking.stockLockId &&
-      (status === "ACCEPTED" || status === "CONFIRMED" || booking.isBookingConfirmed)
-    ) {
+    const requestedRooms = parsePositiveInt(
+      booking.roomsRequestedTotal || booking.rooms || booking.noOfRooms, 1,
+    );
+    const acceptedBefore = Math.max(0, Number(
+      booking.acceptedRooms ?? booking.roomsInstant ??
+      (booking.inventoryReserved === true && booking.isBookingConfirmed === true ?
+        booking.rooms || booking.noOfRooms : 0),
+    ) || 0);
+    const targetRooms = input.acceptedRooms == null ? requestedRooms : Number(input.acceptedRooms);
+    if (!Number.isInteger(targetRooms) || targetRooms < 1 || targetRooms > requestedRooms) {
+      throw new HttpsError("invalid-argument", "acceptedRooms must be 1 to requested rooms.");
+    }
+    if (targetRooms <= acceptedBefore ||
+      (booking.inventoryReserved === true && booking.stockLockId &&
+        requestedRooms <= acceptedBefore)) {
       return {
         ok: true,
         alreadyAccepted: true,
         bookingId,
         inventoryReserved: true,
         stockLockId: booking.stockLockId,
+        roomsInstant: acceptedBefore,
+        roomsPending: Math.max(0, requestedRooms - acceptedBefore),
+        amountTHB: booking.amountTHB,
+        amountDue: booking.amountDue,
+        extraBedCountRequested: booking.extraBedCountRequested,
+        extraBedCount: booking.extraBedCount,
       };
     }
 
@@ -589,7 +611,8 @@ export const acceptHotelBookingWithAvailability = onCall(
     );
     const checkIn = toDateString(booking.checkInDate || booking.checkIn);
     const checkOut = toDateString(booking.checkOutDate || booking.checkOut);
-    const rooms = parsePositiveInt(booking.rooms || booking.noOfRooms, 1);
+    const rooms = targetRooms;
+    const roomsToAccept = targetRooms - acceptedBefore;
 
     if (!hotelId || !packageId || !checkIn || !checkOut) {
       throw new HttpsError(
@@ -599,7 +622,32 @@ export const acceptHotelBookingWithAvailability = onCall(
     }
 
     // If already has hold lock, convert it (no expand — rooms already locked)
-    const existingLockId = stringValue(booking.stockLockId || booking.holdId, 120);
+    const [hotel, pkg] = await Promise.all([
+      loadHotel(db(), hotelId),
+      loadPackage(db(), packageId, hotelId),
+    ]);
+    const pricing = getRoomPricing(pkg, hotel);
+    const nights = listStayNights(checkIn, checkOut).length;
+    if (!Number.isFinite(pricing.roomPrice) || pricing.roomPrice <= 0 ||
+        !Number.isFinite(pricing.extraBedPrice) || pricing.extraBedPrice < 0 ||
+        nights < 1) {
+      throw new HttpsError("failed-precondition", "Hotel pricing or stay dates are invalid.");
+    }
+    let extraBedCountRequested: number;
+    try {
+      extraBedCountRequested = requestedExtraBedCount(booking, requestedRooms);
+    } catch (error) {
+      throw new HttpsError("failed-precondition", (error as Error).message);
+    }
+    const extraBedCount = Math.min(extraBedCountRequested, rooms);
+    const amountTHB = hotelStayAmount(
+      pricing.roomPrice, rooms, nights, pricing.extraBedPrice, extraBedCount,
+    );
+    const amountPaid = Math.max(0, Number(booking.amountPaid) || 0);
+    const amountDue = Math.max(0, amountTHB - amountPaid);
+
+    const existingLockId = acceptedBefore === 0 ?
+      stringValue(booking.stockLockId || booking.holdId, 120) : "";
     let stockLockId: string | null = null;
     let expandedTotals:
       | Array<{
@@ -613,7 +661,8 @@ export const acceptHotelBookingWithAvailability = onCall(
 
     if (existingLockId) {
       const lockSnap = await db().collection("hotelLocks").doc(existingLockId).get();
-      if (lockSnap.exists && String(lockSnap.data()?.status) === "active") {
+      if (lockSnap.exists && String(lockSnap.data()?.status) === "active" &&
+          Number(lockSnap.data()?.rooms) === roomsToAccept) {
         if (String(lockSnap.data()?.kind) === "hold") {
           const conv = await lockStock(db(), {
             action: "convert",
@@ -639,7 +688,7 @@ export const acceptHotelBookingWithAvailability = onCall(
         packageId,
         checkIn,
         checkOut,
-        rooms,
+        rooms: roomsToAccept,
         bookingId,
         userId: stringValue(booking.userId || booking.authUid, 120) || null,
         expandTotalIfNeeded: true,
@@ -661,18 +710,21 @@ export const acceptHotelBookingWithAvailability = onCall(
     }
 
     const roomsAdded = (expandedTotals || []).reduce(
-      (sum, e) => sum + (e.added || 0),
-      0,
+      (sum, e) => sum + (e.added || 0), 0,
     );
-
+    const priorLockIds = Array.isArray(booking.stockLockIds) ?
+      booking.stockLockIds.map((id: unknown) => stringValue(id, 120)).filter(Boolean) :
+      (acceptedBefore > 0 && booking.stockLockId ? [stringValue(booking.stockLockId, 120)] : []);
+    const stockLockIds = [...new Set([...priorLockIds, stockLockId])];
     await snap.ref.set(
       {
-        bookingStatus: "ACCEPTED",
-        status: "Accepted",
+        bookingStatus: rooms < requestedRooms ? "PARTIALLY_ACCEPTED" : "ACCEPTED",
+        status: rooms < requestedRooms ? "Partially Accepted" : "Accepted",
         isBookingConfirmed: true,
         inventoryReserved: true,
         inventoryReleased: false,
         stockLockId,
+        stockLockIds,
         stockModel: "v2_numbers",
         acceptanceMethod:
           roomsAdded > 0 ? "MANUAL_STOCK_EXPAND_TOTAL" : "MANUAL_STOCK",
@@ -680,8 +732,28 @@ export const acceptHotelBookingWithAvailability = onCall(
         stockExpandedTotals: expandedTotals || null,
         acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        roomsPending: 0,
+        rooms: rooms,
+        noOfRooms: rooms,
+        roomsRequestedTotal: requestedRooms,
+        acceptedRooms: rooms,
+        roomsPending: requestedRooms - rooms,
         roomsInstant: rooms,
+        extraBed: extraBedCountRequested > 0,
+        extraBedCountRequested,
+        extraBedCount,
+        roomPrice: pricing.roomPrice,
+        extraBedPrice: pricing.extraBedPrice,
+        amountTHB,
+        amount: amountTHB,
+        totalAmount: amountTHB,
+        amountDue,
+        payNow: amountDue > 0,
+        isPaymentDone: amountDue === 0 && booking.isPaymentDone === true,
+        isPaymentClear: amountDue === 0 && booking.isPaymentClear === true,
+        paymentVerificationStatus: amountDue > 0 ?
+          "PENDING_VERIFICATION" :
+          booking.paymentVerificationStatus || "VERIFIED",
+        ...(amountDue > 0 ? {stripeSessionId: null, stripeChargeAmount: null} : {}),
       },
       {merge: true},
     );
@@ -698,7 +770,12 @@ export const acceptHotelBookingWithAvailability = onCall(
       inventoryReserved: true,
       stockLockId,
       roomsInstant: rooms,
-      roomsPending: 0,
+      roomsPending: requestedRooms - rooms,
+      extraBedCountRequested,
+      extraBedCount,
+      amountTHB,
+      amountDue,
+      payNow: amountDue > 0,
       stockExpanded: roomsAdded > 0,
       expandedTotals: expandedTotals || [],
     };
@@ -789,9 +866,15 @@ export const releaseHotelInventory = onCall(callableOpts, async (request) => {
   const booking = snap.data() || {};
 
   const lockId = stringValue(booking.stockLockId || booking.holdId, 120);
+  const lockIds = Array.isArray(booking.stockLockIds) ?
+    booking.stockLockIds.map((id: unknown) => stringValue(id, 120)).filter(Boolean) :
+    (lockId ? [lockId] : []);
   let result;
-  if (lockId) {
-    result = await unlockStock(db(), {lockId, reason: "released"});
+  if (lockIds.length > 0) {
+    const results = await Promise.all(lockIds.map((id: string) =>
+      unlockStock(db(), {lockId: id, reason: "released"}),
+    ));
+    result = results.find((item) => !item.ok) || results[0];
   } else {
     result = await unlockStock(db(), {
       force: true,

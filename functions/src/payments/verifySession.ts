@@ -15,6 +15,7 @@ import {
   resolveCollection,
   upsertSightseeingFromPaidSession,
 } from "./markBookingPaid";
+import {upsertInstantHotelFromPaidSession} from "./instantHotelCheckout";
 
 export const verifySession = onRequest(
   httpsOpts,
@@ -91,7 +92,11 @@ export const verifySession = onRequest(
     let bookingDocId: string | null = bookingId || null;
     let bookingCollection: string | null = collection;
 
-    if (bookingId && collection) {
+    if (meta.checkoutKind === "instantHotel" && meta.holdId) {
+      bookingDocId = await upsertInstantHotelFromPaidSession(session);
+      bookingCollection = "hotelBookingData";
+      path = `hotelBookingData/${bookingDocId}`;
+    } else if (bookingId && collection) {
       const result = await markExistingBookingPaid(collection, bookingId, info);
       if (!result.ok && result.reason === "not_found") {
         throw new HttpError(404, "Booking not found for this session.", "NOT_FOUND");

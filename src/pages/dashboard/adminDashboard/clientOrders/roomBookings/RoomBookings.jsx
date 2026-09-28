@@ -1357,11 +1357,9 @@ const RoomBookings = () => {
                     false,
                     "text-amber-600 bg-amber-50"
                   )}
-                {bookingDetails?.extraBed && renderDetailItem(
+                {(bookingDetails?.extraBed || bookingDetails?.extraBedCountRequested != null) && renderDetailItem(
                   "Extra Beds",
-                  bookingDetails.extraBedCount !== bookingDetails.extraBedCountRequested && bookingDetails.extraBedCount != null
-                    ? `${bookingDetails.extraBedCount} applied (${bookingDetails.extraBedCountRequested} requested)`
-                    : `${bookingDetails.extraBedCountRequested || bookingDetails.extraBedCount || 0} requested`,
+                  `${bookingDetails.extraBedCountRequested ?? (bookingDetails.extraBed ? bookingDetails.rooms || bookingDetails.noOfRooms || 1 : 0)} requested · ${bookingDetails.extraBedCount ?? (bookingDetails.isBookingConfirmed && bookingDetails.extraBed ? bookingDetails.rooms || bookingDetails.noOfRooms || 1 : 0)} applied`,
                   <BedroomParentIcon fontSize="small" />,
                   false,
                   "text-blue-600 bg-blue-50"

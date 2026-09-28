@@ -52,6 +52,8 @@ export type CreateCheckoutInput = {
   metadata: CheckoutMeta;
   /** Idempotency key for Stripe */
   idempotencyKey?: string;
+  /** Unix timestamp; Stripe requires at least 30 minutes. */
+  expiresAt?: number;
 };
 
 export type CheckoutResult = {
@@ -139,6 +141,7 @@ export const createCheckoutSessionCore = async (
     payment_intent_data: {
       metadata: meta,
     },
+    ...(input.expiresAt ? {expires_at: input.expiresAt} : {}),
   };
 
   if (customerEmail) {

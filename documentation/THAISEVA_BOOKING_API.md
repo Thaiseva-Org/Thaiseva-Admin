@@ -122,7 +122,7 @@ Default for hotel/package if omitted: **`STRIPE`**.
 | `createCarBooking` | Car booking — `transportType`: car / van / taxi / bike (no Stripe) |
 | `createSelfDriveBooking` | Self-drive request (no Stripe) |
 | `getTransportBooking` | Get transport status + admin amount |
-| `createCheckoutSession` | Stripe pay for **existing** hotel/package booking |
+| `createCheckoutSession` | Stripe pay for a live hotel hold or an existing accepted hotel/package booking |
 | `verifySession` | After Stripe success redirect |
 | `stripeWebhook` | Stripe → server (do not call from app) |
 
@@ -625,9 +625,32 @@ User → notification and/or getTransportBooking → show amount
 
 ---
 
-## 10. Pay later (My Bookings)
+## 10. Hotel checkout and pay later
 
 Only **hotel** and **sightseeing**. Transport cannot use this.
+
+For a new instant hotel booking, send a live `hotelLocks` hold owned by the
+signed-in user, guest details, and `extraBedCount` (integer, 0 to held rooms).
+The server uses the hold's rooms and dates and the hotel's room and extra-bed
+prices. The response has `stripeUrl` and no booking ID. A paid Stripe session
+creates `hotelBookingData` and converts the hold; verification and webhook
+retries return the same booking.
+
+```json
+{
+  "holdId": "...",
+  "bookingType": "hotel",
+  "fullName": "Guest Name",
+  "guestEmail": "guest@example.com",
+  "guestPhone": "+66000000000",
+  "extraBedCount": 2,
+  "successUrl": "https://thaiseva.com/booking/success?session_id={CHECKOUT_SESSION_ID}",
+  "cancelUrl": "https://thaiseva.com/booking/cancel"
+}
+```
+
+For an existing accepted booking (My Bookings), send its `bookingId` and
+`bookingCollection: "hotelBookingData"` or `bookingType: "hotel"`:
 
 ```http
 POST /createCheckoutSession
@@ -652,7 +675,11 @@ POST /createCheckoutSession
 
 - Pure **pending** (not accepted, no inventory reserved, no instant rooms) → **rejected** until accept.
 - **Partial** (instant rooms accepted + pending remainder) → pay allowed for the accepted portion.
-- Charge amount prefers **`amountDue`** when set (top-up after partial accept); otherwise full unpaid total.
+- Existing hotel bookings charge only the server-stored **`amountDue`**.
+- Admin accept may pass `acceptedRooms` (total accepted so far). The booking
+  keeps `roomsRequestedTotal` and `extraBedCountRequested`; only
+  `min(extraBedCountRequested, acceptedRooms)` beds enter `amountTHB` and
+  `amountDue`. Omit `acceptedRooms` to accept every remaining room.
 - After successful pay: `amountDue` cleared, hotel stays **Accepted**.
 
 Package amount is **recalculated from catalog** (cannot underpay with a fake stored amount). Stripe-paid packages become **Accepted** automatically.

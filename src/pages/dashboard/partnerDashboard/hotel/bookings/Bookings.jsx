@@ -619,11 +619,9 @@ const Bookings = () => {
               <Grid container spacing={2}>
                 {textField("Room Type", bookingDetails?.roomName || "N/A")}
                 {textField("Rooms", bookingDetails?.noOfRooms || "N/A")}
-                {bookingDetails?.extraBed && textField(
+                {(bookingDetails?.extraBed || bookingDetails?.extraBedCountRequested != null) && textField(
                   "Extra Beds",
-                  bookingDetails.extraBedCount !== bookingDetails.extraBedCountRequested && bookingDetails.extraBedCount != null
-                    ? `${bookingDetails.extraBedCount} applied (${bookingDetails.extraBedCountRequested} requested)`
-                    : `${bookingDetails.extraBedCountRequested || bookingDetails.extraBedCount || 0} requested`
+                  `${bookingDetails.extraBedCountRequested ?? (bookingDetails.extraBed ? bookingDetails.rooms || bookingDetails.noOfRooms || 1 : 0)} requested · ${bookingDetails.extraBedCount ?? (bookingDetails.isBookingConfirmed && bookingDetails.extraBed ? bookingDetails.rooms || bookingDetails.noOfRooms || 1 : 0)} applied`
                 )}
                 {textField("Nights", bookingDetails?.nights || "N/A")}
                 {textField("Check In", bookingDetails?.checkInDate || "N/A")}

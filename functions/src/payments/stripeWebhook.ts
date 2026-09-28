@@ -11,6 +11,7 @@ import {
   upsertSightseeingFromPaidSession,
 } from "./markBookingPaid";
 import {REGION} from "./corsAuth";
+import {upsertInstantHotelFromPaidSession} from "./instantHotelCheckout";
 
 const sessionPaid = (session: Stripe.Checkout.Session): boolean =>
   session.payment_status === "paid";
@@ -38,6 +39,11 @@ const handleCheckoutCompleted = async (session: Stripe.Checkout.Session) => {
     currency: session.currency,
     customerEmail: session.customer_email,
   };
+
+  if (meta.checkoutKind === "instantHotel" && meta.holdId) {
+    const id = await upsertInstantHotelFromPaidSession(session);
+    return {skipped: false as const, path: `hotelBookingData/${id}`, ok: true};
+  }
 
   // Existing booking (hotel / transport / package pay-later)
   if (bookingId && collection) {

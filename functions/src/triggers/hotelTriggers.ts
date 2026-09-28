@@ -136,9 +136,15 @@ export const onHotelBookingStatusChangeV3 = onDocumentUpdated(
           Math.floor(Number(after.rooms || after.noOfRooms || 1)),
         );
 
+        const lockIds = Array.isArray(after.stockLockIds) ?
+          after.stockLockIds.map((id: unknown) => String(id || "").trim()).filter(Boolean) :
+          (lockId ? [lockId] : []);
         let result;
-        if (lockId) {
-          result = await unlockStock(db, {lockId, reason: "released"});
+        if (lockIds.length > 0) {
+          const results = await Promise.all(lockIds.map((id: string) =>
+            unlockStock(db, {lockId: id, reason: "released"}),
+          ));
+          result = results.find((item) => !item.ok) || results[0];
         } else {
           result = await unlockStock(db, {
             force: true,
