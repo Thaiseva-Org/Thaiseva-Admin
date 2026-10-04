@@ -1,6 +1,7 @@
 # Hotel Room Availability — Admin Portal
 
-**Last updated:** 2026-08-09
+> [!NOTE]
+> **Consolidated Specification:** This availability guide has been unified into the authoritative **[Cloud Functions API Specification (Section 2: Hotel Stock & Concurrency)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)** and the **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)**.
 
 > **New model (recommended):** number-based stock with 3 APIs — see  
 > [`HOTEL_STOCK_API.md`](./HOTEL_STOCK_API.md)  

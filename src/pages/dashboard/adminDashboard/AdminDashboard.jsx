@@ -6,10 +6,7 @@ import HomeBanners from "../../../components/HomeBanners";
 import HotelBanners from "../../../components/HotelBanners";
 import HotelMiniBanners from "../../../components/HotelMiniBanners";
 import ItemsBanners from "../../../components/ItemsBanner";
-// import LocalAssistance from "../../../components/LocalAssistance";
-// import NewOfferBanner from "../../../components/NewOffersBanner";
 import NotificationBanner from "../../../components/NotificationBanner";
-// import NotificationOffers from "../../../components/NotificationOffers";
 import LoadingContent from "../../../components/LoadingContent";
 import PageHeading from "../../../components/PageHeading";
 import SightseeingBanners from "../../../components/SightseeingBanners";
@@ -18,6 +15,25 @@ import TravelBanners from "../../../components/TravelBanners";
 import { AuthContext } from "../../../contextAPIs/AuthProvider";
 import { fetchDashboardData } from "../../../services/AdminDashboard";
 
+/**
+ * AdminDashboard Root Component
+ * 
+ * Primary landing view for platform administrators and sub-admins at `/dashboard`.
+ * Retrieves and renders global customer-facing website promotional configurations from
+ * the `settings` Firestore collection via `fetchDashboardData`.
+ * 
+ * Rendered Modules:
+ * - Categories & Platform Logo (`CategoriesAndLogo`)
+ * - Hero Home Banners (`HomeBanners`)
+ * - Curated Promotional Offers (`BestOfferBanners`, `SpecialOffers`, `ItemsBanners`)
+ * - Sector Catalog Banners (`HotelBanners`, `HotelMiniBanners`, `TravelBanners`, `SightseeingBanners`, `FoodBanners`)
+ * - Push Notification Announcement Banner (`NotificationBanner`)
+ * 
+ * Access Control: Gated by `isAdmin` or `isSubAdmin` from `AuthContext`.
+ * 
+ * @component
+ * @returns {JSX.Element} The rendered admin dashboard landing page
+ */
 const AdminDashboard = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
   const [dashboardData, setDashboardData] = useState([]);
@@ -101,10 +117,6 @@ const AdminDashboard = () => {
           }
         />
         <NotificationBanner />
-
-        {/* <LocalAssistance /> */}
-        {/* <NewOfferBanner /> */}
-        {/* <NotificationOffers/> */}
       </div>
     </div>
   );

@@ -1,6 +1,9 @@
 # Firestore Collection Schema Reference
 
-This document provides a detailed reference of the Firestore collections used in the Thaiseva Admin Portal, categorized by their primary role in the application's data flow.
+> [!NOTE]
+> **Consolidated Specification:** This schema reference has been unified into the authoritative **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)**. Refer to that document for the master contract, active composite indexes, and TTL configuration.
+
+This document provides a reference of the Firestore collections used in the Thaiseva Admin Portal, categorized by their primary role in the application's data flow.
 
 ---
 

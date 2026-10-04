@@ -1,5 +1,8 @@
 # Technical Data Specification for Thaiseva
 
+> [!NOTE]
+> **Consolidated Specification:** This data specification has been unified into the authoritative **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)** and the **[Cloud Functions API Specification](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)**.
+
 ## 📌 Context
 This document translates the "Frontend Mapping Strategy" into a concrete technical architecture. It defines the database schema, relationship strategy, and the precise API response format required for the frontend application.
 

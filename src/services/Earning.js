@@ -495,6 +495,97 @@ async function getDailyEarningsInRange(type, fromDate = "", toDate = "") {
   }
 }
 
+function normalizeOrderRecord(booking = {}, category = "Other") {
+  const amount = getBookingAmount(booking);
+
+  const rawDate = getBookingDate(booking, [
+    "checkInDate",
+    "checkIn",
+    "createdAt",
+    "orderedAt",
+    "timestamp",
+    "time",
+    "bookingDate",
+  ]);
+
+  let formattedDate = "N/A";
+  if (rawDate) {
+    formattedDate = rawDate.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+
+  let resolvedCategory = category;
+  let details = "-";
+  let providerName = "-";
+  let providerPhone = "-";
+  let guestName = booking.fullName || booking.guestDetails?.name || booking.name || booking.guestName || booking.username || "Guest";
+  let guestPhone = booking.guestPhone || booking.guestDetails?.phone || booking.guestDetails?.phoneNumber || booking.contact || booking.phone || "-";
+  let guestEmail = booking.guestEmail || booking.guestDetails?.email || booking.email || "-";
+  let status = booking.bookingStatus || booking.status || "Accepted";
+
+  if (category === "Hotels") {
+    status = isHotelRevenueEligible(booking) ? (booking.status || "Accepted") : (booking.status || "Pending");
+    const h1 = booking.hotelName || "";
+    const h2 = booking.hotel?.hotelName || "";
+    const h3 = typeof booking.hotel === "string" ? booking.hotel : "";
+    providerName = h1 || h2 || h3 || "Hotel Partner";
+    providerPhone = booking.hotel?.phoneNumber || booking.managerPhone || "-";
+    details = `Room: ${booking.roomName || "Standard Room"} (${booking.noOfRooms || 1} room)`;
+  } else if (category === "Sightseeing") {
+    providerName = booking.Provider?.name || "Thaiseva";
+    providerPhone = booking.Provider?.phone || "-";
+    details = `Package: ${booking.title || booking.packageName || "-"}`;
+  } else if (category === "Cars" || category === "Vans") {
+    const isVan = String(booking.vehicleType || booking.category || "").toLowerCase().includes("van");
+    if (isVan) resolvedCategory = "Vans";
+    providerName = booking.Driver?.name || booking.companyName || booking.providerName || "Assigned Driver";
+    providerPhone = booking.Driver?.phone || booking.companyPhone || "-";
+    const pickup = booking.pickupLocation || booking.pickup || "";
+    const drop = booking.dropLocation || booking.drop || "";
+    details = pickup || drop ? `Pickup: ${pickup || "-"} → Drop: ${drop || "-"}` : (booking.vehicleDetails?.vehicle || "Transport Service");
+  } else if (category === "SelfDrive") {
+    resolvedCategory = "Self Drive";
+    providerName = booking.Provider?.name || "Self Drive Provider";
+    providerPhone = booking.Provider?.phone || "-";
+    details = `Vehicle: ${booking.vehicleName || booking.carName || booking.vehicleType || "Self Drive Vehicle"}`;
+  }
+
+  const rawStatusStr = String(status).trim();
+  let normalizedStatus = "Confirmed";
+  if (ACCEPTED_STATUS_VALUES.has(rawStatusStr.toLowerCase())) {
+    normalizedStatus = "Confirmed";
+  } else if (rawStatusStr.toLowerCase().includes("pend")) {
+    normalizedStatus = "Pending";
+  } else if (rawStatusStr.toLowerCase().includes("cancel")) {
+    normalizedStatus = "Cancelled";
+  } else {
+    normalizedStatus = rawStatusStr || "Confirmed";
+  }
+
+  return {
+    id: booking.id || `ORD-${Math.random().toString(36).substr(2, 6)}`,
+    bookingId: booking.bookingId || booking.orderId || booking.customerInvoiceId || booking.id || "-",
+    category: resolvedCategory,
+    guestName,
+    guestPhone,
+    guestEmail,
+    providerName,
+    providerPhone,
+    bookingDate: formattedDate,
+    rawDateMs: rawDate ? rawDate.getTime() : 0,
+    amountTHB: amount,
+    status: normalizedStatus,
+    rawStatus: rawStatusStr,
+    details,
+  };
+}
+
 async function createStatData(view = "Days", fromDate = "", toDate = "") {
   try {
     const { from, to } = normalizeDateRange(fromDate, toDate);
@@ -512,6 +603,60 @@ async function createStatData(view = "Days", fromDate = "", toDate = "") {
         return [type, earningsResult];
       })
     );
+
+    // Fetch raw booking documents for all orders
+    const rawOrders = [];
+    await Promise.all(
+      SERVICE_TYPES.map(async (type) => {
+        try {
+          let docs = [];
+          switch (type) {
+            case "Hotels":
+              docs = await fetchBookingsInRange(
+                roomBookingCollection,
+                ["checkInDate", "checkIn", "createdAt", "orderedAt", "timestamp"],
+                from,
+                to
+              );
+              break;
+            case "Sightseeing":
+              docs = await fetchBookingsInRange(
+                travelBookingCollection,
+                ["orderedAt", "createdAt", "timestamp"],
+                from,
+                to
+              );
+              break;
+            case "Cars":
+              docs = await fetchBookingsInRange(
+                carBookingsCollection,
+                ["timestamp", "orderedAt", "createdAt"],
+                from,
+                to
+              );
+              break;
+            case "SelfDrive":
+              docs = await fetchBookingsInRange(
+                selfDriveBookingCollection,
+                ["time", "timestamp", "createdAt", "orderedAt"],
+                from,
+                to
+              );
+              break;
+            default:
+              docs = [];
+          }
+          docs.forEach((docItem) => {
+            rawOrders.push(normalizeOrderRecord(docItem, type));
+          });
+        } catch (err) {
+          console.warn(`Could not fetch order items for ${type}:`, err);
+        }
+      })
+    );
+
+    // Sort all orders by date descending (latest first)
+    rawOrders.sort((a, b) => b.rawDateMs - a.rawDateMs);
 
     const loadError = dailySeriesEntries.find(([, result]) => result.permissionError)?.[1]
       ?.permissionError;
@@ -563,6 +708,7 @@ async function createStatData(view = "Days", fromDate = "", toDate = "") {
       Hotels: chartSeries.Hotels,
       Vans: chartSeries.Vans,
       Total: chartSeries.Total,
+      allOrders: rawOrders,
       reportingWindow: {
         from: toDateKey(from),
         to: toDateKey(to),
@@ -598,6 +744,7 @@ async function createStatData(view = "Days", fromDate = "", toDate = "") {
       Hotels: [],
       Vans: [],
       Total: [],
+      allOrders: [],
       reportingWindow: {
         from: "",
         to: "",

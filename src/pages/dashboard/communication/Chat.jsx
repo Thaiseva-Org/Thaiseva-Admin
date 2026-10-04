@@ -1,29 +1,63 @@
-import { DeleteForeverIcon } from "@icons";
-import { MenuIcon } from "@icons";
+/**
+ * @file Chat.jsx
+ * @description Primary real-time chat window orchestrating message history, media composition, and participant headers.
+ *
+ * Architecture & Features:
+ * - Real-time state integration with {@link AdminChatContext} (`data.chatId`, `data.oppositeUser`)
+ * - Audio voice memo recording via {@link VoiceRecorder} with direct upload to Firebase Storage
+ * - External customer communication fallback via WhatsApp integration ({@link handleRedirectWhatsApp})
+ * - Thailand PDPA compliance & retention safeguard: enforces a 3-month aging threshold ({@link isOlderThan3Months}) before enabling permanent chat deletion
+ * - Atomic chat purging: removes message container `chats/{chatId}` and unlinks room entry from `chatRooms/{chatRoom}` via `deleteField()`
+ * - Composite layout combining {@link Messages} stream and {@link Input} composer
+ *
+ * @module Communication/Chat
+ */
+
+import { DeleteForeverIcon, MenuIcon } from "@icons";
+import PropTypes from "prop-types";
 import { deleteDoc, deleteField, doc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { useContext, useState } from "react";
-// import { AudioRecorder } from "react-audio-voice-recorder";
-import VoiceRecorder from "../../../components/VoiceRecorder"; // Import Custom Recorder
+import VoiceRecorder from "../../../components/VoiceRecorder";
 import { AdminChatContext } from "../../../contextAPIs/AdminChatProvider";
 import { db, storage } from "../../../firebase/firebase.config";
 import { handleRedirectWhatsApp } from "../../../utils/utils";
 import Input from "./Input";
 import Messages from "./Messages";
 
+/**
+ * Chat Component.
+ *
+ * Active conversational interface for communicating directly with guests, hotels, drivers, and partners.
+ */
 const Chat = ({ setOpenSidebar }) => {
   const { data } = useContext(AdminChatContext);
   const [lastMessage, setLastMessage] = useState({});
   const [audioUrl, setAudioUrl] = useState("");
 
+  /**
+   * Uploads recorded audio voice memo blob to Firebase Storage and stores its download URL.
+   *
+   * @async
+   * @param {Blob} blob - Binary audio recording.
+   * @returns {Promise<void>}
+   */
   const addAudioElement = async (blob) => {
     const fileRef = ref(storage, `file-${blob.size}`);
-
     const fileTask = await uploadBytesResumable(fileRef, blob);
     const fileURL = await getDownloadURL(fileTask.ref);
     setAudioUrl(fileURL);
   };
 
+  /**
+   * Permanently purges the active chat thread from Firestore.
+   *
+   * Deletes the conversation history in `chats/{chatId}` and removes the reference
+   * from the parent `chatRooms/{chatRoom}` document.
+   *
+   * @async
+   * @returns {Promise<void>}
+   */
   const deleteChat = async () => {
     const confirmed = confirm("Are you sure you want to delete this chat?");
     if (confirmed) {
@@ -43,6 +77,12 @@ const Chat = ({ setOpenSidebar }) => {
     }
   };
 
+  /**
+   * Validates whether a message timestamp exceeds the 3-month retention threshold.
+   *
+   * @param {object} firebaseTimestamp - Firestore Timestamp instance.
+   * @returns {boolean} True if the message timestamp is older than 90 days.
+   */
   const isOlderThan3Months = (firebaseTimestamp) => {
     const now = new Date();
     const threeMonthsAgo = new Date(now);
@@ -90,7 +130,6 @@ const Chat = ({ setOpenSidebar }) => {
         {/* Actions */}
         {data?.oppositeUser?.uid && (
           <div className="flex items-center gap-2">
-            {/* Audio Recorder */}
             {/* Audio Recorder */}
             <div className="h-10 flex items-center">
               <VoiceRecorder onRecordingComplete={addAudioElement} />
@@ -141,4 +180,9 @@ const Chat = ({ setOpenSidebar }) => {
   );
 };
 
+Chat.propTypes = {
+  setOpenSidebar: PropTypes.func.isRequired,
+};
+
 export default Chat;
+

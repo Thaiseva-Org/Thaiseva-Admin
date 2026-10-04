@@ -43,11 +43,12 @@ import { TaskIcon } from "@icons";
 import { TaskAltIcon } from "@icons";
 import { TravelExploreIcon } from "@icons";
 import { PersonRemoveIcon } from "@icons";
+import { ImageIcon } from "@icons";
 
 export {
   AccountBalanceWalletIcon, AdminPanelSettingsIcon, ApartmentIcon, ArrowBackIosNewRoundedIcon,
   ArrowForwardIosRoundedIcon, BedIcon, BeenhereIcon, ChatBubbleRoundedIcon, DirectionsCarIcon, DirectionsBusIcon, Diversity1Icon,
-  DriveEtaIcon, FastfoodIcon, ForumIcon, GroupRoundedIcon, HailIcon, HandshakeIcon, HomeIcon, HowToRegIcon, LocalHotelIcon, LocalTaxiIcon, LocalTaxiRoundedIcon, LuggageIcon,
+  DriveEtaIcon, FastfoodIcon, ForumIcon, GroupRoundedIcon, HailIcon, HandshakeIcon, HomeIcon, HowToRegIcon, ImageIcon, LocalHotelIcon, LocalTaxiIcon, LocalTaxiRoundedIcon, LuggageIcon,
   ManageAccountsIcon, MenuIcon, NightlifeIcon, NoCrashIcon, NotificationsRounded, PersonAddAlt1Icon,
   PersonAddDisabledIcon, PersonIcon, PersonRemoveIcon, ReceiptIcon, ReceiptLongRoundedIcon, RestaurantIcon, Shop, SignalCellularAltIcon, SupportAgentIcon, TaskAltIcon, TaskIcon, TravelExploreIcon
 };

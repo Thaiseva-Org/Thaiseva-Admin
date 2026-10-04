@@ -1,15 +1,18 @@
 # Thaiseva Admin Portal - Architecture & Configuration Flows
 
+> [!NOTE]
+> **Consolidated Specification:** This architecture and configuration document has been unified into the authoritative **[System Architecture Document](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/02-architecture/SYSTEM_ARCHITECTURE.md)** and **[Security & RBAC Architecture](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/05-security/SECURITY_AND_RBAC.md)**.
+
 This document details the core architecture, data flows, and configurations of the Thaiseva Admin Portal application.
 
 ## 1. Core Architecture
 
 The Thaiseva Admin Portal is a React-based single-page application (SPA) built using modern tools and libraries:
-- **Framework:** React with Vite
-- **Routing:** React Router v6 (`createBrowserRouter`)
-- **State Management:** React Context API (AuthContext, PartnerContext, etc.)
-- **Styling:** Tailwind CSS
-- **Backend & Database:** Firebase (Authentication, Firestore, Storage)
+- **Framework:** React 19 with Vite 7
+- **Routing:** React Router DOM v7 (`createBrowserRouter`)
+- **State Management:** React Context API (AuthContext, PartnerContext, StatisticsProvider)
+- **Styling:** Tailwind CSS & Material UI v6
+- **Backend & Database:** Firebase (Authentication, Firestore, Storage, Cloud Functions v2)
 
 ## 2. Authentication & Authorization Flow
 

@@ -31,6 +31,7 @@ import {
   ReceiptLongRoundedIcon,
   GroupRoundedIcon,
   PersonRemoveIcon,
+  ImageIcon,
 } from "./Icons";
 
 export const primaryLinks = [
@@ -292,24 +293,21 @@ export const primelocationslinks = [
   },
 ];
 
-export const partnerManagementLinks = [
-  {
-    icon: <ManageAccountsIcon />,
-    link: "/dashboard/manage-partners",
-    label: "General Partners",
-  },
-];
-
 export const websiteConfigLinks = [
+  {
+    icon: <SignalCellularAltIcon />,
+    link: "/dashboard/website-config/site-statistics",
+    label: "Site Statistics",
+  },
+  {
+    icon: <ImageIcon />,
+    link: "/dashboard/website-config/media",
+    label: "Images & Media",
+  },
   {
     icon: <TaskIcon />,
     link: "/dashboard/website-config/blogs",
     label: "Blogs",
-  },
-  {
-    icon: <ManageAccountsIcon />,
-    link: "/dashboard/website-config/services",
-    label: "Service Cards",
   },
   {
     icon: <TaskIcon />,

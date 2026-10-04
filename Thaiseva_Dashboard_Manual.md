@@ -1,6 +1,9 @@
 # Thaiseva Dashboard User Manual (Comprehensive Edition)
 
-Welcome to the ultimate guide for navigating the Thaiseva Dashboard. This manual covers every single section, feature, and configuration available in the portal, meticulously separated by user role (Admin vs. Partner).
+> [!NOTE]
+> **Consolidated Specification:** This user guide has been unified into the authoritative **[Admin & Partner Operations User Manual](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md)**. Refer to that document for full role workflows, booking dispute flows, and invoice generation guides.
+
+Welcome to the guide for navigating the Thaiseva Dashboard. This manual covers sections, features, and configurations available in the portal, categorized by user role (Admin vs. Partner).
 
 ---
 
@@ -39,7 +42,6 @@ Administrators have extensive tools to manage all aspects of the Thaiseva platfo
 ### ⚙️ Website Configuration
 Manage the public-facing Thaiseva website and app content directly from the dashboard:
 - **Blogs:** Write, edit, and publish blog articles for SEO and marketing.
-- **Service Cards:** Update the descriptive cards shown to users highlighting Thaiseva's offerings.
 - **FAQs:** Add or modify Frequently Asked Questions to assist users.
 - **Testimonials:** Approve and display customer reviews.
 - **Contact Us:** View and respond to inquiries submitted through the public contact form.

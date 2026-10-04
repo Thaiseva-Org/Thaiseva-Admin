@@ -1,6 +1,9 @@
 # Firestore Data Reference
 
-This file is the single source of reference for Firestore data used by the admin portal codebase.
+> [!NOTE]
+> **Consolidated Specification:** This data reference has been unified into the authoritative **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)**. Refer to that document for the master collection schemas, active composite indexes, and TTL configuration.
+
+This file provides a reference for Firestore data used by the admin portal codebase.
 
 It is based on the actual collection names and document shapes used in this repository, not an idealized schema. In several places the app supports both newer and legacy field names, so this document calls that out explicitly.
 

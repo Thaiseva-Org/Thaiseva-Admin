@@ -1,15 +1,15 @@
 # Thaiseva Booking API — Single Integration Guide
 
-**Share this file only** with website and mobile developers.
+> [!NOTE]
+> **Consolidated Specification:** This client integration guide has been unified into the authoritative **[Cloud Functions API Specification](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)** and **[Third-Party Integrations Guide](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/THIRD_PARTY_INTEGRATIONS.md)**. Refer to those documents for production endpoints, error codes, and payment workflows.
 
 | | |
 |--|--|
 | **Region** | `asia-east2` |
 | **Protocol** | HTTPS `POST` + JSON (unless noted) |
 | **Auth** | Firebase ID token: `Authorization: Bearer <token>` |
-| **Updated** | 2026-08-12 |
 
-This is the **only** client integration document for website and mobile booking APIs.
+This reference guides website and mobile booking API integrations.
 
 ---
 

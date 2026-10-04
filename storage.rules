@@ -31,6 +31,15 @@ service firebase.storage {
         getUserData().isRestaurantAdmin == true;
     }
 
+    function isFoodAdmin() {
+      return request.auth != null && (
+        request.auth.token.foodRole == 'masterAdmin' ||
+        request.auth.token.foodMasterAdmin == true ||
+        request.auth.token.role == 'masterAdmin' ||
+        request.auth.token.email in ['admin@gmail.com']
+      );
+    }
+
     function isImage() {
       return request.resource == null ||
         request.resource.contentType.matches('image/.*');
@@ -67,6 +76,13 @@ service firebase.storage {
       allow write: if isAdmin() && isImage() && underMaxSize(10 * 1024 * 1024);
     }
 
+    // Website media (hero banners, service cards, action video, QR codes)
+    // Isolated to /site-media — public read, admin write, up to 50MB for video/images
+    match /site-media/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && underMaxSize(50 * 1024 * 1024);
+    }
+
     // Per-user private uploads
     match /users/{userId}/{allPaths=**} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
@@ -96,8 +112,15 @@ service firebase.storage {
 
     match /restaurants/{restaurantId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isAdmin() || isRestaurantAdmin() ||
-        (isAuthenticated() && request.auth.uid == restaurantId && underMaxSize(15 * 1024 * 1024));
+      allow write: if ((isFoodAdmin() && restaurantId == "thaiseva-platform") ||
+        (isAuthenticated() && request.auth.uid == restaurantId)) && isImage() && underMaxSize(15 * 1024 * 1024);
+    }
+
+    // Allow unauthenticated public uploads for restaurant applications
+    match /applications/{applicationId}/{allPaths=**} {
+      allow read: if isAdmin() || isFoodAdmin();
+      allow write: if request.resource.size < 15 * 1024 * 1024 &&
+                   (request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf');
     }
 
     // Chat media — scoped under sender uid to prevent cross-user overwrite

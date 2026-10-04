@@ -69,6 +69,8 @@ src/components/NotificationOffers.jsx
 
 
 # Local agent/session artifacts
+.secret.local
+functions/.secret.local
 agent-tools/
 terminals/
 

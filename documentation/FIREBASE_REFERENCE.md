@@ -1,6 +1,9 @@
 # Firebase Reference — Thaiseva Admin Portal
 
-Saved for future reference. Last updated: **June 22, 2026**.
+> [!NOTE]
+> **Consolidated Specification:** This Firebase configuration and reference have been unified into the authoritative **[DevOps & Deployment Runbook](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/06-devops/DEPLOYMENT_RUNBOOK.md)**, **[Security & RBAC Architecture](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/05-security/SECURITY_AND_RBAC.md)**, and **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)**.
+
+Saved for operational reference.
 
 > **Source of truth:** live config is always in repo root files (`firebase.json`, `firestore.rules`, `storage.rules`, `.env`). This doc is a snapshot + guide.
 

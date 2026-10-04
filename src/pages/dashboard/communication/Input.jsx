@@ -1,211 +1,20 @@
-// import InsertPhotoIcon from "@mui/icons-material/InsertPhoto";
-// import { useContext, useEffect } from "react";
-// import { useState } from "react";
-// import { v4 as uuid } from "uuid";
-// import {
-//   Timestamp,
-//   arrayUnion,
-//   doc,
-//   serverTimestamp,
-//   updateDoc,
-// } from "firebase/firestore";
+/**
+ * @file Input.jsx
+ * @description Rich communication composer supporting real-time text, voice memos, and document attachments.
+ *
+ * Architecture & Features:
+ * - Real-time message dispatch to active chat document `chats/{chatId}` via Firestore `arrayUnion`
+ * - Automatic update of parent thread summary in `chatRooms/{chatRoom}` (`lastMessage`, timestamps, read receipts)
+ * - Voice audio recording integration: automatically transmits audio memos once uploaded by the recorder
+ * - Universal file uploader: binary stream to Firebase Storage (`uploads/`) with automatic MIME detection
+ * - Read receipt automation: flags conversation as read upon operator focus
+ *
+ * @module Communication/Input
+ */
 
-// import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
-// import { AdminChatContext } from "../../../contextAPIs/AdminChatProvider";
-// import {
-//   chatRoomsCollection,
-//   chatsCollection,
-//   storage,
-// } from "../../../firebase/firebase.config";
-// import { PartnerContext } from "../../../contextAPIs/PartnerProvider";
-
-// const Input = ({ lastMessage, audioUrl, setAudioUrl }) => {
-//   const [text, setText] = useState("");
-//   const [loading, setLoading] = useState(false);
-//   const { chatRoom } = useContext(PartnerContext);
-//   const { data } = useContext(AdminChatContext);
-
-//   useEffect(() => {
-//     const sendAudio = async () => {
-//       const audioMessage = {
-//         id: uuid(),
-//         audioUrl,
-//         text: "",
-//         senderId: "_CustomerSupport",
-//         date: Timestamp.now(),
-//       };
-
-//       if (lastMessage?.serviceType) {
-//         audioMessage.serviceType = lastMessage?.serviceType;
-//       }
-
-//       await updateDoc(doc(chatsCollection, data.chatId), {
-//         messages: arrayUnion(audioMessage),
-//       });
-//       setAudioUrl("");
-//     };
-
-//     audioUrl && sendAudio();
-//   }, [audioUrl]);
-
-//   useEffect(() => {
-//     const updateIsRead = async () => {
-//       // console.log(!data.chatId.startsWith("undefined"));
-//       if (data.chatId.length > 40) {
-//         await updateDoc(doc(chatRoomsCollection, chatRoom), {
-//           [data.chatId + ".isRead"]: true,
-//         });
-//       }
-//     };
-
-//     data.chatId.length > 40 && updateIsRead();
-//   }, [data, chatRoom, lastMessage]);
-
-//   const handleSend = async () => {
-//     const newMessage = {
-//       id: uuid(),
-//       text,
-//       senderId: "_CustomerSupport",
-//       date: Timestamp.now(),
-//       imageUrl: "",
-//     };
-
-//     if (lastMessage?.serviceType) {
-//       newMessage.serviceType = lastMessage?.serviceType;
-//     }
-
-//     if (text.length > 0) {
-//       await updateDoc(doc(chatsCollection, data.chatId), {
-//         messages: arrayUnion(newMessage),
-//       });
-//     }
-
-//     await updateDoc(doc(chatRoomsCollection, chatRoom), {
-//       [data.chatId + ".lastMessage"]: {
-//         text,
-//       },
-//       [data.chatId + ".audioUrl"]: false,
-//       [data.chatId + ".imgUrl"]: false,
-//       [data.chatId + ".date"]: serverTimestamp(),
-//     });
-
-//     setText("");
-//   };
-
-//   const handleSendImage = async (img) => {
-//     if (img) {
-//       setLoading(true);
-//       const storageRef = ref(storage, uuid());
-//       const uploadTask = await uploadBytesResumable(storageRef, img);
-
-//       const imgURL = await getDownloadURL(uploadTask.ref);
-//       if (imgURL) {
-//         await updateDoc(doc(chatsCollection, data.chatId), {
-//           messages: arrayUnion({
-//             id: uuid(),
-//             text: "",
-//             senderId: "_CustomerSupport",
-//             date: Timestamp.now(),
-//             imageUrl: imgURL,
-//           }),
-//         }).then(() => setLoading(false));
-//       }
-//     }
-//   };
-
-//   const handleSendFile = async (file) => {
-//     if (file) {
-//       setLoading(true);
-//       try {
-//         const fileExtension = file.name.split(".").pop();
-//         const fileType = file.type || getMimeType(fileExtension); // Fallback if file.type is missing
-
-//         const storageRef = ref(storage, `uploads/${uuid()}.${fileExtension}`);
-//         const uploadTask = await uploadBytesResumable(storageRef, file, {
-//           contentType: fileType, // Ensure correct MIME type
-//         });
-
-//         const fileURL = await getDownloadURL(uploadTask.ref);
-//         if (fileURL) {
-//           await updateDoc(doc(chatsCollection, data.chatId), {
-//             messages: arrayUnion({
-//               id: uuid(),
-//               text: "",
-//               senderId: "_CustomerSupport",
-//               date: Timestamp.now(),
-//               fileUrl: fileURL,
-//               fileType,
-//               fileName: file.name,
-//             }),
-//           });
-//         }
-//       } catch (error) {
-//         console.error("File upload error:", error);
-//       } finally {
-//         setLoading(false);
-//       }
-//     }
-//   };
-
-//   const getMimeType = (extension) => {
-//     const mimeTypes = {
-//       pdf: "application/pdf",
-//       doc: "application/msword",
-//       docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-//       xls: "application/vnd.ms-excel",
-//       xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-//       jpg: "image/jpeg",
-//       jpeg: "image/jpeg",
-//       png: "image/png",
-//     };
-//     return mimeTypes[extension] || "application/octet-stream";
-//   };
-
-//   return (
-//     <div className="h-12 bg-white p-3 flex items-center justify-between ">
-//       <input
-//         type="text"
-//         placeholder="Type something..."
-//         className="w-full border-none outline-none text-[#2f2d52] font-medium text-lg placeholder-[lightgray] px-2 bg-transparent"
-//         value={text}
-//         onChange={(e) => setText(e.target.value)}
-//         onKeyDown={(e) => {
-//           if (e.key === "Enter") {
-//             handleSend();
-//           }
-//         }}
-//       />
-//       <div className="flex gap-2 items-center">
-//         {loading && (
-//           <span className="text-[var(--chat-btn-color)] text-xs block">
-//             Sending file...
-//           </span>
-//         )}
-//         <input
-//           type="file"
-//           name=""
-//           id="img"
-//           className="hidden"
-//           onChange={(e) => handleSendFile(e.target.files[0])}
-//         />
-//         <label htmlFor="img">
-//           <InsertPhotoIcon />
-//         </label>
-//         <button
-//           className="text-white bg-[var(--button-bg-color)] hover:bg-[var(--button-hover-bg-color)] py-1 px-2 rounded"
-//           onClick={handleSend}
-//         >
-//           Send
-//         </button>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Input;
 import { InsertPhotoIcon } from "@icons";
-import { useContext, useEffect } from "react";
-import { useState } from "react";
+import PropTypes from "prop-types";
+import { useContext, useEffect, useState } from "react";
 import { v4 as uuid } from "uuid";
 import {
   Timestamp,
@@ -214,7 +23,6 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-
 import { getDownloadURL, ref, uploadBytesResumable } from "firebase/storage";
 import { AdminChatContext } from "../../../contextAPIs/AdminChatProvider";
 import {
@@ -224,25 +32,54 @@ import {
 } from "../../../firebase/firebase.config";
 import { PartnerContext } from "../../../contextAPIs/PartnerProvider";
 
+/**
+ * Resolves standard MIME type for uploaded document extensions.
+ *
+ * @param {string} extension - File suffix (e.g. "pdf", "jpg", "docx").
+ * @returns {string} Recognized MIME content-type.
+ */
+const getMimeType = (extension) => {
+  const mimeTypes = {
+    pdf: "application/pdf",
+    doc: "application/msword",
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    xls: "application/vnd.ms-excel",
+    xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+  };
+  return mimeTypes[extension?.toLowerCase()] || "application/octet-stream";
+};
+
+/**
+ * Input Component.
+ *
+ * Bottom chat composer bar providing text input, file attachment, and voice transmission.
+ */
 const Input = ({ lastMessage, audioUrl, setAudioUrl }) => {
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const { chatRoom } = useContext(PartnerContext);
   const { data } = useContext(AdminChatContext);
 
+  // Automatically transmit voice memo once uploaded to storage
   useEffect(() => {
     const sendAudio = async () => {
+      if (!audioUrl || !data?.chatId) return;
+
       const audioMessage = {
         id: uuid(),
         audioUrl,
         text: "",
         senderId: "_CustomerSupport",
         date: Timestamp.now(),
-        isRead: false, // 👈 added
+        isRead: false,
       };
 
       if (lastMessage?.serviceType) {
-        audioMessage.serviceType = lastMessage?.serviceType;
+        audioMessage.serviceType = lastMessage.serviceType;
       }
 
       await updateDoc(doc(chatsCollection, data.chatId), {
@@ -251,122 +88,107 @@ const Input = ({ lastMessage, audioUrl, setAudioUrl }) => {
       setAudioUrl("");
     };
 
-    audioUrl && sendAudio();
-  }, [audioUrl]);
+    if (audioUrl && data?.chatId) {
+      sendAudio();
+    }
+  }, [audioUrl, data?.chatId, lastMessage?.serviceType, setAudioUrl]);
 
+  // Mark chat room as read when opened
   useEffect(() => {
     const updateIsRead = async () => {
-      if (data.chatId.length > 40) {
+      if (data?.chatId && data.chatId.length > 40 && chatRoom) {
         await updateDoc(doc(chatRoomsCollection, chatRoom), {
-          [data.chatId + ".isRead"]: true,
+          [`${data.chatId}.isRead`]: true,
         });
       }
     };
 
-    data.chatId.length > 40 && updateIsRead();
-  }, [data, chatRoom, lastMessage]);
+    if (data?.chatId && data.chatId.length > 40 && chatRoom) {
+      updateIsRead();
+    }
+  }, [data?.chatId, chatRoom, lastMessage]);
 
+  /**
+   * Dispatches text message to active chat document and updates room summary.
+   *
+   * @async
+   * @returns {Promise<void>}
+   */
   const handleSend = async () => {
+    if (!data?.chatId || !text.trim()) return;
+
+    const currentText = text.trim();
     const newMessage = {
       id: uuid(),
-      text,
+      text: currentText,
       senderId: "_CustomerSupport",
       date: Timestamp.now(),
       imageUrl: "",
-      isRead: false, // 👈 added
+      isRead: false,
     };
 
     if (lastMessage?.serviceType) {
-      newMessage.serviceType = lastMessage?.serviceType;
+      newMessage.serviceType = lastMessage.serviceType;
     }
-
-    if (text.length > 0) {
-      await updateDoc(doc(chatsCollection, data.chatId), {
-        messages: arrayUnion(newMessage),
-      });
-    }
-
-    await updateDoc(doc(chatRoomsCollection, chatRoom), {
-      [data.chatId + ".lastMessage"]: {
-        text,
-      },
-      [data.chatId + ".audioUrl"]: false,
-      [data.chatId + ".imgUrl"]: false,
-      [data.chatId + ".date"]: serverTimestamp(),
-    });
 
     setText("");
+
+    await updateDoc(doc(chatsCollection, data.chatId), {
+      messages: arrayUnion(newMessage),
+    });
+
+    if (chatRoom) {
+      await updateDoc(doc(chatRoomsCollection, chatRoom), {
+        [`${data.chatId}.lastMessage`]: {
+          text: currentText,
+        },
+        [`${data.chatId}.audioUrl`]: false,
+        [`${data.chatId}.imgUrl`]: false,
+        [`${data.chatId}.date`]: serverTimestamp(),
+      });
+    }
   };
 
-  const handleSendImage = async (img) => {
-    if (img) {
-      setLoading(true);
-      const storageRef = ref(storage, uuid());
-      const uploadTask = await uploadBytesResumable(storageRef, img);
+  /**
+   * Uploads binary document or image attachment to Firebase Storage and appends message.
+   *
+   * @async
+   * @param {File} file - Attachment selected by the user.
+   * @returns {Promise<void>}
+   */
+  const handleSendFile = async (file) => {
+    if (!file || !data?.chatId) return;
 
-      const imgURL = await getDownloadURL(uploadTask.ref);
-      if (imgURL) {
+    setLoading(true);
+    try {
+      const fileExtension = file.name.split(".").pop();
+      const fileType = file.type || getMimeType(fileExtension);
+
+      const storageRef = ref(storage, `uploads/${uuid()}.${fileExtension}`);
+      const uploadTask = await uploadBytesResumable(storageRef, file, {
+        contentType: fileType,
+      });
+
+      const fileURL = await getDownloadURL(uploadTask.ref);
+      if (fileURL) {
         await updateDoc(doc(chatsCollection, data.chatId), {
           messages: arrayUnion({
             id: uuid(),
             text: "",
             senderId: "_CustomerSupport",
             date: Timestamp.now(),
-            imageUrl: imgURL,
-            isRead: false, // 👈 added
+            fileUrl: fileURL,
+            fileType,
+            fileName: file.name,
+            isRead: false,
           }),
-        }).then(() => setLoading(false));
-      }
-    }
-  };
-
-  const handleSendFile = async (file) => {
-    if (file) {
-      setLoading(true);
-      try {
-        const fileExtension = file.name.split(".").pop();
-        const fileType = file.type || getMimeType(fileExtension);
-
-        const storageRef = ref(storage, `uploads/${uuid()}.${fileExtension}`);
-        const uploadTask = await uploadBytesResumable(storageRef, file, {
-          contentType: fileType,
         });
-
-        const fileURL = await getDownloadURL(uploadTask.ref);
-        if (fileURL) {
-          await updateDoc(doc(chatsCollection, data.chatId), {
-            messages: arrayUnion({
-              id: uuid(),
-              text: "",
-              senderId: "_CustomerSupport",
-              date: Timestamp.now(),
-              fileUrl: fileURL,
-              fileType,
-              fileName: file.name,
-              isRead: false, // 👈 added
-            }),
-          });
-        }
-      } catch (error) {
-        console.error("File upload error:", error);
-      } finally {
-        setLoading(false);
       }
+    } catch (error) {
+      console.error("File upload error:", error);
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const getMimeType = (extension) => {
-    const mimeTypes = {
-      pdf: "application/pdf",
-      doc: "application/msword",
-      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      xls: "application/vnd.ms-excel",
-      xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      png: "image/png",
-    };
-    return mimeTypes[extension] || "application/octet-stream";
   };
 
   return (
@@ -429,6 +251,12 @@ const Input = ({ lastMessage, audioUrl, setAudioUrl }) => {
       </div>
     </div>
   );
+};
+
+Input.propTypes = {
+  lastMessage: PropTypes.object,
+  audioUrl: PropTypes.string,
+  setAudioUrl: PropTypes.func.isRequired,
 };
 
 export default Input;

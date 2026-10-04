@@ -1,4 +1,19 @@
+/**
+ * @file ResourceFormDialog.jsx
+ * @description Dynamic modal form supporting polymorphic schema-driven CRUD for transport resources.
+ *
+ * Architecture & Features:
+ * - Dynamic form schemas for three distinct transport entities (`company`, `driver`, `vehicle`)
+ * - Contextual entity associations: filters vehicles to match driver's parent company
+ * - Direct cloud document upload via {@link DragDropImageUploader} to `transport_documents`
+ * - International telephone formatting and validation via {@link CountryPhoneInput}
+ * - Numeric boundaries and constraint validation (e.g. commission 0-100%, seating capacity min 1)
+ *
+ * @module AdminDashboard/OurPartners/TransportManagement/ResourceFormDialog
+ */
+
 import { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import {
   Alert,
   Button,
@@ -100,11 +115,24 @@ const fields = {
   ],
 };
 
+/**
+ * ResourceFormDialog Component.
+ *
+ * Modal dialog rendering polymorphic input controls tailored to the active
+ * transport resource type (`company`, `driver`, or `vehicle`).
+ */
 const ResourceFormDialog = ({ open, type, record, companies, vehicles = [], busy, error, onClose, onSave }) => {
   const [form, setForm] = useState(defaults[type]);
   useEffect(() => {
     if (open) setForm({ ...defaults[type], ...(record || {}) });
   }, [open, type, record]);
+
+  /**
+   * Curried input change handler updating a specific form attribute.
+   *
+   * @param {string} name - Form field identifier.
+   * @returns {function(React.ChangeEvent): void} Event callback.
+   */
   const set = (name) => (event) => setForm({ ...form, [name]: event.target.value });
 
   return (
@@ -195,4 +223,17 @@ const ResourceFormDialog = ({ open, type, record, companies, vehicles = [], busy
   );
 };
 
+ResourceFormDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  type: PropTypes.oneOf(["company", "driver", "vehicle"]).isRequired,
+  record: PropTypes.object,
+  companies: PropTypes.arrayOf(PropTypes.object).isRequired,
+  vehicles: PropTypes.arrayOf(PropTypes.object),
+  busy: PropTypes.bool,
+  error: PropTypes.string,
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+};
+
 export default ResourceFormDialog;
+

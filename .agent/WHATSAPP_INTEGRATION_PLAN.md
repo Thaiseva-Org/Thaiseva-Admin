@@ -1,5 +1,8 @@
 # WhatsApp Notification Integration Plan
 
+> [!NOTE]
+> **Consolidated Specification:** This WhatsApp notification and chat architecture has been unified into the authoritative **[Third-Party Integrations Guide (Section 5: WhatsApp Communications)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/THIRD_PARTY_INTEGRATIONS.md)**.
+
 ## Overview
 This document outlines the technical plan to send automated WhatsApp notifications to **2 specific admin numbers** whenever a new notification is created in the Admin Dashboard.
 

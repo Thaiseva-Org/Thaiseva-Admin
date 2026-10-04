@@ -1,3 +1,19 @@
+/**
+ * @file TodayBookings.jsx
+ * @description Administrative booking management interface for daily operations and payment auditing.
+ *
+ * Architecture & Features:
+ * - Multi-category booking aggregation (Room Bookings, Sightseeing Bookings, Taxi Bookings, Van Bookings, Selfdrive Bookings)
+ * - Temporal filtering with dynamic date-range selector (defaults to trailing 7 days)
+ * - React 19 concurrent features: optimistic UI updates (useOptimistic) and transition boundaries (useTransition)
+ * - Client-side dynamic PDF invoice/voucher generation via jsPDF & jspdf-autotable with in-browser modal preview and direct download
+ * - Automated sequential invoice number provisioning via ensureInvoiceIdForBooking
+ * - Consolidated multi-vertical Excel workbook export via SheetJS (xlsx)
+ * - Server-side paginated queries via fetchTodayBooking and fetchBookingsTotalPages
+ *
+ * @module AdminDashboard/TodayBookings
+ */
+
 import {
   Paper,
   Table,
@@ -25,9 +41,17 @@ import {
 } from "@mui/material";
 import { useState, useEffect, useContext, useOptimistic, useTransition } from "react";
 import LoadingContent from "../../../../components/LoadingContent";
-import { FileDownloadIcon } from "@icons";
-import { RemoveRedEyeIcon } from "@icons";
-import { CalendarMonth, Delete, Category, FilterList, CloudDownload, CheckCircle, CloseIcon } from "@icons";
+import {
+  CalendarMonth,
+  Category,
+  CheckCircle,
+  CloseIcon,
+  CloudDownload,
+  Delete,
+  FileDownloadIcon,
+  FilterList,
+  RemoveRedEyeIcon,
+} from "@icons";
 import {
   fetchBookingsTotalPages,
   fetchTodayBooking,
@@ -41,7 +65,14 @@ import { AuthContext } from "../../../../contextAPIs/AuthProvider";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { logo } from "../../../../assets";
+import * as XLSX from 'xlsx';
 
+/**
+ * TodayBookings Component.
+ *
+ * Operational dashboard for administrators and sub-administrators to review,
+ * audit, and manage bookings across all travel and lodging verticals.
+ */
 const TodayBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
 
@@ -81,6 +112,16 @@ const TodayBookings = () => {
     }
   );
 
+  /**
+   * Generates a styled, multi-section PDF voucher/invoice for the given booking row.
+   *
+   * Adaptively formats headers, customer details, service itineraries, room allocations,
+   * vehicle information, and currency totals based on the service category.
+   *
+   * @async
+   * @param {object} row - Normalized booking record with rawData attached.
+   * @returns {Promise<Blob>} jsPDF output as a binary Blob suitable for iframe display or download.
+   */
   const generatePdfBlob = async (row) => {
     try {
       const doc = new jsPDF();
@@ -94,259 +135,301 @@ const TodayBookings = () => {
         slate800: [30, 41, 59],
         slate600: [71, 85, 105],
         slate500: [100, 116, 139],
+        slate200: [226, 232, 240],
         slate100: [241, 245, 249],
         emerald: [16, 185, 129],
       };
 
-      // --- HELPERS ---
-      const drawBrandHeader = (title) => {
-        // Top Bar
-        doc.setFillColor(...COLORS.primary);
-        doc.rect(0, 0, 210, 45, 'F');
+      // Title determination
+      const docTitle =
+        category === "Room Bookings"
+          ? "Hotel Confirmation"
+          : category === "Sightseeing Bookings"
+            ? "Booking Voucher"
+            : category.includes("Van")
+              ? "Van Booking Voucher"
+              : "Transport Voucher";
 
-        // Logo
-        try {
-          doc.setFillColor(255, 255, 255);
-          doc.roundedRect(14, 8, 50, 24, 2, 2, 'F');
-          doc.addImage(logo, 'JPEG', 15, 9, 48, 22);
-        } catch (e) {
-          doc.setFontSize(10); doc.setTextColor(255, 255, 255); doc.text("THAISEVA", 15, 20);
-        }
+      // --- BRAND HEADER ---
+      doc.setFillColor(...COLORS.primary);
+      doc.rect(0, 0, 210, 45, 'F');
 
-        // Title
-        doc.setTextColor(255, 255, 255);
+      // Logo box
+      try {
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(14, 8, 52, 24, 2, 2, 'F');
+        doc.addImage(logo, 'JPEG', 15, 9, 50, 22);
+      } catch (e) {
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.text(title.toUpperCase(), 196, 18, { align: "right" });
+        doc.setTextColor(255, 255, 255);
+        doc.text("THAISEVA", 15, 22);
+      }
 
-        // Status Badge
-        const status = raw.status || "Pending";
-        const isSuccess = status.toLowerCase() === 'accepted' || status.toLowerCase() === 'confirmed';
-        doc.setFillColor(...(isSuccess ? COLORS.emerald : [200, 200, 200]));
-        doc.roundedRect(176, 25, 20, 6, 2, 2, 'F');
-        doc.setFontSize(8);
-        doc.text(status.toUpperCase(), 186, 29, { align: "center" });
-      };
+      // Title & Invoice No
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(13);
+      doc.setFont("helvetica", "bold");
+      doc.text(docTitle.toUpperCase(), 196, 16, { align: "right" });
 
-      const drawSectionTitle = (text, y) => {
+      const invoiceNo = row.customerInvoiceId || raw.customerInvoiceId || raw.invoiceId || "";
+      if (invoiceNo) {
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(226, 232, 240);
+        doc.text(`Invoice #: ${invoiceNo}`, 196, 23, { align: "right" });
+      }
+
+      // Status Badge
+      const status = String(raw.status || row.status || "Pending").trim();
+      const isSuccess = ['accepted', 'confirmed', 'done'].includes(status.toLowerCase());
+      doc.setFillColor(...(isSuccess ? COLORS.emerald : [203, 213, 225]));
+      doc.roundedRect(160, 28, 36, 7, 2, 2, 'F');
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...(isSuccess ? [255, 255, 255] : COLORS.slate800));
+      doc.text(status.toUpperCase(), 178, 32.5, { align: "center" });
+
+      // --- HELPERS ---
+      const drawSectionTitle = (text, currentY) => {
         doc.setFontSize(10);
         doc.setTextColor(...COLORS.primary);
         doc.setFont("helvetica", "bold");
-        doc.text(text.toUpperCase(), 14, y);
-        doc.setDrawColor(...COLORS.slate100);
-        doc.line(14, y + 2, 196, y + 2);
+        doc.text(text.toUpperCase(), 14, currentY);
+        doc.setDrawColor(...COLORS.slate200);
+        doc.setLineWidth(0.4);
+        doc.line(14, currentY + 2, 196, currentY + 2);
+        return currentY + 8;
       };
 
-      const drawField = (label, value, x, y) => {
-        if (!value || value === "-" || value === "0" || value === "") return;
-        doc.setFontSize(9);
+      const drawFieldColumn = (label, value, x, y, width = 45) => {
+        if (value === undefined || value === null || value === "") return y;
+        const strVal = String(value).trim();
+        if (!strVal || strVal === "-") return y;
+
+        doc.setFontSize(8.5);
         doc.setTextColor(...COLORS.slate500);
         doc.setFont("helvetica", "normal");
         doc.text(label, x, y);
+
+        doc.setFontSize(9.5);
         doc.setTextColor(...COLORS.slate800);
         doc.setFont("helvetica", "bold");
-        doc.text(String(value), x, y + 5);
+
+        const lines = doc.splitTextToSize(strVal, width);
+        doc.text(lines, x, y + 4.5);
+        return y + (lines.length * 4.5) + 3;
       };
 
-      // --- TEMPLATES ---
+      const drawFieldRow = (fields, currentY) => {
+        let maxY = currentY;
+        fields.forEach(f => {
+          if (!f.value || f.value === "-" || f.value === "0" || f.value === "") return;
+          const endY = drawFieldColumn(f.label, f.value, f.x, currentY, f.width || 45);
+          if (endY > maxY) maxY = endY;
+        });
+        return maxY > currentY ? maxY + 3 : currentY;
+      };
 
-      // 1. SIGHTSEEING
+      let y = 56;
+
+      // --- 1. SIGHTSEEING BOOKINGS ---
       if (category === "Sightseeing Bookings") {
-        drawBrandHeader("Booking Voucher");
-
-        let y = 60;
-        // Booking Details
-        drawSectionTitle("Booking Details", y);
-        y += 10;
-        // Prioritize explicit IDs, then Invoice ID, then fallback
         const displayId = raw.bookingId || raw.orderId || row.customerInvoiceId || row.id;
-        drawField("Booking ID", displayId, 14, y);
-        drawField("Date", row.timestamp, 60, y);
-        // Only show Provider if it's external/assigned
-        if (raw.Provider?.name && raw.Provider.name !== "Thaiseva") {
-          drawField("Provider", raw.Provider.name, 110, y);
-          drawField("Provider Phone", raw.Provider.phone, 160, y);
-        }
 
-        y += 20;
-        // Customer Details
-        drawSectionTitle("Customer Details", y);
-        y += 10;
-        drawField("Name", raw.fullName || raw.guestDetails?.name || raw.name, 14, y);
-        drawField("Phone", raw.guestPhone || raw.guestDetails?.phoneNumber || raw.phone, 60, y);
-        const email = raw.guestEmail || raw.guestDetails?.email || raw.email;
-        if (email) drawField("Email", email, 110, y);
-        // Removed Nationality as typically extra
+        y = drawSectionTitle("Booking Details", y);
+        y = drawFieldRow([
+          { label: "Booking ID", value: displayId, x: 14, width: 45 },
+          { label: "Booking Date", value: row.timestamp, x: 65, width: 45 },
+          { label: "Provider", value: (raw.Provider?.name && raw.Provider.name !== "Thaiseva") ? raw.Provider.name : "Thaiseva", x: 115, width: 40 },
+          { label: "Provider Phone", value: raw.Provider?.phone || "-", x: 160, width: 35 },
+        ], y);
 
-        y += 20;
-        // Service Details
-        drawSectionTitle("Service Details", y);
-        y += 10;
-        const title = raw.title || raw.packageName || row.userInvoce.paymentTable.description;
-        doc.setFontSize(12); doc.setTextColor(...COLORS.slate800);
-        doc.text(title, 14, y + 5); // Large Title
+        y = drawSectionTitle("Customer Details", y);
+        y = drawFieldRow([
+          { label: "Guest Name", value: raw.fullName || raw.guestDetails?.name || raw.name || row.name, x: 14, width: 45 },
+          { label: "Phone", value: raw.guestPhone || raw.guestDetails?.phoneNumber || raw.phone || row.phone, x: 65, width: 45 },
+          { label: "Email", value: raw.guestEmail || raw.guestDetails?.email || raw.email || "-", x: 115, width: 40 },
+          { label: "Passengers", value: raw.guestDetails?.noOfPassengers || raw.noOfPeople || 1, x: 160, width: 35 },
+        ], y);
 
-        y += 15;
-        drawField("Passengers", raw.guestDetails?.noOfPassengers || raw.noOfPeople || 1, 14, y);
-        if (raw.pickUpTime) drawField("Pick-Up Time", raw.pickUpTime, 60, y);
+        y = drawSectionTitle("Service Details", y);
+        const title = raw.title || raw.packageName || row.userInvoce?.paymentTable?.description || "-";
+        doc.setFontSize(10.5);
+        doc.setTextColor(...COLORS.slate800);
+        doc.setFont("helvetica", "bold");
+        const titleLines = doc.splitTextToSize(title, 180);
+        doc.text(titleLines, 14, y);
+        y += (titleLines.length * 4.5) + 5;
+
         const pickupRequest = getBookingPickupRequest(raw);
-        if (pickupRequest) drawField("Pickup Request", pickupRequest, 110, y);
-
-        // Invoice ID
-        if (row.customerInvoiceId) {
-          y += 20;
-          drawField("Invoice No", row.customerInvoiceId, 160, 38); // Header area
-        }
+        y = drawFieldRow([
+          { label: "Pick-Up Time", value: raw.pickUpTime || "-", x: 14, width: 45 },
+          { label: "Pickup Request / Location", value: pickupRequest || "-", x: 65, width: 125 },
+        ], y);
       }
 
-      // 2. HOTEL
+      // --- 2. ROOM BOOKINGS (HOTEL) ---
       else if (category === "Room Bookings") {
-        drawBrandHeader("Hotel Confirmation");
-
-        let y = 60;
-        drawSectionTitle("Reservation Details", y);
-        y += 10;
         const displayId = raw.bookingId || row.customerInvoiceId || row.id;
-        drawField("Booking ID", displayId, 14, y);
-        drawField("Booked On", row.timestamp, 60, y);
-        drawField("Hotel Name", raw.hotelName || raw.hotel?.hotelName || (typeof raw.hotel === 'string' ? raw.hotel : ""), 110, y);
 
-        y += 20;
-        drawSectionTitle("Guest Information", y);
-        y += 10;
-        drawField("Primary Guest", raw.fullName || raw.guestDetails?.name || raw.name, 14, y);
-        drawField("Contact", `${raw.guestPhone || raw.guestDetails?.phoneNumber || raw.phone || "-"}`, 60, y);
-        if (raw.nationality) drawField("Nationality", raw.nationality, 160, y);
+        y = drawSectionTitle("Reservation Details", y);
+        const hotelName = raw.hotelName || raw.hotel?.hotelName || (typeof raw.hotel === 'string' ? raw.hotel : "") || "-";
+        y = drawFieldRow([
+          { label: "Booking ID", value: displayId, x: 14, width: 45 },
+          { label: "Booked On", value: row.timestamp, x: 65, width: 45 },
+          { label: "Hotel Name", value: hotelName, x: 115, width: 80 },
+        ], y);
 
-        y += 20;
-        drawSectionTitle("Stay Details", y);
-        y += 10;
+        y = drawSectionTitle("Guest Information", y);
+        y = drawFieldRow([
+          { label: "Primary Guest", value: raw.fullName || raw.guestDetails?.name || raw.name || row.name, x: 14, width: 45 },
+          { label: "Contact Phone", value: raw.guestPhone || raw.guestDetails?.phoneNumber || raw.phone || row.phone || "-", x: 65, width: 45 },
+          { label: "Email", value: raw.guestEmail || raw.guestDetails?.email || raw.email || "-", x: 115, width: 40 },
+          { label: "Nationality", value: raw.nationality || "-", x: 160, width: 35 },
+        ], y);
+
+        y = drawSectionTitle("Stay Details", y);
         const formatDate = (val) => {
           if (!val) return "-";
           if (val.seconds) return new Date(val.seconds * 1000).toLocaleDateString();
-          return new Date(val).toLocaleDateString();
+          const d = new Date(val);
+          return isNaN(d) ? "-" : d.toLocaleDateString();
         };
 
-        drawField("Check-In", formatDate(raw.checkInDate), 14, y);
-        drawField("Check-Out", formatDate(raw.checkOutDate), 60, y);
-
-        // Duration Calc
         let nights = raw.nights;
         if (!nights && raw.checkInDate && raw.checkOutDate) {
           const d1 = raw.checkInDate.seconds ? new Date(raw.checkInDate.seconds * 1000) : new Date(raw.checkInDate);
           const d2 = raw.checkOutDate.seconds ? new Date(raw.checkOutDate.seconds * 1000) : new Date(raw.checkOutDate);
-          nights = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
+          if (!isNaN(d1) && !isNaN(d2)) {
+            nights = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24)));
+          }
         }
-        if (nights) drawField("Duration", `${nights} Night(s)`, 110, y);
-        drawField("Guests", `${raw.adults || 0} Adults, ${raw.children || 0} Children`, 160, y);
 
-        y += 20;
-        drawSectionTitle("Room Allocation", y);
-        y += 10;
+        y = drawFieldRow([
+          { label: "Check-In", value: formatDate(raw.checkInDate || raw.checkIn), x: 14, width: 45 },
+          { label: "Check-Out", value: formatDate(raw.checkOutDate || raw.checkOut), x: 65, width: 45 },
+          { label: "Duration", value: nights ? `${nights} Night(s)` : "-", x: 115, width: 40 },
+          { label: "Guests", value: `${raw.adults || 0} Adult(s), ${raw.children || 0} Child(ren)`, x: 160, width: 35 },
+        ], y);
+
+        y = drawSectionTitle("Room Allocation", y);
         const rooms = raw.roomDetails || [{ roomName: raw.roomName || "Standard Room", count: raw.noOfRooms || 1 }];
-
-        // Table for rooms
         autoTable(doc, {
           startY: y,
-          head: [['Room Type', 'Qty', 'Assigned Rooms']],
-          body: rooms.map(r => [r.roomName, r.count || 1, raw.roomNumbers || "On Arrival"]),
+          head: [['Room Type', 'Qty', 'Assigned Room(s)']],
+          body: rooms.map(r => [r.roomName || "Standard Room", r.count || 1, raw.roomNumbers || "On Arrival"]),
           theme: 'grid',
-          headStyles: { fillColor: COLORS.slate100, textColor: COLORS.slate600, fontSize: 8 },
-          styles: { fontSize: 9, textColor: COLORS.slate800 }
+          headStyles: { fillColor: COLORS.slate100, textColor: COLORS.slate600, fontSize: 8.5, fontStyle: 'bold' },
+          styles: { fontSize: 9, textColor: COLORS.slate800 },
+          margin: { left: 14, right: 14 }
         });
+        y = doc.lastAutoTable.finalY + 8;
       }
 
-      // 3. TRANSPORT (Taxi, Van, SelfDrive)
+      // --- 3. TRANSPORT (TAXI / VAN / SELFDRIVE) ---
       else {
-        // Taxi / Van / SelfDrive
-        const typeLabel = category.includes("Van") ? "Van Booking Invoice" : "Transport Invoice";
-        drawBrandHeader(typeLabel);
-
-        let y = 60;
-        drawSectionTitle("Trip Details", y);
-        y += 10;
         const displayId = raw.bookingId || row.customerInvoiceId || row.id;
-        drawField("Booking ID", displayId, 14, y);
-        drawField("Date", row.timestamp, 60, y);
-        drawField("Service Type", category, 110, y);
 
-        y += 20;
-        drawSectionTitle("Passenger Details", y);
-        y += 10;
-        drawField("Name", raw.name || raw.guestName, 14, y);
-        drawField("Contact", raw.contact || raw.guestPhone || raw.phone, 60, y);
+        y = drawSectionTitle("Trip Details", y);
+        y = drawFieldRow([
+          { label: "Booking ID", value: displayId, x: 14, width: 45 },
+          { label: "Booking Date", value: row.timestamp, x: 65, width: 45 },
+          { label: "Service Type", value: category, x: 115, width: 80 },
+        ], y);
 
-        if (raw.passengers && raw.passengers.length > 0) {
-          y += 12; // Move down for extra row
-          doc.setFontSize(9); doc.setTextColor(...COLORS.slate500); doc.setFont("helvetica", "normal");
-          doc.text("Additional Passengers", 14, y);
-          doc.setTextColor(...COLORS.slate800); doc.setFont("helvetica", "bold");
+        y = drawSectionTitle("Passenger Details", y);
+        y = drawFieldRow([
+          { label: "Passenger Name", value: raw.name || raw.guestName || raw.fullName || row.name, x: 14, width: 45 },
+          { label: "Contact Phone", value: raw.contact || raw.guestPhone || raw.phone || row.phone, x: 65, width: 45 },
+        ], y);
 
-          // Format list: "Name (Phone), Name 2 (Phone 2)"
+        if (raw.passengers && Array.isArray(raw.passengers) && raw.passengers.length > 0) {
           const passengerText = raw.passengers.map(p => {
             if (typeof p === 'string') return p;
-            return `${p.name}${p.phone ? ` (${p.phone})` : ''}`;
-          }).join(", ");
-
-          // Join and wrap text
-          doc.text(passengerText, 14, y + 5, { maxWidth: 180 });
-
-          // Adjust Y based on how many lines likely used (approximate)
-          const lines = Math.ceil(passengerText.length / 90); // approx chars per line
-          y += (lines * 5);
+            return `${p.name || ''}${p.phone ? ` (${p.phone})` : ''}`;
+          }).filter(Boolean).join(", ");
+          if (passengerText) {
+            y = drawFieldRow([
+              { label: "Additional Passengers", value: passengerText, x: 14, width: 180 }
+            ], y);
+          }
         }
 
-        y += 20;
-        drawSectionTitle("Route Information", y);
-        y += 10;
-        // Wrapping text for locations
-        doc.setFontSize(9); doc.setTextColor(...COLORS.slate500); doc.text("Pickup", 14, y);
-        doc.setTextColor(...COLORS.slate800); doc.text(String(getBookingPickupRequest(raw) || "-"), 14, y + 5, { maxWidth: 80 });
+        y = drawSectionTitle("Route Information", y);
+        const pickup = getBookingPickupRequest(raw) || "-";
+        const drop = raw.dropLocation || raw.drop || "-";
+        const tripTime = raw.time || raw.bookingDate || "-";
 
-        doc.setTextColor(...COLORS.slate500); doc.text("Drop", 110, y);
-        doc.setTextColor(...COLORS.slate800); doc.text(String(raw.dropLocation || raw.drop || "-"), 110, y + 5, { maxWidth: 80 });
+        y = drawFieldRow([
+          { label: "Pickup Location", value: pickup, x: 14, width: 85 },
+          { label: "Drop-Off Location", value: drop, x: 105, width: 85 },
+        ], y);
 
-        y += 15;
-        drawField("Time", raw.time || raw.bookingDate || "-", 14, y);
+        y = drawFieldRow([
+          { label: "Scheduled Time", value: tripTime, x: 14, width: 85 },
+        ], y);
 
-        if (raw.Driver || raw.companyName) {
-          y += 20;
-          drawSectionTitle("Vehicle & Driver", y);
-          y += 10;
-          drawField("Driver/Company", raw.Driver?.name || raw.companyName || "-", 14, y);
-          drawField("Phone", raw.Driver?.phone || "-", 60, y);
-          drawField("Vehicle", `${raw.vehicleDetails?.vehicle || "Van"} (${raw.vehicleDetails?.vehicleNumber || "-"})`, 110, y);
+        if (raw.Driver || raw.companyName || raw.providerName) {
+          y = drawSectionTitle("Vehicle & Driver Information", y);
+          const driverName = raw.Driver?.name || raw.companyName || raw.providerName || "-";
+          const driverPhone = raw.Driver?.phone || raw.companyPhone || "-";
+          const vehicleInfo = `${raw.vehicleDetails?.vehicle || raw.vehicleType || "Vehicle"} (${raw.vehicleDetails?.vehicleNumber || "Assigned on arrival"})`;
+          y = drawFieldRow([
+            { label: "Driver / Partner", value: driverName, x: 14, width: 45 },
+            { label: "Contact Phone", value: driverPhone, x: 65, width: 45 },
+            { label: "Vehicle Info", value: vehicleInfo, x: 115, width: 80 },
+          ], y);
         }
       }
 
-      // --- FINANCIALS (Common Bottom Section) ---
-      const startY = (doc).lastAutoTable?.finalY ? doc.lastAutoTable.finalY + 20 : 160;
+      // --- FINANCIALS & SUMMARY TABLE ---
+      const lastTableY = doc.lastAutoTable?.finalY;
+      let startY = Math.max(y + 6, lastTableY ? lastTableY + 8 : 0);
+      if (startY > 230) {
+        doc.addPage();
+        startY = 20;
+      }
+
+      const rawAmount = raw.amountTHB || raw.totalAmount || raw.totalPrice || raw.price || raw.amount || (row.userAmount !== "-" && row.userAmount !== "0" ? row.userAmount : null);
+      const parsedNum = parseFloat(rawAmount);
+      const hasAmount = !isNaN(parsedNum) && parsedNum > 0;
+      const formattedTotal = hasAmount
+        ? `${parsedNum.toLocaleString()} THB`
+        : (row.userAmount && row.userAmount !== "-" && row.userAmount !== "0" ? `${row.userAmount} THB` : "Included / On Request");
+
+      const serviceDescription = raw.title || raw.packageName || raw.hotelName || `${category} Service`;
 
       autoTable(doc, {
         startY: startY,
         head: [['Description', 'Amount']],
         body: [
           [
-            `Service Charges (${category})`,
-            `${row.userInvoce.paymentTable.total} THB`
+            `Service Fee (${category}): ${serviceDescription}`,
+            formattedTotal
           ],
-          (category === "Room Bookings" && raw.amountINR) ? [`Equivalent in INR`, `₹ ${raw.amountINR}`] : null
+          (category === "Room Bookings" && raw.amountINR) ? [`Equivalent in INR`, `₹ ${Number(raw.amountINR).toLocaleString()}`] : null
         ].filter(Boolean),
         theme: 'striped',
-        headStyles: { fillColor: COLORS.primary, textColor: 255 },
-        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } }
+        headStyles: { fillColor: COLORS.primary, textColor: [255, 255, 255], fontStyle: 'bold' },
+        columnStyles: { 1: { halign: 'right', fontStyle: 'bold' } },
+        margin: { left: 14, right: 14 }
       });
 
-      // Total Box
-      const finalY = doc.lastAutoTable.finalY + 10;
+      const finalY = doc.lastAutoTable.finalY + 8;
       doc.setFontSize(10);
       doc.setTextColor(...COLORS.slate800);
       doc.setFont("helvetica", "bold");
       doc.text("TOTAL DUE:", 140, finalY);
-      doc.setFontSize(14);
+      doc.setFontSize(13);
       doc.setTextColor(...COLORS.primary);
-      doc.text(`${row.userInvoce.paymentTable.total} THB`, 196, finalY, { align: 'right' });
+      doc.text(formattedTotal, 196, finalY, { align: 'right' });
 
+      // Footer note
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COLORS.slate500);
+      doc.text("Thank you for choosing ThaiSeva. For support or inquiries, please contact ThaiSeva Support.", 105, 282, { align: 'center' });
 
       return doc.output('blob');
     } catch (err) {
@@ -355,7 +438,14 @@ const TodayBookings = () => {
     }
   };
 
-
+  /**
+   * Initiates direct PDF invoice download for a booking record, ensuring an official
+   * sequential customer invoice number is provisioned in Firestore beforehand.
+   *
+   * @async
+   * @param {object} row - Target booking record.
+   * @returns {Promise<void>}
+   */
   const handleDownloadInvoice = async (row) => {
     if (processingInvoiceId) return;
     setProcessingInvoiceId(row.id);
@@ -379,6 +469,13 @@ const TodayBookings = () => {
     }
   };
 
+  /**
+   * Generates and presents the booking invoice PDF inside an in-app dialog modal.
+   *
+   * @async
+   * @param {object} row - Target booking record.
+   * @returns {Promise<void>}
+   */
   const handlePreviewInvoice = async (row) => {
     if (processingInvoiceId) return;
     setProcessingInvoiceId(row.id);
@@ -397,6 +494,9 @@ const TodayBookings = () => {
     }
   };
 
+  /**
+   * Closes the invoice preview dialog and releases the object URL to avoid memory leaks.
+   */
   const handleClosePreview = () => {
     setPreviewOpen(false);
     if (previewPdfUrl) {
@@ -406,6 +506,26 @@ const TodayBookings = () => {
   };
 
   // --- Normalization Logic ---
+
+  /**
+   * Factory function constructing a normalized booking row with computed totals,
+   * human-readable timestamps, and structured invoice metadata.
+   *
+   * @param {string} id - Firestore document ID.
+   * @param {boolean} isPaymentClear - Settlement status flag.
+   * @param {string} provider - Vendor, hotel, or driver identifier.
+   * @param {string} providerContact - Vendor contact number.
+   * @param {string} name - Guest primary name.
+   * @param {string} phone - Guest contact phone.
+   * @param {object|Date|string} timestamp - Booking creation or check-in timestamp.
+   * @param {string|number} userAmount - Gross booking cost in THB.
+   * @param {string|number} comission - Commission amount.
+   * @param {string} category - Service category string.
+   * @param {string} status - Booking workflow state.
+   * @param {string} [title=""] - Package title or route summary.
+   * @param {string|null} [customerInvoiceId=null] - Formal customer invoice sequence ID.
+   * @returns {object} Standardized booking record.
+   */
   function createData(
     id,
     isPaymentClear,
@@ -481,6 +601,14 @@ const TodayBookings = () => {
     };
   }
 
+  /**
+   * Normalizes heterogeneous Firestore documents across different travel verticals
+   * into homogeneous tabular row structures.
+   *
+   * @param {Array<object>} data - Raw documents fetched from Firestore.
+   * @param {string} category - Active service category.
+   * @returns {Array<object>} Normalized array of booking rows.
+   */
   const setupDataProperly = (data, category) => {
     return data.map((item) => {
       // Default to empty strings or 0 to prevent crashes
@@ -613,6 +741,14 @@ const TodayBookings = () => {
 
   // --- Actions ---
 
+  /**
+   * Confirms and executes optimistic payment clearance for a booking row.
+   *
+   * Uses React 19 useOptimistic for zero-latency UI transition followed by
+   * asynchronous persistence in Firestore via handleClear.
+   *
+   * @param {object} row - Booking record to clear.
+   */
   const handleClearAction = (row) => {
     if (window.confirm("Are you sure to clear this entry?")) {
       startTransition(async () => {
@@ -655,22 +791,16 @@ const TodayBookings = () => {
     return () => { mounted = false; };
   }, [queryCategory, refetch, page, rowsPerPage, isAdmin, isSubAdmin, startDate, endDate]);
 
-  // --- CSV Export Logic ---
-  const headers = [
-    { label: "Provider Name", key: "provider" },
-    { label: "Provider Contact", key: "providerContact" },
-    { label: "User Name", key: "name" },
-    { label: "User Contact", key: "phone" },
-    { label: "Booking At", key: "timestamp" },
-    { label: "Booking Amount", key: "userAmount" },
-    { label: "Booking Category", key: "category" },
-  ];
-
-
-
-  const downloadCSV = async () => {
+  /**
+   * Compiles and exports an aggregated multi-category Excel (.xlsx) workbook
+   * covering all 5 travel verticals across the selected date window.
+   *
+   * @async
+   * @returns {Promise<void>}
+   */
+  const downloadExcel = async () => {
     setIsDownloading(true);
-    const categories = ["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Selfdrive Bookings"];
+    const categories = ["Room Bookings", "Sightseeing Bookings", "Taxi Bookings", "Van Bookings", "Selfdrive Bookings"];
 
     let allData = [];
 
@@ -681,25 +811,57 @@ const TodayBookings = () => {
       allData = [...allData, ...normalized];
     }));
 
-    // Generate CSV Content
-    const csvHeader = headers.map(h => `"${h.label}"`).join(",");
-    const csvRows = allData.map(row => {
-      return headers.map(h => {
-        const val = row[h.key] ? String(row[h.key]).replace(/"/g, '""') : "";
-        return `"${val}"`;
-      }).join(",");
-    }).join("\n");
+    // Generate Excel Data
+    const excelData = allData.map(row => {
+      const raw = row.rawData || {};
+      const title = raw.title || raw.packageName || row?.userInvoce?.paymentTable?.description || "-";
+      
+      return {
+        "Order ID": row.id || "-",
+        "Invoice ID": row.customerInvoiceId || raw.customerInvoiceId || raw.invoiceId || "-",
+        "Booking Category": row.category || "-",
+        "Provider Name": row.provider || "-",
+        "Provider Contact": row.providerContact || "-",
+        "Guest Name": row.name || "-",
+        "Guest Contact": row.phone || "-",
+        "Booking Date/Time": row.timestamp || "-",
+        "Service Description": title,
+        "Status": row.status || "-",
+        "Payment Clear": row.isPaymentClear ? "Yes" : "No",
+        "Booking Amount": parseFloat(row.userAmount) || 0,
+      };
+    });
 
-    const csvContent = `${csvHeader}\n${csvRows}`;
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
+    // Add totals row
+    const totalAmount = excelData.reduce((acc, row) => acc + (parseFloat(row["Booking Amount"]) || 0), 0);
+    excelData.push({
+      "Order ID": "TOTAL",
+      "Invoice ID": "",
+      "Booking Category": "",
+      "Provider Name": "",
+      "Provider Contact": "",
+      "Guest Name": "",
+      "Guest Contact": "",
+      "Booking Date/Time": "",
+      "Service Description": "",
+      "Status": "",
+      "Payment Clear": "",
+      "Booking Amount": totalAmount,
+    });
 
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `Bookings_from_${startDate}_to_${endDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Bookings");
+    
+    // Auto adjust column widths
+    const colWidths = [
+      { wch: 25 }, { wch: 20 }, { wch: 20 }, { wch: 25 }, { wch: 20 },
+      { wch: 25 }, { wch: 20 }, { wch: 25 }, { wch: 35 }, { wch: 15 },
+      { wch: 15 }, { wch: 20 }
+    ];
+    worksheet['!cols'] = colWidths;
+
+    XLSX.writeFile(workbook, `Bookings_from_${startDate}_to_${endDate}.xlsx`);
 
     setIsDownloading(false);
   };
@@ -767,12 +929,12 @@ const TodayBookings = () => {
             <Grid item xs={12} md={7} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
               <Button
                 variant="outlined"
-                onClick={downloadCSV}
+                onClick={downloadExcel}
                 disabled={isDownloading}
                 startIcon={isDownloading ? <CircularProgress size={16} /> : <CloudDownload />}
                 sx={{ borderRadius: 2, textTransform: 'none', borderColor: '#f97316', color: '#f97316' }}
               >
-                {isDownloading ? "Generating CSV..." : "Export CSV"}
+                {isDownloading ? "Generating Excel..." : "Export Excel"}
               </Button>
             </Grid>
           </Grid>

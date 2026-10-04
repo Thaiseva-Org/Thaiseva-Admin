@@ -1,7 +1,9 @@
 # Hotel Stock API — Simple Numbers Model
 
-**Last updated:** 2026-08-09  
-**Project:** `gothai-ffea1` · **Region:** `asia-east2`
+> [!NOTE]
+> **Consolidated Specification:** This simple numbers stock model and the three core APIs (`checkHotelStock`, `lockHotelStock`, `unlockHotelStock`) have been unified into the authoritative **[Cloud Functions API Specification (Section 2: Hotel Stock & Concurrency)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)** and the **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)**.
+
+**Region:** `asia-east2`
 
 Replaces the multi-document availability merge (adjustments + night ledger + allocations + holds) with **one formula and three APIs**.
 

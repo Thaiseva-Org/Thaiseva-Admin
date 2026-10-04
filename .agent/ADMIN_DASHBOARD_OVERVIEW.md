@@ -1,5 +1,8 @@
 # Thaiseva Admin Dashboard - Development Overview
 
+> [!NOTE]
+> **Consolidated Specification:** This dashboard overview and component reference have been unified into the authoritative **[System Architecture Document](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/02-architecture/SYSTEM_ARCHITECTURE.md)** and the **[Admin & Partner Operations User Manual](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md)**.
+
 ## Table of Contents
 1. [Project Architecture](#project-architecture)
 2. [Routing Structure](#routing-structure)

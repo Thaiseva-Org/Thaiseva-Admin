@@ -1,5 +1,8 @@
 # Website Implementation — Hotel Stock (Check / Lock / Unlock)
 
+> [!NOTE]
+> **Consolidated Specification:** This website implementation guide has been unified into the authoritative **[Cloud Functions API Specification (Section 2: Hotel Stock & Concurrency)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)** and **[System Architecture](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/02-architecture/SYSTEM_ARCHITECTURE.md)**.
+
 **Region:** `asia-east2`  
 **Project:** `gothai-ffea1`  
 **Formula:** `free = total − locked − booked`  

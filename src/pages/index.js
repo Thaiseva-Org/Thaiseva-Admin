@@ -73,9 +73,6 @@ const LocalPartners = lazy(() =>
 const Drivers = lazy(() =>
   import("./dashboard/adminDashboard/ourPartners/drivers/Drivers")
 );
-const ManagePartners = lazy(() =>
-  import("./dashboard/adminDashboard/ourPartners/ManagePartners")
-);
 // ========== Our Partners Pages End ==========
 
 // ========== Primary Admin Pages ==========
@@ -203,6 +200,15 @@ const PartnerDashboard = lazy(() =>
 // ========== Dashboard Pages End ==========
 
 // ========== Website Config Pages ==========
+const WebsiteMedia = lazy(() =>
+  import("./dashboard/adminDashboard/websiteConfig/WebsiteMedia")
+);
+const SiteStatistics = lazy(() =>
+  import("./dashboard/adminDashboard/websiteConfig/SiteStatistics")
+);
+const Banners = lazy(() =>
+  import("./dashboard/adminDashboard/websiteConfig/Banners")
+);
 const Blogs = lazy(() =>
   import("./dashboard/adminDashboard/websiteConfig/Blogs")
 );
@@ -243,7 +249,6 @@ export {
   AddHotelForm,
   LocalPartners,
   Drivers,
-  ManagePartners,
 
   // Primary Admin export
   SubAdmins,
@@ -302,6 +307,9 @@ export {
   VanBookings,
 
   // Website Config export
+  WebsiteMedia,
+  SiteStatistics,
+  Banners,
   Blogs,
   Services,
   FAQs,

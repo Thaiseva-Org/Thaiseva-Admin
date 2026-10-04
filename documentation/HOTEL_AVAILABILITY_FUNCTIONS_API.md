@@ -1,9 +1,11 @@
 # Hotel Availability — Cloud Functions API
 
-**Last updated:** 2026-08-09  
+> [!NOTE]
+> **Consolidated Specification:** This Cloud Functions availability API reference has been unified into the authoritative **[Cloud Functions API Specification (Section 2: Hotel Stock & Concurrency)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)**. Refer to that document for active request/response payloads and error handling.
+
 **Project:** `gothai-ffea1`  
 **Region:** `asia-east2`  
-**Runtime:** Node.js 20 (2nd gen)
+**Runtime:** Node.js 22 (2nd gen)
 
 > **Simplified stock model:** capacity is pure numbers  
 > `free = total − locked − booked` on `hotelStock/.../nights/{date}`.  

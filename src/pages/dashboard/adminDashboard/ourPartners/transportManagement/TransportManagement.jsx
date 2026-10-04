@@ -1,4 +1,23 @@
+/**
+ * @file TransportManagement.jsx
+ * @description Central administrative dashboard for Taxi, Van, and Freelance transport operations.
+ *
+ * Architecture & Features:
+ * - Real-time synchronization with Firestore collections:
+ *   - `transport_companies` via {@link transportCompaniesCollection}
+ *   - `transport_drivers` via {@link transportDriversCollection}
+ *   - `transport_vehicles` via {@link transportVehiclesCollection}
+ * - Demo record filtering (`isDemo !== true`)
+ * - Multi-tab entity management (Companies, Drivers, Vehicles)
+ * - Dynamic KPI summary metrics for active assets, trip status, and fleet allocations
+ * - Resilient CRUD workflows: creation, edits, soft-archival (preserving historical booking snapshots), and permanent deletion via {@link TransportWorkflow}
+ * - Multi-criteria search and availability filtering
+ *
+ * @module AdminDashboard/OurPartners/TransportManagement
+ */
+
 import { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import {
   Alert,
   Button,
@@ -43,6 +62,16 @@ const summaryColors = {
   warning: "bg-warning-50 text-warning-600",
 };
 
+/**
+ * Summary card sub-component displaying high-level counts and status metrics.
+ *
+ * @component
+ * @param {object} props
+ * @param {string} props.label - Metric description.
+ * @param {number|string} props.value - Metric numeric or string value.
+ * @param {"primary"|"success"|"warning"} [props.color="primary"] - Color palette theme.
+ * @param {React.ReactNode} props.icon - Display icon.
+ */
 const SummaryCard = ({ label, value, color = "primary", icon }) => (
   <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5 flex items-center justify-between">
     <div><p className="text-sm text-neutral-500">{label}</p><p className={`text-3xl font-bold mt-1 ${summaryColors[color].split(" ")[1]}`}>{value}</p></div>
@@ -50,6 +79,19 @@ const SummaryCard = ({ label, value, color = "primary", icon }) => (
   </div>
 );
 
+SummaryCard.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+  color: PropTypes.oneOf(["primary", "success", "warning"]),
+  icon: PropTypes.node.isRequired,
+};
+
+/**
+ * TransportManagement Component.
+ *
+ * Administrative interface for managing transport partner vendors, their authorized drivers,
+ * and associated vehicle fleets with real-time status monitoring.
+ */
 const TransportManagement = () => {
   const [tab, setTab] = useState(0);
   const [companies, setCompanies] = useState([]);
@@ -93,11 +135,24 @@ const TransportManagement = () => {
       (companyType === "All" || record.companyType === companyType);
   }), [records, search, activeFilter, availability, companyType]);
 
+  /**
+   * Opens the resource creation or editing dialog.
+   *
+   * @param {object|null} [record=null] - Resource object to edit, or null to create new.
+   */
   const openForm = (record = null) => {
     setSelected(record);
     setError("");
     setFormOpen(true);
   };
+
+  /**
+   * Persists transport resource updates or creations to Firestore.
+   *
+   * @async
+   * @param {object} values - Form field values.
+   * @returns {Promise<void>}
+   */
   const save = async (values) => {
     setBusy(true);
     setError("");
@@ -111,6 +166,14 @@ const TransportManagement = () => {
       setBusy(false);
     }
   };
+
+  /**
+   * Soft-archives a transport entity, deactivating it while preserving historical booking links.
+   *
+   * @async
+   * @param {object} record - Entity to archive.
+   * @returns {Promise<void>}
+   */
   const archive = async (record) => {
     if (!window.confirm(`Deactivate ${record.companyName || record.driverName || record.vehicleName}? Existing bookings will keep their snapshots.`)) return;
     setBusy(true);
@@ -123,6 +186,14 @@ const TransportManagement = () => {
       setBusy(false);
     }
   };
+
+  /**
+   * Permanently deletes a transport entity from Firestore.
+   *
+   * @async
+   * @param {object} record - Entity to delete.
+   * @returns {Promise<void>}
+   */
   const remove = async (record) => {
     const name = record.companyName || record.driverName || record.vehicleName;
     if (!window.confirm(`Permanently delete ${name}? This cannot be undone. Historical booking snapshots will remain.`)) return;
@@ -137,13 +208,41 @@ const TransportManagement = () => {
       setBusy(false);
     }
   };
+
+  /**
+   * Looks up a transport company name by its document ID.
+   *
+   * @param {string} id - Company document ID.
+   * @returns {string} Company display name or placeholder.
+   */
   const companyName = (id) => companies.find((company) => company.id === id)?.companyName || "—";
+
+  /**
+   * Looks up a vehicle name by its document ID.
+   *
+   * @param {string} id - Vehicle document ID.
+   * @returns {string} Vehicle display name or placeholder.
+   */
   const vehicleName = (id) => vehicles.find((vehicle) => vehicle.id === id)?.vehicleName || "Not assigned";
+
+  /**
+   * Formats primary column fields for tabular rendering based on active tab type.
+   *
+   * @param {object} record - Active entity record.
+   * @returns {Array<[string, any]>} Key-value pairs for table cells.
+   */
   const displayFields = (record) => type === "company"
     ? [["Company", record.companyName], ["Type", record.companyType], ["Contact", record.contactPerson], ["Phone", record.phone], ["Email", record.email], ["Commission", `${record.defaultCommissionPercentage || 0}%`]]
     : type === "driver"
       ? [["Driver", record.driverName], ["Company", companyName(record.companyId)], ["Assigned car", vehicleName(record.assignedVehicleId)], ["Phone", record.phone], ["Licence", record.licenceNumber], ["Availability", record.availabilityStatus]]
       : [["Vehicle", record.vehicleName], ["Company", companyName(record.companyId)], ["Type", record.vehicleType], ["Registration", record.registrationNumber], ["Capacity", record.seatingCapacity], ["Availability", record.availabilityStatus]];
+
+  /**
+   * Extracts and formats all entity attributes for inspection in the details dialog modal.
+   *
+   * @param {object} record - Inspected entity record.
+   * @returns {Array<[string, any, boolean]>} Array of [label, formattedValue, isUrl].
+   */
   const viewFields = (record) => Object.entries(record || {})
     .filter(([key, value]) => !["id", "createdAt", "updatedAt", "updatedBy", "archivedAt", "archivedBy"].includes(key) && ["string", "number", "boolean"].includes(typeof value))
     .map(([key, value]) => [

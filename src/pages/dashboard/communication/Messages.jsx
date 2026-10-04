@@ -1,45 +1,69 @@
-import { useContext, useRef } from "react";
-import Message from "./Message";
-import { useState } from "react";
-import { useEffect } from "react";
+/**
+ * @file Messages.jsx
+ * @description Real-time conversation message feed with automatic scroll anchoring and empty state handling.
+ *
+ * Architecture & Features:
+ * - Subscribes to the active chat conversation in Firestore `chats/{chatId}` via `onSnapshot`
+ * - Automatically computes latest external incoming message for parent preview tracking
+ * - Smooth scroll-to-bottom anchoring on message feed updates
+ * - Handles three discrete UI states (no selected conversation, active message stream, fresh thread)
+ *
+ * @module Communication/Messages
+ */
+
+import { useContext, useEffect, useRef, useState } from "react";
+import PropTypes from "prop-types";
 import { doc, onSnapshot } from "firebase/firestore";
 import { AdminChatContext } from "../../../contextAPIs/AdminChatProvider";
 import { db } from "../../../firebase/firebase.config";
+import Message from "./Message";
+
+/**
+ * Messages Component.
+ *
+ * Scrollable viewport displaying the real-time message stream for the active chat session.
+ */
 const Messages = ({ setLastMessage, oppositeUser }) => {
   const [messages, setMessages] = useState([]);
   const { data } = useContext(AdminChatContext);
-  const ref = useRef();
+  const containerRef = useRef(null);
 
+  // Subscribe to the active conversation document
   useEffect(() => {
-    const unSub = onSnapshot(doc(db, "chats", data.chatId), (doc) => {
-      if (doc.exists()) {
-        const { messages } = doc.data();
+    if (!data?.chatId) {
+      setMessages([]);
+      setLastMessage({});
+      return;
+    }
 
-        const matched = messages?.filter((message) => {
-          if (message.senderId !== "_CustomerSupport") {
-            return message;
-          }
-        });
-        setLastMessage(matched[matched.length - 1]);
-        setMessages(messages);
+    const unSub = onSnapshot(doc(db, "chats", data.chatId), (docSnapshot) => {
+      if (docSnapshot.exists()) {
+        const { messages: chatMessages = [] } = docSnapshot.data() || {};
+
+        const incoming = chatMessages.filter(
+          (message) => message?.senderId !== "_CustomerSupport"
+        );
+        setLastMessage(incoming[incoming.length - 1] || {});
+        setMessages(chatMessages);
       } else {
         setMessages([]);
         setLastMessage({});
       }
     });
 
-    return () => {
-      unSub();
-    };
-  }, [data, setLastMessage, oppositeUser]);
+    return () => unSub();
+  }, [data?.chatId, setLastMessage]);
 
+  // Keep message scroll anchored to the bottom on new incoming messages
   useEffect(() => {
-    ref.current.scrollTop = ref.current.scrollHeight;
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
   }, [messages]);
 
   return (
     <div
-      ref={ref}
+      ref={containerRef}
       className="flex-1 bg-gradient-to-br from-neutral-50 to-white md:p-6 p-4 overflow-y-auto scroll-smooth"
     >
       {!oppositeUser?.uid ? (
@@ -52,7 +76,9 @@ const Messages = ({ setLastMessage, oppositeUser }) => {
         </div>
       ) : messages.length > 0 ? (
         <div className="space-y-4">
-          {messages?.map((m) => <Message message={m} key={m.id} />)}
+          {messages.map((m) => (
+            <Message message={m} key={m.id} />
+          ))}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center h-full text-center">
@@ -67,4 +93,10 @@ const Messages = ({ setLastMessage, oppositeUser }) => {
   );
 };
 
+Messages.propTypes = {
+  setLastMessage: PropTypes.func.isRequired,
+  oppositeUser: PropTypes.object,
+};
+
 export default Messages;
+

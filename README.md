@@ -10,18 +10,24 @@ The official administrative and partner management portal for **Thaiseva**. This
 
 ---
 
-## 📚 Project Documentation
+## 📚 Project Documentation Hub
 
-The following detailed documentation artifacts have been generated for this project:
-- [Architecture & Configuration Flows](./Thaiseva_Architecture_Flows.md)
-- [Dashboard User Manual](./Thaiseva_Dashboard_Manual.md)
+Complete technical, architectural, API, and operational documentation is consolidated in the [`/docs`](./docs/README.md) hub:
 
-### [documentation/THAISEVA_BOOKING_API.md](./documentation/THAISEVA_BOOKING_API.md)
+*   🎨 **[Design System & UI Tokens](./docs/01-design-system/DESIGN_SYSTEM_AND_THEME.md)**: Color palettes, Tailwind tokens, CSS variables, and badge components.
+*   🏛️ **[System Architecture Document](./docs/02-architecture/SYSTEM_ARCHITECTURE.md)**: SPA structure, serverless Cloud Functions, triggers, and hold sequence flows.
+*   🔌 **[API Architecture & Endpoints Specification](./docs/03-api/API_SPECIFICATION.md)**: The single source of truth for mobile apps and website checkouts (`asia-east2`).
+*   🌐 **[Third-Party Integrations Guide](./docs/03-api/THIRD_PARTY_INTEGRATIONS.md)**: Stripe webhooks, Google Maps Platform, Zoho ZeptoMail OTP, and WhatsApp.
+*   🗄️ **[Firestore Data Schema Dictionary](./docs/04-data/DATA_SCHEMA_DICTIONARY.md)**: Authoritative NoSQL collections, subcollections, and legacy field fallbacks.
+*   🔒 **[Security & RBAC Architecture](./docs/05-security/SECURITY_AND_RBAC.md)**: Multi-tenant boundaries, roles matrix, and security rules governance.
+*   ⚖️ **[Thailand PDPA & Data Deletion Guide](./docs/05-security/DATA_PRIVACY_PDPA.md)**: Right to erasure, 30-day grace period, and tax retention rules.
+*   🚀 **[DevOps & Deployment Runbook](./docs/06-devops/DEPLOYMENT_RUNBOOK.md)**: Local setup, emulator execution, and phased Firebase deployments.
+*   📖 **[Admin & Partner Operations Manual](./docs/07-user-guides/ADMIN_USER_MANUAL.md)**: Operational guide for admins, hotels, and fleet operators.
+*   🛠️ **[Operations & Incident Runbook](./docs/08-operations/OPERATIONS_RUNBOOK.md)**: SRE guide for stuck holds, failed webhooks, and index errors.
+*   🧪 **[Test Strategy & QA Plan](./docs/09-testing/TEST_STRATEGY.md)**: Testing pyramid, concurrency race condition tests, and release gates.
 
-Complete guide: auth, all endpoints, hotel / package / transport, Stripe, notifications, examples, errors, testing.
-
-**Base URL:** `https://asia-east2-<PROJECT_ID>.cloudfunctions.net/<FunctionName>`  
-**Auth:** `Authorization: Bearer <Firebase ID token>`
+**Base Cloud Functions URL:** `https://asia-east2-<PROJECT_ID>.cloudfunctions.net/<FunctionName>`  
+**Auth Header:** `Authorization: Bearer <Firebase ID token>`
 
 ---
 

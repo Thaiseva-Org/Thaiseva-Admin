@@ -1,6 +1,9 @@
 # Thaiseva Admin Dashboard - Technical Architecture Guide
 
-> **Developer's Guide**: A comprehensive technical overview of the Admin Dashboard architecture, routing, component hierarchy, and data persistence layer.
+> [!NOTE]
+> **Consolidated Specification:** This architecture guide has been unified into the authoritative **[System Architecture Document](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/02-architecture/SYSTEM_ARCHITECTURE.md)** and the **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)**.
+
+> **Developer's Guide**: A technical overview of the Admin Dashboard architecture, routing, component hierarchy, and data persistence layer.
 
 ---
 

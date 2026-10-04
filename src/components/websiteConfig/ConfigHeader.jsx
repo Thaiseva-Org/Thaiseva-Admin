@@ -9,7 +9,8 @@ const ConfigHeader = ({
     subtitle,
     onAdd,
     addLabel = "Add New",
-    showAdd = true
+    showAdd = true,
+    extraAction = null,
 }) => {
     return (
         <div className="mb-8">
@@ -31,27 +32,30 @@ const ConfigHeader = ({
                     <p className="text-gray-500 mt-1">{subtitle}</p>
                 </div>
 
-                {showAdd && (
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={onAdd}
-                        sx={{
-                            backgroundColor: "var(--primary-500)",
-                            textTransform: "none",
-                            borderRadius: "10px",
-                            padding: "10px 24px",
-                            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
-                            fontWeight: 600,
-                            "&:hover": {
-                                backgroundColor: "var(--primary-600)",
-                                boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
-                            }
-                        }}
-                    >
-                        {addLabel}
-                    </Button>
-                )}
+                <div className="flex flex-wrap items-center gap-3">
+                    {extraAction}
+                    {showAdd && (
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={onAdd}
+                            sx={{
+                                backgroundColor: "var(--primary-500)",
+                                textTransform: "none",
+                                borderRadius: "10px",
+                                padding: "10px 24px",
+                                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                                fontWeight: 600,
+                                "&:hover": {
+                                    backgroundColor: "var(--primary-600)",
+                                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)",
+                                }
+                            }}
+                        >
+                            {addLabel}
+                        </Button>
+                    )}
+                </div>
             </div>
         </div>
     );

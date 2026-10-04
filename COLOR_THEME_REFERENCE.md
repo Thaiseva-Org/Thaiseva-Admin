@@ -1,5 +1,8 @@
 # Color Theme Reference
 
+> [!NOTE]
+> **Consolidated Specification:** This design and theming reference has been unified into the authoritative **[Design System, Theming & UI Style Guide](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/01-design-system/DESIGN_SYSTEM_AND_THEME.md)**. Refer to that document for the master design tokens, CSS variables, and utility classes.
+
 This document serves as a reference for the color palette, design tokens, and utility classes used in the `Thaiseva-Admin-Portal-Web-App`. The project utilizes **Tailwind CSS** with an extended configuration and **CSS Custom Properties** (Variables) for consistent theming.
 
 ## Tailwind CSS Configuration

@@ -24,7 +24,6 @@ import {
   LocalServices,
   Hotels,
   LocalPartners,
-  ManagePartners,
   SubAdmins,
   AdminStatistics,
   NewNotficationsScreen,
@@ -54,6 +53,9 @@ import {
   AddHotelForm,
   Vans,
   VanBookings,
+  WebsiteMedia,
+  SiteStatistics,
+  Banners,
   Blogs,
   Services,
   FAQs,
@@ -97,6 +99,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/dashboard",
+    errorElement: <GlobalError />,
     element: (
       <PrivetRouter>
         <ScrollToTop />
@@ -307,6 +310,38 @@ export const router = createBrowserRouter([
                           Website Configuration
       =================================================*/
       {
+        path: "/dashboard/website-config/site-statistics",
+        element: (
+          <AdminRoute>
+            <SiteStatistics />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/media",
+        element: (
+          <AdminRoute>
+            <WebsiteMedia />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/images",
+        element: (
+          <AdminRoute>
+            <WebsiteMedia />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/banners",
+        element: (
+          <AdminRoute>
+            <WebsiteMedia />
+          </AdminRoute>
+        ),
+      },
+      {
         path: "/dashboard/website-config/blogs",
         element: (
           <AdminRoute>
@@ -314,14 +349,14 @@ export const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
-      {
-        path: "/dashboard/website-config/services",
-        element: (
-          <AdminRoute>
-            <Services />
-          </AdminRoute>
-        ),
-      },
+      // {
+      //   path: "/dashboard/website-config/services",
+      //   element: (
+      //     <AdminRoute>
+      //       <Services />
+      //     </AdminRoute>
+      //   ),
+      // },
       {
         path: "/dashboard/website-config/faqs",
         element: (
@@ -422,14 +457,6 @@ export const router = createBrowserRouter([
       //     </AdminRoute>
       //   ),
       // },
-      {
-        path: "/dashboard/manage-partners",
-        element: (
-          <AdminRoute>
-            <ManagePartners />
-          </AdminRoute>
-        ),
-      },
       {
         path: "/dashboard/local-partners",
         element: (
@@ -576,6 +603,7 @@ export const router = createBrowserRouter([
     =================================================*/
   {
     path: "/partner-onboarding",
+    errorElement: <GlobalError />,
     element: (
       <Suspense
         fallback={
@@ -618,6 +646,7 @@ export const router = createBrowserRouter([
   // },
   {
     path: "/login",
+    errorElement: <GlobalError />,
     element: (
       <Suspense
         fallback={
@@ -632,6 +661,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "*",
+    errorElement: <GlobalError />,
     element: (
       <Suspense
         fallback={

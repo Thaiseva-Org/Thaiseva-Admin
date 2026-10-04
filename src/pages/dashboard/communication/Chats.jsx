@@ -1,11 +1,33 @@
+/**
+ * @file Chats.jsx
+ * @description Real-time conversation thread navigator for administrative and partner communications.
+ *
+ * Architecture & Features:
+ * - Real-time listener on active chat room document (`chatRooms/{chatRoom}`) via onSnapshot
+ * - Progressive metadata hydration from `users` collection for role/category classification
+ * - Category-aware audience filtering (`customer` vs. `restaurant` vs. general)
+ * - Text search filtering across conversation participant names
+ * - Last-message preview formatting supporting audio voice notes, photo attachments, and documents
+ * - Real-time unread conversation badges and avatar status indicators
+ *
+ * @module Communication/Chats
+ */
+
 import { Tooltip } from "@mui/material";
+import PropTypes from "prop-types";
 import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import { useContext, useEffect, useState } from "react";
 import { AdminChatContext } from "../../../contextAPIs/AdminChatProvider";
 import { AuthContext } from "../../../contextAPIs/AuthProvider";
 import { PartnerContext } from "../../../contextAPIs/PartnerProvider";
-import { db, usersCollection } from "../../../firebase/firebase.config";
+import { db } from "../../../firebase/firebase.config";
 
+/**
+ * Chats Component.
+ *
+ * Sidebar conversation directory allowing administrators and partners to browse,
+ * search, and switch active chat conversations with real-time sync.
+ */
 const Chats = ({ setOpenSidebar, filterType }) => {
   const [chats, setChats] = useState({});
   const [filteredChats, setFilteredChats] = useState([]);
@@ -15,82 +37,95 @@ const Chats = ({ setOpenSidebar, filterType }) => {
   const { dispatch, data } = useContext(AdminChatContext);
   const { chatRoom } = useContext(PartnerContext);
 
+  // Subscribe to real-time chat room updates
   useEffect(() => {
-    const getChats = async () => {
-      const unsub = onSnapshot(doc(db, "chatRooms", chatRoom), (doc) => {
-        setChats(doc.data() || {});
-      });
+    if (!user?.uid || !chatRoom) return;
 
-      () => {
-        return unsub();
-      };
-    };
+    const unsub = onSnapshot(doc(db, "chatRooms", chatRoom), (docSnapshot) => {
+      setChats(docSnapshot.data() || {});
+    });
 
-    user.uid && getChats();
-  }, [user, chatRoom]);
+    return () => unsub();
+  }, [user?.uid, chatRoom]);
 
-  // Fetch user data from users collection to get serviceCategory/role
+  // Fetch user data from users collection to resolve serviceCategory/role
   useEffect(() => {
+    let isMounted = true;
+
     const fetchUserData = async () => {
       if (!chats || Object.keys(chats).length === 0) {
         setIsLoadingUserData(false);
         return;
       }
 
-      // Get all user IDs that we need to fetch
+      // Get all user IDs that need to be fetched
       const userIds = Object.values(chats)
-        .map(chat => chat?.userInfo?.uid)
-        .filter(uid => uid && !userDataCache[uid]);
+        .map((chat) => chat?.userInfo?.uid)
+        .filter((uid) => uid && !userDataCache[uid]);
 
-      if (userIds.length === 0) {
+      const uniqueUids = Array.from(new Set(userIds));
+
+      if (uniqueUids.length === 0) {
         setIsLoadingUserData(false);
         return;
       }
 
       setIsLoadingUserData(true);
 
-      // Fetch all user data
-      const fetchPromises = userIds.map(async (uid) => {
-        try {
-          const userDocRef = doc(db, "users", uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            return {
-              uid,
-              serviceCategory: userData.serviceCategory,
-              role: userData.role,
-            };
-          }
-        } catch (error) {
-          console.warn("Could not fetch chat user metadata (permissions):", error.message);
-        }
-        return { uid, notFound: true };
-      });
+      try {
+        const fetchPromises = uniqueUids.map(async (uid) => {
+          try {
+            const userDocRef = doc(db, "users", uid);
+            const userDoc = await getDoc(userDocRef);
 
-      const results = await Promise.all(fetchPromises);
-      
-      // Update cache with all fetched data
-      const newCache = { ...userDataCache };
-      results.forEach(result => {
-        if (result && !result.notFound) {
-          newCache[result.uid] = {
-            serviceCategory: result.serviceCategory,
-            role: result.role,
-          };
-        } else if (result && result.notFound) {
-          newCache[result.uid] = { notFound: true };
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              return {
+                uid,
+                serviceCategory: userData.serviceCategory,
+                role: userData.role,
+              };
+            }
+          } catch (error) {
+            console.warn("Could not fetch chat user metadata:", error.message);
+          }
+          return { uid, notFound: true };
+        });
+
+        const results = await Promise.all(fetchPromises);
+
+        if (!isMounted) return;
+
+        // Update cache with all fetched data
+        setUserDataCache((prevCache) => {
+          const newCache = { ...prevCache };
+          results.forEach((result) => {
+            if (result && !result.notFound) {
+              newCache[result.uid] = {
+                serviceCategory: result.serviceCategory,
+                role: result.role,
+              };
+            } else if (result && result.notFound) {
+              newCache[result.uid] = { notFound: true };
+            }
+          });
+          return newCache;
+        });
+      } finally {
+        if (isMounted) {
+          setIsLoadingUserData(false);
         }
-      });
-      
-      setUserDataCache(newCache);
-      setIsLoadingUserData(false);
+      }
     };
 
     fetchUserData();
-  }, [chats]);
 
+    return () => {
+      isMounted = false;
+    };
+  }, [chats, userDataCache]);
+
+  // Filter conversations by search term and role filter
   useEffect(() => {
     if (chats && Object.keys(chats).length > 0) {
       let filtered = Object.entries(chats).filter((item) =>
@@ -99,25 +134,22 @@ const Chats = ({ setOpenSidebar, filterType }) => {
           .includes(data.searchData.toLowerCase())
       );
 
-      // Only apply filter if we have user data loaded or if filterType is not set
+      // Only apply filter if we have user data loaded or if filterType is set
       if (filterType && Object.keys(userDataCache).length > 0) {
-        // Apply filter based on filterType prop
         if (filterType === "customer") {
           // Show only regular customers (exclude restaurants)
           filtered = filtered.filter((item) => {
             const userInfo = item[1]?.userInfo;
             const uid = userInfo?.uid;
             const cachedData = userDataCache[uid];
-            
-            const isRestaurant = 
+
+            const isRestaurant =
               userInfo?.serviceCategory === "Restaurant" ||
               userInfo?.role === "Restaurant" ||
               cachedData?.serviceCategory === "Restaurant" ||
               cachedData?.role === "Restaurant";
-            
-            console.log('Customer Filter - User:', userInfo?.displayName, 'isRestaurant:', isRestaurant, 'cached:', cachedData);
-            
-            return !isRestaurant; // Exclude restaurants
+
+            return !isRestaurant;
           });
         } else if (filterType === "restaurant") {
           // Show only restaurants
@@ -125,16 +157,14 @@ const Chats = ({ setOpenSidebar, filterType }) => {
             const userInfo = item[1]?.userInfo;
             const uid = userInfo?.uid;
             const cachedData = userDataCache[uid];
-            
-            const isRestaurant = 
+
+            const isRestaurant =
               userInfo?.serviceCategory === "Restaurant" ||
               userInfo?.role === "Restaurant" ||
               cachedData?.serviceCategory === "Restaurant" ||
               cachedData?.role === "Restaurant";
-            
-            console.log('Restaurant Filter - User:', userInfo?.displayName, 'isRestaurant:', isRestaurant, 'cached:', cachedData);
-            
-            return isRestaurant; // Include only restaurants
+
+            return isRestaurant;
           });
         }
       }
@@ -145,9 +175,13 @@ const Chats = ({ setOpenSidebar, filterType }) => {
     }
   }, [data.searchData, chats, filterType, userDataCache]);
 
+  /**
+   * Activates the selected conversation and minimizes mobile sidebar.
+   *
+   * @param {Array} userInfo - Tuple containing [chatId, chatPayload].
+   */
   const handleSelect = async (userInfo) => {
     dispatch({ type: "CHANGE_USER", payload: userInfo[1].userInfo });
-
     setOpenSidebar(false);
   };
 
@@ -272,4 +306,10 @@ const Chats = ({ setOpenSidebar, filterType }) => {
   );
 };
 
+Chats.propTypes = {
+  setOpenSidebar: PropTypes.func.isRequired,
+  filterType: PropTypes.string,
+};
+
 export default Chats;
+

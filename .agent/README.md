@@ -1,8 +1,11 @@
 # Admin Dashboard Documentation - Summary Index
 
+> [!NOTE]
+> **Consolidated Specification Hub:** The authoritative, system-wide technical documentation suite is maintained in the root **[`/docs` Hub](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/README.md)**. All architectural diagrams, API contracts, schema dictionaries, and operational runbooks are centrally coordinated there.
+
 ## 📚 Documentation Overview
 
-This project contains **comprehensive technical documentation** for the Thaiseva Admin Dashboard. All documentation is focused exclusively on the **Admin Panel** (not the end-user/client applications).
+This section contains operational notes and quick reference guides for the Thaiseva Admin Dashboard. All documentation is focused on the **Admin Panel**.
 
 ---
 

@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase-admin/app";
+export {sendEmailOtp, resendEmailOtp, verifyEmailOtp} from "./emailOtp";
 import {
   autoAcceptSightseeingBookings,
   onSightseeingBookingStatusChange,

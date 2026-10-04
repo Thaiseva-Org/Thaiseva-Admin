@@ -1,5 +1,8 @@
 # Admin Dashboard Quick Reference Guide
 
+> [!NOTE]
+> **Consolidated Specification:** This quick reference guide has been unified into the authoritative **[Admin & Partner Operations User Manual](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md)** and the **[`/docs` Hub](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/README.md)**.
+
 ## 🚀 Quick Navigation Map
 
 ### How to Find Any Feature

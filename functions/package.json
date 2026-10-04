@@ -3,6 +3,8 @@
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
+    "test": "npm run build && node --test test/otp.test.cjs",
+    "test:otp:integration": "npm run build && firebase emulators:exec --config ../firebase.otp-test.json --project demo-thaiseva-otp --only firestore,auth \"node --test test/otp.integration.cjs\"",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
@@ -11,13 +13,14 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "main": "lib/index.js",
   "dependencies": {
     "dotenv": "^16.4.5",
     "firebase-admin": "^13.6.0",
     "firebase-functions": "^7.0.3",
+    "graphql": "^17.0.2",
     "nodemailer": "^6.9.13",
     "stripe": "^17.7.0"
   },
