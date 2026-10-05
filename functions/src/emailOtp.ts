@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { getAuth } from "firebase-admin/auth";
+import { randomBytes, randomUUID } from "node:crypto";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { defineSecret, defineString } from "firebase-functions/params";
 import {
@@ -25,7 +24,7 @@ import { MailConfig, sendZohoOtp, validateMailConfig } from "./otp/zoho";
 const zohoKey = defineSecret("ZOHO_MAIL_API_KEY");
 const hashKey = defineSecret("OTP_HASH_KEY");
 const apiUrl = defineString("ZOHO_MAIL_API_URL", {
-  default: "https://api.zeptomail.com/v1.1/email",
+  default: "https://cpaas.zoho.com/v1.1/email",
 });
 const from = defineString("OTP_FROM_EMAIL", { default: "" });
 const senderName = defineString("OTP_SENDER_NAME", { default: "Thaiseva" });
@@ -84,6 +83,12 @@ function convert(error: unknown): never {
   }
   logger.error("Email OTP operation failed", {
     type: error instanceof Error ? error.name : "unknown",
+    code: (error as {code?: string})?.code || "unknown",
+    reason: error instanceof Error ?
+      error.message
+        .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+        .replace(/(Bearer|Zoho-enczapikey)\s+\S+/gi, "$1 [redacted]")
+        .slice(0, 300) : "unknown",
   });
   throw new HttpsError(
     "internal",
@@ -137,32 +142,6 @@ async function rateLimit(
   });
 }
 
-async function eligibleUser(email: string): Promise<string | null> {
-  try {
-    const user = await getAuth().getUserByEmail(email);
-    if (user.disabled) return null;
-    const profile = await getFirestore()
-      .collection("users")
-      .doc(user.uid)
-      .get();
-    const data = profile.data();
-    if (
-      !data ||
-      !["Admin", "Sub Admin", "Partner"].includes(data.role) ||
-      data.isSuspended === true ||
-      ["Suspended", "Blocked", "Deleted", "Rejected"].includes(data.status)
-    ) {
-      return null;
-    }
-    return user.uid;
-  } catch (error) {
-    if ((error as { code?: string }).code === "auth/user-not-found") {
-      return null;
-    }
-    throw error;
-  }
-}
-
 async function issue(request: CallableRequest, resend: boolean) {
   try {
     const data = input(request);
@@ -179,12 +158,11 @@ async function issue(request: CallableRequest, resend: boolean) {
     const mail = config();
     const key = secret();
     await rateLimit(request, key, "send");
-    const uid = await eligibleUser(email);
     const challengeId = randomUUID();
     const code = generateOtp();
     const ref = getFirestore()
       .collection("emailOtpChallenges")
-      .doc(digest(key, "email", email));
+      .doc(digest(key, "signup-email", email));
     const state = await getFirestore().runTransaction(async (tx) => {
       const snapshot = await tx.get(ref);
       const previous = snapshot.data() as OtpState | undefined;
@@ -199,8 +177,7 @@ async function issue(request: CallableRequest, resend: boolean) {
         previous,
         {
           challengeId,
-          uid,
-          hash: digest(key, "login", email, challengeId, code),
+          hash: digest(key, "signup", email, challengeId, code),
         },
         now
       );
@@ -211,8 +188,7 @@ async function issue(request: CallableRequest, resend: boolean) {
       return next;
     });
     try {
-      // Unknown accounts get the same response and limits, without an email.
-      if (uid) await sendZohoOtp(mail, email, code, challengeId);
+      await sendZohoOtp(mail, email, code, challengeId);
       await getFirestore().runTransaction(async (tx) => {
         const current = await tx.get(ref);
         if (current.data()?.challengeId === challengeId) {
@@ -237,8 +213,7 @@ async function issue(request: CallableRequest, resend: boolean) {
       expiresAt: state.expiresAt,
       resendAt: state.sentAt + POLICY.cooldownMs,
       message:
-        "If this email belongs to an eligible account, " +
-        "a sign-in code has been sent.",
+        "An email verification code has been sent.",
     };
   } catch (error) {
     return convert(error);
@@ -268,10 +243,14 @@ export const verifyEmailOtp = onCall(options, async (request) => {
     const key = secret();
     await rateLimit(request, key, "verify");
     const challengeId = data.challengeId;
-    const hash = digest(key, "login", email, challengeId, data.code);
+    const hash = digest(key, "signup", email, challengeId, data.code);
     const ref = getFirestore()
       .collection("emailOtpChallenges")
-      .doc(digest(key, "email", email));
+      .doc(digest(key, "signup-email", email));
+    const verificationToken = randomBytes(32).toString("base64url");
+    const expiresAt = Date.now() + 10 * 60_000;
+    const proofRef = getFirestore().collection("emailOtpVerificationProofs")
+      .doc(digest(key, "signup-proof", verificationToken));
     const result = await getFirestore().runTransaction(async (tx) => {
       const snapshot = await tx.get(ref);
       const outcome = checkOtp(
@@ -281,19 +260,18 @@ export const verifyEmailOtp = onCall(options, async (request) => {
         Date.now()
       );
       if (outcome.state) tx.update(ref, { ...outcome.state });
+      if (outcome.valid) {
+        tx.create(proofRef, {
+          emailHash: digest(key, "signup-email", email),
+          expiresAt,
+          consumedBy: null,
+          deleteAfter: Timestamp.fromMillis(Date.now() + 24 * 60 * 60_000),
+        });
+      }
       return outcome;
     });
     if (result.error) throw result.error;
-    // Recheck eligibility to catch suspension or email changes.
-    const uid = await eligibleUser(email);
-    if (!uid || uid !== result.uid) {
-      throw new HttpsError(
-        "unauthenticated",
-        "Unable to sign in to this account."
-      );
-    }
-    const customToken = await getAuth().createCustomToken(uid);
-    return { customToken };
+    return { verified: true, email, verificationToken, expiresAt };
   } catch (error) {
     return convert(error);
   }

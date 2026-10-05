@@ -29,7 +29,13 @@
         "node_modules",
         ".git",
         "firebase-debug.log",
-        "firebase-debug.*.log"
+        "firebase-debug.*.log",
+        "**/.secret.local",
+        "**/.env",
+        "**/.env.*",
+        ".otp-setup",
+        "test",
+        "*.log"
       ]
     }
   ]

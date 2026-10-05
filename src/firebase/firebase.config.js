@@ -1,6 +1,5 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "firebase/app-check";
 import { collection, doc, getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import "firebase/functions"; // For Firebase Cloud Functions
@@ -20,12 +19,6 @@ export const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-if (import.meta.env.VITE_APP_CHECK_SITE_KEY) {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaEnterpriseProvider(import.meta.env.VITE_APP_CHECK_SITE_KEY),
-    isTokenAutoRefreshEnabled: true,
-  });
-}
 const db = getFirestore(app);
 const partnersCollection = collection(db, "partners");
 const agentsCollection = collection(db, "agents");

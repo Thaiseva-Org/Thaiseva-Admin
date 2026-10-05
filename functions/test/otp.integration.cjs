@@ -26,10 +26,9 @@ require("../lib/otp/zoho").sendZohoOtp = async (_config, email, code) => {
 };
 const {sendEmailOtp, resendEmailOtp, verifyEmailOtp} = require("../lib/emailOtp");
 const call = (fn, data, ip = "127.0.0.1") => fn.run({data, rawRequest: {ip}});
-const refFor = (email) => getFirestore().collection("emailOtpChallenges").doc(digest(process.env.OTP_HASH_KEY, "email", email));
+const refFor = (email) => getFirestore().collection("emailOtpChallenges").doc(digest(process.env.OTP_HASH_KEY, "signup-email", email));
 async function account(email) {
   const user = await getAuth().createUser({email});
-  await getFirestore().collection("users").doc(user.uid).set({role: "Admin", status: "Verified"});
   return user;
 }
 before(async () => {
@@ -37,9 +36,8 @@ before(async () => {
   await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/emulator/v1/projects/${projectId}/accounts`, {method: "DELETE"});
 });
 
-test("send, concurrent verification, token sign-in, and replay protection", async () => {
+test("new email, concurrent verification, proof storage and replay protection", async () => {
   const email = "first@example.com";
-  const user = await account(email);
   const result = await call(sendEmailOtp, {email});
   assert.equal(result.expiresAt - result.resendAt, POLICY.expiresMs - POLICY.cooldownMs);
   const persisted = (await refFor(email).get()).data();
@@ -50,18 +48,20 @@ test("send, concurrent verification, token sign-in, and replay protection", asyn
   const attempts = await Promise.allSettled(Array.from({length: 4}, () =>
     call(verifyEmailOtp, {email, code, challengeId: result.challengeId})));
   assert.equal(attempts.filter((attempt) => attempt.status === "fulfilled").length, 1);
-  const token = attempts.find((attempt) => attempt.status === "fulfilled").value.customToken;
-  const response = await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=fake`, {
-    method: "POST", headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({token, returnSecureToken: true}),
-  });
-  assert.equal(response.status, 200);
-  const session = await response.json();
-  assert.equal(typeof session.idToken, "string");
-  const claims = JSON.parse(Buffer.from(session.idToken.split(".")[1], "base64url").toString());
-  assert.equal(claims.sub, user.uid);
+  const proof = attempts.find((attempt) => attempt.status === "fulfilled").value;
+  assert.equal(proof.customToken, undefined);
+  assert.match(proof.verificationToken, /^[A-Za-z0-9_-]{43}$/);
   await assert.rejects(call(verifyEmailOtp, {email, code, challengeId: result.challengeId}), {code: "unauthenticated"});
+  const ref = getFirestore().collection("emailOtpVerificationProofs")
+    .doc(digest(process.env.OTP_HASH_KEY, "signup-proof", proof.verificationToken));
+  const stored = (await ref.get()).data();
+  assert.equal(stored.emailHash, digest(process.env.OTP_HASH_KEY, "signup-email", email));
+  assert.equal(stored.expiresAt, proof.expiresAt);
+  assert.equal(stored.consumedBy, null);
+  assert.equal(stored.verificationToken, undefined);
+  assert.equal(stored.email, undefined);
 });
+
 test("concurrent sends enforce cooldown, resend rotates code and preserves attempts", async () => {
   const email = "resend@example.com";
   await account(email);
@@ -87,15 +87,12 @@ test("wrong guesses persist and lock sends across endpoint calls", async () => {
   assert.equal((await refFor(email).get()).data().attempts, 5);
   await assert.rejects(call(sendEmailOtp, {email}), {code: "resource-exhausted"});
 });
-test("unknown and disabled accounts never receive codes or sessions", async () => {
-  const unknown = await call(sendEmailOtp, {email: "unknown@example.com"});
-  assert.ok(unknown.challengeId);
-  assert.equal(sent.some((mail) => mail.email === "unknown@example.com"), false);
-  const user = await account("disabled@example.com");
-  await getAuth().updateUser(user.uid, {disabled: true});
-  await call(sendEmailOtp, {email: user.email});
-  assert.equal(sent.some((mail) => mail.email === user.email), false);
+test("emails without an existing account receive signup codes", async () => {
+  const result = await call(sendEmailOtp, {email: "unknown@example.com"});
+  assert.ok(result.challengeId);
+  assert.equal(sent.some((mail) => mail.email === "unknown@example.com"), true);
 });
+
 test("provider failure invalidates code without refunding abuse counters", async () => {
   const email = "failure@example.com";
   await account(email);
@@ -110,16 +107,14 @@ test("provider failure invalidates code without refunding abuse counters", async
   assert.equal(stored.hash, "");
   assert.equal(stored.sends, 1);
 });
-test("expired code and account suspension are rejected", async () => {
+test("expired signup code is rejected", async () => {
   const email = "expiry@example.com";
   const user = await account(email);
   const challenge = await call(sendEmailOtp, {email});
   const code = sent.find((mail) => mail.email === email).code;
   await refFor(email).update({expiresAt: Date.now() - 1});
   await assert.rejects(call(verifyEmailOtp, {email, code, challengeId: challenge.challengeId}), {code: "unauthenticated"});
-  await refFor(email).update({expiresAt: Date.now() + POLICY.expiresMs});
-  await getFirestore().collection("users").doc(user.uid).update({isSuspended: true});
-  await assert.rejects(call(verifyEmailOtp, {email, code, challengeId: challenge.challengeId}), {code: "unauthenticated"});
+
 });
 test("IP quotas apply across different emails", async () => {
   const ip = "192.0.2.10";
@@ -127,7 +122,7 @@ test("IP quotas apply across different emails", async () => {
   await assert.rejects(call(sendEmailOtp, {email: "overflow@example.com"}, ip), {code: "resource-exhausted"});
 });
 test("client access to OTP challenge and rate documents is denied", async () => {
-  for (const collection of ["emailOtpChallenges", "emailOtpRateLimits"]) {
+  for (const collection of ["emailOtpChallenges", "emailOtpRateLimits", "emailOtpVerificationProofs"]) {
     const response = await fetch(`http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${projectId}/databases/(default)/documents/${collection}/test`);
     assert.equal(response.status, 403);
   }

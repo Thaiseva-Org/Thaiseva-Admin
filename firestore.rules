@@ -855,6 +855,9 @@ service cloud.firestore {
     match /emailOtpChallenges/{id} {
       allow read, write: if false;
     }
+    match /emailOtpVerificationProofs/{id} {
+      allow read, write: if false;
+    }
     match /emailOtpRateLimits/{id} {
       allow read, write: if false;
     }

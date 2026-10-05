@@ -113,16 +113,16 @@ Integrated across the administrative portal and partner dashboard for interactiv
 
 ## 3. Transactional Email & OTP Authentication (Zoho ZeptoMail)
 
-Thaiseva uses **Zoho ZeptoMail API** (`api.zeptomail.com/v1.1/email`) for secure passwordless email OTP sign-ins, partner onboarding verification, and system alerts.
+Thaiseva uses **Zoho CPaaS** (`cpaas.zoho.com/v1.1/email`) for customer signup email verification. See [the OTP API contract](../../documentation/EMAIL_OTP_API.md).
 
 ### 3.1 Security Policy & Abuse Mitigations
 
 | Dimension | Policy Specification | Enforcement Mechanism |
 |---|---|---|
-| **OTP Format** | 6-digit numeric code generated with Node's cryptographic RNG (`randomUUID` / `crypto`) | Server-side generator |
+| **OTP Format** | 6-digit numeric code generated with Node's cryptographic RNG (`crypto.randomInt`) | Server-side generator |
 | **Expiration (TTL)** | Exactly **5 minutes** (300 seconds) | Evaluated on verification request |
 | **Resend Cooldown** | **60 seconds** minimum between requests | Server rate limiter |
-| **Per-Email Limit** | Max **5 send requests per 15-minute window** | Firestore sliding counter |
+| **Per-Email Limit** | Max **5 send requests per 15-minute window** | Firestore fixed-window counter |
 | **Wrong Attempts** | Max **5 failed attempts** before locking | Account lockout for 15 minutes |
 | **IP Quotas** | 20 sends and 50 verifications per 15-minute window | Shared IP rate limit |
 | **Project Quotas** | 500 sends and 2,000 verifications per 15-minute window | Global project rate limit |
@@ -134,10 +134,10 @@ Thaiseva uses **Zoho ZeptoMail API** (`api.zeptomail.com/v1.1/email`) for secure
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Partner / Staff User
-    participant App as Admin Login Portal
+    actor User as Customer
+    participant App as Customer Signup App
     participant CloudFn as Cloud Functions (sendEmailOtp)
-    participant Firestore as Firestore (/otp_codes)
+    participant Firestore as Firestore (emailOtpChallenges)
     participant ZeptoMail as Zoho ZeptoMail API
 
     User->>App: Enters email and clicks "Send Code"
@@ -148,10 +148,11 @@ sequenceDiagram
     CloudFn->>ZeptoMail: HTTPS POST /v1.1/email (Zoho-enczapikey)
     ZeptoMail-->>User: Delivers branded email with OTP
     User->>App: Enters 6-digit code
-    App->>CloudFn: POST /verifyEmailOtp (email, otp)
+    App->>CloudFn: POST /verifyEmailOtp (email, challengeId, code)
     CloudFn->>Firestore: Transaction: Hash input, compare hash, check attempts & expiry
     CloudFn->>Firestore: Invalidate code (replay protection)
-    CloudFn-->>App: Returns custom Firebase Auth verification token
+    CloudFn-->>App: Returns ten-minute signup verification proof
+    App->>App: Separate application handles signup
 ```
 
 ### 3.3 Required Zoho ZeptoMail Configuration
@@ -164,7 +165,7 @@ firebase functions:secrets:set OTP_HASH_KEY --project <project-id>
 
 Configured in `functions/.env`:
 ```dotenv
-ZOHO_MAIL_API_URL=https://api.zeptomail.com/v1.1/email
+ZOHO_MAIL_API_URL=https://cpaas.zoho.com/v1.1/email
 OTP_BUSINESS_DOMAIN=thaiseva.com
 OTP_FROM_EMAIL=no-reply@thaiseva.com
 OTP_SENDER_NAME=Thaiseva

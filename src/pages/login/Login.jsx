@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { FaEnvelope, FaLock, FaExclamationCircle, FaUser, FaRegEyeSlash, FaRegEye } from "@icons";
 // import { IoRestaurant } from "react-icons/io5";
 import { logo } from "../../assets";
-import EmailOtpLogin from "../../components/EmailOtpLogin";
 
 // const style = {
 //   position: "absolute",
@@ -25,7 +24,6 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showpsw, setShowpsw] = useState(false);
   const [error, setError] = useState("");
-  const [loginMethod, setLoginMethod] = useState("password");
   const navigate = useNavigate();
 
   // const handleLogin = (e) => {
@@ -111,16 +109,7 @@ const Login = () => {
               {"Sign In"}
             </h2> */}
           </div>
-          <div className="flex gap-2 mb-6" aria-label="Sign-in method">
-            {["password", "otp"].map((method) => (
-              <button key={method} type="button" aria-pressed={loginMethod === method}
-                onClick={() => { setLoginMethod(method); setError(""); }}
-                className={`flex-1 rounded-lg py-2 text-sm font-semibold ${loginMethod === method ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"}`}>
-                {method === "password" ? "Password" : "Email code"}
-              </button>
-            ))}
-          </div>
-          {loginMethod === "otp" ? <EmailOtpLogin /> : <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label
                 className="block text-gray-700 text-sm font-bold mb-2"
@@ -187,7 +176,7 @@ const Login = () => {
             >
               {"Sign In"}
             </button>
-          </form>}
+          </form>
           <div className="mt-3 text-center">
             <p className="text-blue-500 hover:text-blue-600 text-sm">
               {"Want to be a partner?"}

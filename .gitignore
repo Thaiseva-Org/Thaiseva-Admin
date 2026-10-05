@@ -71,6 +71,7 @@ src/components/NotificationOffers.jsx
 # Local agent/session artifacts
 .secret.local
 functions/.secret.local
+functions/.otp-setup/
 agent-tools/
 terminals/
 

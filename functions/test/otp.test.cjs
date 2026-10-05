@@ -5,8 +5,8 @@ const {sendZohoOtp, otpTemplate, validateMailConfig} = require("../lib/otp/zoho"
 const key = "a-test-secret-with-at-least-32-characters";
 const now = 1_000_000;
 const challenge = "challenge-1";
-const hash = digest(key, "login", "test@example.com", challenge, "000123");
-const state = () => ({...reserveOtp(undefined, {challengeId: challenge, hash, uid: "uid-1"}, now), status: "sent"});
+const hash = digest(key, "signup", "test@example.com", challenge, "000123");
+const state = () => ({...reserveOtp(undefined, {challengeId: challenge, hash}, now), status: "sent"});
 const mail = {apiKey: "test-token", apiUrl: "https://api.zeptomail.in/v1.1/email",
   from: "no-reply@example.com", senderName: "Thaiseva", businessDomain: "example.com"};
 
@@ -21,12 +21,12 @@ test("generated codes preserve six digits including leading zeros", () => {
 });
 test("hashes are bound to email, purpose and challenge", () => {
   assert.notEqual(hash, digest(key, "reset", "test@example.com", challenge, "000123"));
-  assert.notEqual(hash, digest(key, "login", "other@example.com", challenge, "000123"));
-  assert.notEqual(hash, digest(key, "login", "test@example.com", "new", "000123"));
+  assert.notEqual(hash, digest(key, "signup", "other@example.com", challenge, "000123"));
+  assert.notEqual(hash, digest(key, "signup", "test@example.com", "new", "000123"));
 });
 test("valid codes are consumed and cannot be replayed", () => {
   const result = checkOtp(state(), challenge, hash, now + 1);
-  assert.equal(result.uid, "uid-1");
+  assert.equal(result.valid, true);
   assert.equal(result.state.hash, "");
   assert.equal(checkOtp(result.state, challenge, hash, now + 2).error.code, "unauthenticated");
 });
@@ -48,22 +48,22 @@ test("five wrong guesses lock verification and subsequent sends", () => {
   assert.equal(current.attempts, 5);
   assert.ok(current.lockedUntil > now);
   assert.equal(checkOtp(current, challenge, hash, now + 2).error.code, "unauthenticated");
-  assert.throws(() => reserveOtp(current, {challengeId: "new", hash, uid: "uid-1"}, now + 60_000), OtpError);
+  assert.throws(() => reserveOtp(current, {challengeId: "new", hash}, now + 60_000), OtpError);
 });
 test("resend preserves attempts and invalidates previous challenge", () => {
   const previous = {...state(), attempts: 3};
-  const next = {...reserveOtp(previous, {challengeId: "new", hash, uid: "uid-1"}, now + POLICY.cooldownMs), status: "sent"};
+  const next = {...reserveOtp(previous, {challengeId: "new", hash}, now + POLICY.cooldownMs), status: "sent"};
   assert.equal(next.attempts, 3);
   assert.equal(checkOtp(next, challenge, hash, now + POLICY.cooldownMs + 1).error.code, "unauthenticated");
 });
 test("cooldown and email quotas reset only at their boundaries", () => {
-  assert.throws(() => reserveOtp(state(), {challengeId: "new", hash, uid: "uid-1"}, now + 59_999), OtpError);
+  assert.throws(() => reserveOtp(state(), {challengeId: "new", hash}, now + 59_999), OtpError);
   const capped = {...state(), sends: POLICY.maxSends};
-  assert.throws(() => reserveOtp(capped, {challengeId: "new", hash, uid: "uid-1"}, now + 60_000), OtpError);
-  assert.equal(reserveOtp(capped, {challengeId: "new", hash, uid: "uid-1"}, now + POLICY.windowMs).sends, 1);
+  assert.throws(() => reserveOtp(capped, {challengeId: "new", hash}, now + 60_000), OtpError);
+  assert.equal(reserveOtp(capped, {challengeId: "new", hash}, now + POLICY.windowMs).sends, 1);
 });
-test("unknown accounts cannot verify even a matching hash", () => {
-  assert.equal(checkOtp({...state(), uid: null}, challenge, hash, now + 1).error.code, "unauthenticated");
+test("signup verification does not require an existing account", () => {
+  assert.equal(checkOtp(state(), challenge, hash, now + 1).valid, true);
 });
 test("rate quota rejects overflow and resets at boundary", () => {
   const capped = {windowStart: now, count: 20};
@@ -102,4 +102,12 @@ test("Zoho errors and ambiguous responses fail closed without provider data expo
     async () => ({ok: false, status: 401})), /HTTP 401/);
   await assert.rejects(sendZohoOtp(mail, "test@example.com", "000123", "reference",
     async () => ({ok: true, json: async () => ({error: {message: "private"}})})), /did not confirm/);
+});
+test("CPaaS endpoint accepts the full authorization key without doubling the prefix", async () => {
+  await sendZohoOtp({...mail, apiUrl: "https://cpaas.zoho.com/v1.1/email", apiKey: "Zoho-enczapikey test-token"},
+    "test@example.com", "000123", "reference", async (url, options) => {
+      assert.equal(url, "https://cpaas.zoho.com/v1.1/email");
+      assert.equal(options.headers.Authorization, "Zoho-enczapikey test-token");
+      return {ok: true, json: async () => ({data: [{code: "EM_101"}]})};
+    });
 });

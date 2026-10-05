@@ -162,6 +162,12 @@
       "fieldPath": "deleteAfter",
       "ttl": true,
       "indexes": []
+    },
+    {
+      "collectionGroup": "emailOtpVerificationProofs",
+      "fieldPath": "deleteAfter",
+      "ttl": true,
+      "indexes": []
     }
   ]
 }

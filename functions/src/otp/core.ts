@@ -44,7 +44,6 @@ export function digest(secret: string, ...parts: string[]): string {
 export interface OtpState {
   challengeId: string;
   hash: string;
-  uid: string | null;
   expiresAt: number;
   sentAt: number;
   windowStart: number;
@@ -56,7 +55,7 @@ export interface OtpState {
 
 export function reserveOtp(
   previous: OtpState | undefined,
-  next: Pick<OtpState, "challengeId" | "hash" | "uid">,
+  next: Pick<OtpState, "challengeId" | "hash">,
   now: number
 ): OtpState {
   if (previous && previous.lockedUntil > now) {
@@ -99,7 +98,7 @@ export function checkOtp(
   challengeId: string,
   hash: string,
   now: number
-): { state?: OtpState; uid?: string; error?: OtpError } {
+): { state?: OtpState; valid?: boolean; error?: OtpError } {
   const invalid = new OtpError(
     "unauthenticated",
     "Invalid or expired code. Request a new code if needed."
@@ -116,10 +115,10 @@ export function checkOtp(
   const matches =
     state.hash.length === hash.length &&
     timingSafeEqual(Buffer.from(state.hash, "hex"), Buffer.from(hash, "hex"));
-  if (matches && state.uid) {
+  if (matches) {
     return {
       state: { ...state, hash: "", status: "consumed" },
-      uid: state.uid,
+      valid: true,
     };
   }
   const attempts = state.attempts + 1;

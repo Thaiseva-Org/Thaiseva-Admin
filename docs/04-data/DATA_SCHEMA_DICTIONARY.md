@@ -603,9 +603,9 @@ interface DeletionRequestDocument {
 }
 ```
 
-#### Collections: `emailOtpChallenges` & `emailOtpRateLimits`
-**Purpose:** Ephemeral passwordless OTP challenges and sliding-window rate limit counters.
-- **Security:** `otpHash` stored as `HMAC-SHA256`. Plaintext OTP is never persisted.
+#### Collections: `emailOtpChallenges`, `emailOtpRateLimits` & `emailOtpVerificationProofs`
+**Purpose:** Signup email OTP challenges, ten-minute single-account verification proofs and fixed-window rate limit counters. All client access is denied.
+- **Security:** `hash` stored as `HMAC-SHA256`. Plaintext OTP is never persisted.
 - **TTL Index:** Firestore **Time-To-Live (TTL)** policy automatically purges documents when current time exceeds `deleteAfter`.
 
 ---
