@@ -168,6 +168,14 @@ Deploys all event triggers and REST endpoints to region `asia-east2`:
 ```bash
 firebase deploy --only functions
 ```
+For the verified signup callable only, build and test from the repository root before deploying:
+```bash
+npm --prefix functions test
+npm --prefix functions run test:otp:integration
+firebase deploy --only functions:createVerifiedAccount --project gothai-ffea1
+```
+The callable runs in `asia-east2`, requires App Check, and shares `OTP_HASH_KEY` with the OTP verification functions. Redeploy both the OTP functions and signup callable when rotating that secret. See [OTP configuration and operations](../../documentation/EMAIL_OTP_SETUP.md) for the proof contract and CORS troubleshooting.
+
 *Immediately monitor execution logs post-deploy:*
 ```bash
 firebase functions:log --only hotelStockApi,stripeWebhook --limit 30

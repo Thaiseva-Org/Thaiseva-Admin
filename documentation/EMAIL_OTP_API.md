@@ -5,7 +5,7 @@ Firebase project: **gothai-ffea1**. Region: **asia-east2**.
 
 Use this guide to add OTP verification to your separate application. For deployment, secrets, storage and security policy, see [System configuration and operations](EMAIL_OTP_SETUP.md).
 
-Only OTP sending, resending and verification are provided. Your separate system handles signup, accounts, login and roles. Any valid email can request an OTP; no existing Firebase account is required. Zoho keys belong only on the API server.
+OTP sending, resending and verification work independently of account creation. For Firebase email/password signup, `createVerifiedAccount` consumes a verified email proof and creates an email-verified account. Your application handles login and roles. Any valid email can request an OTP; no existing Firebase account is required. Zoho keys belong only on the API server.
 
 ## Quick start
 
@@ -26,6 +26,7 @@ Changing the email starts a new flow. Do not reuse a challenge for another addre
 | sendEmailOtp | {email} | {challengeId, expiresAt, resendAt, message} |
 | resendEmailOtp | {email, challengeId} | New challengeId, expiresAt, resendAt, message |
 | verifyEmailOtp | {email, challengeId, code} | {verified: true, email, verificationToken, expiresAt} |
+| createVerifiedAccount | {email, password, verificationToken} | {created: true} |
 
 Times are Unix milliseconds. Codes must be six-character strings, preserving leading zeros. Use the latest challengeId after resend. The code expires in five minutes; resend cooldown is 60 seconds.
 
@@ -154,6 +155,22 @@ The SDK attaches App Check automatically. Supported web domains: **thaiseva.com*
 
 [Firebase App Check initialization](https://firebase.google.com/docs/app-check/web/recaptcha-enterprise-provider). Selected mobile app configurations and integration steps are below.
 
+## Firebase email/password signup
+
+After `verifyEmailOtp` succeeds, call the signup endpoint with the same email and its ten-minute verification proof:
+
+```javascript
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+
+const createAccount = httpsCallable(functions, "createVerifiedAccount");
+await createAccount({ email, password, verificationToken: result.verificationToken });
+await signInWithEmailAndPassword(getAuth(app), email, password);
+```
+
+The endpoint requires App Check and returns `{created: true}`, without a login token. It checks proof expiry and email binding, claims a stable signup UID in a Firestore transaction, and creates a Firebase Auth user with `emailVerified: true`. Retries reuse that UID until proof expiry and do not change an existing account's password. An account belonging to another signup returns `functions/already-exists`; direct the user to sign in. Invalid, expired or mismatched proofs return `functions/unauthenticated`.
+
+This endpoint enforces verification in this signup flow. Project-wide restrictions on direct Firebase Auth signup require separate Auth configuration.
+
 ## Mobile apps
 
 | Platform | Package / bundle ID | Firebase app ID | Provider |
@@ -277,4 +294,4 @@ Use the isolated emulator tests for repeated lockout, failure and concurrency ch
 | OTP email is missing | Spam folder, Zoho delivery/bounce status, sender/domain approval |
 | Latest visible code fails | Most recent challengeId, unchanged email, five-minute expiry and retry lockout |
 
-No signup endpoint is part of this API. [System configuration](EMAIL_OTP_SETUP.md) contains the operator setup and deployment commands.
+For browser CORS errors, check the endpoint's HTTP status first: a missing function returns 404 without CORS headers. `createVerifiedAccount` allows browser preflight requests and requires App Check on the actual call. [System configuration](EMAIL_OTP_SETUP.md) contains the operator setup and deployment commands.

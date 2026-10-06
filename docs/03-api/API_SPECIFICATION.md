@@ -420,28 +420,48 @@ $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Book
 ## 5. Email OTP Verification Service
 
 ### 5.1 Send / Resend Email OTP
-**Endpoint:** `POST /sendEmailOtp` (Alias: `POST /resendEmailOtp`)  
-**Auth:** Public  
+**Endpoints:** `POST /sendEmailOtp` and `POST /resendEmailOtp`
+**Auth:** Firebase App Check; no login session required.
+Payload examples in this section are Firebase SDK data objects; raw HTTP requests wrap them in `{ "data": ... }` and successful responses in `{ "result": ... }`.
 **Request Body:**
 ```json
 {
-  "email": "partner@hotelphuket.com",
-  "purpose": "PARTNER_ONBOARDING"
+  "email": "partner@hotelphuket.com"
 }
 ```
-**Success Response:** `{ "status": "success", "message": "OTP sent to email.", "ttlSeconds": 300 }`
+**Success Response:** `{ "challengeId": "<challenge-id>", "expiresAt": 1791194700000, "resendAt": 1791194460000, "message": "An email verification code has been sent." }`
+
+Resend also requires the previous `challengeId` and returns a replacement challenge. Codes expire in five minutes; resend cooldown is 60 seconds. Times are Unix milliseconds.
 
 ### 5.2 Verify Email OTP
 **Endpoint:** `POST /verifyEmailOtp`  
-**Auth:** Public  
+**Auth:** Firebase App Check; no login session required.
 **Request Body:**
 ```json
 {
   "email": "partner@hotelphuket.com",
-  "otp": "654321"
+  "challengeId": "<latest-challenge-id>",
+  "code": "654321"
 }
 ```
-**Success Response:** `{ "status": "success", "verified": true, "verificationToken": "vtoken_abc123" }`
+**Success Response:** `{ "verified": true, "email": "partner@hotelphuket.com", "verificationToken": "<opaque-43-character-token>", "expiresAt": 1791195000000 }`
+
+Verification consumes the code and creates a ten-minute proof; it does not create an account or issue a login token.
+
+### 5.3 Create Verified Firebase Account
+**Endpoint:** `POST /createVerifiedAccount`
+**Auth:** Firebase App Check and an unexpired email-bound verification proof.
+**Request Body:**
+```json
+{
+  "email": "partner@hotelphuket.com",
+  "password": "<user-selected-password>",
+  "verificationToken": "<token-from-verifyEmailOtp>"
+}
+```
+**Success Response:** `{ "created": true }`
+
+Creates a Firebase Auth user with `emailVerified: true`. Transactional proof claims bind retries to the same UID until proof expiry. Existing accounts from another signup return `already-exists`; expired or mismatched proofs return `unauthenticated`. The client signs in with its password after creation. The callable allows browser CORS preflight and runs in `asia-east2` in project `gothai-ffea1`. See [the OTP API guide](../../documentation/EMAIL_OTP_API.md) for SDK examples.
 
 ---
 

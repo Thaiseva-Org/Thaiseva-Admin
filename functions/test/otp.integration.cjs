@@ -25,6 +25,10 @@ require("../lib/otp/zoho").sendZohoOtp = async (_config, email, code) => {
   sent.push({email, code});
 };
 const {sendEmailOtp, resendEmailOtp, verifyEmailOtp} = require("../lib/emailOtp");
+const {createVerifiedSignupHandler} = require("../lib/verifiedSignup");
+const createVerifiedAccount = {run: createVerifiedSignupHandler({
+  db: getFirestore(), auth: getAuth(), getHashKey: () => process.env.OTP_HASH_KEY,
+})};
 const call = (fn, data, ip = "127.0.0.1") => fn.run({data, rawRequest: {ip}});
 const refFor = (email) => getFirestore().collection("emailOtpChallenges").doc(digest(process.env.OTP_HASH_KEY, "signup-email", email));
 async function account(email) {
@@ -60,6 +64,17 @@ test("new email, concurrent verification, proof storage and replay protection", 
   assert.equal(stored.consumedBy, null);
   assert.equal(stored.verificationToken, undefined);
   assert.equal(stored.email, undefined);
+  await assert.rejects(call(createVerifiedAccount, {
+    email: "different@example.com", password: "secret123", verificationToken: proof.verificationToken,
+  }), {code: "unauthenticated"});
+  const signup = {email, password: "secret123", verificationToken: proof.verificationToken};
+  const signups = await Promise.allSettled(Array.from({length: 4}, () => call(createVerifiedAccount, signup)));
+  assert.equal(signups.filter((result) => result.status === "fulfilled").length, 4);
+  const user = await getAuth().getUserByEmail(email);
+  assert.equal(user.emailVerified, true);
+  assert.equal(user.uid, (await ref.get()).data().consumedBy);
+  await ref.update({expiresAt: Date.now() - 1});
+  await assert.rejects(call(createVerifiedAccount, signup), {code: "unauthenticated"});
 });
 
 test("concurrent sends enforce cooldown, resend rotates code and preserves attempts", async () => {

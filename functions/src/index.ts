@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase-admin/app";
+export { createVerifiedAccount } from "./verifiedSignup";
 export {
   sendEmailOtp, resendEmailOtp, verifyEmailOtp,
 } from "./emailOtp";

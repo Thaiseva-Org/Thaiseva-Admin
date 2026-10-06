@@ -5,7 +5,7 @@
 
 This document describes the deployed email OTP service. For step-by-step usage, see [How to use the OTP API](EMAIL_OTP_API.md).
 
-The service sends, resends and verifies email codes. The consuming application owns signup, accounts and login. Verification creates no account, changes no Firebase Auth user and assigns no role. An existing account is not required.
+The service sends, resends and verifies email codes. `verifyEmailOtp` creates no account, changes no Firebase Auth user and assigns no role. The optional `createVerifiedAccount` callable consumes its proof to create an email-verified Firebase Auth account; the consuming application handles login and roles. An existing account is not required.
 
 Configuration status recorded on **5 October 2026**:
 
@@ -29,7 +29,9 @@ Configuration status recorded on **5 October 2026**:
 4. Resend generates a new code and challenge after the cooldown; the old challenge stops working.
 5. Verify compares the submitted code against its hash and checks expiry, delivery status and lockout.
 6. A Firestore transaction consumes a matching OTP and creates a ten-minute verification proof. Only one concurrent verification can succeed.
-7. The separate trusted backend may consume that proof before performing its own account workflow.
+7. The separate trusted backend may consume that proof before performing its own account workflow, or the client can call `createVerifiedAccount` for Firebase email/password signup.
+
+On **6 October 2026**, `createVerifiedAccount` was deployed in `gothai-ffea1`, region `asia-east2`. Its live preflight returned HTTP 204 with `Access-Control-Allow-Origin: https://thaiseva.com`; a call without App Check returned HTTP 401 with CORS headers. Unit and emulator tests cover proof binding, expiry, concurrent signup retries and existing-account protection. Live account creation with a production App Check token remains a consuming-app check.
 
 The Admin Portal retains its existing login form. App Check enforcement on these endpoints validates project-issued app tokens; there is no additional per-app allowlist in the OTP handlers. Registering these selected clients does not make them the only Firebase project apps permitted to call the API.
 
@@ -124,7 +126,17 @@ firebase functions:secrets:set ZOHO_MAIL_API_KEY --project gothai-ffea1
 firebase functions:secrets:set OTP_HASH_KEY --project gothai-ffea1
 ```
 
-Redeploy all three OTP functions after rotating a secret. Preserve the runtime's Secret Accessor binding on both secrets. The OTP service does not need Firebase custom-token signing permissions.
+After rotating `OTP_HASH_KEY`, redeploy all three OTP functions and `createVerifiedAccount` together so they use the same secret version. After rotating `ZOHO_MAIL_API_KEY`, redeploy the three OTP functions. Preserve the runtime's Secret Accessor binding on the required secrets. The OTP service does not need Firebase custom-token signing permissions.
+
+To build, test and deploy only the signup endpoint from this repository root:
+
+```powershell
+npm --prefix functions test
+npm --prefix functions run test:otp:integration
+firebase deploy --only functions:createVerifiedAccount --project gothai-ffea1
+```
+
+`npm test` builds the TypeScript entry point before testing; rebuild before deploying source changes because Firebase uses `functions/lib/index.js`. The signup endpoint binds the existing `OTP_HASH_KEY`, explicitly allows browser CORS preflight and public invocation, and always enforces App Check. Public invocation lets preflight reach the callable middleware; it does not bypass proof validation or App Check.
 
 Keep deleteAfter TTL enabled for all three OTP collections. TTL cleanup is asynchronous, so documents can remain after expiry; server checks still reject expired codes and proofs. Changes to mail endpoint, sender, reply-to or brand are server configuration changes. Use a real verified sender and a monitored reply-to if enabling replies.
 
@@ -135,6 +147,7 @@ Review delivery failures in Cloud Logging and Zoho's delivery dashboard. Do not 
 | File | Responsibility |
 | --- | --- |
 | [emailOtp.ts](../functions/src/emailOtp.ts) | Callable endpoints, App Check, rate limiting and Firestore transactions |
+| [verifiedSignup.ts](../functions/src/verifiedSignup.ts) | Verified account creation, transactional proof claims and retry protection |
 | [core.ts](../functions/src/otp/core.ts) | OTP generation, hashes, expiry, resend and retry policies |
 | [zoho.ts](../functions/src/otp/zoho.ts) | Provider validation, HTML/plain-text template and Zoho delivery |
 | [firestore.rules](../firestore.rules) | Denies client access to OTP collections |
