@@ -66,6 +66,7 @@ import StatisticsProvider from "../contextAPIs/StatisticsProvider";
 import { Suspense } from "react";
 import Loading from "../components/Loading";
 import ScrollToTop from "../components/ScrollToTop";
+import AccountSettings from "../pages/dashboard/adminDashboard/AccountSettings";
 
 /**
  * The main router configuration object for the application.
@@ -107,6 +108,10 @@ export const router = createBrowserRouter([
       </PrivetRouter>
     ),
     children: [
+      {
+        path: "/dashboard/settings",
+        element: <AdminRoute><AccountSettings /></AdminRoute>,
+      },
       {
         path: "/dashboard/bookings-record",
         element: (

@@ -150,6 +150,7 @@ export const ourServiceLinks = [
 
 export const newprimaryLinks = [
   { icon: <HomeIcon />, link: "/dashboard", label: "Dashboard" },
+  { icon: <ManageAccountsIcon />, link: "/dashboard/settings", label: "Account Settings" },
   {
     icon: <NotificationsRounded />,
     link: "/dashboard/notifications",
