@@ -1,5 +1,7 @@
 # System Architecture Document (SAD)
 
+> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
+
 **System Name:** Thaiseva Admin Portal, Partner Dashboard & Booking Ecosystem  
 **Target Codebase:** `Thaiseva-Admin-Portal-Web-App`  
 **System Classification:** Multi-Tenant B2B SaaS & Serverless E-Commerce Booking Engine  
@@ -17,7 +19,7 @@ Thaiseva is an integrated hospitality, transport, and tour booking marketplace o
 ```mermaid
 flowchart TB
     subgraph ClientTier["Client & User Tier"]
-        AdminStaff["Thaiseva Operations Staff<br/>(Admins & Sub-Admins)"]
+        AdminStaff["Thaiseva Operations Staff<br/>(Admin)"]
         Partners["Commercial Partners<br/>(Hotels, Drivers, Guides, Restaurants)"]
         Travelers["Travelers / App Consumers<br/>(iOS / Android / Web)"]
     end
@@ -118,7 +120,7 @@ flowchart TD
     PrivetRouter -- No --> RedirectLogin["Redirect to /login"]
     PrivetRouter -- Yes --> RoleCheck{"Evaluate Role & Status<br/>(from /users/{uid})"}
     
-    RoleCheck -- "role in ['Admin', 'Sub Admin']" --> AdminRoute["Allow Admin Dashboard Routes"]
+    RoleCheck -- "active Admin role" --> AdminRoute["Allow Admin Dashboard Routes"]
     AdminRoute --> HeadAdminCheck{"HeadAdminRoute?<br/>(role === 'Admin')"}
     HeadAdminCheck -- Yes --> HeadAdminOnly["Allow Deletion Requests & Sub-Admin Mgmt"]
     HeadAdminCheck -- No --> DenyHeadAdmin["Access Denied / Restricted View"]
@@ -131,7 +133,7 @@ flowchart TD
 | Route Guard | File Location | Enforcement Target |
 |---|---|---|
 | `PrivetRouter` | `src/routes/PrivetRouter.jsx` | Verifies active session token. Blocks anonymous requests. |
-| `AdminRoute` | `src/routes/AdminRoute.jsx` | Restricts access to platform operators (`Admin` or `Sub Admin`). |
+| `AdminRoute` | `src/routes/AdminRoute.jsx` | Restricts access to platform operators (active `Admin`). |
 | `HeadAdminRoute` | `src/routes/HeadAdminRoute.jsx` | Restricts access strictly to Super Admins (deletions, sub-admins, gross margins). |
 | `PartnerRoute` | `src/routes/PartnerRoute.jsx` | Verifies vendor status (`status === 'Verified'`). Unverified partners cannot access orders. |
 
@@ -221,7 +223,7 @@ Implemented in `functions/src/hotelStockApi.ts` and `functions/src/hotelBookingS
 - Implements `deleteUserFunction` callable function.
 - Strictly restricted to authenticated users with `admin === true` custom claims.
 - Destroys the login profile in Firebase Authentication via `admin.auth().deleteUser(uid)`.
-- Updates the Firestore profile with `{ accountDeleted: true, deletedAt: serverTimestamp() }` and marks the matching `DeletionRequests` record as `Completed`.
+- Removes direct profiles and supported operational records, marks the request `Erasure Pending` and creates a `PENDING_RECORD_REVIEW` erasure job.
 
 ---
 

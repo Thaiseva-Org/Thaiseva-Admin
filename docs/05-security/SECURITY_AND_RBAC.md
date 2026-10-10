@@ -1,5 +1,7 @@
 # Security Architecture & RBAC Specification
 
+> Privacy/security status updated 11 October 2026: [current verified status](DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
+
 This document defines the multi-tenant security architecture, Role-Based Access Control (RBAC) model, Firestore and Cloud Storage security rules governance, and vulnerability remediation procedures for the Thaiseva ecosystem.
 
 ---
@@ -51,19 +53,14 @@ flowchart TD
 
 ## 2. Roles & Permissions (RBAC) Matrix
 
-| Resource / System Capability | Head Admin | Sub-Admin | Verified Partner | Pending Partner | App User (Customer) | Public / Anonymous |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Platform Dashboard & Analytics** | Full (All Sectors) | Operational Stats | No Access | No Access | No Access | No Access |
-| **Partner Onboarding Approval** | Read / Write | Read / Write | No Access | No Access | No Access | No Access |
-| **Manage Sub-Admins** | Read / Write | No Access | No Access | No Access | No Access | No Access |
-| **Account Deletions (PDPA Callables)** | Execute / Cancel | View Only | No Access | No Access | Self-Request Only | No Access |
-| **View Global Bookings Manifest** | Read / Write | Read / Write | No Access | No Access | No Access | No Access |
-| **View Own Partner Bookings** | N/A | N/A | Read / Write | No Access | Read Own | No Access |
-| **Hotel Inventory / Calendar Overrides** | Override All | Override All | Manage Own Only | No Access | No Access | Query Free Stock |
-| **Public Hotel / Package Catalog** | Read / Write | Read / Write | Edit Own Listing | No Access | Read Only | Read Only |
-| **Support Chat Channels** | All Channels | All Channels | Channel Only | No Access | Support Thread | No Access |
-| **Dynamic PDF Invoices & Billing** | Generate Global | Generate Global | Download Own | No Access | No Access | No Access |
-| **Raw Media Uploads** | 50MB (Banners) | 25MB (Catalog) | 15MB (Rooms) | 15MB (Docs Only) | 20MB (Chat Audio) | 15MB (KYC PDF) |
+| Identity | Current privacy boundary |
+|---|---|
+| Admin | Single staff role; active account required. Privileged account actions require recent authentication. |
+| Customer | Own profile/bookings/support thread; no shared customer directory. |
+| Partner | Product-specific ownership/approval controls; separate offboarding. |
+| Anonymous | Public listing information only. |
+
+Storage was not changed; legacy allowances there require separate verification. Admin SDK/IAM access bypasses client rules. App Check must be verified endpoint by endpoint. Secret-storage tables below describe the target, not completed runtime migration.
 
 ---
 
@@ -74,7 +71,7 @@ Client-side navigation security is implemented in `src/routes/` and wraps route 
 ```typescript
 // Hierarchy of Route Guards in src/routes/
 <PrivetRouter>           // Layer 1: Ensures auth.currentUser exists
-  <AdminRoute>           // Layer 2: Requires role in ['Admin', 'Sub Admin']
+  <AdminRoute>           // Layer 2: Requires active Admin role
     <HeadAdminRoute>     // Layer 3: Requires role === 'Admin' strictly
       <DeletionRequests />
       <SubAdmins />

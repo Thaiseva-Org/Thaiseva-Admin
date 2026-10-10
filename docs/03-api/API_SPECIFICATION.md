@@ -1,5 +1,7 @@
 # Thaiseva Cloud Functions API Specification
 
+> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
+
 **Service Region:** `asia-east2` (Hong Kong)  
 **Base URL:** `https://asia-east2-<PROJECT_ID>.cloudfunctions.net/<FunctionName>`  
 **Production Host:** `https://asia-east2-gothai-admin.cloudfunctions.net`  
@@ -30,9 +32,9 @@ Clients send `paymentMethod` (or `paymentMethodIntent`). Accepted values and bus
 
 | Method Code | Hotel Booking | Sightseeing Tour Package | Transport (Car, Van, Self-Drive) |
 |---|---|---|---|
-| **`STRIPE`** | Supported (Instant card / PromptPay checkout) | Supported (Instant card checkout) | 🚫 **Rejected** (`TRANSPORT_NO_STRIPE`) |
+| **`STRIPE`** | Supported (Instant card / PromptPay checkout) | Supported (Instant card checkout) | ðŸš« **Rejected** (`TRANSPORT_NO_STRIPE`) |
 | **`THAI_QR`** | Supported (Manual bank transfer slip upload) | Supported (Pending admin bank check) | Preference only (Admin quotes amount first) |
-| **`ONSITE`** | 🚫 **Rejected** (`ONSITE_NOT_SUPPORTED_FOR_HOTEL`) | Supported (Pay cash to tour operator) | Preference only (Pay driver upon arrival) |
+| **`ONSITE`** | ðŸš« **Rejected** (`ONSITE_NOT_SUPPORTED_FOR_HOTEL`) | Supported (Pay cash to tour operator) | Preference only (Pay driver upon arrival) |
 
 > [!IMPORTANT]
 > **Transport Payment Model:** Transport rides do **not** support direct online Stripe card charges. Passengers submit travel logistics $\rightarrow$ Platform Admin reviews route and quotes the final price $\rightarrow$ Passenger checks status via `getTransportBooking` $\rightarrow$ Payment is collected offline or settled via custom link.
@@ -193,7 +195,7 @@ $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Book
 }
 ```
 
-**Success Response (200 OK) — Stripe:**
+**Success Response (200 OK) â€” Stripe:**
 ```json
 {
   "status": "success",
@@ -206,7 +208,7 @@ $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Book
 }
 ```
 
-**Success Response (200 OK) — Thai QR:**
+**Success Response (200 OK) â€” Thai QR:**
 ```json
 {
   "status": "success",
@@ -471,7 +473,7 @@ Invoked via the Firebase Client SDK: `httpsCallable(functions, "functionName")`.
 
 ### 6.1 Delete User Identity (PDPA Right to Erasure)
 **Callable Name:** `deleteUserFunction`  
-**Auth:** Strictly restricted to callers with `admin === true` custom claim.  
+**Auth:** Active Admin (claim or approved role), recent authentication, matching pending customer request; self-deletion and staff/partner targets are rejected.
 **Payload:**
 ```json
 {
@@ -479,7 +481,7 @@ Invoked via the Firebase Client SDK: `httpsCallable(functions, "functionName")`.
   "requestId": "del_req_00123"
 }
 ```
-**Success Response:** `{ "success": true, "uid": "usr_delete_target_789" }`
+**Outcome:** Login/scoped records removed; request remains `Erasure Pending` while retained business/external copies await review. See `functions/src/accountDeletion.ts` for response fields and errors.
 
 ### 6.2 Manage Transport Booking & Resource Allocation
 **Callable Names:** `manageTransportBooking`, `manageTransportResource`  

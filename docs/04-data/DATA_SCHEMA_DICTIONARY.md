@@ -1,5 +1,7 @@
 # Firestore Data Architecture & Schema Dictionary
 
+> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
+
 This document represents the **authoritative single source of truth** for all Google Cloud Firestore collections, subcollections, document shapes, field mappings, and composite indexes across the Thaiseva ecosystem. It consolidates all data specifications from legacy references into a unified, verified standard.
 
 ---
@@ -159,8 +161,8 @@ interface RestaurantDocument {
 
 ```
 HotelDB/ {hotelId}
-  ├── rooms/ {roomId}
-  └── availability/ config & date records
+  â”œâ”€â”€ rooms/ {roomId}
+  â””â”€â”€ availability/ config & date records
 
 hotelStock/ {hotelId}_{packageId}/nights/ {YYYY-MM-DD}
 hotelLocks/ {lockId}
@@ -596,7 +598,7 @@ interface DeletionRequestDocument {
   userEmail: string;
   userName?: string;
   reason?: string;
-  status: 'Pending' | 'Completed' | 'Cancelled';
+  status: 'Pending' | 'Erasure Pending' | 'Completed' | 'Cancelled';
   createdAt: Timestamp;
   completedAt?: Timestamp;
   processedBy?: string;
@@ -653,3 +655,7 @@ The following composite indexes are active and required in production:
 Configured in `firestore.indexes.json` under `fieldOverrides`:
 - `emailOtpChallenges.deleteAfter` $\rightarrow$ `ttl: true`
 - `emailOtpRateLimits.deleteAfter` $\rightarrow$ `ttl: true`
+
+## Verified privacy schema additions (11 October 2026)
+
+`privacyErasureJobs/{uid}` records PROCESSING, RETRY_REQUIRED or PENDING_RECORD_REVIEW, scoped-erasure flags, actor, remainingReview and seven-day reviewDueAt. `privacyRetentionReviews`, `privacyRetentionFailures`, `privacyRetentionRuns` and cursor state track maintenance/review work. Historical DeletionRequests can lack uid and retain passwords; this is a confirmed defect, not the accepted new schema. Four legacy requests require reviewed cleanup. Legacy chat `date` values currently are not supported by the message expiry helper; T2TWorldChatRoom and foodCustomerChats are not covered. See the linked verification report for counts.

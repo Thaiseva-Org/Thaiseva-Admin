@@ -1,5 +1,7 @@
 # Admin & Partner Operations Manual
 
+> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
+
 Welcome to the operational manual for the **Thaiseva Admin Portal and Partner Dashboard**. This manual provides comprehensive, step-by-step procedures for daily operations, catalog governance, booking lifecycles, billing, and compliance management.
 
 ---
@@ -79,7 +81,7 @@ sequenceDiagram
     end
 ```
 
-1. Navigate to **General Partners → Manage Partners**.
+1. Navigate to **General Partners â†’ Manage Partners**.
 2. Filter table by **Status: Pending**.
 3. Click **Review** on the target application to inspect business registration documents, TAT tourism licenses, driver's licenses, and bank account details.
 4. If documents satisfy legal standards, click **Verify Partner**. The partner gains instant access to their self-service tools.
@@ -134,11 +136,11 @@ The portal includes an integrated PDF billing engine powered by `@react-pdf/rend
 ### 2.6 Account Deletion Compliance (`/dashboard/deletion-requests`)
 
 To comply with the Thailand Personal Data Protection Act (PDPA):
-1. Navigate to **General Operations → Deletion Requests**.
-2. Review pending requests. The **Days Remaining** column tracks the statutory 30-day grace period.
+1. Navigate to **General Operations â†’ Deletion Requests**.
+2. Review pending requests. The **Days Remaining** column tracks the application 30-day waiting period (not a statutory grace period).
 3. Requests with 0 or negative days remaining appear in the **Due** tab.
 4. Click **Approve & Delete Login Account**.
-5. Confirm the warning dialog. The system invokes `deleteUserFunction`, permanently destroying the Firebase Auth account and timestamping the record as `Completed`.
+5. Confirm the warning dialog. The system invokes `deleteUserFunction`, removing the login and scoped operational data, setting `Erasure Pending` and queuing remaining records for Admin review. Do not tell the customer all copies are erased until that review is complete.
 
 ---
 

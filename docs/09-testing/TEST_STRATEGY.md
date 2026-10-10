@@ -1,5 +1,7 @@
 # Test Strategy & Quality Assurance Plan
 
+> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
+
 **System:** Thaiseva Admin Portal, Partner Dashboard & Booking Ecosystem  
 **Target Codebase:** `Thaiseva-Admin-Portal-Web-App`  
 **Quality Lead:** Senior QA Lead / Test Architect  
@@ -112,7 +114,7 @@ Stripe guarantees at-least-once webhook delivery, meaning webhooks can be retrie
 |---|---|---|---|:---:|
 | `TC-PDPA-01` | 30-Day Grace Period Filter | Request submitted with `createdAt` = today $\rightarrow$ check `DeletionRequests.jsx`. | Displays in `Pending Requests` with `29` or `30` days remaining. | Medium |
 | `TC-PDPA-02` | Overdue Requests Filter | Seed request with `createdAt` 35 days ago. | Request automatically appears in the `Due / Action Required` tab with negative days remaining. | High |
-| `TC-PDPA-03` | Approve Deletion Execution | Head Admin clicks **Approve Account Deletion**. | Invokes `deleteUserFunction`; user cannot sign in with Firebase Auth; Firestore profile marked `accountDeleted: true`. | Critical |
+| `TC-PDPA-03` | Approve Deletion Execution | Head Admin clicks **Approve Account Deletion**. | Invokes `deleteUserFunction`; user cannot sign in with Firebase Auth; direct Firestore profiles removed; request `Erasure Pending`, remaining records queued for review. | Critical |
 | `TC-PDPA-04` | Cancel Deletion Request | Admin clicks **Cancel Request** within grace period. | Request marked `Cancelled`; user can sign in normally; no data destroyed. | High |
 
 ---

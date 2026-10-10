@@ -1,0 +1,23 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "functions/test/retention-storage.rules"
+  },
+  "emulators": {
+    "singleProjectMode": true,
+    "firestore": {
+      "port": 18588
+    },
+    "ui": {
+      "enabled": false
+    },
+    "storage": {
+      "port": 19799
+    },
+    "auth": {
+      "port": 19698
+    }
+  }
+}
