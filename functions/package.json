@@ -10,6 +10,7 @@
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
+    "deploy:hotel": "npm run build && firebase deploy --project gothai-ffea1 --only functions:checkHotelStock,functions:lockHotelStock,functions:unlockHotelStock,functions:expireHotelStockHolds,functions:checkHotelAvailability,functions:startHotelBookingHold,functions:releaseHotelBookingHold,functions:expireHotelBookingHolds,functions:completeHotelBookingHold,functions:createHotelBookingWithAvailability,functions:createHotelBooking,functions:createCheckoutSession,functions:verifySession,functions:stripeWebhook",
     "logs": "firebase functions:log"
   },
   "engines": {
