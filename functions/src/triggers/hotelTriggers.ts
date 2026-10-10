@@ -28,7 +28,7 @@ import {
 export const forceHotelBookingPending = onDocumentCreated(
   {
     document: "hotelBookingData/{bookingId}",
-    region: "asia-east2",
+    secrets: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"], secrets: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"], region: "asia-east2",
   },
   async (event) => {
     const snapshot = event.data;
@@ -99,7 +99,7 @@ export const forceHotelBookingPending = onDocumentCreated(
 export const onHotelBookingStatusChangeV3 = onDocumentUpdated(
   {
     document: "hotelBookingData/{bookingId}",
-    region: "asia-east2",
+    secrets: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"], secrets: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"], region: "asia-east2",
   },
   async (event) => {
     const before = event.data?.before.data();

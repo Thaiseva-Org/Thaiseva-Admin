@@ -87,6 +87,7 @@ const handleCheckoutCompleted = async (session: Stripe.Checkout.Session) => {
 export const stripeWebhook = onRequest(
   {
     region: REGION,
+    secrets: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
     cors: false,
     invoker: "public",
   },

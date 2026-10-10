@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase-admin/app";
 export { createVerifiedAccount } from "./verifiedSignup";
+export {createSubAdmin, exportCustomerData} from "./privilegedAccounts";
 export {
   sendEmailOtp, resendEmailOtp, verifyEmailOtp,
 } from "./emailOtp";
@@ -108,3 +109,4 @@ exports.getTransportBooking = getTransportBooking;
 exports.createCheckoutSession = createCheckoutSession;
 exports.verifySession = verifySession;
 exports.stripeWebhook = stripeWebhook;
+export {runPrivacyRetention, previewPrivacyRetention} from "./retentionMaintenance";

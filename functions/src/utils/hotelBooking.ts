@@ -1,10 +1,6 @@
 import { getFirestore } from "firebase-admin/firestore";
 import {
-  customerName,
-  customerPhone,
-  escapeHtml,
   hotelName as pickHotelName,
-  icon,
   money,
   packageName,
   pick,
@@ -66,30 +62,12 @@ export const resolveHotelBookingMetadata = async (bookingData: BookingData) => {
 };
 
 export const formatNewHotelTelegramMessage = (
-  bookingData: BookingData,
-  metadata: Awaited<ReturnType<typeof resolveHotelBookingMetadata>>,
-) =>
-  `<b>${icon.hotel} New Hotel Booking</b>\n` +
-  `${icon.customer} ${escapeHtml(customerName(bookingData))}\n` +
-  `${icon.phone} ${escapeHtml(customerPhone(bookingData))}\n` +
-  `${icon.hotel} ${escapeHtml(metadata.finalHotelName)}\n` +
-  `${icon.package} ${escapeHtml(metadata.room)}\n` +
-  `${icon.calendar} ${escapeHtml(metadata.checkIn)} - ${escapeHtml(metadata.checkOut)}\n` +
-  `${icon.amount} ${escapeHtml(metadata.amount)}`;
+  _bookingData: BookingData,
+  _metadata: Awaited<ReturnType<typeof resolveHotelBookingMetadata>>,
+) => "New hotel booking. Review in the authenticated dashboard: https://admin.thaiseva.com/dashboard";
 
-export const formatHotelStatusTelegramMessage = (
-  title: string,
-  bookingData: BookingData,
-) => {
-  const finalHotelName = pickHotelName(bookingData, "Unknown Hotel");
-  const room = packageName(bookingData, "Room not selected");
-
-  return `<b>${title}</b>\n` +
-    `${icon.customer} ${escapeHtml(customerName(bookingData))}\n` +
-    `${icon.phone} ${escapeHtml(customerPhone(bookingData))}\n` +
-    `${icon.hotel} ${escapeHtml(finalHotelName)}\n` +
-    `${icon.package} ${escapeHtml(room)}`;
-};
+export const formatHotelStatusTelegramMessage = (_title: string, _bookingData: BookingData) =>
+  "Hotel booking status changed. Review in the authenticated dashboard: https://admin.thaiseva.com/dashboard";
 
 export const buildHotelPendingEnforcementUpdate = (
   bookingData: BookingData,

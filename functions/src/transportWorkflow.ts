@@ -1,3 +1,4 @@
+import {assertActiveAccount} from "./activeAccount";
 /* eslint-disable max-len */
 import {getFirestore, FieldValue, Timestamp} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
@@ -117,12 +118,11 @@ const required = (data: Data, field: string, message: string): string => {
 
 const assertAdmin = async (auth: {uid: string; token: Data} | undefined) => {
   if (!auth) throw new HttpsError("unauthenticated", "Sign in is required.");
-  const email = stringValue(auth.token.email).toLowerCase();
-  if (["admin@gmail.com", "thaiseva_admin@gmail.com"].includes(email) ||
-      auth.token.admin === true) return;
+  await assertActiveAccount(auth.uid, auth.token || {});
+  if (auth.token.admin === true) return;
   const user = await getFirestore().doc(`users/${auth.uid}`).get();
   const role = stringValue(user.data()?.role).toLowerCase();
-  if (!new Set(["admin", "sub admin"]).has(role)) {
+  if (!new Set(["admin"]).has(role)) {
     throw new HttpsError("permission-denied", "Admin access is required.");
   }
 };

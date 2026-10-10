@@ -1,34 +1,4 @@
-import {
-  Box,
-  Button,
-  DialogActions,
-  Grid,
-  TextField,
-  Alert,
-} from "@mui/material";
-import {
-  doc,
-  // onSnapshot,
-  // query,
-  // setDoc,
-  updateDoc,
-  // where,
-} from "firebase/firestore";
-import { useState } from "react";
-import { settingsCollection } from "../firebase/firebase.config";
-// import { v4 as uuid } from "uuid";
-import {
-  // askingForDelete,
-  askingForUpdate,
-  // deleteNotification,
-  // getFileUrl,
-  successNotification,
-} from "../utils/utils";
-// import Loading from "./Loading";
-// import NotificationButtons from "./NotificationButton";
-// import ViewAll from "./ViewAll";
-import { encryptData } from "../services/DataEncrypter";
-// import AddBannerForm from "./AddBannerForm";
+import {Alert} from "@mui/material";
 
 const NotificationBanner = () => {
   // Offer Notification
@@ -154,31 +124,6 @@ const NotificationBanner = () => {
   //   }
   // };
 
-  // Credentials Change
-  const [cred, setCred] = useState({
-    appId: "",
-    appSign: "",
-  });
-
-  const handleUpdateCredentials = async () => {
-    askingForUpdate("You are changing calling credentials!!").then(
-      async (result) => {
-        if (result.isConfirmed) {
-          await updateDoc(doc(settingsCollection, "Confidential"), {
-            appId: encryptData(cred.appId),
-            appSign: encryptData(cred.appSign),
-          }).then(() => {
-            successNotification("Credentials Updated Successfully.");
-            setCred({
-              appId: "",
-              appSign: "",
-            });
-          });
-        }
-      }
-    );
-  };
-
   return (
     <div className="mb-8 rounded-lg">
       <div className="flex w-full lg:w-[50%] lg:flex-row flex-col gap-8 lg:gap-4">
@@ -230,70 +175,7 @@ const NotificationBanner = () => {
           />
         </div> */}
 
-        {/* Credentials Setup */}
-        <div className="flex-1 w-[calc(50%-0.5rem)] max-lg:w-full banner-layout">
-          <div className="banner-section-title">
-            <h2>Change Calling Credentials</h2>
-          </div>
-
-          <div className="flex lg:flex-row w-full flex-col-reverse gap-4">
-            <div className="notification-left-view">
-              <Box>
-                <Grid container spacing={2} sx={{ mb: 2 }}>
-                  <Grid item xs={12} sm={12}>
-                    <TextField
-                      label="App ID"
-                      type="text"
-                      autoComplete="off"
-                      placeholder="Place new AppID here"
-                      value={cred.appId}
-                      onChange={(e) =>
-                        setCred((p) => ({ ...p, appId: e.target.value }))
-                      }
-                      fullWidth
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={12}>
-                    <TextField
-                      label="App Sign"
-                      type="text"
-                      autoComplete="off"
-                      placeholder="Place new AppSign here"
-                      value={cred.appSign}
-                      onChange={(e) =>
-                        setCred((p) => ({
-                          ...p,
-                          appSign: e.target.value,
-                        }))
-                      }
-                      fullWidth
-                    />
-                  </Grid>
-                </Grid>
-                <Alert severity="warning" sx={{ mb: 1 }}>
-                  Please check the credentials and think twice before updating
-                  to avoid disrupting the calling feature.
-                </Alert>
-                <DialogActions>
-                  <Button
-                    variant="contained"
-                    type="submit"
-                    autoFocus
-                    sx={{
-                      bgcolor: "var(--primary-bg)",
-                      color: "white",
-                      hover: "none",
-                    }}
-                    onClick={handleUpdateCredentials}
-                    disabled={cred.appId === "" || cred.appSign === ""}
-                  >
-                    Update
-                  </Button>
-                </DialogActions>
-              </Box>
-            </div>
-          </div>
-        </div>
+        <Alert severity="info">Calling credentials are managed by the server administrator.</Alert>
       </div>
     </div>
   );

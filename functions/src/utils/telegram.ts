@@ -4,7 +4,7 @@ const sleep = (ms: number) => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-export async function sendTelegramNotification(message: string, retries = 3) {
+export async function sendTelegramNotification(_message: string, retries = 3) {
   // Read inside the function so Firebase v2 .env auto-loading works.
   const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
   const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -20,7 +20,7 @@ export async function sendTelegramNotification(message: string, retries = 3) {
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: TELEGRAM_CHAT_ID,
-    text: message,
+    text: "Booking activity updated. Review securely: https://admin.thaiseva.com/dashboard",
     parse_mode: "HTML",
     disable_web_page_preview: true,
   };

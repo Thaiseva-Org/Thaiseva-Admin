@@ -140,7 +140,6 @@ const DriverChat = lazy(() =>
 // ========== Onboarding Forms Pages ==========
 const Login = lazy(() => import("./login/Login"));
 const PartnerOnboarding = lazy(() => import("./forms/PartnerOnboarding"));
-const HotelOnboarding = lazy(() => import("./forms/HotelOnboarding"));
 // ----- not in use for now -----
 const DriverOnBoarding = lazy(() => import("./forms/DriverOnBoarding"));
 // ========== Onboarding Forms Pages End ==========
@@ -275,7 +274,6 @@ export {
   // Onboarding Forms export
   Login,
   PartnerOnboarding,
-  HotelOnboarding,
   DriverOnBoarding,
 
   // partners export

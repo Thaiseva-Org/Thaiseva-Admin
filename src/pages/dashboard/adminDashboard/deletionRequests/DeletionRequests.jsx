@@ -9,6 +9,8 @@ import PageHeading from "../../../../components/PageHeading";
 import LoadingContent from "../../../../components/LoadingContent";
 import { format } from "timeago.js";
 import Swal from "sweetalert2";
+import useRecentAuthAction from "../../../../hooks/useRecentAuthAction";
+import PrivacyReviewQueue from "../../../../components/PrivacyReviewQueue";
 
 /**
  * Safely parses any date representation from Firestore or JS (Timestamp, ISO string, seconds obj, etc.)
@@ -52,6 +54,7 @@ const calculateDaysRemaining = (createdAt) => {
 const getNormalizedStatus = (statusStr) => {
   if (!statusStr) return "Pending";
   const lower = String(statusStr).trim().toLowerCase();
+  if (lower === "erasure pending") return "Erasure Pending";
   if (["completed", "approved", "accepted", "deleted"].includes(lower)) {
     return "Completed";
   }
@@ -79,6 +82,7 @@ const getNormalizedStatus = (statusStr) => {
  * @returns {JSX.Element}
  */
 const DeletionRequests = () => {
+  const recentAuth = useRecentAuthAction();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -133,11 +137,11 @@ const DeletionRequests = () => {
         title: "Approve Account Deletion?",
         html: `
           <div class="text-left text-sm space-y-2">
-            <p>You are about to delete the login authentication for:</p>
-            <p class="font-bold text-gray-800 bg-gray-100 p-2 rounded">${request.email || request.uid || "Unknown User"}</p>
+            <p>You are about to start account erasure for:</p>
+            <p class="font-bold text-gray-800 bg-gray-100 p-2 rounded">${String(request.email || request.uid || "Unknown User").replace(/[&<>"']/g, (character) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[character]))}</p>
             <p class="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
               <i class="fa-solid fa-triangle-exclamation mr-1"></i>
-              <b>Note:</b> This revokes user Firebase authentication. Booking and transactional records remain preserved in Firestore for accounting.
+              <b>Note:</b> Login, profile and private user uploads will be removed. Retained business records need review before erasure is complete.
             </p>
           </div>
         `,
@@ -145,7 +149,7 @@ const DeletionRequests = () => {
         showCancelButton: true,
         confirmButtonColor: "#dc2626",
         cancelButtonColor: "#6b7280",
-        confirmButtonText: "Yes, Delete Login Account",
+        confirmButtonText: "Start account erasure",
       });
 
       if (!result.isConfirmed) return;
@@ -154,25 +158,17 @@ const DeletionRequests = () => {
 
       // Call cloud function to delete user from Firebase Auth if uid is present
       if (request.uid) {
-        await deleteUserFromAuth({
+        await recentAuth.run(() => deleteUserFromAuth({
           uid: request.uid,
           requestId: request.id,
-        });
+        }));
       }
 
-      // Mark status as Completed in Firestore
-      if (request.id) {
-        const requestRef = doc(db, "DeletionRequests", request.id);
-        await updateDoc(requestRef, {
-          status: "Completed",
-          completedAt: new Date().toISOString(),
-          processedByAdminAt: new Date().toISOString(),
-        });
-      }
+      // The server owns erasure status and records unfinished review work.
 
       Swal.fire(
-        "Approved & Deleted!",
-        "The login authentication account was deleted and the request is marked as Completed.",
+        "Erasure started",
+        "Login, profile and private user uploads were removed. Retained business records still require review before erasure is complete.",
         "success"
       );
       if (selectedRequest?.id === request.id) {
@@ -325,15 +321,16 @@ const DeletionRequests = () => {
         </button>
       </div>
 
+      <PrivacyReviewQueue refreshKey={requests.map(request => `${request.id}:${request.status}`).join("|")} />
       {/* Policy Information Card */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row items-start gap-3 text-sm text-blue-900">
         <div className="p-2 bg-blue-100 rounded-lg text-blue-600 shrink-0">
           <i className="fa-solid fa-shield-halved text-xl"></i>
         </div>
         <div className="space-y-1">
-          <h4 className="font-semibold text-blue-950">30-Day Auto-Deletion & Policy Compliance</h4>
+          <h4 className="font-semibold text-blue-950">Deletion review and retained records</h4>
           <p className="text-blue-800/90 text-xs md:text-sm">
-            Users requesting account removal enter a mandatory 30-day grace period. Admins can manually accept or cancel requests at any time. When approved, user login credentials are deleted while audit history remains protected.
+            The countdown is an internal review target. Requests are processed by staff, not automatically deleted. Approval removes the login and direct customer records; remaining business records need a documented retention or deletion decision.
           </p>
         </div>
       </div>
@@ -746,6 +743,7 @@ const DeletionRequests = () => {
           </div>
         </div>
       )}
+      {recentAuth.dialog}
     </div>
   );
 };

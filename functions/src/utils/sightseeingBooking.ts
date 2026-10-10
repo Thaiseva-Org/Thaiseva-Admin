@@ -1,12 +1,5 @@
 import * as admin from "firebase-admin";
 import {
-  customerName,
-  customerPhone,
-  escapeHtml,
-  icon,
-  money,
-  packageName,
-  pick,
 } from "./bookingNotification";
 
 type BookingData = admin.firestore.DocumentData;
@@ -57,28 +50,8 @@ export const isSameCalendarDay = (left: Date, right: Date) =>
   left.getMonth() === right.getMonth() &&
   left.getDate() === right.getDate();
 
-export const formatSightseeingTelegramMessage = (
-  title: string,
-  data: BookingData,
-) => {
-  const date = pick(data, [
-    "arrivalDate",
-    "travelDate",
-    "date",
-    "pickUpTime",
-    "orderedAt",
-    "createdAt",
-    "timestamp",
-  ], "Unknown Date");
-  const amount = money(data, ["totalAmount", "price", "amount"]);
-
-  return `<b>${title}</b>\n` +
-    `${icon.customer} ${escapeHtml(customerName(data))}\n` +
-    `${icon.phone} ${escapeHtml(customerPhone(data))}\n` +
-    `${icon.package} ${escapeHtml(packageName(data))}\n` +
-    `${icon.calendar} ${escapeHtml(date)}\n` +
-    `${icon.amount} ${escapeHtml(amount)}`;
-};
+export const formatSightseeingTelegramMessage = (_title: string, _data: BookingData) =>
+  "Sightseeing booking updated. Review in the authenticated dashboard: https://admin.thaiseva.com/dashboard";
 
 export interface SightseeingCapacityResult {
   weeklyOk: boolean;

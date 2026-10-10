@@ -3,7 +3,7 @@
   "scripts": {
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
-    "test": "npm run build && node --test test/otp.test.cjs test/verifiedSignup.test.cjs",
+    "test": "npm run build && node --test test/otp.test.cjs test/verifiedSignup.test.cjs test/retention.test.cjs test/privacy.test.cjs",
     "test:otp:integration": "npm run build && firebase emulators:exec --config ../firebase.otp-test.json --project demo-thaiseva-otp --only firestore,auth \"node --test test/otp.integration.cjs\"",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
@@ -18,11 +18,13 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@emnapi/core": "^1.11.3",
+    "@emnapi/runtime": "^1.11.3",
     "dotenv": "^16.4.5",
     "firebase-admin": "^13.6.0",
     "firebase-functions": "^7.0.3",
-    "graphql": "^17.0.2",
-    "nodemailer": "^6.9.13",
+    "graphql": "^16.14.2",
+    "nodemailer": "10.0.16",
     "stripe": "^17.7.0"
   },
   "devDependencies": {
@@ -37,5 +39,8 @@
     "firebase-functions-test": "^3.1.0",
     "typescript": "^5.9.3"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "uuid": "^11.1.1"
+  }
 }

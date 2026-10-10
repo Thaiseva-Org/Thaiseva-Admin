@@ -4,11 +4,6 @@ import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firest
 import * as logger from "firebase-functions/logger";
 import {sendTelegramNotification} from "../utils/telegram";
 import {
-  customerName,
-  customerPhone,
-  escapeHtml,
-  icon,
-  money,
   pick,
 } from "../utils/bookingNotification";
 import {
@@ -24,48 +19,8 @@ const REGION = "asia-east2";
 const normalizedStatus = (data: BookingData): string =>
   String(data.bookingStatus || data.status || "Pending").trim().toLowerCase();
 
-const formatTransportMsg = (type: string, title: string, data: BookingData) => {
-  const date = pick(data, [
-    "assignmentStart", "travelAt", "travelDate", "pickupDate", "bookingDate",
-    "date", "time", "reqTime", "orderedAt", "timestamp", "createdAt",
-  ], "Unknown Date");
-  const finalAmount = money(data, [
-    "finalAmount", "totalAmount", "totalPrice", "amount", "price", "AmountOffered",
-  ]);
-  const received = money(data, ["amountReceived"]);
-  const remaining = money(data, ["remainingBalance"]);
-  const vehicle = pick(data, [
-    "vehicleSnapshot.name", "vehicleName", "selectedVehicle",
-    "vehicleDetails.vehicle", "transportType", "vehicle",
-  ], type);
-  const registration = pick(data, [
-    "vehicleSnapshot.registrationNumber", "vehicleDetails.vehicleNumber", "vanNumber",
-  ], "N/A");
-  const company = pick(data, ["companySnapshot.name", "companyName", "providerSnapshot.name"], "N/A");
-  const driver = pick(data, ["driverSnapshot.name", "Driver.name", "driverName", "handoverSnapshot.name"], "N/A");
-  const pickup = pick(data, [
-    "pickup", "pickupLocation", "PickUpLocation", "from", "pickupPoint",
-    "pickupDropDetails.pickup",
-  ], "N/A");
-  const drop = pick(data, [
-    "destination", "drop", "dropLocation", "to", "dropPoint", "pickupDropDetails.drop",
-  ], "N/A");
-  const reference = pick(data, ["bookingReference"], "Pending reference");
-  const bookingStatus = pick(data, ["bookingStatus", "status"], "Pending");
-  const paymentStatus = pick(data, ["paymentStatus"], "Unpaid");
-
-  return `<b>${title} (${escapeHtml(type)})</b>\n` +
-    `🔖 ${escapeHtml(reference)}\n` +
-    `${icon.customer} ${escapeHtml(customerName(data))}\n` +
-    `${icon.phone} ${escapeHtml(customerPhone(data))}\n` +
-    `🏢 ${escapeHtml(company)}\n` +
-    `🧑‍✈️ ${escapeHtml(driver)}\n` +
-    `${icon.transport} ${escapeHtml(vehicle)} · ${escapeHtml(registration)}\n` +
-    `${icon.route} ${escapeHtml(pickup)} -> ${escapeHtml(drop)}\n` +
-    `${icon.calendar} ${escapeHtml(date)}\n` +
-    `${icon.amount} Final ${escapeHtml(finalAmount)} · Received ${escapeHtml(received)} · Remaining ${escapeHtml(remaining)}\n` +
-    `📌 ${escapeHtml(bookingStatus)} · ${escapeHtml(paymentStatus)}`;
-};
+const formatTransportMsg = (_type: string, _title: string, _data: BookingData) =>
+  "Transport booking updated. Review in the authenticated dashboard: https://admin.thaiseva.com/dashboard";
 
 const amountNumber = (data: BookingData): number => {
   const n = Number(

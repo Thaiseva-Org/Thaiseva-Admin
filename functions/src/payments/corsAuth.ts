@@ -182,7 +182,9 @@ export const requireAuth = async (req: {
     );
   }
   try {
-    const decoded = await admin.auth().verifyIdToken(token);
+    const decoded = await admin.auth().verifyIdToken(token, true);
+    const profile = await admin.firestore().doc(`users/${decoded.uid}`).get();
+    if (profile.data()?.isSuspended === true) throw new Error("Account suspended");
     return {
       uid: decoded.uid,
       email: decoded.email,
@@ -239,6 +241,7 @@ export const allowRate = (key: string, max = RATE_MAX) => {
 
 export const httpsOpts = {
   region: REGION,
+  secrets: ["STRIPE_SECRET_KEY"],
   cors: false as const,
   invoker: "public" as const,
 };

@@ -36,7 +36,6 @@ const Login = () => {
   //     .then((res) => {
   //       const loggedUser = res.user;
   //       localStorage.setItem("email", email);
-  //       localStorage.setItem("password", password);
   //       if (loggedUser) {
   //         navigate("/dashboard");
   //       }
@@ -62,7 +61,6 @@ const Login = () => {
       .then((res) => {
         const loggedUser = res.user;
         // localStorage.setItem("email", email);
-        // localStorage.setItem("password", password);
         if (loggedUser) {
           navigate("/dashboard");
         }
@@ -300,14 +298,6 @@ const Login = () => {
                   className="online-block text-blue-600 hover:text-blue-800 underline"
                 >
                   Restaurant
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/hotel-onboarding"
-                  className="online-block text-blue-600 hover:text-blue-800 underline"
-                >
-                  Hotel Booking
                 </Link>
               </li>
             </ul>

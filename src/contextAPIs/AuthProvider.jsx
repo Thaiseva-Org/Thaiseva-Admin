@@ -43,6 +43,28 @@ const AuthProvider = ({ children }) => {
   const [isVerifiedPartner, setIsVerifiedPartner] = useState(false);
   const [userData, setUserData] = useState({});
 
+  useEffect(() => {
+    if (!user || (!isAdmin && !isSubAdmin)) return undefined;
+    const key = "thaiseva:admin:lastActivity";
+    let lastActivity = Date.now();
+    const activity = () => {
+      lastActivity = Date.now();
+      sessionStorage.setItem(key, String(lastActivity));
+    };
+    const expire = () => {
+      if (Date.now() - lastActivity >= 15 * 60 * 1000) signOut(auth);
+    };
+    const events = ["pointerdown", "keydown", "touchstart", "scroll"];
+    events.forEach((event) => window.addEventListener(event, activity, {passive: true}));
+    const timer = window.setInterval(expire, 15000);
+    document.addEventListener("visibilitychange", expire);
+    return () => {
+      window.clearInterval(timer);
+      events.forEach((event) => window.removeEventListener(event, activity));
+      document.removeEventListener("visibilitychange", expire);
+    };
+  }, [user, isAdmin, isSubAdmin]);
+
   /**
    * Creates a new user with email and password.
    * @param {string} email - The user's email address.
@@ -96,22 +118,6 @@ const AuthProvider = ({ children }) => {
         setIsSubAdmin(false);
         setIsVerifiedPartner(false);
 
-        // HARDCODED FALLBACK: Grant admin rights immediately based on email to bypass Firestore locks
-        if (currentUser.email === "admin@gmail.com" || currentUser.email === "thaiseva_admin@gmail.com") {
-          const fallbackAdminData = { 
-            role: "Admin", 
-            email: currentUser.email, 
-            uid: currentUser.uid, 
-            status: "Verified", 
-            name: "Admin (Bypass Active)" 
-          };
-          setUserData(fallbackAdminData);
-          setIsAdmin(true);
-          setIsPatner(false);
-          setIsSubAdmin(false);
-          setIsVerifiedPartner(false);
-          setLoading(false);
-        } else {
           try {
             const userDocRef = doc(db, "users", currentUser.uid);
             const userDocSnap = await getDoc(userDocRef);
@@ -120,9 +126,9 @@ const AuthProvider = ({ children }) => {
               const userData = userDocSnap.data();
               setUserData(userData);
 
-              setIsAdmin(userData?.role === "Admin");
+              setIsAdmin(["Admin", "admin"].includes(userData?.role));
               setIsPatner(userData?.role === "Partner");
-              setIsSubAdmin(userData?.role === "Sub Admin");
+              setIsSubAdmin(false);
               setIsVerifiedPartner(
                 userData?.role === "Partner" && userData?.status === "Verified"
               );
@@ -134,7 +140,6 @@ const AuthProvider = ({ children }) => {
           } finally {
             setLoading(false);
           }
-        }
       } else {
         setUser(null);
         setLoading(false);

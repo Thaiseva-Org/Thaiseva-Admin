@@ -16,7 +16,8 @@ import {
   Typography,
   Chip,
   IconButton,
-  Tooltip
+  Tooltip,
+  Alert
 } from "@mui/material";
 import { DownloadIcon, FileDownloadIcon, PersonIcon, ArticleIcon, VisibilityIcon } from "@icons";
 import { useState, useEffect, useContext } from "react";
@@ -26,12 +27,16 @@ import { CSVLink } from "react-csv";
 import {
   fetchUserData,
   fetchUserDataPages,
-  usersData,
 } from "../../../../services/UserRecords";
 import { AuthContext } from "../../../../contextAPIs/AuthProvider";
+import {app} from "../../../../firebase/firebase.config";
+import {getFunctions, httpsCallable} from "firebase/functions";
+import useRecentAuthAction from "../../../../hooks/useRecentAuthAction";
 
 const UserData = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
+  const recentAuth = useRecentAuthAction();
+  const [exportError, setExportError] = useState("");
   const [loadingReq, setLoadingReq] = useState(false);
   const [matchedRequirements, setMatchedRequirements] = useState([]);
   const [csvData, setCsvData] = useState(null);
@@ -68,7 +73,7 @@ const UserData = () => {
       location: data?.userLocation1,
       profile: data?.profilePic,
       createdAt: new Date(
-        data?.createdAt.seconds * 1000 + data?.createdAt.nanoseconds / 1000000
+        data?.createdAt?.seconds * 1000 + data?.createdAt?.nanoseconds / 1000000
       ),
     };
   }
@@ -97,7 +102,7 @@ const UserData = () => {
     setLoadingReq(false);
   };
   useEffect(() => {
-    if (isAdmin || isSubAdmin) {
+    if (isAdmin) {
       fetchTotalPages();
       fetchData();
     }
@@ -134,7 +139,10 @@ const UserData = () => {
 
   const handleDownload = async () => {
     setIsDownloading(true);
-    const rowdata = await usersData();
+    setExportError("");
+    try {
+    const response = await recentAuth.run(() => httpsCallable(getFunctions(app, "asia-east2"), "exportCustomerData")({}));
+    const rowdata = response.data.records;
     const data = rowdata.map((item) =>
       createCsvData(
         item.firstName,
@@ -146,7 +154,9 @@ const UserData = () => {
       )
     );
     setCsvData(data);
-    setIsDownloading(false);
+    } catch (error) {
+      setExportError(error.message || "Export failed. Please sign in again.");
+    } finally { setIsDownloading(false); }
   };
 
   const fileName = `UserData.csv`;
@@ -241,8 +251,10 @@ const UserData = () => {
       </Grid>
 
       {/* Action Buttons */}
+      {recentAuth.dialog}
+      {exportError && <Alert severity="error">{exportError}</Alert>}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-        {!csvData ? (
+        {isAdmin && (!csvData ? (
           <Button
             variant="contained"
             onClick={handleDownload}
@@ -291,7 +303,7 @@ const UserData = () => {
               Export to CSV
             </Button>
           </CSVLink>
-        )}
+        ))}
       </Box>
 
       {/* Modern Table Container */}

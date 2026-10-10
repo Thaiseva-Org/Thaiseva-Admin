@@ -8,7 +8,6 @@ import {
   getDocs,
   limit,
   query,
-  setDoc,
   startAfter,
   where,
 } from "firebase/firestore";
@@ -38,14 +37,16 @@ import { AuthContext } from "../../../../contextAPIs/AuthProvider";
 import PageHeading from "../../../../components/PageHeading";
 import Loading from "../../../../components/Loading";
 import { deleteFile, getFileUrl } from "../../../../utils/utils";
-import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
+import { getAuth } from "firebase/auth";
+import {getFunctions, httpsCallable} from "firebase/functions";
+import useRecentAuthAction from "../../../../hooks/useRecentAuthAction";
 import DeleteButton from "../../../../components/DeleteButton";
 import SearchBar from "../../../../components/SearchBar";
 
 const auth = getAuth(app);
 
 const SubAdmins = () => {
-  const { isAdmin, updateUserProfile, validatePassword } =
+  const { isAdmin, validatePassword } =
     useContext(AuthContext);
   const [subAdmins, setSubAdmins] = useState([]);
   const [refetch, setRefetch] = useState(true);
@@ -58,7 +59,7 @@ const SubAdmins = () => {
   const [lastDocs, setLastDocs] = useState([]);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openModal, setOpenModal] = useState(false); // Add requirement modal
-  const [adminUser, setAdminUser] = useState(auth.currentUser);
+  const recentAuth = useRecentAuthAction();
   const { handleSubmit, reset, register } = useForm();
 
   useEffect(() => {
@@ -67,7 +68,7 @@ const SubAdmins = () => {
 
   useEffect(() => {
     const fetchTotalPages = async () => {
-      let q = query(usersCollection, where("role", "==", "Sub Admin"));
+      let q = query(usersCollection, where("role", "==", "Admin"));
       const pages = await getCountFromServer(q);
       setTotalPages(Math.ceil(pages.data().count));
     };
@@ -79,13 +80,13 @@ const SubAdmins = () => {
       setLoadingServices(true);
       let q = query(
         usersCollection,
-        where("role", "==", "Sub Admin"),
+        where("role", "==", "Admin"),
         limit(rowsPerPage)
       );
       if (page > 0 && lastDocs[page - 1]) {
         q = query(
           usersCollection,
-          where("role", "==", "Sub Admin"),
+          where("role", "==", "Admin"),
           startAfter(lastDocs[page - 1]),
           limit(rowsPerPage)
         );
@@ -102,7 +103,7 @@ const SubAdmins = () => {
         });
         setSubAdmins(list);
       } catch (error) {
-        console.error("Error loading Sub Admins:", error);
+        console.error("Error loading Administrators:", error);
         setSubAdmins([]);
       } finally {
         setLoadingServices(false);
@@ -123,11 +124,7 @@ const SubAdmins = () => {
       label: "Email",
       width: 70,
     },
-    {
-      id: "password",
-      label: "Password",
-      width: 50,
-    },
+
     {
       id: "action",
       label: "Action",
@@ -136,8 +133,8 @@ const SubAdmins = () => {
   ];
 
   // creating single row
-  function createData(photoURL, displayName, email, password, uid) {
-    return { photoURL, displayName, email, password, uid };
+  function createData(photoURL, displayName, email, uid) {
+    return { photoURL, displayName, email, uid };
   }
 
   // calling createData function with driver's data
@@ -146,7 +143,6 @@ const SubAdmins = () => {
       admin.photoURL,
       admin.displayName,
       admin.email,
-      admin.password,
       admin.uid
     );
   });
@@ -193,7 +189,7 @@ const SubAdmins = () => {
   };
 
   /* =============================================================
-              Add New Sub Admin start
+              Add New Admin start
   =============================================================*/
   const handleOpenModal = () => {
     reset();
@@ -240,26 +236,18 @@ const SubAdmins = () => {
       });
     }
 
-    // Create sub-admin account
-    await createUserWithEmailAndPassword(auth, email, password)
-      .then(async (result) => {
-        const createdSubAdmin = result.user;
-
-        // adding users data to the useres collection
-        await setDoc(doc(usersCollection, createdSubAdmin.uid), {
-          email: email,
-          displayName,
-          password,
-          photoURL,
-          role: "Sub Admin",
-          uid: createdSubAdmin.uid,
-        });
-        await updateUserProfile(displayName, photoURL);
+    if (password.length < 12) {
+      setError({for: "password", text: "Use at least 12 characters."});
+      return;
+    }
+    // Server provisioning preserves the administrator's authenticated session.
+    await recentAuth.run(() => httpsCallable(getFunctions(app, "asia-east2"), "createSubAdmin")({email, password, displayName, photoURL}))
+      .then(async () => {
         handleCloseModal();
         setRefetch((p) => !p);
       })
       .catch((error) => {
-        if (error.code === "auth/email-already-in-use") {
+        if (error.code === "functions/already-exists") {
           // console.log(err)
           setError({
             for: "email",
@@ -281,16 +269,9 @@ const SubAdmins = () => {
         }
       });
 
-    // Sign in as the main admin after creating the sub-admin
-    await auth.updateCurrentUser(adminUser);
-    // await signInWithEmailAndPassword(
-    //   auth,
-    //   localStorage.getItem("email"),
-    //   localStorage.getItem("password")
-    // ); // todo:
   };
   /* =============================================================
-              Add New Sub Admin end
+              Add New Admin end
   =============================================================*/
 
   // delete package
@@ -366,7 +347,7 @@ const SubAdmins = () => {
 
   return (
     <div>
-      <PageHeading text="Sub Admins" />
+      <PageHeading text="Administrators" />
 
       {/* <Grid container spacing={0.5} sx={{ mb: 2, mt: 2 }}>
         <Grid item xs={12} sm={6} md={3}>
@@ -394,14 +375,14 @@ const SubAdmins = () => {
               onClick={handleOpenModal}
               className="py-1 px-2 rounded bg-[var(--primary-bg)] text-white"
             >
-              Add Sub Admin
+              Add Admin
             </button>
           </div>
         </Grid>
       </Grid> */}
 
       <SearchBar
-        btnTitle="Add Sub Admin"
+        btnTitle="Add Admin"
         handleSearch={handleSearch}
         handleOpenModal={handleOpenModal}
       />
@@ -488,7 +469,7 @@ const SubAdmins = () => {
       >
         <Box component="form" onSubmit={handleSubmit(handleAddSubAdmin)}>
           <DialogTitle sx={{ m: 0, p: 2 }} id="customized-dialog-title">
-            Add New Sub Admin
+            Add New Admin
           </DialogTitle>
           <IconButton
             aria-label="close"
@@ -510,7 +491,7 @@ const SubAdmins = () => {
               {textField("Email", "email", "New subadmin Email")}
 
               {/* Password */}
-              {textField("Password", "password", "Set subadmin Password")}
+              {textField("Password", "password", "Set administrator password")}
 
               {/* Name */}
               {textField("Name", "displayName", "New subadmin Name")}
@@ -573,6 +554,7 @@ const SubAdmins = () => {
           </DialogActions>
         </Box>
       </Dialog>
+      {recentAuth.dialog}
     </div>
   );
 };

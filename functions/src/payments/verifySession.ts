@@ -42,7 +42,7 @@ export const verifySession = onRequest(
           "FORBIDDEN",
         );
       }
-    } else if (sessionEmail && auth.email) {
+    } else if (sessionEmail && auth.email && auth.token.email_verified === true) {
       if (sessionEmail !== normalizeEmail(auth.email)) {
         throw new HttpError(
           403,

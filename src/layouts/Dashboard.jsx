@@ -618,7 +618,7 @@ function Dashboard(props) {
   //                   <span>
   //                     <AdminPanelSettingsIcon />
   //                   </span>
-  //                   <ListItemText primary="Sub Admins" sx={{ ml: 0 }} />
+  //                   <ListItemText primary="Administrators" sx={{ ml: 0 }} />
   //                   {/* <div
   //                     className={`triangle h-6 w-6 bg-white absolute right-0 top-auto z-10  ${
   //                       location?.pathname === "/dashboard/sub-admins"
@@ -740,7 +740,7 @@ function Dashboard(props) {
                     <span>
                       <AdminPanelSettingsIcon />
                     </span>
-                    <ListItemText primary="Sub Admins" sx={{ ml: 0 }} />
+                    <ListItemText primary="Administrators" sx={{ ml: 0 }} />
                   </ListItemButton>
                 </Link>
               </ListItem>

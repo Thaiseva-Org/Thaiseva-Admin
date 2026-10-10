@@ -75,3 +75,8 @@ functions/.otp-setup/
 agent-tools/
 terminals/
 
+# Customer exports and credential-bearing bootstrap files are never source assets.
+users*.json
+users*.csv
+functions/*serviceAccount*.json
+

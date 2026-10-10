@@ -410,17 +410,6 @@ const Hotels = () => {
             onChange={(e) => handleSearchByLocation(e.target.value)}
           />
         </Grid>
-        <Grid item xs={12} sm={12} md={6}>
-          <div className="text-right md:pr-10 mb-4 flex items-center justify-end h-full">
-            <Link
-              to="/hotel-onboarding"
-              target="_blank"
-              className="add-new-btn"
-            >
-              Add New Hotel
-            </Link>
-          </div>
-        </Grid>
       </Grid> */}
 
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">

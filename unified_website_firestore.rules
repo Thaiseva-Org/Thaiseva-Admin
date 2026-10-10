@@ -8,7 +8,9 @@ service cloud.firestore {
     // ==========================================
 
     function isAuthenticated() {
-      return request.auth != null;
+      return request.auth != null &&
+        (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isSuspended', false) != true);
     }
 
     function isUser(userId) {
@@ -27,7 +29,7 @@ service cloud.firestore {
           "thaiseva_admin@gmail.com"
         ] ||
         request.auth.token.admin == true ||
-        getUserData().get('role', null) in ["Admin", "admin", "Sub Admin"] ||
+        getUserData().get('role', null) in ["Admin", "admin"] ||
         (getUserData().get('isMasterAdmin', null) != null && getUserData().get('isMasterAdmin', null) == true)
       );
     }
@@ -104,7 +106,7 @@ service cloud.firestore {
         'BlogDB', 'ServiceDB', 'HotelDB', 'sightseeingPackages',
         'sightseeingPackagesDetails', 'hotelPackages', 'hotelPackageDetails',
         'TestimonialDB', 'FaqDB', 'OfferDB', 'ContentDB', 'localServices',
-        'restaurants', 'carDetails', 'foodMenu', 'coupons', 'partners',
+        'restaurants', 'carDetails', 'foodMenu', 'coupons',
         'TourDB', 'travelServices',
         // App-specific public / static content
         'Thaiseva_terms',
@@ -117,7 +119,7 @@ service cloud.firestore {
     // 2. APP SETTINGS / CONFIG
     // ==========================================
     match /settings/{docId} {
-      allow read: if true;
+      allow read: if docId != 'Confidential';
       allow write: if isAdmin();
     }
 
@@ -343,7 +345,8 @@ service cloud.firestore {
     // 17. PARTNER-OWNED SERVICE DATA
     // ==========================================
     match /partners/{partnerId} {
-      allow read: if true;
+      allow read: if isAdmin() ||
+        (isAuthenticated() && request.auth.uid == partnerId);
       allow create, update: if isAdmin() || (isAuthenticated() && request.auth.uid == partnerId);
       allow delete: if isAdmin();
     }
@@ -470,11 +473,43 @@ service cloud.firestore {
     // 21. CHAT SYSTEM
     // ==========================================
     match /chatRooms/{roomId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAdmin() || isFoodAdmin() || (roomId != "CustomerSupport" && isChatParticipant());
+      allow create: if isAdmin() || (roomId != "CustomerSupport" && chatCreateSelf());
+      allow update: if isAdmin() || isFoodAdmin() || (roomId != "CustomerSupport" && isChatParticipant());
+      allow delete: if isAdmin();
     }
 
     match /chats/{chatId} {
-      allow read, write: if isAuthenticated();
+      function supportChat() { return chatId.matches('.*_CustomerSupport'); }
+      function ownSupportChat() {
+        return isAuthenticated() && chatId == request.auth.uid + "_CustomerSupport";
+      }
+      function safeSupportAppend() {
+        let previous = resource.data.get('messages', []);
+        let incoming = request.resource.data.get('messages', []);
+        return incoming == previous || (
+          incoming.size() == previous.size() + 1 &&
+          incoming == previous.concat([incoming[incoming.size() - 1]]) &&
+          incoming[incoming.size() - 1].get('senderId', '') == request.auth.uid
+        );
+      }
+      allow read: if isAdmin() || isFoodAdmin() ||
+        (supportChat() ? ownSupportChat() : isChatParticipant());
+      allow create: if isAdmin() || isFoodAdmin() ||
+        (supportChat() ? (ownSupportChat() && (
+          request.resource.data.get('messages', []).size() == 0 ||
+          (request.resource.data.get('messages', []).size() == 1 &&
+           request.resource.data.messages[0].get('senderId', '') == request.auth.uid))) : chatCreateSelf());
+      allow update: if isAdmin() || isFoodAdmin() ||
+        (supportChat() ? (ownSupportChat() && safeSupportAppend()) : isChatParticipant());
+      allow delete: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isAdmin() || isFoodAdmin() || ownSupportChat();
+        allow create: if isAdmin() || isFoodAdmin() || (ownSupportChat() &&
+          request.resource.data.get('senderId', '') == request.auth.uid);
+        allow update, delete: if isAdmin() || isFoodAdmin();
+      }
     }
 
     match /messages/{messageId} {

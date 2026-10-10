@@ -630,20 +630,6 @@ export const router = createBrowserRouter([
   //     </Suspense>
   //   ),
   // },
-  // {
-  //   path: "/hotel-onboarding",
-  //   element: (
-  //     <Suspense
-  //       fallback={
-  //         <div className="h-screen flex items-center">
-  //           <Loading />
-  //         </div>
-  //       }
-  //     >
-  //       <HotelOnboarding />
-  //     </Suspense>
-  //   ),
-  // },
   {
     path: "/login",
     errorElement: <GlobalError />,

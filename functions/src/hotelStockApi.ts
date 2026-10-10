@@ -1,3 +1,4 @@
+import {assertActiveAccount} from "./activeAccount";
 /**
  * Simple hotel stock APIs — check / lock / unlock (+ expire + admin manage).
  *
@@ -101,16 +102,15 @@ const assertAdmin = async (auth: Auth | undefined) => {
   if (!auth?.uid) {
     throw new HttpsError("unauthenticated", "Sign in is required.");
   }
-  const email = stringValue(auth.token?.email).toLowerCase();
+  await assertActiveAccount(auth.uid, auth.token || {});
   if (
-    ["admin@gmail.com", "thaiseva_admin@gmail.com"].includes(email) ||
     auth.token?.admin === true
   ) {
     return;
   }
   const user = await db().doc(`users/${auth.uid}`).get();
   const role = stringValue(user.data()?.role).toLowerCase();
-  if (role === "admin" || role === "sub admin") {
+  if (role === "admin") {
     return;
   }
   throw new HttpsError("permission-denied", "Admin access only.");
