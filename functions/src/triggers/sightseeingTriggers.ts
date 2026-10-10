@@ -23,7 +23,7 @@ import {
 let db: admin.firestore.Firestore;
 
 export const autoAcceptSightseeingBookings = onDocumentCreated(
-  { document: "travelBookingDetails/{bookingId}", secrets: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"], secrets: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"], region: "asia-east2" },
+  { document: "travelBookingDetails/{bookingId}", region: "asia-east2" },
   async (event) => {
     if (!admin.apps.length) {
       admin.initializeApp();
@@ -168,7 +168,7 @@ export const autoAcceptSightseeingBookings = onDocumentCreated(
 );
 
 export const onSightseeingBookingStatusChange = onDocumentUpdated(
-  { document: "travelBookingDetails/{bookingId}", secrets: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"], secrets: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"], region: "asia-east2" },
+  { document: "travelBookingDetails/{bookingId}", region: "asia-east2" },
   async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();

@@ -65,7 +65,7 @@ import { AuthContext } from "../../../../contextAPIs/AuthProvider";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { logo } from "../../../../assets";
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 /**
  * TodayBookings Component.
@@ -849,9 +849,8 @@ const TodayBookings = () => {
       "Booking Amount": totalAmount,
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Bookings");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Bookings");
     
     // Auto adjust column widths
     const colWidths = [
@@ -859,9 +858,15 @@ const TodayBookings = () => {
       { wch: 25 }, { wch: 20 }, { wch: 25 }, { wch: 35 }, { wch: 15 },
       { wch: 15 }, { wch: 20 }
     ];
-    worksheet['!cols'] = colWidths;
-
-    XLSX.writeFile(workbook, `Bookings_from_${startDate}_to_${endDate}.xlsx`);
+    worksheet.columns = Object.keys(excelData[0]).map((key, index) => ({header: key, key, width: colWidths[index].wch}));
+    worksheet.addRows(excelData);
+    const buffer = await workbook.xlsx.writeBuffer();
+    const url = URL.createObjectURL(new Blob([buffer], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Bookings_from_${startDate}_to_${endDate}.xlsx`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
     setIsDownloading(false);
   };

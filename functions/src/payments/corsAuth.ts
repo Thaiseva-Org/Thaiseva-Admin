@@ -241,7 +241,6 @@ export const allowRate = (key: string, max = RATE_MAX) => {
 
 export const httpsOpts = {
   region: REGION,
-  secrets: ["STRIPE_SECRET_KEY"],
   cors: false as const,
   invoker: "public" as const,
 };

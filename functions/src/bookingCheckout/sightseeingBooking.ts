@@ -21,8 +21,7 @@ import {
 } from "./paymentMethod";
 import {okOnsite, okStripe, okThaiQr} from "./response";
 
-import Stripe from "stripe";
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+import {getStripe} from "../payments/stripeClient";
 
 const db = () => admin.firestore();
 const COLLECTION = "travelBookingDetails";
@@ -203,7 +202,7 @@ if (method === "STRIPE") {
   if (paymentIntentId) {
     try {
       const paymentIntent =
-        await stripe.paymentIntents.retrieve(paymentIntentId);
+        await getStripe().paymentIntents.retrieve(paymentIntentId);
 
       // Payment must actually be successful.
       if (paymentIntent.status !== "succeeded") {

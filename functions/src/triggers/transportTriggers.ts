@@ -4,7 +4,7 @@ import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firest
 import * as logger from "firebase-functions/logger";
 import {sendTelegramNotification} from "../utils/telegram";
 import {
-  pick,
+  pick, icon,
 } from "../utils/bookingNotification";
 import {
   moneyText,
