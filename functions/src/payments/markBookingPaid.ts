@@ -172,6 +172,11 @@ export const statusAfterPaid = (
     };
   }
 
+  const flow = require("../../sightseeingFlow");
+  if (col === "travelBookingDetails" && existing.bookingFlowVersion === 1 && !flow.approvedForPayment(existing)) {
+    return {bookingStatus: "PAYMENT_REVIEW_REQUIRED", status: "Payment received - review required", isBookingConfirmed: false, bookingFlow: "REQUEST", bookingFlowReason: "RESERVATION_EXPIRED", autoAccepted: false};
+  }
+
   // Sightseeing: Stripe paid → automatically Accepted (Paid & Accepted in admin)
   return {
     bookingStatus: "CONFIRMED",

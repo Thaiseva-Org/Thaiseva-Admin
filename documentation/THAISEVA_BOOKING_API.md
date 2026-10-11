@@ -1,5 +1,7 @@
 # Thaiseva Booking API — Single Integration Guide
 
+> Updated 11 October 2026: [Package booking flows and API contract](PACKAGE_BOOKING_FLOWS.md) supersedes earlier package payment-first behavior. Tomorrow/day 2 require confirmation; instant booking starts day 3 within the daily limit. Request payment opens only after admin confirmation.
+
 > [!NOTE]
 > **Consolidated Specification:** This client integration guide has been unified into the authoritative **[Cloud Functions API Specification](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)** and **[Third-Party Integrations Guide](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/THIRD_PARTY_INTEGRATIONS.md)**. Refer to those documents for production endpoints, error codes, and payment workflows.
 

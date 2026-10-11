@@ -422,6 +422,8 @@ export const normalizeSightseeingStatus = (booking = {}) => {
     return "Canceled";
   }
 
+  if (bookingLifecycle === "PAYMENT REVIEW REQUIRED") return "Pending";
+
   // Fully paid (Stripe Checkout, admin-verified Thai QR, etc.)
   if (isPaymentVerified(booking)) {
     return "Accepted";
@@ -459,12 +461,13 @@ export const isSightseeingCanceled = (booking = {}) =>
 /** Manual review queue: unpaid Stripe/card only — not Thai QR, onsite, or already paid. */
 export const isSightseeingPendingReview = (booking = {}) =>
   isSightseeingPending(booking) &&
-  !isOnsiteSightseeingPayment(booking) &&
+  (booking.bookingFlow === "REQUEST" || (!isOnsiteSightseeingPayment(booking) &&
   !isThaiQrSightseeingPayment(booking) &&
-  !isPaymentVerified(booking);
+  !isPaymentVerified(booking)));
 
 export const needsSightseeingPaymentVerification = (booking = {}) => {
   if (isSightseeingCanceled(booking)) return false;
+  if (booking.bookingFlow === "REQUEST" && !isSightseeingAccepted(booking)) return false;
   if (isPaymentVerified(booking)) return false;
   if (
     isThaiQrSightseeingPayment(booking) ||
@@ -479,6 +482,7 @@ export const needsSightseeingPaymentVerification = (booking = {}) => {
 
 export const isSightseeingOnsiteQueue = (booking = {}) => {
   if (isSightseeingCanceled(booking)) return false;
+  if (booking.bookingFlow === "REQUEST" && !isSightseeingAccepted(booking)) return false;
   if (isSightseeingRevenueEligible(booking)) return false;
 
   if (needsSightseeingPaymentVerification(booking)) return true;
@@ -500,6 +504,7 @@ const getDeferredPaymentStatusPrefix = (booking = {}) =>
 
 export const getSightseeingStatusLabel = (booking = {}) => {
   if (isSightseeingCanceled(booking)) return "Rejected";
+  if (booking.bookingFlow === "REQUEST" && isSightseeingPending(booking)) return "Awaiting Confirmation - Pay Later";
   if (isSightseeingRevenueEligible(booking)) {
     if (isStripeSightseeingPayment(booking)) {
       return booking.autoAccepted ? "Stripe · Auto-Accepted · Paid" : "Stripe · Paid";

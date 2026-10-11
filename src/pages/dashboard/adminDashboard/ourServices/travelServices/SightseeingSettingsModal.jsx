@@ -32,7 +32,7 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
                 setLimit(docSnap.data().globalWeeklyLimit || 200);
-                setDailyLimit(docSnap.data().globalDailyLimit || 20);
+                setDailyLimit(docSnap.data().globalDailyLimit ?? 20);
             }
         } catch (error) {
             console.error("Error fetching settings:", error);
@@ -86,8 +86,8 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
                             fullWidth
                             value={dailyLimit}
                             onChange={(e) => setDailyLimit(e.target.value)}
-                            helperText="Max sightseeing bookings per tour date. Auto-accept stops when this is reached."
-                            InputProps={{ inputProps: { min: 1 } }}
+                            helperText="Instant booking starts 3 days ahead. This daily limit counts confirmed bookings and active checkouts; excess bookings require confirmation."
+                            InputProps={{ inputProps: { min: 0 } }}
                         />
                     </Box>
                 )}

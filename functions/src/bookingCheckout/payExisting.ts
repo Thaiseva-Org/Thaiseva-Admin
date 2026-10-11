@@ -25,6 +25,7 @@ import {okStripe} from "./response";
 import {createInstantHotelCheckout} from "../payments/instantHotelCheckout";
 
 const db = () => admin.firestore();
+const sightseeingFlow = require("../../sightseeingFlow");
 
 const amountFromBooking = (data: Record<string, unknown>): number => {
   // Prefer remaining balance after partial accept / top-up
@@ -253,6 +254,10 @@ export const createCheckoutSession = onRequest(
       }
     }
 
+    if (collection === "travelBookingDetails" && !sightseeingFlow.approvedForPayment(data)) {
+      throw new HttpError(409, "Package payment opens after confirmation.", "NOT_ACCEPTED");
+    }
+
     // Trusted amount: re-price packages from catalog (blocks client underpayment)
     let amount = collection === "hotelBookingData" ?
       parseNumber(data.amountDue, 0) : amountFromBooking(data);
@@ -302,6 +307,7 @@ export const createCheckoutSession = onRequest(
     try {
       session = await createCheckoutSessionCore({
         amount,
+        ...(collection === "travelBookingDetails" ? {expiresAt: Math.floor(Date.now() / 1000) + 1800} : {}),
         currency: stringValue(data.currency, 10).toLowerCase() || "thb",
         productName: productNameFor(collection, data),
         customerEmail:

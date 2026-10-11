@@ -132,7 +132,7 @@ const TravelBookings = () => {
     try {
       const settingsSnap = await getDoc(doc(db, "settings", "sightseeingConfig"));
       if (settingsSnap.exists()) {
-        setDailyLimit(settingsSnap.data().globalDailyLimit || 20);
+        setDailyLimit(settingsSnap.data().globalDailyLimit ?? 20);
       }
     } catch (error) {
       console.error("Error loading daily sightseeing limit:", error);
@@ -151,7 +151,7 @@ const TravelBookings = () => {
 
   const handleSaveDailyLimit = async (nextLimit) => {
     const parsedLimit = Number(nextLimit);
-    if (!parsedLimit || parsedLimit < 1) return;
+    if (!Number.isInteger(parsedLimit) || parsedLimit < 0) return;
 
     setSavingDailyLimit(true);
     try {
@@ -433,7 +433,10 @@ const TravelBookings = () => {
   const buildSightseeingAcceptUpdate = (bookingData, extra = {}) => {
     const payload = {
       status: "Accepted",
+      bookingStatus: bookingData.isPaymentDone === true ? "CONFIRMED" : "AWAITING_PAYMENT",
       isBookingConfirmed: true,
+      payNow: bookingData.isPaymentDone !== true,
+      amountDue: bookingData.isPaymentDone === true ? 0 : Number(bookingData.totalAmount || bookingData.price || bookingData.amount || bookingData.rawData?.totalAmount || 0),
       ...extra,
     };
 
@@ -597,7 +600,7 @@ const TravelBookings = () => {
         if (uId) {
           await CreateNewNotificationToUser(
             "Sightseeing booking confirmed!",
-            `Hey ${gName}! your sightseeing booking for ${bTitle} is confirmed!`,
+            `Hey ${gName}! Your package request for ${bTitle} is confirmed. Open My Bookings to complete payment.`,
             uId
           );
         }
@@ -1274,11 +1277,17 @@ const TravelBookings = () => {
                     const dateKey = dateObj.toISOString().split("T")[0];
 
                     if (!dailyCounts[dateKey]) {
-                      dailyCounts[dateKey] = { total: 0, confirmed: 0, pending: 0 };
+                      dailyCounts[dateKey] = { total: 0, confirmed: 0, pending: 0, capacityCount: 0 };
                     }
 
                     if (isSightseeingCanceled(b.rawData)) return;
 
+                    const raw = b.rawData || b;
+                    const expires = raw.instantReservationExpiresAt?.toDate?.();
+                    const liveCapacity = raw.bookingFlow === "INSTANT" && raw.paymentMethod === "STRIPE" && !raw.isPaymentDone && expires
+                      ? expires > new Date()
+                      : raw.isPaymentDone === true || raw.isBookingConfirmed === true || isSightseeingAccepted(raw);
+                    if (liveCapacity) dailyCounts[dateKey].capacityCount++;
                     dailyCounts[dateKey].total++;
 
                     if (
@@ -1293,7 +1302,7 @@ const TravelBookings = () => {
 
                   // Convert to array and sort
                   const sortedDays = Object.keys(dailyCounts).sort().map(date => {
-                    const today = new Date().toISOString().split('T')[0];
+                    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
                     if (date < today) return null; // Optional: Hide past days
                     return { date, ...dailyCounts[date] };
                   }).filter(Boolean);
@@ -1310,19 +1319,24 @@ const TravelBookings = () => {
 
                   return sortedDays.map((day, idx) => {
                     const limit = dailyLimit;
-                    const usagePercent = (day.total / limit) * 100;
+                    const usagePercent = limit > 0 ? (day.capacityCount / limit) * 100 : 100;
 
                     let statusColor = "bg-green-100 text-green-700 border-green-200";
                     let statusText = "Open";
 
-                    if (day.total >= limit) {
+                    if (day.capacityCount >= limit) {
                       statusColor = "bg-red-100 text-red-700 border-red-200";
-                      statusText = "Auto-Stop";
-                    } else if (day.total >= limit * 0.8) {
+                      statusText = "Request only";
+                    } else if (day.capacityCount >= limit * 0.8) {
                       statusColor = "bg-orange-100 text-orange-800 border-orange-200";
                       statusText = "Busy";
                     }
 
+                    const thaiToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+                    if ((Date.parse(day.date) - Date.parse(thaiToday)) / 86400000 < 3) {
+                      statusText = "Preparation review";
+                      statusColor = "bg-blue-100 text-blue-700 border-blue-200";
+                    }
                     return (
                       <tr key={idx} className="hover:bg-gray-50 transition-colors">
                         <td className="p-4 font-medium text-gray-800">
@@ -1334,7 +1348,7 @@ const TravelBookings = () => {
                         <td className="p-4 text-center">
                           <div className="w-24 h-2 bg-gray-200 rounded-full mx-auto overflow-hidden">
                             <div
-                              className={`h-full rounded-full ${day.total >= limit ? 'bg-red-500' : usagePercent > 70 ? 'bg-orange-400' : 'bg-green-500'}`}
+                              className={`h-full rounded-full ${day.capacityCount >= limit ? 'bg-red-500' : usagePercent > 70 ? 'bg-orange-400' : 'bg-green-500'}`}
                               style={{ width: `${Math.min(usagePercent, 100)}%` }}
                             ></div>
                           </div>
@@ -1851,6 +1865,12 @@ const TravelBookings = () => {
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
                 Booking: {b?.bookingStatus || bookingDetails?.bookingStatus || "—"}
               </span>
+              {bookingDetails?.rawData?.bookingFlow && (
+                <div className="mb-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
+                  <strong>{bookingDetails.rawData.bookingFlow === "REQUEST" ? "Request booking ? payment after confirmation" : "Instant booking"}</strong>
+                  <p>{bookingDetails.rawData.bookingFlowMessage}</p>
+                </div>
+              )}
               {(b?.autoAccepted || bookingDetails?.autoAccepted) && (
                 <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">
                   Auto-Accepted
@@ -2229,7 +2249,7 @@ const TravelBookings = () => {
                   "&:hover": { bgcolor: "#059669" },
                 }}
               >
-                Accept & Confirm
+                Confirm & Open Payment
               </Button>
             )}
 

@@ -49,6 +49,10 @@ export const autoAcceptSightseeingBookings = onDocumentCreated(
 
     logger.info(`[Sightseeing] New booking: ${bookingId}`, {bookingId});
 
+    // Versioned bookings were routed atomically by the booking API. Never
+    // auto-accept a preparation/capacity request after its creation.
+    if (bookingData.bookingFlowVersion === 1) return;
+
     const packageId = bookingData.packageId || bookingData.dataid;
     if (!packageId) {
       logger.warn(
@@ -81,6 +85,10 @@ export const autoAcceptSightseeingBookings = onDocumentCreated(
         );
         return;
       }
+
+      const flow = require("../../sightseeingFlow");
+      const tourDate = bookingData.arrivalDate || bookingData.travelDate || bookingData.pickUpTime;
+      if (bookingData.isPaymentDone !== true && !flow.dateDecision(String(tourDate || "").slice(0, 10)).preparationOk) return;
 
       if (!canAutoAcceptSightseeingPayment(bookingData)) {
         logger.info(
@@ -249,7 +257,7 @@ export const onSightseeingBookingStatusChange = onDocumentUpdated(
       await notifyCustomer({
         userId: uid,
         title: "Tour booking accepted",
-        message: "Your sightseeing booking was accepted.",
+        message: after.isPaymentDone === true ? "Your sightseeing booking was accepted." : "Your package request has been confirmed. Open My Bookings to complete payment.",
         type: "sightseeing-booking",
         bookingId,
         bookingCollection: "travelBookingDetails",
