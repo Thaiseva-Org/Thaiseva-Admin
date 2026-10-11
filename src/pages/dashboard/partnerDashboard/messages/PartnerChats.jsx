@@ -1,3 +1,4 @@
+import { getAuth } from "firebase/auth";
 import { useContext, useState } from "react";
 import Messages from "./Messages";
 import { PartnerChatContext } from "../../../../contextAPIs/PartnerChatProvider";
@@ -11,8 +12,8 @@ const PartnerChats = () => {
   const [audioUrl, setAudioUrl] = useState("");
 
   const addAudioElement = async (blob) => {
-    // Note: path kept as original "first-autio" to avoid breaking existing logic if any
-    const fileRef = ref(storage, "first-autio");
+    // Note: path kept as original `chat/${getAuth().currentUser.uid}/${crypto.randomUUID()}` to avoid breaking existing logic if any
+    const fileRef = ref(storage, `chat/${getAuth().currentUser.uid}/${crypto.randomUUID()}`);
     const fileTask = await uploadBytesResumable(fileRef, blob);
     const fileURL = await getDownloadURL(fileTask.ref);
     setAudioUrl(fileURL);

@@ -68,7 +68,7 @@ const DriverOnBoarding = () => {
       bankAddress,
     } = data;
 
-    const accountInfo = { email, password };
+    const accountInfo = { email };
     const driverInformation = {
       email,
       fullName,

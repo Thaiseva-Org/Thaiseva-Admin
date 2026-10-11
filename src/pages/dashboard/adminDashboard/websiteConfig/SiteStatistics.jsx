@@ -4,7 +4,6 @@
  *
  * Architecture & Features:
  * - Real-time synchronization with Firestore document `image/stats` via {@link subscribeToMedia}
- * - Direct control over Home Page metrics (`activeUsers`, `happyReviews`, `appDownloads`, `appRating`)
  * - Direct control over About Us metrics (`happyTravelers`, `verifiedHotels`, `curatedTours`, `localPartners`)
  * - Instant toggle between active custom counters and default fallback values
  * - Live in-portal preview strips simulating the customer-facing presentation
@@ -28,7 +27,7 @@ import { SaveIcon } from "@icons";
  * SiteStatistics Component.
  *
  * Provides marketing administrators with live controls over published statistics
- * displayed across the platform's public landing and about pages.
+ * displayed on the platform's public About Us page.
  */
 const SiteStatistics = () => {
   const [statsForm, setStatsForm] = useState({ ...DEFAULT_SITE_STATS });
@@ -75,7 +74,7 @@ const SiteStatistics = () => {
       Swal.fire({
         icon: "success",
         title: "Site Statistics Updated!",
-        text: "The Home page and About Us counters have been synchronized in real time.",
+        text: "The About Us counters have been synchronized in real time.",
         timer: 2000,
         showConfirmButton: false,
       });
@@ -91,7 +90,7 @@ const SiteStatistics = () => {
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-8 animate-fadeIn">
       <ConfigHeader
         title="Site Statistics"
-        subtitle="Manage dynamic counters for the Home Page and About Us Page."
+        subtitle="Manage dynamic counters for the About Us Page."
         showAdd={false}
       />
 
@@ -105,8 +104,8 @@ const SiteStatistics = () => {
               </h2>
             </div>
             <p className="text-slate-500 text-sm mt-1">
-              These statistics animate live counters on both the <strong>Home Page</strong> and the{" "}
-              <strong>About Us Page</strong>. Values can be formatted strings (e.g. <code>800+</code>, <code>4.8</code>) or numbers.
+              These statistics animate live counters on the{" "}
+              <strong>About Us Page</strong>. Values can be formatted strings (e.g. <code>100+</code>, <code>5</code>) or numbers.
             </p>
           </div>
 
@@ -150,102 +149,7 @@ const SiteStatistics = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
-          {/* HOME PAGE COUNTERS */}
-          <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div>
-                <h3 className="font-bold text-slate-800 text-base">Home Page Counters</h3>
-                <p className="text-xs text-slate-500">Rendered in the Home page Hero Stats strip</p>
-              </div>
-              <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-md">
-                Page: `/`
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Active Users (`activeUsers`)
-                </label>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={statsForm.activeUsers}
-                  onChange={(e) => handleStatsInputChange("activeUsers", e.target.value)}
-                  placeholder="800+"
-                  helperText="Default: 800+"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Happy Reviews (`happyReviews`)
-                </label>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={statsForm.happyReviews}
-                  onChange={(e) => handleStatsInputChange("happyReviews", e.target.value)}
-                  placeholder="600+"
-                  helperText="Default: 600+"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  App Downloads (`appDownloads`)
-                </label>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={statsForm.appDownloads}
-                  onChange={(e) => handleStatsInputChange("appDownloads", e.target.value)}
-                  placeholder="1000+"
-                  helperText="Default: 1000+"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  App Rating (`appRating`)
-                </label>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={statsForm.appRating}
-                  onChange={(e) => handleStatsInputChange("appRating", e.target.value)}
-                  placeholder="4.8"
-                  helperText="Default: 4.8 (out of 5.0)"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 p-4 bg-slate-900 rounded-xl text-white">
-              <p className="text-[11px] text-slate-400 uppercase tracking-wider mb-2 font-medium">
-                Live Home Page Preview:
-              </p>
-              <div className="grid grid-cols-4 gap-2 text-center">
-                <div>
-                  <p className="text-lg font-extrabold text-orange-400">{statsForm.activeUsers}</p>
-                  <p className="text-[10px] text-slate-300">Active Users</p>
-                </div>
-                <div>
-                  <p className="text-lg font-extrabold text-orange-400">{statsForm.happyReviews}</p>
-                  <p className="text-[10px] text-slate-300">Reviews</p>
-                </div>
-                <div>
-                  <p className="text-lg font-extrabold text-orange-400">{statsForm.appDownloads}</p>
-                  <p className="text-[10px] text-slate-300">Downloads</p>
-                </div>
-                <div>
-                  <p className="text-lg font-extrabold text-orange-400">{statsForm.appRating}</p>
-                  <p className="text-[10px] text-slate-300">App Rating</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 gap-8 mt-6">
           {/* ABOUT US PAGE COUNTERS */}
           <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">

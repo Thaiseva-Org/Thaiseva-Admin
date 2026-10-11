@@ -11,7 +11,7 @@ const DragDropImageUploader = ({
     label = "Upload Image",
     image,
     onImageChange,
-    folder = "uploads",
+    folder = "images",
     height = 200
 }) => {
     const [dragActive, setDragActive] = useState(false);
@@ -51,7 +51,8 @@ const DragDropImageUploader = ({
         }
 
         setLoading(true);
-        const storageRef = ref(storage, `${folder}/${Date.now()}_${file.name}`);
+        const safeFolder = folder.replace(/[^a-zA-Z0-9_-]/g, "_");
+        const storageRef = ref(storage, `site-media/${safeFolder}/${crypto.randomUUID()}`);
 
         try {
             const uploadTask = uploadBytesResumable(storageRef, file);

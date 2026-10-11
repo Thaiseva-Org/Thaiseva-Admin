@@ -222,7 +222,7 @@ const getFileUrl = async (files) => {
     return { error: true, message: err };
   }
 
-  const fileRef = ref(storage, `${file.lastModified}-file`); // firebase storage to store license img
+  const fileRef = ref(storage, `${file.lastModified}-file`);
   //  // Uploading the file image to storage
   const fileTask = await uploadBytesResumable(fileRef, file);
 
@@ -270,7 +270,7 @@ const uploadFileUrl = async (file) => {
     return { error: true, message: err };
   }
 
-  const fileRef = ref(storage, `${file.lastModified}-file`); // firebase storage to store license img
+  const fileRef = ref(storage, `${file.lastModified}-file`);
   //  // Uploading the file image to storage
   const fileTask = await uploadBytesResumable(fileRef, file);
 

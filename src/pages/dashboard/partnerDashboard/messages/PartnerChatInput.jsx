@@ -1,3 +1,4 @@
+import { getAuth } from "firebase/auth";
 import { InsertPhotoIcon } from "@icons";
 import { useContext, useEffect } from "react";
 import { useState } from "react";
@@ -147,7 +148,7 @@ const PartnerChatInput = ({ audioUrl, setAudioUrl }) => {
         const fileExtension = file.name.split(".").pop();
         const fileType = file.type || getMimeType(fileExtension); // Fallback if file.type is missing
 
-        const storageRef = ref(storage, `uploads/${uuid()}.${fileExtension}`);
+        const storageRef = ref(storage, `chat/${getAuth().currentUser.uid}/${uuid()}.${fileExtension}`);
         const uploadTask = await uploadBytesResumable(storageRef, file, {
           contentType: fileType, // Ensure correct MIME type
         });

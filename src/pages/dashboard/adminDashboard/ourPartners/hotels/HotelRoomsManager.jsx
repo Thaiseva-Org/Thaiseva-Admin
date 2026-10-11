@@ -381,7 +381,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
 
     const handleUploadCoverPhoto = async (e) => {
         const file = e.target.files[0];
-        const fileRef = ref(storage, `${file.lastModified}-coverPhoto`);
+        const fileRef = ref(storage, `images/${crypto.randomUUID()}`);
         const coverPhotoTask = await uploadBytesResumable(fileRef, file);
         const photoURL = await getDownloadURL(coverPhotoTask.ref);
         if (photoURL) {
@@ -391,7 +391,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
 
     const handleUploadPictures = async (e) => {
         let file = e.target.files[0];
-        const imageRef = ref(storage, `${file.lastModified}-roomPhoto`);
+        const imageRef = ref(storage, `images/${crypto.randomUUID()}`);
         const imageTask = await uploadBytesResumable(imageRef, file);
         const imageURL = await getDownloadURL(imageTask.ref);
         if (imageURL) {

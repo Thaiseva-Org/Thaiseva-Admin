@@ -1,3 +1,4 @@
+import { getAuth } from "firebase/auth";
 import { CloseIcon } from "@icons";
 import {
   Box,
@@ -350,7 +351,7 @@ const AddedRooms = () => {
   // upload cover photo
   const handleUploadCoverPhoto = async (e) => {
     const file = e.target.files[0];
-    const fileRef = ref(storage, `${file.lastModified}-coverPhoto`); // firebase storage to store license img
+    const fileRef = ref(storage, `hotels/${getAuth().currentUser.uid}/media/${crypto.randomUUID()}`); // firebase storage to store license img
     //  // Uploading the profile image to storage
     const coverPhotoTask = await uploadBytesResumable(fileRef, file);
 
@@ -366,7 +367,7 @@ const AddedRooms = () => {
   const handleUploadPictures = async (e) => {
     let file = e.target.files[0];
 
-    const imageRef = ref(storage, `${file.lastModified}-roomPhoto`); // firebase storage to store license img
+    const imageRef = ref(storage, `hotels/${getAuth().currentUser.uid}/media/${crypto.randomUUID()}`); // firebase storage to store license img
     //  // Uploading the profile image to storage
     const imageTask = await uploadBytesResumable(imageRef, file);
 

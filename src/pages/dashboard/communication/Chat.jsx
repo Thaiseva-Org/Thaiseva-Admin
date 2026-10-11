@@ -1,3 +1,4 @@
+import { getAuth } from "firebase/auth";
 /**
  * @file Chat.jsx
  * @description Primary real-time chat window orchestrating message history, media composition, and participant headers.
@@ -43,7 +44,7 @@ const Chat = ({ setOpenSidebar }) => {
    * @returns {Promise<void>}
    */
   const addAudioElement = async (blob) => {
-    const fileRef = ref(storage, `file-${blob.size}`);
+    const fileRef = ref(storage, `chat/${getAuth().currentUser.uid}/${crypto.randomUUID()}`);
     const fileTask = await uploadBytesResumable(fileRef, blob);
     const fileURL = await getDownloadURL(fileTask.ref);
     setAudioUrl(fileURL);

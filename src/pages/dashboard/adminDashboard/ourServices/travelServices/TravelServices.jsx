@@ -13,9 +13,7 @@ import {
   Box,
   InputAdornment,
   TextField,
-  Button,
-  Tabs,
-  Tab
+  Button
 } from "@mui/material";
 import {
   collection,
@@ -45,7 +43,7 @@ import {
   askingForDelete,
   deleteNotification,
 } from "../../../../../utils/utils";
-import AddSightseeingSelectionModal from "./AddSightseeingSelectionModal";
+
 import SightseeingSettingsModal from "./SightseeingSettingsModal";
 import { MdSettings } from "@icons";
 
@@ -60,15 +58,9 @@ const TravelServices = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [lastDocs, setLastDocs] = useState([]);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [openSelectionModal, setOpenSelectionModal] = useState(false);
   const [openSettingsModal, setOpenSettingsModal] = useState(false);
 
   const [viewMode, setViewMode] = useState('list');
-  const [tabValue, setTabValue] = useState(0);
-
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-  };
 
   // fetching all services
   const fetchTotalPages = async () => {
@@ -163,7 +155,6 @@ const TravelServices = () => {
     rating,
     id,
     coverPhoto,
-    hasAuthorizedPartners,
     maxBookingsPerWeek
   ) {
     return {
@@ -176,7 +167,6 @@ const TravelServices = () => {
       rating,
       id,
       coverPhoto,
-      hasAuthorizedPartners,
       maxBookingsPerWeek
     };
   }
@@ -193,13 +183,9 @@ const TravelServices = () => {
       service.rating,
       service.id,
       service.coverPhoto || service.images?.[0] || 'https://via.placeholder.com/300x200?text=No+Image',
-      service.hasAuthorizedPartners || false,
       service.maxBookingsPerWeek || 200
     );
   });
-
-  const ourRows = rows.filter(r => !r.hasAuthorizedPartners);
-  const partnerRows = rows.filter(r => r.hasAuthorizedPartners);
 
   const handleSearch = (text) => {
     const matchingObjects = travelServices.filter(
@@ -216,9 +202,11 @@ const TravelServices = () => {
 
     return (
       <div className="mb-8">
-        <Typography variant="h6" className="text-gray-800 font-bold mb-4 flex items-center gap-2">
-          {title} <span className="text-sm font-normal text-gray-500">({packageRows.length})</span>
-        </Typography>
+        {title && (
+          <Typography variant="h6" className="text-gray-800 font-bold mb-4 flex items-center gap-2">
+            {title} <span className="text-sm font-normal text-gray-500">({packageRows.length})</span>
+          </Typography>
+        )}
         <div className="bg-white rounded-2xl shadow-xl border border-neutral-200 overflow-hidden">
           <div className="overflow-x-auto">
             {viewMode === 'list' ? (
@@ -393,7 +381,7 @@ const TravelServices = () => {
   };
 
   const handleAddNewPackage = () => {
-    setOpenSelectionModal(true);
+    navigate("/dashboard/travel-services/add");
   };
 
   const handleViewPackage = (id) => {
@@ -572,31 +560,26 @@ const TravelServices = () => {
         </div>
       </div>
 
-      {/* Tabs for Separation */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="package-tabs">
-          <Tab label={`Our Packages (${ourRows.length})`} />
-          <Tab label={`Partner Packages (${partnerRows.length})`} />
-        </Tabs>
-      </Box>
-
-      {/* Modern Table Container - Replaced with Sections */}
+      {/* Modern Table Container */}
       <div>
         {loadingServices ? (
           loadingContent
         ) : (
           <>
-            {ourRows.length === 0 && partnerRows.length === 0 ? (
+            {rows.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-neutral-400 py-12 bg-white rounded-2xl border border-neutral-200">
                 <span className="text-6xl mb-4">🗺️</span>
                 <p className="text-lg font-medium text-neutral-500">No Packages Found</p>
-                <p className="text-sm text-neutral-400 mt-2">Create your first sightseeing package.</p>
+                <p className="text-sm text-neutral-400 mt-2 mb-4">Create your first sightseeing package.</p>
+                <button
+                  onClick={handleAddNewPackage}
+                  className="px-6 py-2.5 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl shadow-md transition-all active:scale-95"
+                >
+                  + Add Sightseeing Package
+                </button>
               </div>
             ) : (
-              <>
-                {tabValue === 0 && renderPackageList(ourRows, "🏢 Our Packages")}
-                {tabValue === 1 && renderPackageList(partnerRows, "🤝 Partner Packages")}
-              </>
+              renderPackageList(rows)
             )}
           </>
         )}
@@ -638,10 +621,6 @@ const TravelServices = () => {
       <SightseeingSettingsModal
         open={openSettingsModal}
         onClose={() => setOpenSettingsModal(false)}
-      />
-      <AddSightseeingSelectionModal
-        open={openSelectionModal}
-        onClose={() => setOpenSelectionModal(false)}
       />
     </div >
   );

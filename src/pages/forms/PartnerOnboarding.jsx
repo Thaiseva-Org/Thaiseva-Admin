@@ -130,7 +130,6 @@ const PartnerOnboarding = () => {
   };
 
   const onSubmit = async (data) => {
-    console.log("Submitting form data:", data);
     setError("");
     const {
       email,
@@ -154,7 +153,7 @@ const PartnerOnboarding = () => {
       return setError({ for: "phone", text: "Invalid Number" });
     }
 
-    const accountInfo = { email, password };
+    const accountInfo = { email };
     const personalInformation = {
       fullName,
       email,

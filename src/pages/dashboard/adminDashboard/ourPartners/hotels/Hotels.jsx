@@ -63,7 +63,6 @@ import {
   successNotification,
 } from "../../../../../utils/utils";
 
-import AddHotelSelectionModal from "./AddHotelSelectionModal";
 import { useNavigate } from "react-router-dom";
 import { MeetingRoomIcon } from "@icons";
 import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
@@ -77,7 +76,6 @@ const Hotels = () => {
   const [lastDocs, setLastDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewDetailsModal, setViewDetailsModal] = useState(false); //Add service modal
-  const [openSelectionModal, setOpenSelectionModal] = useState(false);
   const [editHotelModal, setEditHotelModal] = useState(false);
   const [selectedHotelForEdit, setSelectedHotelForEdit] = useState(null);
   const [tabValue, setTabValue] = useState(0);
@@ -492,7 +490,7 @@ const Hotels = () => {
 
           <button
             className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap"
-            onClick={() => setOpenSelectionModal(true)}
+            onClick={() => navigate("/dashboard/hotels/add")}
           >
             <span className="text-xl">+</span> Add New Hotel
           </button>
@@ -1029,10 +1027,6 @@ const Hotels = () => {
           />
         </div>
       </Dialog>
-      <AddHotelSelectionModal
-        open={openSelectionModal}
-        onClose={() => setOpenSelectionModal(false)}
-      />
     </div>
   );
 };

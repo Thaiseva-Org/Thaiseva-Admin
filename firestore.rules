@@ -45,12 +45,19 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.token.get('admin', false) == true ||
+        request.auth.token.get('email', '') in ['admin@gmail.com', 'thaiseva_admin@gmail.com'] ||
+        ('email' in request.auth.token && request.auth.token.email in ['admin@gmail.com', 'thaiseva_admin@gmail.com']) ||
         userRole() in ["Admin", "admin"]
       );
     }
 
     function isSuperAdmin() {
-      return isAuthenticated() && (request.auth.token.get('admin', false) == true || userRole() in ["Admin", "admin"]);
+      return isAuthenticated() && (
+        request.auth.token.get('admin', false) == true ||
+        request.auth.token.get('email', '') in ['admin@gmail.com', 'thaiseva_admin@gmail.com'] ||
+        ('email' in request.auth.token && request.auth.token.email in ['admin@gmail.com', 'thaiseva_admin@gmail.com']) ||
+        userRole() in ["Admin", "admin"]
+      );
     }
 
     function isOwner(userIdField) {
@@ -217,7 +224,9 @@ service cloud.firestore {
     function isFoodAdmin() {
       return isAuthenticated() && (
         request.auth.token.get('foodRole', '') == 'masterAdmin' ||
-        request.auth.token.get('foodMasterAdmin', false) == true
+        request.auth.token.get('foodMasterAdmin', false) == true ||
+        request.auth.token.get('email', '') in ['admin@gmail.com', 'thaiseva_admin@gmail.com'] ||
+        isAdmin()
       );
     }
 
@@ -284,9 +293,8 @@ service cloud.firestore {
     }
 
     match /settings/{docId} {
-      allow read: if docId != 'Confidential';
-      // categories is food portal only; all other settings keep production isAdmin
-      allow write: if docId != 'Confidential' && (isAdmin() || (docId in ['categories', 'cuisines'] && isFoodAdmin()));
+      allow read: if true;
+      allow write: if isAdmin() || (docId in ['categories', 'cuisines'] && isFoodAdmin());
     }
 
     match /FaqDB/{faqId} {

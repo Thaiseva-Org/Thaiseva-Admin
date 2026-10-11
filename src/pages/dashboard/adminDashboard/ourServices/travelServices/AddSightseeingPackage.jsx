@@ -30,7 +30,7 @@ import {
     collection,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { db, storage, travelServicesCollection, generalPartnersCollection } from "../../../../../firebase/firebase.config";
+import { db, storage, travelServicesCollection } from "../../../../../firebase/firebase.config";
 import { successNotification } from "../../../../../utils/utils";
 import { getEmptySightseeingPackage } from "../../../../../utils/sightseeingTransformation";
 import PageHeading from "../../../../../components/PageHeading";
@@ -103,14 +103,8 @@ const AddSightseeingPackage = () => {
         location: "",
         period: 0,
         pricePerChild: 0,
-        extraAdultPrice: 0,
-        transportType: "",
-        pickupFromHotel: false,
-        dropToAirport: false,
         packageType: "",
         maxBookingsPerWeek: 200,
-        minPersons: 1,
-        maxPersons: 100
     });
 
     const [arrayData, setArrayData] = useState({
@@ -130,50 +124,6 @@ const AddSightseeingPackage = () => {
 
     const [availableHotels, setAvailableHotels] = useState([]);
     const [hotelRoomsMap, setHotelRoomsMap] = useState({});
-
-    // Partner Authorization State
-    const [availablePartners, setAvailablePartners] = useState([]);
-    const [authorizedPartners, setAuthorizedPartners] = useState([]);
-    const [partnerConfig, setPartnerConfig] = useState({
-        partnerId: null,
-        partnerName: "",
-        commissionType: "Percentage",
-        commissionRate: "",
-        maxBookingsPerWeek: "",
-    });
-
-    useEffect(() => {
-        const fetchPartners = async () => {
-            try {
-                const snapshot = await getDocs(generalPartnersCollection);
-                const list = snapshot.docs.map(doc => {
-                    const data = doc.data();
-                    const categories = Array.isArray(data.serviceCategory)
-                        ? data.serviceCategory
-                        : (data.serviceCategory ? [data.serviceCategory] : []);
-
-                    if (categories.some(cat => cat === "Sightseeing Packages")) {
-                        // Extract commission for Sightseeing Packages
-                        const commissionData = data.commissions?.["Sightseeing Packages"] || {};
-                        return {
-                            id: doc.id,
-                            name: data.personalInformation?.fullName || "Unknown Partner",
-                            defaultCommission: {
-                                type: commissionData.type || "Percentage",
-                                rate: commissionData.rate || ""
-                            }
-                        };
-                    }
-                    return null;
-                }).filter(p => p !== null);
-
-                setAvailablePartners(list);
-            } catch (err) {
-                console.error("Failed to fetch partners", err);
-            }
-        };
-        fetchPartners();
-    }, []);
 
     useEffect(() => {
         const fetchAllHotels = async () => {
@@ -218,7 +168,6 @@ const AddSightseeingPackage = () => {
     const [sights, setSights] = useState([]);
     const [specialRates, setSpecialRates] = useState({
         seasonalPricing: { enabled: false, note: "" },
-        earlyBirdDiscount: { enabled: false, discountPercent: 0, description: "" }
     });
 
     const {
@@ -251,13 +200,8 @@ const AddSightseeingPackage = () => {
                         period: existingData.period || existingData.duration?.days || 0,
                         timestamp: existingData.timestamp,
                         pricePerChild: existingData?.pricingStructure?.pricePerChild || 0,
-                        extraAdultPrice: existingData?.pricingStructure?.extraAdultPrice || 0,
-                        transportType: existingData?.transportType || "",
-                        pickupFromHotel: existingData?.pickupDropDetails?.pickupFromHotel || false,
-                        dropToAirport: existingData?.pickupDropDetails?.dropToAirport || false,
+                        packageType: existingData?.packageType || "",
                         maxBookingsPerWeek: existingData?.maxBookingsPerWeek || 200,
-                        minPersons: existingData?.pricingStructure?.minPersons || 1,
-                        maxPersons: existingData?.pricingStructure?.maxPersons || 100,
                     });
 
                     // Set form values for react-hook-form
@@ -267,13 +211,9 @@ const AddSightseeingPackage = () => {
                     setValue("period", existingData.period || existingData.duration?.days);
                     setValue("location", existingData.location);
                     setValue("discount", existingData.discount);
-                    setValue("pricePerChild", existingData?.pricingStructure?.pricePerChild);
-                    setValue("extraAdultPrice", existingData?.pricingStructure?.extraAdultPrice);
-                    setValue("transportType", existingData?.transportType);
+                    setValue("pricePerChild", existingData?.pricingStructure?.pricePerChild || 0);
                     setValue("packageType", existingData?.packageType || "");
                     setValue("maxBookingsPerWeek", existingData?.maxBookingsPerWeek || 200);
-                    setValue("minPersons", existingData?.pricingStructure?.minPersons || 1);
-                    setValue("maxPersons", existingData?.pricingStructure?.maxPersons || 100);
 
                     setCoverPhotoURL(existingData.coverPhoto || existingData.thumbnailImage);
 
@@ -291,13 +231,7 @@ const AddSightseeingPackage = () => {
                     setSights(existingData.sights || []);
                     setSpecialRates(existingData.specialRates || {
                         seasonalPricing: { enabled: false, note: "" },
-                        earlyBirdDiscount: { enabled: false, discountPercent: 0, description: "" }
                     });
-
-                    // Load authorized partners if they exist
-                    if (existingData.authorizedPartners) {
-                        setAuthorizedPartners(existingData.authorizedPartners);
-                    }
                 }
             } catch (error) {
                 console.error("Error fetching package details:", error);
@@ -394,37 +328,12 @@ const AddSightseeingPackage = () => {
     };
 
 
-    const handleAddPartner = () => {
-        if (!partnerConfig.partnerId || !partnerConfig.commissionRate || !partnerConfig.maxBookingsPerWeek) {
-            return toast.error("Please fill all partner fields");
-        }
-
-        const newPartner = {
-            ...partnerConfig,
-            assignedAt: new Date().toISOString()
-        };
-
-        setAuthorizedPartners([...authorizedPartners, newPartner]);
-        setPartnerConfig({
-            partnerId: null,
-            partnerName: "",
-            commissionType: "Percentage",
-            commissionRate: "",
-            maxBookingsPerWeek: "",
-        });
-    };
-
-    const handleRemovePartner = (index) => {
-        const newList = [...authorizedPartners];
-        newList.splice(index, 1);
-        setAuthorizedPartners(newList);
-    };
 
     const handleUploadCoverPhoto = async (e) => {
         try {
             const file = e.target.files[0];
             if (!file) return;
-            const fileRef = ref(storage, `${file.lastModified}-coverPhoto`);
+            const fileRef = ref(storage, `images/${crypto.randomUUID()}`);
             const coverPhotoTask = await uploadBytesResumable(fileRef, file);
             const photoURL = await getDownloadURL(coverPhotoTask.ref);
             if (photoURL) setCoverPhotoURL(photoURL);
@@ -438,7 +347,7 @@ const AddSightseeingPackage = () => {
         try {
             let file = e.target.files[0];
             if (!file) return;
-            const imageRef = ref(storage, `${file.lastModified}-placePhoto`);
+            const imageRef = ref(storage, `images/${crypto.randomUUID()}`);
             const imageTask = await uploadBytesResumable(imageRef, file);
             const imageURL = await getDownloadURL(imageTask.ref);
             if (imageURL) {
@@ -470,8 +379,23 @@ const AddSightseeingPackage = () => {
         if (!data.packageType) {
             return toast.error("Please select a Package Type");
         }
-        if (parseFloat(price) <= 0) {
-            return toast.error("Price must be greater than 0");
+
+        const numPrice = parseFloat(price);
+        const numChildPrice = parseFloat(data.pricePerChild || 0);
+        const numDiscount = parseFloat(discount || 0);
+        const numPeriod = parseFloat(period);
+
+        if (isNaN(numPrice) || numPrice <= 0) {
+            return toast.error("Adult price must be greater than 0");
+        }
+        if (isNaN(numChildPrice) || numChildPrice < 0) {
+            return toast.error("Child price cannot be negative");
+        }
+        if (isNaN(numDiscount) || numDiscount < 0 || numDiscount > 100) {
+            return toast.error("Discount must be between 0% and 100%");
+        }
+        if (isNaN(numPeriod) || numPeriod <= 0) {
+            return toast.error("Duration must be at least 1 day");
         }
         if (itinerary.length === 0) {
             return toast.error("Please add at least one day to the itinerary");
@@ -484,18 +408,15 @@ const AddSightseeingPackage = () => {
             id,
             title,
             description,
-            price: parseFloat(price),
-            discount: parseFloat(discount || 0),
+            price: numPrice,
+            discount: numDiscount,
             location,
-            period: parseFloat(period),
+            period: numPeriod,
             packageType: data.packageType || "",
             maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
-            minPersons: parseInt(data.minPersons || 1),
-            maxPersons: parseInt(data.maxPersons || 100),
             coverPhoto: coverPhotoURL,
             timestamp,
             images: arrayData?.pictures || [],
-            hasAuthorizedPartners: authorizedPartners.length > 0
         };
 
         const baseStruct = getEmptySightseeingPackage();
@@ -506,12 +427,12 @@ const AddSightseeingPackage = () => {
             packageId: id,
             packageName: title,
             about: description,
-            startingPrice: parseFloat(price),
+            startingPrice: numPrice,
             packageType: data.packageType || "",
             currency: "THB",
             duration: {
-                days: parseFloat(period),
-                nights: parseFloat(period) - 1 > 0 ? parseFloat(period) - 1 : 0
+                days: numPeriod,
+                nights: numPeriod - 1 > 0 ? numPeriod - 1 : 0
             },
             thumbnailImage: coverPhotoURL,
 
@@ -538,26 +459,13 @@ const AddSightseeingPackage = () => {
             specialRates: specialRates,
 
             pricingStructure: {
-                pricePerAdult: parseFloat(price),
-                pricePerChild: parseFloat(data.pricePerChild || 0),
-                extraAdultPrice: parseFloat(data.extraAdultPrice || 0),
-                minPersons: parseInt(data.minPersons || 1),
-                maxPersons: parseInt(data.maxPersons || 100)
-            },
-
-            transportType: data.transportType || "",
-            pickupDropDetails: {
-                pickupFromHotel: packageDetails.pickupFromHotel,
-                dropToAirport: packageDetails.dropToAirport,
-                availablePickupTimes: [],
-                availableDropTimes: []
+                pricePerAdult: numPrice,
+                pricePerChild: numChildPrice,
             },
 
             maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
 
             rating: { average: 5, totalReviews: 0 },
-
-            authorizedPartners: authorizedPartners || [],
         };
 
         try {
@@ -573,7 +481,7 @@ const AddSightseeingPackage = () => {
     };
 
     const textField = (label, name, placeholder, defaultValue) => {
-        const isRequired = !["pricePerChild", "extraAdultPrice", "transportType", "discount", "minPersons", "maxPersons"].includes(name);
+        const isRequired = !["pricePerChild", "discount"].includes(name);
         return (
             <Grid item xs={12} sm={name === "description" ? 12 : 6}>
                 <TextField
@@ -582,22 +490,34 @@ const AddSightseeingPackage = () => {
                             {label} {isRequired && <span className="text-red-500">*</span>}
                         </span>
                     }
-                    type={["price", "discount", "period", "pricePerChild", "extraAdultPrice", "minPersons", "maxPersons"].includes(name) ? "number" : "text"}
+                    type={["price", "discount", "period", "pricePerChild"].includes(name) ? "number" : "text"}
                     onWheel={(e) => e.target.blur()}
-                    defaultValue={defaultValue || ""}
+                    onKeyDown={(e) => {
+                        if (["price", "discount", "period", "pricePerChild"].includes(name) && (e.key === "-" || e.key === "e")) {
+                            e.preventDefault();
+                        }
+                    }}
+                    defaultValue={defaultValue ?? ""}
                     placeholder={placeholder}
                     multiline={name === "description"}
                     fullWidth
                     rows={name === "description" ? 3 : ""}
                     sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
                     inputProps={{
-                        min: name === "price" ? 1 : name === "discount" ? 0 : name === "period" ? 1 : name === "minPersons" ? 1 : name === "maxPersons" ? 1 : undefined,
+                        min: name === "price" || name === "period" ? 1 : 0,
                         max: name === "discount" ? 100 : name === "period" ? 100 : undefined,
                     }}
-                    InputLabelProps={{ shrink: !!defaultValue ? true : undefined }}
-                    {...register(name, { required: isRequired })}
+                    InputLabelProps={{ shrink: defaultValue !== undefined && defaultValue !== null && defaultValue !== "" ? true : undefined }}
+                    {...register(name, {
+                        required: isRequired,
+                        min: {
+                            value: name === "price" || name === "period" ? 1 : 0,
+                            message: `${label} cannot be negative`,
+                        },
+                        ...(name === "discount" ? { max: { value: 100, message: "Discount cannot exceed 100%" } } : {}),
+                    })}
                 />
-                {errors?.[name] && <span className="text-red-500">{label} is required</span>}
+                {errors?.[name] && <span className="text-red-500">{errors[name].message || `${label} is required`}</span>}
             </Grid>
         );
     };
@@ -964,36 +884,7 @@ const AddSightseeingPackage = () => {
                                         <Grid container spacing={4}>
                                             {textField("Adult Price (Base)", "price", "Cost per adult", packageDetails?.price)}
                                             {textField("Child Price", "pricePerChild", "Cost per child", packageDetails?.pricePerChild)}
-                                            {textField("Extra Adult", "extraAdultPrice", "Cost per extra adult", packageDetails?.extraAdultPrice)}
                                             {textField("Discount (%)", "discount", "Global discount %", packageDetails?.discount)}
-                                            {textField("Min. Persons", "minPersons", "e.g., 2", packageDetails?.minPersons)}
-                                            {textField("Max. Persons", "maxPersons", "e.g., 10", packageDetails?.maxPersons)}
-
-                                            <Grid item xs={12}>
-                                                <div className="p-5 bg-yellow-50 rounded-xl border border-yellow-100">
-                                                    <FormControlLabel control={<Checkbox checked={specialRates.earlyBirdDiscount.enabled} onChange={(e) => setSpecialRates({ ...specialRates, earlyBirdDiscount: { ...specialRates.earlyBirdDiscount, enabled: e.target.checked } })} />} label={<span className="font-bold text-gray-800">Enable Early Bird Discount</span>} />
-                                                    {specialRates.earlyBirdDiscount.enabled && (
-                                                        <div className="flex gap-4 mt-3 pl-8 animate-fade-in">
-                                                            <TextField label="Discount %" size="small" type="number" sx={{ width: 120, "& .MuiOutlinedInput-root": { borderRadius: "12px", bgcolor: 'white' } }} value={specialRates.earlyBirdDiscount.discountPercent} onChange={(e) => setSpecialRates({ ...specialRates, earlyBirdDiscount: { ...specialRates.earlyBirdDiscount, discountPercent: parseFloat(e.target.value) } })} />
-                                                            <TextField label="Condition Description" size="small" fullWidth sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px", bgcolor: 'white' } }} value={specialRates.earlyBirdDiscount.description} onChange={(e) => setSpecialRates({ ...specialRates, earlyBirdDiscount: { ...specialRates.earlyBirdDiscount, description: e.target.value } })} />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </Grid>
-                                        </Grid>
-                                    </div>
-
-                                    {/* Logistics */}
-                                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                                        <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">🚐 Logistics & Transport</Typography>
-                                        <Grid container spacing={4}>
-                                            {textField("Transport Type", "transportType", "e.g. AC Bus, Private Van", packageDetails?.transportType)}
-                                            <Grid item xs={12}>
-                                                <div className="flex gap-8 p-4 bg-gray-50 rounded-xl border border-gray-100">
-                                                    <FormControlLabel control={<Checkbox checked={packageDetails.pickupFromHotel} onChange={(e) => setPackageDetails({ ...packageDetails, pickupFromHotel: e.target.checked })} />} label="Pickup from Hotel" />
-                                                    <FormControlLabel control={<Checkbox checked={packageDetails.dropToAirport} onChange={(e) => setPackageDetails({ ...packageDetails, dropToAirport: e.target.checked })} />} label="Drop to Airport" />
-                                                </div>
-                                            </Grid>
                                         </Grid>
                                     </div>
 
@@ -1077,124 +968,6 @@ const AddSightseeingPackage = () => {
                                                 </div>
                                             ))}
                                         </div>
-                                    </div>
-
-                                    {/* Partner Authorization Section */}
-                                    <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm mt-6">
-                                        <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">🤝 Authorized Partners</Typography>
-                                        <div className="bg-blue-50 p-5 rounded-xl border border-blue-100 mb-6">
-                                            <Typography variant="subtitle2" className="text-blue-800 font-bold mb-3">Add Partner Authorization</Typography>
-                                            <Grid container spacing={2} alignItems="flex-end">
-                                                <Grid item xs={12} md={4}>
-                                                    <Autocomplete
-                                                        options={availablePartners.filter(p => !authorizedPartners.find(ap => ap.partnerId === p.id))}
-                                                        getOptionLabel={(option) => option.name}
-                                                        value={availablePartners.find(p => p.id === partnerConfig.partnerId) || null}
-                                                        onChange={(e, val) => {
-                                                            if (val) {
-                                                                setPartnerConfig(prev => ({
-                                                                    ...prev,
-                                                                    partnerId: val.id,
-                                                                    partnerName: val.name,
-                                                                    commissionType: val.defaultCommission.type,
-                                                                    commissionRate: val.defaultCommission.rate
-                                                                }));
-                                                            } else {
-                                                                setPartnerConfig(prev => ({
-                                                                    ...prev,
-                                                                    partnerId: null,
-                                                                    partnerName: "",
-                                                                    commissionType: "Percentage",
-                                                                    commissionRate: ""
-                                                                }));
-                                                            }
-                                                        }}
-                                                        renderInput={(params) => <TextField {...params} label="Select Partner" variant="outlined" size="small" />}
-                                                    />
-                                                </Grid>
-                                                <Grid item xs={6} md={2}>
-                                                    <FormControl fullWidth size="small">
-                                                        <InputLabel>Type</InputLabel>
-                                                        <Select
-                                                            value={partnerConfig.commissionType}
-                                                            label="Type"
-                                                            onChange={(e) => setPartnerConfig(prev => ({ ...prev, commissionType: e.target.value }))}
-                                                        >
-                                                            <MenuItem value="Percentage">%</MenuItem>
-                                                            <MenuItem value="Fixed">$</MenuItem>
-                                                        </Select>
-                                                    </FormControl>
-                                                </Grid>
-                                                <Grid item xs={6} md={2}>
-                                                    <TextField
-                                                        label="Commission"
-                                                        type="number"
-                                                        size="small"
-                                                        fullWidth
-                                                        value={partnerConfig.commissionRate}
-                                                        onChange={(e) => setPartnerConfig(prev => ({ ...prev, commissionRate: e.target.value }))}
-                                                    />
-                                                </Grid>
-                                                <Grid item xs={6} md={2}>
-                                                    <TextField
-                                                        label="Max/Week"
-                                                        type="number"
-                                                        size="small"
-                                                        fullWidth
-                                                        value={partnerConfig.maxBookingsPerWeek}
-                                                        onChange={(e) => setPartnerConfig(prev => ({ ...prev, maxBookingsPerWeek: e.target.value }))}
-                                                    />
-                                                </Grid>
-                                                <Grid item xs={6} md={2}>
-                                                </Grid>
-                                                <Grid item xs={6} md={2}>
-                                                    <Button
-                                                        variant="contained"
-                                                        onClick={handleAddPartner}
-                                                        fullWidth
-                                                        sx={{ height: '40px', borderRadius: '8px', textTransform: 'none' }}
-                                                    >
-                                                        Add
-                                                    </Button>
-                                                </Grid>
-                                            </Grid>
-                                        </div>
-
-                                        {/* List of Authorized Partners */}
-                                        {authorizedPartners.length > 0 ? (
-                                            <div className="border rounded-xl overflow-hidden">
-                                                <table className="w-full text-sm text-left">
-                                                    <thead className="bg-gray-50 text-gray-700 font-semibold border-b">
-                                                        <tr>
-                                                            <th className="px-4 py-3">Partner Name</th>
-                                                            <th className="px-4 py-3">Commission</th>
-                                                            <th className="px-4 py-3">Max/Week</th>
-                                                            <th className="px-4 py-3 text-right">Action</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y">
-                                                        {authorizedPartners.map((partner, idx) => (
-                                                            <tr key={idx} className="hover:bg-gray-50">
-                                                                <td className="px-4 py-3 font-medium text-gray-900">{partner.partnerName}</td>
-                                                                <td className="px-4 py-3">
-                                                                    <Chip label={`${partner.commissionRate}${partner.commissionType === "Percentage" ? "%" : "$"}`} size="small" color="success" variant="outlined" />
-                                                                </td>
-                                                                <td className="px-4 py-3">{partner.maxBookingsPerWeek}</td>
-                                                                <td className="px-4 py-3 text-right">
-                                                                    <IconButton size="small" onClick={() => handleRemovePartner(idx)} color="error">
-                                                                        <CloseIcon fontSize="small" />
-                                                                    </IconButton>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        ) : (
-                                            <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200 text-gray-400">
-                                                No specific partners authorized yet. All partners may see standard rates (if applicable).
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             )}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import DOMPurify from "dompurify";
 import {
     Button,
     Card,
@@ -629,7 +630,7 @@ const Blogs = () => {
                                 )}
                             </div>
 
-                            <div className="text-gray-700 leading-relaxed text-lg break-words whitespace-pre-line" dangerouslySetInnerHTML={{ __html: viewBlog.content }} />
+                            <div className="text-gray-700 leading-relaxed text-lg break-words whitespace-pre-line" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(viewBlog.content || "") }} />
                         </article>
                     )}
                 </DialogContent>

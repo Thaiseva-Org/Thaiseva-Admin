@@ -1,3 +1,4 @@
+import { getAuth } from "firebase/auth";
 /**
  * @file Input.jsx
  * @description Rich communication composer supporting real-time text, voice memos, and document attachments.
@@ -164,7 +165,7 @@ const Input = ({ lastMessage, audioUrl, setAudioUrl }) => {
       const fileExtension = file.name.split(".").pop();
       const fileType = file.type || getMimeType(fileExtension);
 
-      const storageRef = ref(storage, `uploads/${uuid()}.${fileExtension}`);
+      const storageRef = ref(storage, `chat/${getAuth().currentUser.uid}/${uuid()}.${fileExtension}`);
       const uploadTask = await uploadBytesResumable(storageRef, file, {
         contentType: fileType,
       });

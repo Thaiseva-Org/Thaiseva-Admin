@@ -827,7 +827,7 @@ const RoomBookings = () => {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-primary-100 text-sm font-medium mb-1">
@@ -898,13 +898,13 @@ const RoomBookings = () => {
         <div className="flex items-center gap-2 bg-white p-1 rounded-lg border border-neutral-200 shadow-sm">
           <button
             onClick={() => setViewMode('list')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-neutral-500 hover:bg-neutral-50'}`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center ${viewMode === 'list' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-neutral-500 hover:bg-neutral-50'}`}
           >
             <ViewList className="mr-2 !text-lg" /> List View
           </button>
           <button
             onClick={() => setViewMode('calendar')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'calendar' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-neutral-500 hover:bg-neutral-50'}`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center ${viewMode === 'calendar' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-neutral-500 hover:bg-neutral-50'}`}
           >
             <CalendarMonth className="mr-2 !text-lg" /> Calendar View
           </button>
@@ -1496,7 +1496,13 @@ const RoomBookings = () => {
                   await handleConfirmBooking(bookingDetails);
                   setOpenBookingDetailsModal(false);
                 }}
-                sx={{ borderRadius: "10px", textTransform: "none", fontWeight: 600 }}
+                sx={{
+                  borderRadius: "10px",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  bgcolor: "#10b981",
+                  "&:hover": { bgcolor: "#059669" },
+                }}
               >
                 {Number(bookingDetails?.roomsPending) > 0
                   ? `Confirm ${bookingDetails.roomsPending} pending room(s)`
@@ -1509,7 +1515,13 @@ const RoomBookings = () => {
                   await handleCancelBooking(bookingDetails);
                   setOpenBookingDetailsModal(false);
                 }}
-                sx={{ borderRadius: "10px", textTransform: "none", fontWeight: 600 }}
+                sx={{
+                  borderRadius: "10px",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  bgcolor: "#ef4444",
+                  "&:hover": { bgcolor: "#dc2626" },
+                }}
               >
                 Not available
               </Button>

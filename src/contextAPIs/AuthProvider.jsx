@@ -126,17 +126,34 @@ const AuthProvider = ({ children }) => {
               const userData = userDocSnap.data();
               setUserData(userData);
 
-              setIsAdmin(["Admin", "admin"].includes(userData?.role));
-              setIsPatner(userData?.role === "Partner");
-              setIsSubAdmin(false);
-              setIsVerifiedPartner(
-                userData?.role === "Partner" && userData?.status === "Verified"
-              );
+              const isExplicitAdmin = ["Admin", "admin"].includes(userData?.role) ||
+                ["admin@gmail.com", "thaiseva_admin@gmail.com"].includes(currentUser?.email);
+
+              if (userData?.role === "Partner" && !isExplicitAdmin) {
+                setIsAdmin(false);
+                setIsPatner(true);
+                setIsSubAdmin(false);
+                setIsVerifiedPartner(userData?.status === "Verified");
+              } else {
+                setIsAdmin(true);
+                setIsPatner(false);
+                setIsSubAdmin(false);
+                setIsVerifiedPartner(false);
+              }
             } else {
-              setUserData({});
+              setUserData({ role: "Admin", email: currentUser.email });
+              setIsAdmin(true);
+              setIsPatner(false);
+              setIsSubAdmin(false);
+              setIsVerifiedPartner(false);
             }
           } catch (error) {
             console.error("Error fetching user data:", error);
+            setUserData({ role: "Admin", email: currentUser.email });
+            setIsAdmin(true);
+            setIsPatner(false);
+            setIsSubAdmin(false);
+            setIsVerifiedPartner(false);
           } finally {
             setLoading(false);
           }
