@@ -12,10 +12,6 @@ import {
     Checkbox,
     Paper,
     Autocomplete,
-    MenuItem,
-    Select,
-    FormControl,
-    InputLabel,
 } from "@mui/material";
 import { AddCircleIcon, CloseIcon, SaveIcon, ArrowBackIcon } from "@icons";
 import { toast } from "react-toastify";
@@ -103,7 +99,6 @@ const AddSightseeingPackage = () => {
         location: "",
         period: 0,
         pricePerChild: 0,
-        packageType: "",
         maxBookingsPerWeek: 200,
     });
 
@@ -200,7 +195,6 @@ const AddSightseeingPackage = () => {
                         period: existingData.period || existingData.duration?.days || 0,
                         timestamp: existingData.timestamp,
                         pricePerChild: existingData?.pricingStructure?.pricePerChild || 0,
-                        packageType: existingData?.packageType || "",
                         maxBookingsPerWeek: existingData?.maxBookingsPerWeek || 200,
                     });
 
@@ -212,7 +206,6 @@ const AddSightseeingPackage = () => {
                     setValue("location", existingData.location);
                     setValue("discount", existingData.discount);
                     setValue("pricePerChild", existingData?.pricingStructure?.pricePerChild || 0);
-                    setValue("packageType", existingData?.packageType || "");
                     setValue("maxBookingsPerWeek", existingData?.maxBookingsPerWeek || 200);
 
                     setCoverPhotoURL(existingData.coverPhoto || existingData.thumbnailImage);
@@ -376,9 +369,6 @@ const AddSightseeingPackage = () => {
         if (arrayData?.amenities?.length < 1) {
             return toast.error("Please provide at least 1 amenity");
         }
-        if (!data.packageType) {
-            return toast.error("Please select a Package Type");
-        }
 
         const numPrice = parseFloat(price);
         const numChildPrice = parseFloat(data.pricePerChild || 0);
@@ -412,7 +402,6 @@ const AddSightseeingPackage = () => {
             discount: numDiscount,
             location,
             period: numPeriod,
-            packageType: data.packageType || "",
             maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
             coverPhoto: coverPhotoURL,
             timestamp,
@@ -428,7 +417,6 @@ const AddSightseeingPackage = () => {
             packageName: title,
             about: description,
             startingPrice: numPrice,
-            packageType: data.packageType || "",
             currency: "THB",
             duration: {
                 days: numPeriod,
@@ -562,27 +550,7 @@ const AddSightseeingPackage = () => {
                                         {textField("Duration (Days)", "period", "e.g., 5", packageDetails?.period)}
                                         {textField("Location", "location", "e.g., Bangkok", packageDetails?.location)}
 
-                                        <Grid item xs={12} sm={6}>
-                                            <FormControl fullWidth sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}>
-                                                <InputLabel id="package-type-label">Package Type <span className="text-red-500">*</span></InputLabel>
-                                                <Select
-                                                    labelId="package-type-label"
-                                                    label="Package Type"
-                                                    {...register("packageType", { required: true })}
-                                                    value={packageDetails.packageType || ""} // Controlled value
-                                                    onChange={(e) => {
-                                                        const result = e.target.value;
-                                                        setValue("packageType", result);
-                                                        setPackageDetails(prev => ({ ...prev, packageType: result }));
-                                                    }}
-                                                >
-                                                    <MenuItem value="Couple">Couple</MenuItem>
-                                                    <MenuItem value="Family">Family</MenuItem>
-                                                    <MenuItem value="Friends">Friends</MenuItem>
-                                                    <MenuItem value="Solo">Solo</MenuItem>
-                                                </Select>
-                                            </FormControl>
-                                        </Grid>
+
 
                                         <Grid item xs={12}>
                                             <TextField

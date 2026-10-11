@@ -72,6 +72,8 @@ import {
   updateHourlyEarnings,
   updateMonthlyEarnings,
 } from "../../../../../services/Earning";
+import { acceptHotelBookingWithAvailability } from "../../../../../services/HotelBookingAccept";
+import { releaseHotelInventory } from "../../../../../services/HotelAvailability";
 import { useNotifications } from "../../../../../contextAPIs/NotificationsProvider";
 import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
 import {
@@ -340,9 +342,6 @@ const RoomBookings = () => {
     try {
       // Server: accept pending → expand night.total if free is short, then book stock.
       // Confirming availability automatically increases rooms for those stay dates.
-      const { acceptHotelBookingWithAvailability } = await import(
-        "../../../../../services/HotelBookingAccept"
-      );
       const result = await acceptHotelBookingWithAvailability(
         booking.bookingId || booking.id
       );
@@ -760,9 +759,6 @@ const RoomBookings = () => {
               });
               // Give trigger a moment; also try explicit release
               try {
-                const { releaseHotelInventory } = await import(
-                  "../../../../../services/HotelAvailability"
-                );
                 await releaseHotelInventory(id);
               } catch (releaseErr) {
                 console.warn(

@@ -54,6 +54,7 @@ import {
   successNotification,
 } from "../../../../../utils/utils";
 import { getBookingSpecialNotes } from "../../../../../utils/bookingNotes";
+import { acceptHotelBookingWithAvailability } from "../../../../../services/HotelBookingAccept";
 
 const Bookings = () => {
   const { userData, isPartner } = useContext(AuthContext);
@@ -255,9 +256,6 @@ const Bookings = () => {
     if (confirm("Check details twice before confirming")) {
       let acceptResult = null;
       try {
-        const { acceptHotelBookingWithAvailability } = await import(
-          "../../../../../services/HotelBookingAccept"
-        );
         acceptResult = await acceptHotelBookingWithAvailability(
           bookingDetails.bookingId
         );

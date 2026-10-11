@@ -19,6 +19,12 @@ import PartnerChatProvider from "./contextAPIs/PartnerChatProvider";
 import { NotificationsProvider } from "./contextAPIs/NotificationsProvider";
 import GoogleMapsProvider from "./components/GoogleMapsProvider";
 
+// Automatically reload if a dynamic import fails (e.g., new deployment with updated chunk hashes)
+window.addEventListener("vite:preloadError", (event) => {
+  console.warn("Dynamic import failed, reloading to fetch latest assets...", event);
+  window.location.reload();
+});
+
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <AuthProvider>

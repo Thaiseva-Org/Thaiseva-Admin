@@ -24,7 +24,20 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [showpsw, setShowpsw] = useState(false);
   const [error, setError] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      const reason = sessionStorage.getItem("thaiseva:logged_out_reason");
+      if (reason === "inactivity") {
+        setInfoMessage("You were automatically logged out due to 10 minutes of inactivity.");
+        sessionStorage.removeItem("thaiseva:logged_out_reason");
+      }
+    } catch {
+      // Ignore sessionStorage access errors
+    }
+  }, []);
 
   // const handleLogin = (e) => {
   //   e.preventDefault();
@@ -107,6 +120,15 @@ const Login = () => {
               {"Sign In"}
             </h2> */}
           </div>
+          {infoMessage && (
+            <div
+              className="bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded-lg text-sm mb-6 flex items-center gap-2"
+              role="alert"
+            >
+              <FaExclamationCircle className="text-amber-500 shrink-0 text-base" />
+              <span>{infoMessage}</span>
+            </div>
+          )}
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label
