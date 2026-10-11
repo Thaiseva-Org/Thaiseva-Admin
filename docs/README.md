@@ -24,7 +24,8 @@ docs/
 │   └── DATA_SCHEMA_DICTIONARY.md     # Authoritative Firestore schema & subcollection dictionary
 ├── 05-security/
 │   ├── SECURITY_AND_RBAC.md          # Multi-tenant security model, RBAC matrix & rules audit
-│   └── DATA_PRIVACY_PDPA.md          # Thailand PDPA compliance & account deletion workflows
+│   ├── DATA_PRIVACY_PDPA.md          # Thailand PDPA compliance & account deletion workflows
+│   └── INTERNAL_DASHBOARD_REVIEW.md  # Technical review of internal dashboard data handling & access controls
 ├── 06-devops/
 │   └── DEPLOYMENT_RUNBOOK.md         # Local setup, Firebase deploy & production release gates
 ├── 07-user-guides/
@@ -48,6 +49,7 @@ docs/
 | [Data Schema Dictionary](04-data/DATA_SCHEMA_DICTIONARY.md) | Full Stack & Data Engineers | Authoritative NoSQL Firestore schema, subcollections, indexes, and legacy mappings. |
 | [Security & RBAC](05-security/SECURITY_AND_RBAC.md) | Security Auditors, Leads | Access control matrix, Firestore Security Rules governance, and threat model. |
 | [Data Privacy & PDPA](05-security/DATA_PRIVACY_PDPA.md) | Legal, Compliance, Ops | Thailand PDPA (B.E. 2562) compliance, Right to Erasure, and account deletion. |
+| [Internal Dashboard Review](05-security/INTERNAL_DASHBOARD_REVIEW.md) | Security, DevOps, Admins | Technical review of staff access, export coverage, session management, and retention controls. |
 | [Deployment Runbook](06-devops/DEPLOYMENT_RUNBOOK.md) | DevOps, Release Engineers | Local environment setup, Firebase CLI commands, and deployment checklists. |
 | [Admin User Manual](07-user-guides/ADMIN_USER_MANUAL.md) | Operations Staff, Partners | Guide for managing bookings, onboarding partners, chat support, and PDF invoicing. |
 | [Operations & SRE Runbook](08-operations/OPERATIONS_RUNBOOK.md) | SRE, Support Leads | Troubleshooting stuck holds, failed Stripe webhooks, and manual overrides. |

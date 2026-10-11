@@ -13,9 +13,10 @@ Welcome to the guide for navigating the Thaiseva Dashboard. This manual covers s
 - Navigate to the `/login` page.
 - Enter your registered email and password. 
 - Based on your assigned role (Admin, Sub-Admin, or Partner), the system will automatically route you to your tailored dashboard.
+- **Session Continuity:** Client-side inactivity auto-logout timers are disabled; operator sessions remain continuously logged in without disruptive timeouts.
 
 ### Dashboard Global Interface
-- **Sidebar Navigation:** Located on the left side of the screen. This is dynamically generated based on your permissions. On smaller screens, use the "hamburger" menu icon in the top left to expand the sidebar.
+- **Sidebar Navigation:** Located on the left side of the screen. This is dynamically generated based on your permissions. On smaller screens, use the "hamburger" menu icon in the top left to expand the sidebar. Includes real-time pending notification badges on sections like **Local Partners**.
 - **Top Header:** 
   - **Breadcrumbs / Current Page:** Displays where you are.
   - **Search/Query Field:** Filter data tables quickly.
@@ -52,7 +53,7 @@ Manage the public-facing Thaiseva website and app content directly from the dash
 - **Room Bookings:** Manage all customer reservations for hotels. Approve, modify, or cancel bookings as needed.
 
 ### ✈️ Travel & Transport Related
-- **Sightseeing Packages:** Build and manage travel itineraries, set pricing, and define inclusions/exclusions.
+- **Sightseeing Packages:** Build and manage travel itineraries, set pricing, define inclusions/exclusions, and link hotel partners or add manual hotel options with image uploads. Simplified form without obsolete partner packages or early bird discounts; deferred payments require confirmed package status.
 - **Sightseeing Bookings:** Manage customer purchases of travel packages.
 - **Taxi & Van Management:** Register fleet vehicles, assign drivers, and manage transport assets.
 - **Van Bookings:** Specific reservations for large group van transport.
@@ -61,10 +62,10 @@ Manage the public-facing Thaiseva website and app content directly from the dash
 
 ### 💬 Local Assistance & Communication
 - **Customer Chat:** Directly chat with app users needing assistance.
-- **App Chat:** General support channel for app technical issues.
-- **Local Partners:** Manage freelance or independent local guides.
+- **Local Partners:** Manage freelance or independent local guides. Includes an **Add New Partner** inline modal popup (with direct "Verified" or "Pending" status assignment and background auth protection), interactive filter tabs (Pending Requests, Verified Partners, Denied), and sidebar notification badges.
 - **Local Requirements:** Review custom requests posted by users needing specific local assistance.
 - **Partner Chat:** Dedicated support channel for communicating with verified partners.
+- *(Note: Legacy App Chat has been retired to focus staff on Customer, Driver, Hotel, and Local Partner support.)*
 
 ### 📍 Prime Locations
 - **Shops:** Manage listings of recommended shopping malls or local stores.

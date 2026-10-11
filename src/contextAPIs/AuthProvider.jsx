@@ -43,85 +43,6 @@ const AuthProvider = ({ children }) => {
   const [isVerifiedPartner, setIsVerifiedPartner] = useState(false);
   const [userData, setUserData] = useState({});
 
-  // Auto logout after 10 minutes of inactivity
-  useEffect(() => {
-    if (!user) return undefined;
-    const key = "thaiseva:admin:lastActivity";
-    const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
-
-    const stored = Number(localStorage.getItem(key));
-    let lastActivity =
-      stored && !Number.isNaN(stored)
-        ? Math.max(stored, Date.now() - INACTIVITY_TIMEOUT + 1000)
-        : Date.now();
-
-    if (!stored || Number.isNaN(stored)) {
-      try {
-        localStorage.setItem(key, String(lastActivity));
-      } catch {
-        // Ignore storage errors
-      }
-    }
-
-    let lastRecorded = 0;
-    const recordActivity = () => {
-      const now = Date.now();
-      lastActivity = now;
-      if (now - lastRecorded > 3000) {
-        lastRecorded = now;
-        try {
-          localStorage.setItem(key, String(now));
-        } catch {
-          // Ignore storage errors
-        }
-      }
-    };
-
-    const checkInactivity = () => {
-      const currentStored = Number(localStorage.getItem(key));
-      const effectiveLast =
-        currentStored && !Number.isNaN(currentStored)
-          ? Math.max(lastActivity, currentStored)
-          : lastActivity;
-
-      if (Date.now() - effectiveLast >= INACTIVITY_TIMEOUT) {
-        try {
-          sessionStorage.setItem("thaiseva:logged_out_reason", "inactivity");
-          localStorage.removeItem(key);
-        } catch {
-          // Ignore storage errors
-        }
-        signOut(auth);
-      }
-    };
-
-    const handleStorageChange = (e) => {
-      if (e.key === key && e.newValue) {
-        const val = Number(e.newValue);
-        if (!Number.isNaN(val) && val > lastActivity) {
-          lastActivity = val;
-        }
-      }
-    };
-
-    const events = ["pointerdown", "keydown", "touchstart", "scroll", "mousemove"];
-    events.forEach((event) =>
-      window.addEventListener(event, recordActivity, { passive: true })
-    );
-    window.addEventListener("storage", handleStorageChange);
-    document.addEventListener("visibilitychange", checkInactivity);
-    window.addEventListener("focus", checkInactivity);
-
-    const timer = window.setInterval(checkInactivity, 10000);
-
-    return () => {
-      window.clearInterval(timer);
-      events.forEach((event) => window.removeEventListener(event, recordActivity));
-      window.removeEventListener("storage", handleStorageChange);
-      document.removeEventListener("visibilitychange", checkInactivity);
-      window.removeEventListener("focus", checkInactivity);
-    };
-  }, [user]);
 
   /**
    * Creates a new user with email and password.
@@ -150,6 +71,7 @@ const AuthProvider = ({ children }) => {
   const logOut = () => {
     try {
       localStorage.removeItem("thaiseva:admin:lastActivity");
+      sessionStorage.removeItem("thaiseva:logged_out_reason");
     } catch {
       // Ignore storage errors
     }

@@ -46,6 +46,8 @@ users_check.json
 test.js
 check_imports.py
 src/push_self_drive.js
+functions/checkAdmin.js
+functions/createAdmin.js
 
 # Developer summaries/walkthroughs
 walkthrough.md

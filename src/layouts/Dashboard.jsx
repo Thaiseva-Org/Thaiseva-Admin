@@ -206,7 +206,6 @@ function Dashboard(props) {
     // console.log(link);
     setChatRoom(
       (link === "/dashboard/customer-chat" && "CustomerSupport") ||
-      (link === "/dashboard/app-chat" && "AppSupport") ||
       (link === "/dashboard/driver-chat" && "DriversSupport") ||
       (link === "/dashboard/partner-chat" && "LocalPartnerSupport") ||
       (link === "/dashboard/hotel-chat" && "HotelSupport") ||
@@ -223,7 +222,6 @@ function Dashboard(props) {
   React.useEffect(() => {
     const path = location.pathname;
     if (path === "/dashboard/customer-chat") setChatRoom("CustomerSupport");
-    else if (path === "/dashboard/app-chat") setChatRoom("AppSupport");
     else if (path === "/dashboard/driver-chat") setChatRoom("DriversSupport");
     else if (path === "/dashboard/partner-chat") setChatRoom("LocalPartnerSupport");
     else if (path === "/dashboard/hotel-chat") setChatRoom("HotelSupport");
@@ -917,8 +915,7 @@ function Dashboard(props) {
                     }`}
                   onClick={
                     route?.url === "/dashboard/customer-chat" ||
-                      route.url === "/dashboard/partner-chat" ||
-                      route.url === "/dashboard/app-chat"
+                      route.url === "/dashboard/partner-chat"
                       ? () => handleChatRooom(route.url)
                       : undefined
                   }
@@ -932,6 +929,9 @@ function Dashboard(props) {
                   <span className="grow ml-2">{route.lable}</span>
                   {route.url === "/dashboard/customer-chat" && chatCount > 0 && (
                     <Badge color="primary" badgeContent={`${chatCount}`} />
+                  )}
+                  {route.url === "/dashboard/local-partners" && totalRequest > 0 && (
+                    <Badge color="secondary" badgeContent={`${totalRequest}`} />
                   )}
                 </ListItem>
               </Link>

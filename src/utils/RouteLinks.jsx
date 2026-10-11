@@ -260,11 +260,6 @@ export const localAssislinks = [
     lable: "Customer Chat",
   },
   {
-    icon: <ForumIcon />,
-    url: "/dashboard/app-chat",
-    lable: "App Chat",
-  },
-  {
     url: "/dashboard/local-partners",
     lable: "Local Partners",
     icon: <ManageAccountsIcon />,

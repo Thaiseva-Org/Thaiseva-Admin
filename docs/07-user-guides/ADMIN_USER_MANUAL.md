@@ -25,6 +25,8 @@ flowchart TD
   - **Head Admin:** Complete platform governance, sub-admin management, financial summaries, and account deletion approvals.
   - **Sub-Admin:** Daily operations, partner document vetting, booking management, and customer support chat.
   - **Verified Partners:** Strictly scoped to their own listings, room calendars, assigned trips, and payout statements.
+- **Session Lifecycle & Persistence:**
+  - Client-side inactivity auto-logout timers have been permanently removed. Administrative and operator sessions persist continuously across active shifts without forced timeouts. Session security is governed by standard Firebase Auth token lifecycles and HTTPS transport.
 
 ---
 
@@ -81,10 +83,24 @@ sequenceDiagram
     end
 ```
 
-1. Navigate to **General Partners â†’ Manage Partners**.
+1. Navigate to **General Partners → Manage Partners** or **Local Assistance → Local Partners**.
 2. Filter table by **Status: Pending**.
 3. Click **Review** on the target application to inspect business registration documents, TAT tourism licenses, driver's licenses, and bank account details.
 4. If documents satisfy legal standards, click **Verify Partner**. The partner gains instant access to their self-service tools.
+
+#### Direct Partner Registration Modal (`/dashboard/local-partners`)
+Platform operators can onboard partners directly from the admin interface without navigating to the public onboarding page:
+1. Navigate to **Local Assistance → Local Partners** (`/dashboard/local-partners`).
+2. Click **Add New Partner** in the search and action bar.
+3. An inline popup `<Dialog>` opens directly over the current page:
+   - **Initial Status Switch:** Select whether the partner is created as **Verified (Active)** immediately or placed in **Pending Review**.
+   - **Credential & KYC Entry:** Enter credentials, contact profile, interactive Google Map location coordinates, service categories/sub-services, and payout banking information.
+   - **Isolated Admin Auth Session:** Employs an isolated secondary Firebase Auth app instance under the hood, ensuring the logged-in administrator's active session is never invalidated or logged out.
+   - **Real-Time Data Refresh:** On successful submission, the dialog closes automatically, and the Local Partners table and summary cards refresh immediately.
+4. **Partner Filter Tabs & Notification Badges:**
+   - Filter directly between **⏳ Pending Requests**, **✅ Verified Partners**, and **❌ Denied**.
+   - Interactive metric cards reflect total, pending, verified, and denied counts.
+   - A live badge counter is displayed in the sidebar navigation next to **Local Partners** reflecting pending partner registration requests awaiting attention.
 
 ---
 
@@ -109,7 +125,9 @@ Hoteliers manage their own inventory, but platform administrators can intervene 
 #### Sightseeing & Tour Packages (`/dashboard/sightseeing-packages`)
 - Manage guided tours, adventure excursions, and multi-day packages.
 - Define day-by-day itineraries, inclusions (e.g., lunch, speedboat, entry tickets), exclusions, and pricing structures (`pricePerAdult`, `pricePerChild`, `extraAdult`).
-- Link partner hotels to packages for seamless multi-product bundle rendering.
+- Link partner hotels or add manual hotel accommodations with built-in image uploading and validation.
+- **Streamlined Configuration:** The package creation form has been streamlined: obsolete partner package types, early bird discount matrices, transport logistics, and redundant person fields were deprecated to accelerate listing creation.
+- **Deferred Payment Safety:** In package booking checkouts, deferred payments strictly require explicit package confirmation prior to payment completion.
 
 #### Transport & Fleet Operations (`/dashboard/taxi-van-management`)
 - Register fleet vehicles (`transportVehicles`), license plates, and seat capacities.

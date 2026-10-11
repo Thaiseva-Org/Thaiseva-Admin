@@ -43,7 +43,7 @@ Admin tracking and CRUD interface covering all service categories:
 ### 🤝 2. Partner Onboarding Pipeline
 Comprehensive registration flows that handle licensing, payment info, and profiles for:
 *   **Hotels/Accommodations**
-*   **Local Partners & Service Providers**
+*   **Local Partners & Service Providers** (via external application route or embedded admin modal with direct status assignment and isolated auth sessions)
 *   **Drivers & Logistics Operators**
 *   **Restaurants & Dine-In Partnerships**
 

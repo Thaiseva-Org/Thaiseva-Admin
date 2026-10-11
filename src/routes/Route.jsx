@@ -478,14 +478,14 @@ export const router = createBrowserRouter([
           </AdminRoute>
         ),
       },
-      {
-        path: "/dashboard/app-chat",
-        element: (
-          <AdminRoute>
-            <AppChat />
-          </AdminRoute>
-        ),
-      },
+      // {
+      //   path: "/dashboard/app-chat",
+      //   element: (
+      //     <AdminRoute>
+      //       <AppChat />
+      //     </AdminRoute>
+      //   ),
+      // },
       // {
       //   path: "/dashboard/driver-chat",
       //   element: (

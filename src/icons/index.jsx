@@ -81,6 +81,7 @@ const MailBase = hugeIcon(StrokeRounded.Mail01Icon);
 const LocationBase = hugeIcon(StrokeRounded.Location01Icon);
 const SettingsBase = hugeIcon(StrokeRounded.Settings01Icon);
 
+export { Close };
 export const CloseIcon = Close;
 export const CloseRoundedIcon = Close;
 export const ClearIcon = Close;

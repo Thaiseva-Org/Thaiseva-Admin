@@ -1,4 +1,4 @@
-import { deleteDoc, doc, getDoc, updateDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, updateDoc, getCountFromServer, query, where } from "firebase/firestore";
 
 import { CloseIcon } from "@icons";
 import { DeleteForeverIcon } from "@icons";
@@ -17,6 +17,7 @@ import {
   TablePagination,
 } from "@mui/material";
 import { useContext, useEffect, useState } from "react";
+import PartnerOnboarding from "../../../../forms/PartnerOnboarding";
 import LoadingContent from "../../../../../components/LoadingContent";
 import PageHeading from "../../../../../components/PageHeading";
 import SearchBar from "../../../../../components/SearchBar";
@@ -66,22 +67,51 @@ const LocalPartners = () => {
   const [lastDocs, setLastDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refetch, setRefetch] = useState(true);
-  // const [queryText, setQueryText] = useState("Verified");
   const [viewDetailsModal, setViewDetailsModal] = useState(false);
+  const [openAddPartnerModal, setOpenAddPartnerModal] = useState(false);
   const [partnerDetails, setPartnerDetails] = useState({});
-  // const [serviceCategories, setServiceCategories] = useState([]);
   const [status, setStatus] = useState("Pending");
-  // const {
-  //   partners,
-  //   setRefetch,
-  //   queryText,
-  //   setQueryCategory,
-  //   queryCategory,
-  //   loadingPartnerData,
-  // } = useContext(PartnerContext);
-  const { queryText } = useContext(PartnerContext);
+  const { queryText, setQueryText, setRefetch: setPartnerContextRefetch } = useContext(PartnerContext);
+  const [activeTab, setActiveTab] = useState(queryText || "Pending");
   const [partners, setPartners] = useState([]);
   const [matchedPartners, setMatchedPartners] = useState([]);
+  const [partnerCounts, setPartnerCounts] = useState({
+    total: 0,
+    verified: 0,
+    pending: 0,
+    denied: 0,
+  });
+
+  const handleTabChange = (newStatus) => {
+    setActiveTab(newStatus);
+    if (setQueryText) setQueryText(newStatus);
+    setPage(0);
+    setLastDocs([]);
+  };
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      try {
+        const [totalSnap, verifiedSnap, pendingSnap, deniedSnap] = await Promise.all([
+          getCountFromServer(partnersCollection),
+          getCountFromServer(query(partnersCollection, where("status", "==", "Verified"))),
+          getCountFromServer(query(partnersCollection, where("status", "==", "Pending"))),
+          getCountFromServer(query(partnersCollection, where("status", "==", "Denied"))),
+        ]);
+        setPartnerCounts({
+          total: totalSnap.data().count,
+          verified: verifiedSnap.data().count,
+          pending: pendingSnap.data().count,
+          denied: deniedSnap.data().count,
+        });
+      } catch (err) {
+        console.warn("Could not fetch partner counts:", err.message);
+      }
+    };
+    if (isAdmin || isSubAdmin) {
+      fetchCounts();
+    }
+  }, [isAdmin, isSubAdmin, refetch]);
 
   useEffect(() => {
     if (partners.length > 0) {
@@ -91,19 +121,19 @@ const LocalPartners = () => {
 
   useEffect(() => {
     if (isAdmin || isSubAdmin) {
-      localPartnersTotalPages(setTotalPages, queryText);
+      localPartnersTotalPages(setTotalPages, activeTab);
       fetchlocalPartners(
         setPartners,
         setMatchedPartners,
         setLoading,
-        queryText,
+        activeTab,
         lastDocs,
         setLastDocs,
         rowsPerPage,
         page
       );
     }
-  }, [isAdmin, isSubAdmin, page, rowsPerPage, queryText, refetch]);
+  }, [isAdmin, isSubAdmin, page, rowsPerPage, activeTab, refetch]);
 
   // Partners table header
   const columns = [
@@ -176,24 +206,13 @@ const LocalPartners = () => {
   const handleChangeStatus = async (id) => {
     handleClose();
 
-    const updatedStatus = { status: status };
+    const updatedStatus = { status: status, verified: status === "Verified" };
     try {
       await updateDoc(doc(partnersCollection, id), updatedStatus);
       await updateDoc(doc(usersCollection, id), updatedStatus);
-      // if (status == "Verified") {
-      //   await setDoc(
-      //     doc(agentsCollection, id),
-      //     {
-      //       email: partnerDetails.personalInformation.email,
-      //       name: partnerDetails.personalInformation.fullName,
-      //       id: id,
-      //       status: "available",
-      //     },
-      //     { merge: true }
-      //   );
-      // }
-      successNotification("Status is changed successfully");
+      successNotification(`Partner status changed successfully to ${status}`);
       setRefetch((p) => !p);
+      if (setPartnerContextRefetch) setPartnerContextRefetch((p) => !p);
       setPartnerDetails({});
       setStatus("Pending");
     } catch (error) {
@@ -238,13 +257,16 @@ const LocalPartners = () => {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
+        <div
+          onClick={() => handleTabChange("Verified")}
+          className={`bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transition-transform hover:scale-[1.02]`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-primary-100 text-sm font-medium mb-1">
                 Total Partners
               </p>
-              <p className="text-3xl font-bold">{matchedPartners.length}</p>
+              <p className="text-3xl font-bold">{partnerCounts.total}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <span className="text-3xl">🤝</span>
@@ -252,31 +274,18 @@ const LocalPartners = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-success-100 text-sm font-medium mb-1">
-                Verified
-              </p>
-              <p className="text-3xl font-bold">
-                {matchedPartners.filter((p) => p.status === "Verified").length}
-              </p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">✅</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-warning-500 to-warning-600 rounded-xl p-6 text-white shadow-lg">
+        <div
+          onClick={() => handleTabChange("Pending")}
+          className={`bg-gradient-to-br from-warning-500 to-warning-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transition-transform hover:scale-[1.02] ${
+            activeTab === "Pending" ? "ring-4 ring-amber-300 ring-offset-2" : ""
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-warning-100 text-sm font-medium mb-1">
-                Pending
+                Pending Requests
               </p>
-              <p className="text-3xl font-bold">
-                {matchedPartners.filter((p) => p.status === "Pending").length}
-              </p>
+              <p className="text-3xl font-bold">{partnerCounts.pending}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <span className="text-3xl">⏳</span>
@@ -284,13 +293,35 @@ const LocalPartners = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-danger-500 to-danger-600 rounded-xl p-6 text-white shadow-lg">
+        <div
+          onClick={() => handleTabChange("Verified")}
+          className={`bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transition-transform hover:scale-[1.02] ${
+            activeTab === "Verified" ? "ring-4 ring-green-300 ring-offset-2" : ""
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-success-100 text-sm font-medium mb-1">
+                Verified Partners
+              </p>
+              <p className="text-3xl font-bold">{partnerCounts.verified}</p>
+            </div>
+            <div className="bg-white/20 p-3 rounded-lg">
+              <span className="text-3xl">✅</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          onClick={() => handleTabChange("Denied")}
+          className={`bg-gradient-to-br from-danger-500 to-danger-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transition-transform hover:scale-[1.02] ${
+            activeTab === "Denied" ? "ring-4 ring-red-300 ring-offset-2" : ""
+          }`}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-danger-100 text-sm font-medium mb-1">Denied</p>
-              <p className="text-3xl font-bold">
-                {matchedPartners.filter((p) => p.status === "Denied").length}
-              </p>
+              <p className="text-3xl font-bold">{partnerCounts.denied}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <span className="text-3xl">❌</span>
@@ -299,9 +330,57 @@ const LocalPartners = () => {
         </div>
       </div>
 
+      {/* Filter Tabs */}
+      <div className="flex flex-wrap items-center gap-3 mb-6 bg-white p-3 rounded-xl shadow-sm border border-neutral-200">
+        <span className="text-sm font-bold text-neutral-500 uppercase tracking-wide mr-2">
+          Filter:
+        </span>
+        <button
+          onClick={() => handleTabChange("Pending")}
+          className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+            activeTab === "Pending"
+              ? "bg-warning-500 text-white shadow-md scale-105"
+              : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+          }`}
+        >
+          <span>⏳ Pending Requests</span>
+          {partnerCounts.pending > 0 && (
+            <span className="bg-white text-warning-700 text-xs px-2 py-0.5 rounded-full font-bold">
+              {partnerCounts.pending}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => handleTabChange("Verified")}
+          className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+            activeTab === "Verified"
+              ? "bg-success-600 text-white shadow-md scale-105"
+              : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+          }`}
+        >
+          <span>✅ Verified Partners</span>
+          <span className="bg-white/20 text-xs px-2 py-0.5 rounded-full">
+            {partnerCounts.verified}
+          </span>
+        </button>
+        <button
+          onClick={() => handleTabChange("Denied")}
+          className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all flex items-center gap-2 ${
+            activeTab === "Denied"
+              ? "bg-danger-600 text-white shadow-md scale-105"
+              : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+          }`}
+        >
+          <span>❌ Denied</span>
+          <span className="bg-white/20 text-xs px-2 py-0.5 rounded-full">
+            {partnerCounts.denied}
+          </span>
+        </button>
+      </div>
+
       <SearchBar
         handleSearch={handleSearch}
-        to="/partner-onboarding"
+        handleOpenModal={() => setOpenAddPartnerModal(true)}
         btnTitle="Add New Partner"
       />
 
@@ -333,7 +412,7 @@ const LocalPartners = () => {
                         <div className="flex flex-col items-center justify-center gap-3">
                           <span className="text-6xl opacity-50">🤝</span>
                           <p className="text-neutral-500 font-medium">
-                            No {queryText} Partners Found
+                            No {activeTab} Partners Found
                           </p>
                           <p className="text-neutral-400 text-sm">
                             Partner accounts will appear here once they register
@@ -653,6 +732,31 @@ const LocalPartners = () => {
             </Grid>
           </Grid>
         </DialogContent>
+      </Dialog>
+
+      {/* Add New Partner Popup Modal */}
+      <Dialog
+        open={openAddPartnerModal}
+        onClose={() => setOpenAddPartnerModal(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: "20px",
+            overflow: "hidden",
+            maxHeight: "92vh",
+          },
+        }}
+      >
+        <PartnerOnboarding
+          isModal={true}
+          onClose={() => setOpenAddPartnerModal(false)}
+          onSuccess={() => {
+            setOpenAddPartnerModal(false);
+            setRefetch((p) => !p);
+            if (setPartnerContextRefetch) setPartnerContextRefetch((p) => !p);
+          }}
+        />
       </Dialog>
     </div>
   );

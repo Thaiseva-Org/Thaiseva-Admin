@@ -167,7 +167,7 @@ const MyLocalRequirements = () => {
 
   return (
     <div>
-      <PageHeading text={"Requirments"} />
+      <PageHeading text={"Requirements"} />
       <div className="flex justify-end items-center mb-4">
         <div className="flex gap-2 flex-wrap">
           <form
@@ -326,7 +326,7 @@ const MyLocalRequirements = () => {
                     <TableRow>
                       <TableCell colSpan={6}>
                         <div className="w-full text-center my-5 light-text">
-                          No Requirements
+                          No Requirements Yet
                         </div>
                       </TableCell>
                     </TableRow>
