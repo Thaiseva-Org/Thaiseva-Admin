@@ -12,6 +12,7 @@ import {
     Checkbox,
     Paper,
     Autocomplete,
+    CircularProgress,
 } from "@mui/material";
 import { AddCircleIcon, CloseIcon, SaveIcon, ArrowBackIcon } from "@icons";
 import { toast } from "react-toastify";
@@ -160,6 +161,7 @@ const AddSightseeingPackage = () => {
 
     const [itinerary, setItinerary] = useState([]);
     const [hotelsIncluded, setHotelsIncluded] = useState([]);
+    const [uploadingHotelIndex, setUploadingHotelIndex] = useState(null);
     const [sights, setSights] = useState([]);
     const [specialRates, setSpecialRates] = useState({
         seasonalPricing: { enabled: false, note: "" },
@@ -258,7 +260,7 @@ const AddSightseeingPackage = () => {
 
     const addHotel = () => {
         setHotelsIncluded([...hotelsIncluded, {
-            hotelId: "", hotelName: "", nights: 1, roomType: "", location: "", isManual: false
+            hotelId: "", hotelName: "", nights: 1, roomType: "", location: "", isManual: false, images: [], image: ""
         }]);
     };
 
@@ -266,6 +268,71 @@ const AddSightseeingPackage = () => {
         const newList = [...hotelsIncluded];
         newList[index][field] = value;
         setHotelsIncluded(newList);
+    };
+
+    const handleToggleHotelPartner = (index, isPartner) => {
+        setHotelsIncluded(prev => {
+            const newList = [...prev];
+            newList[index] = {
+                ...newList[index],
+                isManual: !isPartner,
+                hotelId: !isPartner ? (newList[index].hotelId || uuid()) : "",
+                hotelName: !isPartner ? newList[index].hotelName : "",
+                roomType: !isPartner ? newList[index].roomType : "",
+                images: newList[index].images || [],
+                image: newList[index].image || "",
+            };
+            return newList;
+        });
+    };
+
+    const handleUploadHotelImage = async (hotelIndex, e) => {
+        try {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            if (file.size > 10 * 1024 * 1024) {
+                return toast.error("Hotel photo must be under 10MB");
+            }
+
+            setUploadingHotelIndex(hotelIndex);
+            const fileRef = ref(storage, `hotel-images/${crypto.randomUUID()}`);
+            const uploadTask = await uploadBytesResumable(fileRef, file);
+            const photoURL = await getDownloadURL(uploadTask.ref);
+
+            if (photoURL) {
+                setHotelsIncluded(prev => {
+                    const newList = [...prev];
+                    const currentImages = Array.isArray(newList[hotelIndex]?.images) ? newList[hotelIndex].images : [];
+                    newList[hotelIndex] = {
+                        ...newList[hotelIndex],
+                        images: [...currentImages, photoURL],
+                        image: newList[hotelIndex].image || photoURL,
+                    };
+                    return newList;
+                });
+                toast.success("Hotel photo uploaded successfully");
+            }
+        } catch (error) {
+            console.error("Hotel photo upload failed:", error);
+            toast.error("Failed to upload hotel photo");
+        } finally {
+            setUploadingHotelIndex(null);
+            if (e.target) e.target.value = "";
+        }
+    };
+
+    const handleRemoveHotelImage = (hotelIndex, imageIndex) => {
+        setHotelsIncluded(prev => {
+            const newList = [...prev];
+            const currentImages = (newList[hotelIndex]?.images || []).filter((_, i) => i !== imageIndex);
+            newList[hotelIndex] = {
+                ...newList[hotelIndex],
+                images: currentImages,
+                image: currentImages[0] || "",
+            };
+            return newList;
+        });
     };
 
     const handleAddPlace = () => {
@@ -391,6 +458,23 @@ const AddSightseeingPackage = () => {
             return toast.error("Please add at least one day to the itinerary");
         }
 
+        for (let i = 0; i < hotelsIncluded.length; i++) {
+            const h = hotelsIncluded[i];
+            if (h.isManual) {
+                if (!h.hotelName?.trim()) {
+                    return toast.error(`Please provide a hotel name for Hotel #${i + 1}`);
+                }
+                const hImages = h.images || (h.image ? [h.image] : []);
+                if (!hImages || hImages.length === 0) {
+                    return toast.error(`Please upload at least 1 image for "${h.hotelName}"`);
+                }
+            } else {
+                if (!h.hotelId || !h.hotelName) {
+                    return toast.error(`Please select a partner hotel for Hotel #${i + 1}`);
+                }
+            }
+        }
+
         const id = isEdit ? packageId : uuid();
         const timestamp = isEdit && packageDetails.timestamp ? packageDetails.timestamp : new Date();
 
@@ -409,6 +493,12 @@ const AddSightseeingPackage = () => {
         };
 
         const baseStruct = getEmptySightseeingPackage();
+
+        const formattedHotels = hotelsIncluded.map(h => ({
+            ...h,
+            images: h.images || (h.image ? [h.image] : []),
+            image: (h.images && h.images[0]) || h.image || "",
+        }));
 
         const travelDetails = {
             ...baseStruct,
@@ -432,8 +522,8 @@ const AddSightseeingPackage = () => {
             pictures: arrayData?.pictures || [],
 
             itinerary: itinerary.length > 0 ? itinerary : baseStruct.itinerary,
-            hotelsIncluded: hotelsIncluded,
-            hotels: hotelsIncluded || [],
+            hotelsIncluded: formattedHotels,
+            hotels: formattedHotels,
 
             sights: sights.length > 0 ? sights : (arrayData?.places?.map(s => ({
                 sightId: uuid(),
@@ -873,22 +963,15 @@ const AddSightseeingPackage = () => {
                                                     {/* Toggle Mode */}
                                                     <div className="mb-4 flex items-center gap-2">
                                                         <FormControlLabel
-                                                            control={
-                                                                <Checkbox
-                                                                    checked={!hotel.isManual}
-                                                                    onChange={(e) => {
-                                                                        const isPartner = e.target.checked;
-                                                                        updateHotel(index, 'isManual', !isPartner);
-                                                                        if (!isPartner) {
-                                                                            // Switch to Manual - clear IDs but keep names if useful? Or clear?
-                                                                            updateHotel(index, 'hotelId', uuid());
-                                                                        }
-                                                                    }}
-                                                                    size="small"
-                                                                />
-                                                            }
-                                                            label={<span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">Use Partner Hotel</span>}
-                                                        />
+                                                             control={
+                                                                 <Checkbox
+                                                                     checked={!hotel.isManual}
+                                                                     onChange={(e) => handleToggleHotelPartner(index, e.target.checked)}
+                                                                     size="small"
+                                                                 />
+                                                             }
+                                                             label={<span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">Use Partner Hotel</span>}
+                                                         />
                                                     </div>
 
                                                     <Grid container spacing={3} alignItems="center">
@@ -933,6 +1016,80 @@ const AddSightseeingPackage = () => {
                                                             )}
                                                         </Grid>
                                                     </Grid>
+
+                                                    {/* Manual Hotel Photo Upload */}
+                                                    {hotel.isManual && (
+                                                        <div className="mt-4 pt-4 border-t border-gray-100">
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                                                                    Hotel Photos <span className="text-red-500">*</span>
+                                                                    <span className="text-gray-400 font-normal">
+                                                                        (Upload at least 1 image for this manual hotel)
+                                                                    </span>
+                                                                </label>
+                                                                {hotel.images?.length > 0 && (
+                                                                    <span className="text-[11px] font-medium text-gray-400">
+                                                                        {hotel.images.length} {hotel.images.length === 1 ? "photo" : "photos"} added
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex flex-wrap items-center gap-3">
+                                                                {/* Upload Button */}
+                                                                <label className="relative flex flex-col items-center justify-center w-24 h-24 border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-xl cursor-pointer bg-gray-50 hover:bg-blue-50/30 transition-all group">
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                                        onChange={(e) => handleUploadHotelImage(index, e)}
+                                                                        disabled={uploadingHotelIndex === index}
+                                                                    />
+                                                                    {uploadingHotelIndex === index ? (
+                                                                        <div className="flex flex-col items-center justify-center text-blue-600">
+                                                                            <CircularProgress size={20} className="mb-1" />
+                                                                            <span className="text-[10px] font-medium text-gray-500">Uploading...</span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="flex flex-col items-center justify-center text-gray-400 group-hover:text-blue-600 transition-colors">
+                                                                            <span className="text-2xl mb-0.5">📸</span>
+                                                                            <span className="text-[11px] font-medium">Add Photo</span>
+                                                                        </div>
+                                                                    )}
+                                                                </label>
+
+                                                                {/* Uploaded Photos Preview */}
+                                                                {(hotel.images || (hotel.image ? [hotel.image] : [])).map((imgUrl, imgIdx) => (
+                                                                    <div key={imgIdx} className="relative w-24 h-24 rounded-xl overflow-hidden border border-gray-200 shadow-sm group">
+                                                                        <img
+                                                                            src={imgUrl}
+                                                                            alt={`Hotel photo ${imgIdx + 1}`}
+                                                                            className="w-full h-full object-cover"
+                                                                        />
+                                                                        <div
+                                                                            className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-0.5 cursor-pointer shadow-md hover:scale-110 transition-transform"
+                                                                            onClick={(e) => {
+                                                                                e.preventDefault();
+                                                                                handleRemoveHotelImage(index, imgIdx);
+                                                                            }}
+                                                                            title="Remove photo"
+                                                                        >
+                                                                            <CloseIcon sx={{ fontSize: 12 }} />
+                                                                        </div>
+                                                                        {imgIdx === 0 && (
+                                                                            <div className="absolute bottom-0 inset-x-0 bg-black/60 text-white text-[9px] font-semibold text-center py-0.5">
+                                                                                Cover
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+
+                                                                {(!hotel.images || hotel.images.length === 0) && !hotel.image && (
+                                                                    <span className="text-xs text-red-500 italic">
+                                                                        * Photo required for non-partner hotels
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
