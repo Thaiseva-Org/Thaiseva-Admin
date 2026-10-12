@@ -86,6 +86,16 @@ export const evaluateSightseeingCapacity = async (
   const globalDailyLimit =
     parseInt(String(settingsData?.globalDailyLimit)) || 20;
 
+  const pkgDailyRaw = packageData?.dailyLimit;
+  const pkgDaily =
+    pkgDailyRaw !== null &&
+    pkgDailyRaw !== undefined &&
+    pkgDailyRaw !== ""
+      ? parseInt(String(pkgDailyRaw))
+      : NaN;
+  const effectiveDailyLimit =
+    !isNaN(pkgDaily) && pkgDaily >= 0 ? pkgDaily : globalDailyLimit;
+
   let weeklyLimit = globalLimit;
 
   if (
@@ -158,10 +168,10 @@ export const evaluateSightseeingCapacity = async (
 
   return {
     weeklyOk: weeklyCount < weeklyLimit,
-    dailyOk: tourDate ? dailyCount < globalDailyLimit : false,
+    dailyOk: tourDate ? dailyCount < effectiveDailyLimit : false,
     weeklyCount,
     weeklyLimit,
     dailyCount,
-    dailyLimit: globalDailyLimit,
+    dailyLimit: effectiveDailyLimit,
   };
 };

@@ -28,6 +28,7 @@ import {
     getDoc,
     getDocs,
     collection,
+    onSnapshot,
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { db, storage, travelServicesCollection } from "../../../../../firebase/firebase.config";
@@ -95,6 +96,17 @@ const AddSightseeingPackage = () => {
     }, [currentStep]);
 
     const [coverPhotoURL, setCoverPhotoURL] = useState("");
+    const [globalDailyLimit, setGlobalDailyLimit] = useState(20);
+
+    useEffect(() => {
+        const unsub = onSnapshot(doc(db, "settings", "sightseeingConfig"), (snap) => {
+            if (snap.exists()) {
+                const val = snap.data().globalDailyLimit;
+                if (val !== undefined && val !== null) setGlobalDailyLimit(val);
+            }
+        }, (err) => console.warn("Failed to listen to sightseeingConfig:", err));
+        return () => unsub?.();
+    }, []);
     const [packageDetails, setPackageDetails] = useState({
         id: "",
         title: "",
@@ -935,16 +947,23 @@ const AddSightseeingPackage = () => {
 
                                     {/* Booking Configuration */}
                                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                                        <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">⚙️ Booking Capacity & Limits</Typography>
+                                        <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+                                            <Typography variant="h6" className="text-gray-800 font-bold flex items-center gap-2">
+                                                ⚙️ Booking Capacity & Limits
+                                            </Typography>
+                                            <span className="text-xs px-3 py-1 bg-purple-100 text-purple-800 font-semibold rounded-full border border-purple-200">
+                                                Preferred: Individual Limit &gt; Global Limit ({globalDailyLimit})
+                                            </span>
+                                        </div>
                                         <Grid container spacing={4}>
                                             <Grid item xs={12} md={6}>
                                                 <TextField
                                                     label="Individual Package Daily Limit"
                                                     type="number"
                                                     fullWidth
-                                                    placeholder="e.g. 15 (Leave blank for global limit)"
+                                                    placeholder={`e.g. 15 (Leave blank for global: ${globalDailyLimit})`}
                                                     defaultValue={packageDetails?.dailyLimit ?? ""}
-                                                    helperText="Maximum allowed bookings per tour day for this package. Leave empty to use global limit."
+                                                    helperText={`Preferred: If set, this package daily limit is prioritized. Otherwise, global limit (${globalDailyLimit}) applies.`}
                                                     InputProps={{
                                                         inputProps: { min: 0 },
                                                         startAdornment: <InputAdornment position="start">📊</InputAdornment>
@@ -961,9 +980,11 @@ const AddSightseeingPackage = () => {
                                                 <div className="p-4 bg-purple-50 text-purple-900 rounded-xl border border-purple-100 flex items-center gap-3 h-full">
                                                     <span className="text-2xl">⚡</span>
                                                     <div>
-                                                        <Typography variant="subtitle2" fontWeight="bold">Global Fallback Active</Typography>
-                                                        <Typography variant="body2" className="text-purple-700 text-xs mt-0.5">
-                                                            If left blank, bookings for this package will be governed by the Global Daily Limit configured on the Sightseeing Packages dashboard.
+                                                        <Typography variant="subtitle2" fontWeight="bold">
+                                                            Preferred: Individual Limit &gt; Global Limit ({globalDailyLimit})
+                                                        </Typography>
+                                                        <Typography variant="body2" className="text-purple-700 text-xs mt-1 leading-relaxed">
+                                                            When an individual daily limit is set for this package, it is strictly preferred and prioritized. If left empty, the global daily limit (currently <strong>{globalDailyLimit} bookings/day</strong>) automatically applies as fallback.
                                                         </Typography>
                                                     </div>
                                                 </div>

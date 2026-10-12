@@ -29,10 +29,12 @@ function countsTowardDailyLimit(data, date, now = new Date()) {
     return data.isBookingConfirmed === true || /ACCEPT|CONFIRM|DONE/.test(`${data.status || ""} ${data.bookingStatus || ""}`.toUpperCase());
 }
 
-function availability(date, settings, docs, now = new Date(), excludeId = "") {
+function availability(date, settings, docs, now = new Date(), excludeId = "", packageData = null) {
     const decision = dateDecision(date, now);
     const configured = Number(settings?.globalDailyLimit);
-    const dailyLimit = Number.isInteger(configured) && configured >= 0 ? configured : 20;
+    const globalDailyLimit = Number.isInteger(configured) && configured >= 0 ? configured : 20;
+    const pkgDaily = Number(packageData?.dailyLimit);
+    const dailyLimit = Number.isInteger(pkgDaily) && pkgDaily >= 0 ? pkgDaily : globalDailyLimit;
     const dailyCount = docs.filter(doc => doc.id !== excludeId && countsTowardDailyLimit(doc.data(), date, now)).length;
     const canInstantBook = decision.valid && decision.preparationOk && dailyCount < dailyLimit;
     return { ...decision, dailyLimit, dailyCount, canInstantBook, bookingFlow: canInstantBook ? "INSTANT" : "REQUEST",
@@ -40,9 +42,14 @@ function availability(date, settings, docs, now = new Date(), excludeId = "") {
         message: decision.message || (canInstantBook ? "Instant booking is available for this date within the daily limit." : CAPACITY_MESSAGE) };
 }
 
-async function checkAvailability(db, date, now = new Date()) {
-    const [settings, bookings] = await Promise.all([db.collection("settings").doc("sightseeingConfig").get(), db.collection("travelBookingDetails").get()]);
-    return availability(date, settings.data(), bookings.docs, now);
+async function checkAvailability(db, date, now = new Date(), packageId = "") {
+    const [settings, bookings, packageDoc] = await Promise.all([
+        db.collection("settings").doc("sightseeingConfig").get(),
+        db.collection("travelBookingDetails").get(),
+        packageId ? db.collection("travelServices").doc(packageId).get() : Promise.resolve(null)
+    ]);
+    const packageData = packageDoc?.exists ? packageDoc.data() : null;
+    return availability(date, settings.data(), bookings.docs, now, "", packageData);
 }
 
 // A per-date document serializes all new instant reservations. Pending requests
@@ -62,8 +69,10 @@ async function reserveBooking(db, admin, ref, data) {
             }
             return { data: previous, duplicate: true };
         }
+        const packageDoc = data.packageId ? await tx.get(db.collection("travelServices").doc(data.packageId)) : null;
+        const packageData = packageDoc?.exists ? packageDoc.data() : null;
         const [settings, bookings] = await Promise.all([tx.get(db.collection("settings").doc("sightseeingConfig")), tx.get(db.collection("travelBookingDetails")), tx.get(lock)]);
-        const result = availability(date, settings.data(), bookings.docs, now, ref.id);
+        const result = availability(date, settings.data(), bookings.docs, now, ref.id, packageData);
         if (!result.valid) {
             const error = new Error(result.message);
             Object.assign(error, { statusCode: 400, reasonCode: result.reasonCode });
