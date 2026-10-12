@@ -1,3 +1,4 @@
+import BookingQueueTabLabel from "../../../../../components/bookings/BookingQueueTabLabel";
 import { CloseIcon } from "@icons";
 import { CloseRoundedIcon } from "@icons";
 import { DoneRoundedIcon } from "@icons";
@@ -112,8 +113,8 @@ const TravelBookings = () => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isRealTime, setIsRealTime] = useState(true);
-  // 0=All (default) so Thai QR / auto-accepted bookings are not hidden on Pending
-  const [tabValue, setTabValue] = useState(0);
+  // Start with bookings that need review.
+  const [tabValue, setTabValue] = useState(1);
   const [viewMode, setViewMode] = useState("list");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedBookings, setSelectedBookings] = useState([]);
@@ -190,7 +191,6 @@ const TravelBookings = () => {
   // Tab indices: 0 All | 1 Pending | 2 Thai QR/Onsite | 3 Paid | 4 Declined | 5 Next 7 Days
   const filterByTab = (row, tab) => {
     const booking = row.rawData || row;
-    if (tab === 0) return true; // All bookings
     if (tab === 1) return isSightseeingPendingReview(booking);
     if (tab === 2) return isSightseeingOnsiteQueue(booking);
     if (tab === 3) return isSightseeingRevenueEligible(booking);
@@ -992,7 +992,7 @@ const TravelBookings = () => {
       {/* Statistics Cards — click jumps to the matching tab */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div
-          onClick={() => setTabValue(0)}
+          onClick={() => setTabValue(1)}
           className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg cursor-pointer transform transition-all hover:scale-105 hover:shadow-2xl active:scale-95"
         >
           <div className="flex items-center justify-between">
@@ -1382,12 +1382,11 @@ const TravelBookings = () => {
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab label={`All (${bookingStats.total})`} />
-          <Tab label={`Pending (${bookingStats.pending})`} />
-          <Tab label={`Thai QR / Onsite (${bookingStats.onsite})`} />
-          <Tab label={`Paid & Accepted (${bookingStats.paidAccepted})`} />
-          <Tab label={`Declined (${bookingStats.declined})`} />
-          <Tab label={`Next 7 Days (${bookingStats.next7})`} />
+          <Tab value={1} label={<BookingQueueTabLabel label="Pending" count={bookingStats.pending} icon={<PersonIcon fontSize="small" />} />} />
+          <Tab value={2} label={<BookingQueueTabLabel label="Thai QR / Onsite" count={bookingStats.onsite} icon={<PaymentsIcon fontSize="small" />} />} />
+          <Tab value={3} label={<BookingQueueTabLabel label="Paid & Accepted" count={bookingStats.paidAccepted} icon={<CheckCircle fontSize="small" />} />} />
+          <Tab value={4} label={<BookingQueueTabLabel label="Declined" count={bookingStats.declined} icon={<CloseIcon fontSize="small" />} />} />
+          <Tab value={5} label={<BookingQueueTabLabel label="Next 7 Days" count={bookingStats.next7} icon={<CalendarMonthIcon fontSize="small" />} />} />
         </Tabs>
       </Box>
 
@@ -1694,13 +1693,13 @@ const TravelBookings = () => {
                               Open Thai QR / Onsite ({bookingStats.onsite})
                             </button>
                           )}
-                          {tabValue !== 0 && bookingStats.total > 0 && (
+                          {tabValue !== 1 && bookingStats.pending > 0 && (
                             <button
                               type="button"
-                              onClick={() => setTabValue(0)}
+                              onClick={() => setTabValue(1)}
                               className="mt-2 px-4 py-2 rounded-lg border border-neutral-300 text-neutral-700 text-sm font-semibold hover:bg-neutral-50"
                             >
-                              View All ({bookingStats.total})
+                              View Pending ({bookingStats.pending})
                             </button>
                           )}
                         </div>
