@@ -256,74 +256,93 @@ await startHold({ hotelId, packageId, checkIn, checkOut, rooms: 1 });
 
 ## 8. Sightseeing / package booking
 
+> **Master Integration Guide:** Refer to the comprehensive **[Sightseeing Package Booking API & Integration Guide](../docs/03-api/PACKAGE_BOOKING_INTEGRATION_GUIDE.md)** for exhaustive details, diagrams, and code snippets.
+
+### Core Implementation Files (from Workspace Root)
+- **Endpoint:** [`functions/src/bookingCheckout/sightseeingBooking.ts`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/src/bookingCheckout/sightseeingBooking.ts) (`createSightseeingBooking`)
+- **Flow & Capacity Engine:** [`functions/sightseeingFlow.js`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/sightseeingFlow.js) (`dateDecision`, `availability`, `reserveBooking`, `approvedForPayment`)
+- **Catalog Repricing:** [`functions/src/payments/packagePricing.ts`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/src/payments/packagePricing.ts) (`trustedSightseeingAmount`)
+- **Pay Confirmed Request:** [`functions/src/bookingCheckout/payExisting.ts`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/src/bookingCheckout/payExisting.ts) (`createCheckoutSession`)
+- **Payment Verification:** [`functions/src/payments/verifySession.ts`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/src/payments/verifySession.ts) (`verifySession`)
+- **Webhook Processing:** [`functions/src/payments/stripeWebhook.ts`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/src/payments/stripeWebhook.ts) (`stripeWebhook`)
+- **Triggers & Notifications:** [`functions/src/triggers/sightseeingTriggers.ts`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/src/triggers/sightseeingTriggers.ts) (`autoAcceptSightseeingBookings`, `onSightseeingBookingStatusChange`)
+
 ### `POST createSightseeingBooking`
 
-Collection written by the server: **`travelBookingDetails`**.  
+Collection written by the server: **`travelBookingDetails`**. Document ID follows deterministic structure: `pkg_{userId}_{packageId}_{arrivalDate}_{departureDate}`.  
 Clients must **not** write this collection directly.
+
+### Dual-Flow Routing (Dates & Capacity)
+- **Tomorrow or Day 2 (+1 to +2 days):** `REQUEST` flow (`PREPARATION_REQUIRED`). Saved as `Pending` / `PENDING_REVIEW` with `payNow: false`. Admin confirms before payment opens.
+- **Day 3 Onward (≥ +3 days):**
+  - **Under daily limit (`< globalDailyLimit`):** `INSTANT` flow. Saved as `Accepted` / `AWAITING_PAYMENT` with `payNow: true`. Capacity locked for 35 min; Stripe checkout URL returned.
+  - **Daily limit reached:** `REQUEST` flow (`DAILY_LIMIT_REACHED`). Saved as `Pending` for admin review.
 
 **Body**
 
 | Field | Required | Notes |
 |-------|----------|--------|
-| `packageId` | Yes | From `sightseeingPackagesDetails` |
-| `arrivalDate` / `travelDate` | Yes | `YYYY-MM-DD` |
+| `packageId` | Yes | From `sightseeingPackagesDetails` (aliases `serviceId`, `id`) |
+| `arrivalDate` / `travelDate` | Yes | `YYYY-MM-DD` (must be tomorrow or later in Bangkok time) |
 | `fullName` | Yes | Guest name |
 | `adults` | No | Default 1 (max 50) |
-| `children` | No | Default 0 |
+| `children` | No | Default 0 (max 50) |
 | `guestEmail`, `guestPhone` | Recommended | Also accepted as `email` / `phone` |
-| `departureDate` | No | Defaults to arrival |
+| `departureDate` | No | Defaults to arrival + duration - 1 days |
 | `pickUpTime` | No | Defaults to arrival date |
-| `pickUpLocation`, `specialRequests` | No | |
+| `pickUpLocation`, `specialRequests` | No | Hotel pickup point and special notes |
 | `paymentMethod` | No | STRIPE / THAI_QR / ONSITE (default STRIPE) |
 | `customerQrPaymentConfirmed` | QR | boolean — user declared transfer done |
 | `successUrl`, `cancelUrl` | Website Stripe | Checkout return URLs |
 | `paymentIntentId` | App Stripe | After PaymentSheet succeeds (`pi_...`) |
+| `source` | No | `"WEB"` (default) or `"APP"` |
 | `userId` | Optional | Must match token UID if sent |
 
 **Pricing (server only):**  
-`round(adultPrice × adults + childPrice × children)`  
-(If child price missing → 50% of adult price.)  
-Minimum card charge: **20 THB**.
+Calculated dynamically from catalog via `computePackageAmount()`. Minimum card charge: **20 THB**.
 
-### Two Stripe modes
+### Two Stripe Modes
 
-| Client | How | Booking created when |
-|--------|-----|----------------------|
-| **Website** | No `paymentIntentId` → server returns `stripeUrl` (Checkout Session) | **After** pay (`verifySession` or `stripeWebhook`) |
-| **App (PaymentSheet)** | Pay first, then send `paymentIntentId` | **Immediately** after server verifies PI |
+| Client | How | Booking Lifecycle |
+|--------|-----|-------------------|
+| **Website** | No `paymentIntentId` → server reserves booking and returns `stripeUrl` (Checkout Session) | Reserved immediately in `travelBookingDetails`; marked paid after checkout (`verifySession` or `stripeWebhook`) |
+| **App (PaymentSheet)** | Pay first via Stripe SDK, then send `paymentIntentId` | Created and verified immediately with `isPaymentDone: true` |
 
-#### Website Stripe (Checkout)
+#### Website Stripe (Instant Checkout)
 
 ```json
 {
-  "packageId": "PACKAGE_ID",
+  "packageId": "PKG_001",
   "adults": 2,
   "children": 1,
-  "arrivalDate": "2026-09-15",
+  "arrivalDate": "2026-11-15",
   "fullName": "Jane Doe",
   "guestEmail": "jane@example.com",
   "guestPhone": "+66812345678",
   "paymentMethod": "STRIPE",
   "successUrl": "https://thaiseva.com/booking/success?session_id={CHECKOUT_SESSION_ID}",
-  "cancelUrl": "https://thaiseva.com/booking/cancel"
+  "cancelUrl": "https://thaiseva.com/booking/cancel",
+  "source": "WEB"
 }
 ```
 
-Response (typical):
+Response (INSTANT Flow):
 
 ```json
 {
   "success": true,
-  "paymentMethod": "STRIPE",
-  "bookingId": null,
+  "bookingId": "pkg_usr123_PKG_001_2026-11-15_2026-11-15",
   "bookingCollection": "travelBookingDetails",
   "amount": 49000,
   "currency": "thb",
-  "stripeUrl": "https://checkout.stripe.com/...",
-  "stripeSessionId": "cs_...",
+  "paymentMethod": "STRIPE",
+  "bookingFlow": "INSTANT",
+  "status": "Accepted",
+  "bookingStatus": "AWAITING_PAYMENT",
   "payNow": true,
-  "isPaymentDone": false,
-  "message": "Redirect the guest to stripeUrl to complete payment."
+  "stripeUrl": "https://checkout.stripe.com/c/pay/cs_live_...",
+  "stripeSessionId": "cs_live_...",
+  "message": "Instant booking is available for this date within the daily limit."
 }
 ```
 
@@ -1009,11 +1028,21 @@ API → notification to user
 ### Package + Stripe
 
 ```text
+Instant Booking (Day 3+ Within Daily Capacity):
 App → createSightseeingBooking(STRIPE)
-API → stripeUrl only (no booking yet)
-App → Stripe
-Pay → webhook or verifySession creates travelBookingDetails
-API → notification
+API → reserves travelBookingDetails (35 min hold) + returns stripeUrl + bookingId
+App → Stripe Checkout
+User pays
+Stripe webhook / verifySession → marks travelBookingDetails as VERIFIED & Accepted
+API → notification to user
+
+Request Booking (Tomorrow, Day 2, or Capacity Reached):
+App → createSightseeingBooking(STRIPE)
+API → saves travelBookingDetails as Pending / PENDING_REVIEW (payNow: false)
+Admin Portal → staff confirms & opens payment (AWAITING_PAYMENT)
+App → createCheckoutSession({ bookingId, bookingCollection: "travelBookingDetails" })
+API → returns fresh stripeUrl
+App → Stripe Checkout → User pays → verifySession / webhook marks paid
 ```
 
 ### Transport

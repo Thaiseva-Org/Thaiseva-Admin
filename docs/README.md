@@ -19,6 +19,7 @@ docs/
 │   └── adr/                          # Architecture Decision Records
 ├── 03-api/
 │   ├── API_SPECIFICATION.md          # Complete REST & Callable Cloud Functions reference
+│   ├── PACKAGE_BOOKING_INTEGRATION_GUIDE.md # Comprehensive Sightseeing Package Booking API & Integration Guide
 │   └── THIRD_PARTY_INTEGRATIONS.md   # Stripe payments, Google Maps, Zoho ZeptoMail & WhatsApp
 ├── 04-data/
 │   └── DATA_SCHEMA_DICTIONARY.md     # Authoritative Firestore schema & subcollection dictionary
@@ -45,6 +46,7 @@ docs/
 | [Design System & Theming](01-design-system/DESIGN_SYSTEM_AND_THEME.md) | Frontend Devs, UI/UX | Color palette, Tailwind design tokens, CSS variables, utility classes, and card styles. |
 | [System Architecture](02-architecture/SYSTEM_ARCHITECTURE.md) | Architects, Engineers | High-level and component architecture, data flow, serverless trigger chain. |
 | [API Specification](03-api/API_SPECIFICATION.md) | Backend, Mobile, Web Devs | Definitive contract for Cloud Functions (`asia-east2`), stock locks, and checkouts. |
+| [Package Booking Integration Guide](03-api/PACKAGE_BOOKING_INTEGRATION_GUIDE.md) | Full Stack, Web & Mobile Devs | Complete end-to-end integration guide for sightseeing tours, dual-flow routing, pricing & Stripe. |
 | [Third-Party Integrations](03-api/THIRD_PARTY_INTEGRATIONS.md) | Backend & DevOps | Stripe Webhooks, Google Maps Platform, Zoho ZeptoMail OTP, and WhatsApp integration. |
 | [Data Schema Dictionary](04-data/DATA_SCHEMA_DICTIONARY.md) | Full Stack & Data Engineers | Authoritative NoSQL Firestore schema, subcollections, indexes, and legacy mappings. |
 | [Security & RBAC](05-security/SECURITY_AND_RBAC.md) | Security Auditors, Leads | Access control matrix, Firestore Security Rules governance, and threat model. |

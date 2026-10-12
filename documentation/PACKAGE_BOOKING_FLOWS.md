@@ -1,5 +1,7 @@
 # Package booking flows — 11 October 2026
 
+> **Comprehensive Integration Guide:** See [`docs/03-api/PACKAGE_BOOKING_INTEGRATION_GUIDE.md`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/PACKAGE_BOOKING_INTEGRATION_GUIDE.md) for full function file locations from workspace root, schema types, request/response models, and client code integration snippets.
+
 This contract supersedes earlier package payment-first and always-confirmed behavior.
 
 ## Dates and routing

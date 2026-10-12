@@ -230,37 +230,76 @@ $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Book
 ### 3.2 Create Sightseeing Tour Package Booking
 **Endpoint:** `POST /createSightseeingBooking`  
 **Auth:** Required (`Bearer <token>`)  
-**Description:** Creates tour package reservation in `travelBookingDetails`. Validates package pricing structure (`pricePerAdult`, `pricePerChild`, `extraAdult`).
+**Implementation Files:**
+- Endpoint Handler: [`functions/src/bookingCheckout/sightseeingBooking.ts`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/src/bookingCheckout/sightseeingBooking.ts)
+- Flow & Capacity Engine: [`functions/sightseeingFlow.js`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/sightseeingFlow.js)
+- Server-Side Pricing: [`functions/src/payments/packagePricing.ts`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/src/payments/packagePricing.ts)
+**Integration Guide:** See the comprehensive [Sightseeing Package Booking API & Integration Guide](PACKAGE_BOOKING_INTEGRATION_GUIDE.md).
+
+**Description:** Creates an atomic tour package reservation in `travelBookingDetails`. Evaluates Thailand calendar dates and daily capacity (`settings/sightseeingConfig.globalDailyLimit`). Tours starting tomorrow/day 2 or during full capacity enter the `REQUEST` flow (`PENDING_REVIEW`) with payment opening after admin confirmation. Tours starting on Day 3+ within capacity enter the `INSTANT` flow, reserving inventory and issuing a Stripe Checkout session (`payNow: true`).
 
 **Request Body:**
 ```json
 {
   "packageId": "pkg_phi_phi_islands",
+  "arrivalDate": "2026-11-05",
+  "departureDate": "2026-11-05",
+  "adults": 2,
+  "children": 1,
   "fullName": "Somchai Jaidee",
-  "customerEmail": "somchai@example.com",
-  "phoneNumber": "+66812345678",
-  "travelDate": "2026-11-03",
-  "adultCount": 2,
-  "childCount": 1,
-  "extraAdultCount": 0,
-  "hotelPickupRequired": true,
-  "pickupHotelAddress": "Marriott Resort Phuket, Patong",
-  "paymentMethod": "STRIPE"
+  "guestEmail": "somchai@example.com",
+  "guestPhone": "+66812345678",
+  "pickUpLocation": "Marriott Resort Phuket, Patong",
+  "pickUpTime": "08:30",
+  "specialRequests": "Vegetarian lunch option",
+  "paymentMethod": "STRIPE",
+  "successUrl": "https://thaiseva.com/booking/success?session_id={CHECKOUT_SESSION_ID}",
+  "cancelUrl": "https://thaiseva.com/booking/cancel",
+  "source": "WEB"
+}
+```
+*Note: Also accepts aliases `travelDate`, `date` for arrivalDate, and `paymentIntentId` for mobile PaymentSheet.*
+
+**Success Response (200 OK) — Instant Booking (Day 3+ Within Capacity):**
+```json
+{
+  "success": true,
+  "bookingId": "pkg_usr123_pkg_phi_phi_islands_2026-11-05_2026-11-05",
+  "bookingCollection": "travelBookingDetails",
+  "amount": 4800,
+  "currency": "thb",
+  "paymentMethod": "STRIPE",
+  "bookingFlow": "INSTANT",
+  "status": "Accepted",
+  "bookingStatus": "AWAITING_PAYMENT",
+  "isPaymentDone": false,
+  "isBookingConfirmed": true,
+  "payNow": true,
+  "stripeUrl": "https://checkout.stripe.com/c/pay/cs_live_sampleTourSession456",
+  "stripeSessionId": "cs_live_sampleTourSession456",
+  "message": "Instant booking is available for this date within the daily limit."
 }
 ```
 
-**Success Response (200 OK):**
+**Success Response (200 OK) — Request Booking (Tomorrow, Day 2, or Capacity Reached):**
 ```json
 {
-  "status": "success",
-  "bookingId": "bk_tour_20261103_441",
-  "packageName": "Phi Phi Islands Day Trip",
-  "stripeUrl": "https://checkout.stripe.com/c/pay/cs_live_sampleTourSession456",
-  "totalPrice": 4800,
-  "currency": "THB",
-  "status": "Pending"
+  "success": true,
+  "bookingId": "pkg_usr123_pkg_phi_phi_islands_2026-10-13_2026-10-13",
+  "bookingCollection": "travelBookingDetails",
+  "amount": 4800,
+  "currency": "thb",
+  "paymentMethod": "STRIPE",
+  "bookingFlow": "REQUEST",
+  "status": "Pending",
+  "bookingStatus": "PENDING_REVIEW",
+  "isPaymentDone": false,
+  "isBookingConfirmed": false,
+  "payNow": false,
+  "message": "We need at least 2 full days to prepare your package. For tomorrow or the day after tomorrow, our team will check availability and confirm your request first. Payment is collected only after confirmation."
 }
 ```
+*Note: For `REQUEST` bookings, once approved in the Admin Portal, clients initiate Stripe Checkout via `POST /createCheckoutSession`.*
 
 ---
 
