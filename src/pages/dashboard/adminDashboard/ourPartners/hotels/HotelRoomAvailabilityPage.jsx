@@ -801,75 +801,85 @@ const HotelRoomAvailabilityPage = () => {
           </span>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <div className="rounded-xl bg-gradient-to-br from-primary-500 to-primary-600 p-4 shadow-lg text-white transition-transform duration-200 hover:scale-[1.02]">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-500">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-primary-100">
                 Room types
               </p>
-              <LayersIcon sx={{ fontSize: 18, color: "var(--primary-500)" }} />
+              <div className="bg-white/20 p-1.5 rounded-lg flex items-center justify-center">
+                <LayersIcon sx={{ fontSize: 18, color: "white" }} />
+              </div>
             </div>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-neutral-900">
+            <p className="mt-1 text-2xl font-bold tabular-nums text-white">
               {rangeStats.totalRoomTypes}
             </p>
-            <p className="text-[11px] text-neutral-500">
+            <p className="text-[11px] text-primary-100/80">
               {rangeStats.totalInventoryAll} total inventory
             </p>
           </div>
-          <div className="rounded-xl border border-primary-100 bg-primary-50 p-4 shadow-sm">
+          <div className="rounded-xl bg-gradient-to-br from-success-500 to-success-600 p-4 shadow-lg text-white transition-transform duration-200 hover:scale-[1.02]">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-primary-600">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-success-100">
                 This type stock
               </p>
-              <MeetingRoomIcon
-                sx={{ fontSize: 18, color: "var(--primary-600)" }}
-              />
+              <div className="bg-white/20 p-1.5 rounded-lg flex items-center justify-center">
+                <MeetingRoomIcon
+                  sx={{ fontSize: 18, color: "white" }}
+                />
+              </div>
             </div>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-primary-900">
+            <p className="mt-1 text-2xl font-bold tabular-nums text-white">
               {rangeStats.inventory}
             </p>
-            <p className="text-[11px] text-primary-700/70">Normal quantity</p>
+            <p className="text-[11px] text-success-100/80">Normal quantity</p>
           </div>
-          <div className="rounded-xl border border-amber-100 bg-amber-50 p-4 shadow-sm">
+          <div className="rounded-xl bg-gradient-to-br from-warning-500 to-warning-600 p-4 shadow-lg text-white transition-transform duration-200 hover:scale-[1.02]">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-warning-100">
                 Almost full
               </p>
-              <WarningAmberIcon sx={{ fontSize: 18, color: "#d97706" }} />
+              <div className="bg-white/20 p-1.5 rounded-lg flex items-center justify-center">
+                <WarningAmberIcon sx={{ fontSize: 18, color: "white" }} />
+              </div>
             </div>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-amber-900">
+            <p className="mt-1 text-2xl font-bold tabular-nums text-white">
               {rangeStats.almostFullDays}
             </p>
-            <p className="text-[11px] text-amber-800/70">nights low stock</p>
+            <p className="text-[11px] text-warning-100/80">nights low stock</p>
           </div>
-          <div className="rounded-xl border border-red-100 bg-red-50 p-4 shadow-sm">
+          <div className="rounded-xl bg-gradient-to-br from-danger-500 to-danger-600 p-4 shadow-lg text-white transition-transform duration-200 hover:scale-[1.02]">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-red-600">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-danger-100">
                 Full / blocked
               </p>
-              <EventBusyIcon sx={{ fontSize: 18, color: "#dc2626" }} />
+              <div className="bg-white/20 p-1.5 rounded-lg flex items-center justify-center">
+                <EventBusyIcon sx={{ fontSize: 18, color: "white" }} />
+              </div>
             </div>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-red-900">
+            <p className="mt-1 text-2xl font-bold tabular-nums text-white">
               {rangeStats.fullDays}
             </p>
-            <p className="text-[11px] text-red-700/70">nights sold out</p>
+            <p className="text-[11px] text-danger-100/80">nights sold out</p>
           </div>
-          <div className="rounded-xl border border-primary-100 bg-white p-4 shadow-sm">
+          <div className="rounded-xl bg-gradient-to-br from-secondary-500 to-secondary-600 p-4 shadow-lg text-white transition-transform duration-200 hover:scale-[1.02]">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-primary-600">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-secondary-100">
                 Avg free / peak
               </p>
-              <CalendarMonthIcon
-                sx={{ fontSize: 18, color: "var(--primary-600)" }}
-              />
+              <div className="bg-white/20 p-1.5 rounded-lg flex items-center justify-center">
+                <CalendarMonthIcon
+                  sx={{ fontSize: 18, color: "white" }}
+                />
+              </div>
             </div>
-            <p className="mt-1 text-2xl font-bold tabular-nums text-primary-900">
+            <p className="mt-1 text-2xl font-bold tabular-nums text-white">
               {rangeStats.avgRemaining}
-              <span className="text-base font-semibold text-primary-500">
+              <span className="text-base font-semibold text-white/80">
                 {" "}
                 / {rangeStats.peakBooked}
               </span>
             </p>
-            <p className="text-[11px] text-neutral-500">
+            <p className="text-[11px] text-secondary-100/80">
               ~{rangeStats.occupancyPct}% occ. · {rangeStats.activeAdj} temp
               changes
             </p>

@@ -21,11 +21,75 @@ export function StatusFilters({ records, value, onChange }) {
   </ToggleButtonGroup>;
 }
 
-export function StatusSummary({ records, noun }) {
+export function StatusSummary({ records = [], noun = 'Items', activeFilter, onSelectFilter, icon }) {
   const active = records.filter(isListingActive).length;
-  return <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">{[
-    [`Total ${noun}`, records.length, 'bg-blue-50 text-blue-900'],
-    [`Active ${noun}`, active, 'bg-green-50 text-green-900'],
-    [`Inactive ${noun}`, records.length - active, 'bg-slate-100 text-slate-700'],
-  ].map(([label, count, color]) => <div key={label} className={`rounded-2xl border border-black/5 p-5 ${color}`}><p className="text-sm font-semibold">{label}</p><p className="text-3xl font-bold mt-2">{count}</p></div>)}</div>;
+  const inactive = records.length - active;
+
+  const getNounIcon = (n) => {
+    if (icon) return icon;
+    const lower = String(n || '').toLowerCase();
+    if (lower.includes('hotel')) return '🏨';
+    if (lower.includes('tour') || lower.includes('travel')) return '🗺️';
+    if (lower.includes('room')) return '🛏️';
+    return '📊';
+  };
+
+  const cards = [
+    {
+      key: 'all',
+      label: `Total ${noun}`,
+      count: records.length,
+      gradient: 'from-primary-500 to-primary-600',
+      textColor: 'text-primary-100',
+      icon: getNounIcon(noun),
+    },
+    {
+      key: 'active',
+      label: `Active ${noun}`,
+      count: active,
+      gradient: 'from-success-500 to-success-600',
+      textColor: 'text-success-100',
+      icon: '✅',
+    },
+    {
+      key: 'inactive',
+      label: `Inactive ${noun}`,
+      count: inactive,
+      gradient: 'from-danger-500 to-danger-600',
+      textColor: 'text-danger-100',
+      icon: '❌',
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      {cards.map((card) => {
+        const isSelected = activeFilter && activeFilter === card.key;
+        return (
+          <div
+            key={card.key}
+            onClick={() => onSelectFilter && onSelectFilter(card.key)}
+            className={`bg-gradient-to-br ${card.gradient} rounded-xl p-6 text-white shadow-lg ${
+              onSelectFilter
+                ? 'cursor-pointer transform transition-all duration-200 hover:scale-[1.02] hover:shadow-2xl active:scale-95'
+                : 'transition-transform duration-200 hover:scale-[1.02]'
+            } ${isSelected ? 'ring-4 ring-white/60 ring-offset-2 ring-offset-transparent' : ''}`}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`${card.textColor} text-sm font-medium mb-1`}>
+                  {card.label}
+                </p>
+                <p className="text-3xl font-bold">{card.count}</p>
+              </div>
+              <div className="bg-white/20 p-3 rounded-lg flex items-center justify-center">
+                <span className="text-3xl">{card.icon}</span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
+

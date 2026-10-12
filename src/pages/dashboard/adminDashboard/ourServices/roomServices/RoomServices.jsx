@@ -248,7 +248,15 @@ const RoomServices = () => {
         icon="🛏️"
       />
 
-      <StatusSummary records={statusRooms} noun="Room Packages" />
+      <StatusSummary
+        records={statusRooms}
+        noun="Room Packages"
+        activeFilter={statusFilter}
+        onSelectFilter={(value) => {
+          setStatusFilter(value);
+          setPage(0);
+        }}
+      />
       <StatusFilters records={statusRooms} value={statusFilter} onChange={(value) => { setStatusFilter(value); setPage(0); }} />
       <SearchBar handleSearch={handleSearch} btn={false} />
 

@@ -390,7 +390,15 @@ const Hotels = () => {
         icon="🏨"
       />
 
-      <StatusSummary records={statusHotels} noun="Hotels" />
+      <StatusSummary
+        records={statusHotels}
+        noun="Hotels"
+        activeFilter={statusFilter}
+        onSelectFilter={(value) => {
+          setStatusFilter(value);
+          setPage(0);
+        }}
+      />
       <StatusFilters records={statusHotels} value={statusFilter} onChange={(value) => { setStatusFilter(value); setPage(0); }} />
       {/* <Grid container spacing={0.5} sx={{ mb: 2, mt: 0.5 }}>
         <Grid item xs={12} sm={6} md={3}>

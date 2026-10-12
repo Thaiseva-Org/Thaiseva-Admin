@@ -336,70 +336,90 @@ const DeletionRequests = () => {
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
         <div
           onClick={() => setActiveTab("all")}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${
-            activeTab === "all" ? "bg-indigo-50 border-indigo-300 shadow-sm" : "bg-white border-gray-200 hover:border-gray-300"
+          className={`bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-5 text-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
+            activeTab === "all" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Requests</span>
-            <i className="fa-solid fa-inbox text-indigo-500"></i>
+            <div>
+              <p className="text-primary-100 text-xs font-semibold uppercase tracking-wider mb-1">Total Requests</p>
+              <p className="text-2xl font-bold">{stats.total}</p>
+            </div>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
+              <i className="fa-solid fa-inbox"></i>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-gray-900 mt-2">{stats.total}</p>
         </div>
 
         <div
           onClick={() => setActiveTab("pending")}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${
-            activeTab === "pending" ? "bg-amber-50 border-amber-300 shadow-sm" : "bg-white border-gray-200 hover:border-gray-300"
+          className={`bg-gradient-to-br from-warning-500 to-warning-600 rounded-xl p-5 text-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
+            activeTab === "pending" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Pending</span>
-            <i className="fa-solid fa-clock text-amber-500"></i>
+            <div>
+              <p className="text-warning-100 text-xs font-semibold uppercase tracking-wider mb-1">Pending</p>
+              <p className="text-2xl font-bold">{stats.pending}</p>
+            </div>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
+              <i className="fa-solid fa-clock"></i>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-amber-700 mt-2">{stats.pending}</p>
         </div>
 
         <div
           onClick={() => setActiveTab("due")}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${
-            activeTab === "due" ? "bg-red-50 border-red-300 shadow-sm" : "bg-white border-gray-200 hover:border-gray-300"
+          className={`bg-gradient-to-br from-danger-500 to-danger-600 rounded-xl p-5 text-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
+            activeTab === "due" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Now (30d+)</span>
-            <i className="fa-solid fa-triangle-exclamation text-red-500"></i>
+            <div>
+              <p className="text-danger-100 text-xs font-semibold uppercase tracking-wider mb-1">Due Now (30d+)</p>
+              <p className="text-2xl font-bold">{stats.dueForDeletion}</p>
+            </div>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
+              <i className="fa-solid fa-triangle-exclamation"></i>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-red-600 mt-2">{stats.dueForDeletion}</p>
         </div>
 
         <div
           onClick={() => setActiveTab("completed")}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${
-            activeTab === "completed" ? "bg-emerald-50 border-emerald-300 shadow-sm" : "bg-white border-gray-200 hover:border-gray-300"
+          className={`bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-5 text-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
+            activeTab === "completed" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Completed</span>
-            <i className="fa-solid fa-circle-check text-emerald-500"></i>
+            <div>
+              <p className="text-success-100 text-xs font-semibold uppercase tracking-wider mb-1">Completed</p>
+              <p className="text-2xl font-bold">{stats.completed}</p>
+            </div>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
+              <i className="fa-solid fa-circle-check"></i>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-emerald-700 mt-2">{stats.completed}</p>
         </div>
 
         <div
           onClick={() => setActiveTab("cancelled")}
-          className={`p-4 rounded-xl border transition-all cursor-pointer ${
-            activeTab === "cancelled" ? "bg-gray-100 border-gray-300 shadow-sm" : "bg-white border-gray-200 hover:border-gray-300"
+          className={`bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-xl p-5 text-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
+            activeTab === "cancelled" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cancelled</span>
-            <i className="fa-solid fa-ban text-gray-400"></i>
+            <div>
+              <p className="text-secondary-100 text-xs font-semibold uppercase tracking-wider mb-1">Cancelled</p>
+              <p className="text-2xl font-bold">{stats.cancelled}</p>
+            </div>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
+              <i className="fa-solid fa-ban"></i>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-gray-700 mt-2">{stats.cancelled}</p>
         </div>
       </div>
 

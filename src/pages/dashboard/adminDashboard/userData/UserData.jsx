@@ -161,54 +161,18 @@ const UserData = () => {
 
   const fileName = `UserData.csv`;
 
-  const StatCard = ({ title, value, icon, color, gradient }) => (
-    <Card sx={{
-      borderRadius: 4,
-      boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)",
-      height: '100%',
-      position: 'relative',
-      overflow: 'hidden',
-      transition: 'transform 0.2s',
-      '&:hover': {
-        transform: 'translateY(-4px)',
-        boxShadow: "0 20px 40px -12px rgba(0,0,0,0.15)",
-      }
-    }}>
-      <div
-        style={{
-          background: gradient,
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '6px'
-        }}
-      />
-      <CardContent sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography variant="body2" sx={{ color: color, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', mb: 1 }}>
-              {title}
-            </Typography>
-            <Typography variant="h3" fontWeight={800} color="text.primary">
-              {value}
-            </Typography>
-          </Box>
-          <Box sx={{
-            p: 2,
-            borderRadius: '16px',
-            background: `${color}15`, // 10% opacity
-            color: color,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: `0 4px 12px ${color}20`
-          }}>
-            {icon}
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
+  const StatCard = ({ title, value, icon, gradient = "from-primary-500 to-primary-600", text = "text-primary-100" }) => (
+    <div className={`bg-gradient-to-br ${gradient} rounded-xl p-6 text-white shadow-lg transition-transform duration-200 hover:scale-[1.02]`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className={`${text} text-sm font-medium mb-1`}>{title}</p>
+          <p className="text-3xl font-bold">{value}</p>
+        </div>
+        <div className="bg-white/20 p-3 rounded-lg flex items-center justify-center text-white text-3xl">
+          {icon}
+        </div>
+      </div>
+    </div>
   );
 
   return (
@@ -220,35 +184,29 @@ const UserData = () => {
       />
 
       {/* Statistics Cards */}
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={4}>
-          <StatCard
-            title="Total Users"
-            value={totalPages}
-            icon={<PersonIcon fontSize="large" />}
-            color="#3b82f6" // Blue
-            gradient="linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <StatCard
-            title="Current Page"
-            value={page + 1}
-            icon={<ArticleIcon fontSize="large" />}
-            color="#10b981" // Green
-            gradient="linear-gradient(135deg, #10b981 0%, #059669 100%)"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <StatCard
-            title="Showing Records"
-            value={matchedRequirements.length}
-            icon={<VisibilityIcon fontSize="large" />}
-            color="#8b5cf6" // Violet
-            gradient="linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)"
-          />
-        </Grid>
-      </Grid>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <StatCard
+          title="Total Users"
+          value={totalPages}
+          icon={<PersonIcon fontSize="large" />}
+          gradient="from-primary-500 to-primary-600"
+          text="text-primary-100"
+        />
+        <StatCard
+          title="Current Page"
+          value={page + 1}
+          icon={<ArticleIcon fontSize="large" />}
+          gradient="from-secondary-500 to-secondary-600"
+          text="text-secondary-100"
+        />
+        <StatCard
+          title="Showing Records"
+          value={matchedRequirements.length}
+          icon={<VisibilityIcon fontSize="large" />}
+          gradient="from-success-500 to-success-600"
+          text="text-success-100"
+        />
+      </div>
 
       {/* Action Buttons */}
       {recentAuth.dialog}

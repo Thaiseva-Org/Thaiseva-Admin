@@ -367,7 +367,15 @@ const TravelServices = () => {
         icon="🗺️"
       />
 
-      <StatusSummary records={statusTours} noun="Tours" />
+      <StatusSummary
+        records={statusTours}
+        noun="Tours"
+        activeFilter={statusFilter}
+        onSelectFilter={(value) => {
+          setStatusFilter(value);
+          setPage(0);
+        }}
+      />
       <StatusFilters records={statusTours} value={statusFilter} onChange={(value) => { setStatusFilter(value); setPage(0); }} />
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
         <ToggleButtonGroup

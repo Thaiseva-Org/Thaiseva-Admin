@@ -57,9 +57,22 @@ const tabTypes = ["company", "driver", "vehicle"];
 const plural = { company: "Companies", driver: "Drivers", vehicle: "Vehicles" };
 
 const summaryColors = {
-  primary: "bg-primary-50 text-primary-600",
-  success: "bg-success-50 text-success-600",
-  warning: "bg-warning-50 text-warning-600",
+  primary: {
+    bg: "from-primary-500 to-primary-600",
+    text: "text-primary-100",
+  },
+  success: {
+    bg: "from-success-500 to-success-600",
+    text: "text-success-100",
+  },
+  warning: {
+    bg: "from-warning-500 to-warning-600",
+    text: "text-warning-100",
+  },
+  danger: {
+    bg: "from-danger-500 to-danger-600",
+    text: "text-danger-100",
+  },
 };
 
 /**
@@ -69,20 +82,30 @@ const summaryColors = {
  * @param {object} props
  * @param {string} props.label - Metric description.
  * @param {number|string} props.value - Metric numeric or string value.
- * @param {"primary"|"success"|"warning"} [props.color="primary"] - Color palette theme.
+ * @param {"primary"|"success"|"warning"|"danger"} [props.color="primary"] - Color palette theme.
  * @param {React.ReactNode} props.icon - Display icon.
  */
-const SummaryCard = ({ label, value, color = "primary", icon }) => (
-  <div className="bg-white rounded-xl border border-neutral-200 shadow-sm p-5 flex items-center justify-between">
-    <div><p className="text-sm text-neutral-500">{label}</p><p className={`text-3xl font-bold mt-1 ${summaryColors[color].split(" ")[1]}`}>{value}</p></div>
-    <div className={`p-3 rounded-xl ${summaryColors[color]}`}>{icon}</div>
-  </div>
-);
+const SummaryCard = ({ label, value, color = "primary", icon }) => {
+  const c = summaryColors[color] || summaryColors.primary;
+  return (
+    <div className={`bg-gradient-to-br ${c.bg} rounded-xl p-6 text-white shadow-lg transition-transform duration-200 hover:scale-[1.02]`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className={`text-sm font-medium mb-1 ${c.text}`}>{label}</p>
+          <p className="text-3xl font-bold">{value}</p>
+        </div>
+        <div className="bg-white/20 p-3 rounded-lg flex items-center justify-center text-white text-3xl">
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 SummaryCard.propTypes = {
   label: PropTypes.string.isRequired,
   value: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
-  color: PropTypes.oneOf(["primary", "success", "warning"]),
+  color: PropTypes.oneOf(["primary", "success", "warning", "danger"]),
   icon: PropTypes.node.isRequired,
 };
 

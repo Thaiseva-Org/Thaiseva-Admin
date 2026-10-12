@@ -97,24 +97,29 @@ const btnOutlineSx = {
 const StatCard = ({ title, value, subtitle, icon: Icon, tone = "primary" }) => {
   const tones = {
     primary: {
-      wrap: "from-primary-500 to-primary-700 text-white",
+      wrap: "from-primary-500 to-primary-600 text-white",
       muted: "text-primary-100",
-      icon: "bg-white/15 text-white",
+      icon: "bg-white/20 text-white",
     },
     success: {
-      wrap: "from-emerald-500 to-emerald-700 text-white",
-      muted: "text-emerald-100",
-      icon: "bg-white/15 text-white",
+      wrap: "from-success-500 to-success-600 text-white",
+      muted: "text-success-100",
+      icon: "bg-white/20 text-white",
     },
     warning: {
-      wrap: "from-amber-500 to-amber-600 text-white",
-      muted: "text-amber-100",
-      icon: "bg-white/15 text-white",
+      wrap: "from-warning-500 to-warning-600 text-white",
+      muted: "text-warning-100",
+      icon: "bg-white/20 text-white",
+    },
+    danger: {
+      wrap: "from-danger-500 to-danger-600 text-white",
+      muted: "text-danger-100",
+      icon: "bg-white/20 text-white",
     },
     slate: {
       wrap: "from-slate-600 to-slate-800 text-white",
       muted: "text-slate-200",
-      icon: "bg-white/15 text-white",
+      icon: "bg-white/20 text-white",
     },
   };
   const t = tones[tone] || tones.primary;
@@ -280,7 +285,7 @@ const HotelRoomAvailabilityHub = () => {
           value={mainStats.hotels}
           subtitle="Total properties"
           icon={HotelIcon}
-          tone="slate"
+          tone="primary"
         />
         <StatCard
           title="Auto-book ON"
