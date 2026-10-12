@@ -1018,15 +1018,15 @@ const AddSightseeingPackage = () => {
                                                     {/* Toggle Mode */}
                                                     <div className="mb-4 flex items-center gap-2">
                                                         <FormControlLabel
-                                                             control={
-                                                                 <Checkbox
-                                                                     checked={!hotel.isManual}
-                                                                     onChange={(e) => handleToggleHotelPartner(index, e.target.checked)}
-                                                                     size="small"
-                                                                 />
-                                                             }
-                                                             label={<span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">Use Partner Hotel</span>}
-                                                         />
+                                                            control={
+                                                                <Checkbox
+                                                                    checked={!hotel.isManual}
+                                                                    onChange={(e) => handleToggleHotelPartner(index, e.target.checked)}
+                                                                    size="small"
+                                                                />
+                                                            }
+                                                            label={<span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">Use Partner Hotel</span>}
+                                                        />
                                                     </div>
 
                                                     <Grid container spacing={3} alignItems="center">
