@@ -1,310 +1,569 @@
 import { useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../contextAPIs/AuthProvider";
-// import { Box, Button, Grid, Modal, Paper, TextField } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { FaEnvelope, FaLock, FaExclamationCircle, FaUser, FaRegEyeSlash, FaRegEye } from "@icons";
-// import { IoRestaurant } from "react-icons/io5";
+import { app, db } from "../../firebase/firebase.config";
+import { getAuth, sendPasswordResetEmail } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import {
+  FaEnvelope,
+  FaLock,
+  FaExclamationCircle,
+  FaRegEyeSlash,
+  FaRegEye,
+  AdminPanelSettingsIcon,
+  Close,
+  CheckCircle,
+  DirectionsCarIcon,
+  ReceiptIcon,
+  ArrowForwardIosRoundedIcon,
+} from "@icons";
 import { logo } from "../../assets";
 
-// const style = {
-//   position: "absolute",
-//   top: "50%",
-//   left: "50%",
-//   transform: "translate(-50%, -50%)",
-//   width: 400,
-//   bgcolor: "background.paper",
-//   border: "2px solid blue",
-//   boxShadow: 24,
-//   p: 4,
-// };
-
+/**
+ * Full-Page Screen-Fitted Login Component
+ * 
+ * Fits cleanly within 100vh without vertical overflow/scrolling on desktop.
+ * Dual-panel layout styled in Thaiseva's original blue and gradient theme.
+ */
 const Login = () => {
-  const { logInUser, user } = useContext(AuthContext);
+  const { logInUser, logOut, user } = useContext(AuthContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showpsw, setShowpsw] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Forgot password modal state
+  const [showForgotModal, setShowForgotModal] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState("");
+  const [resetError, setResetError] = useState("");
+
   const navigate = useNavigate();
 
-  // const handleLogin = (e) => {
-  //   e.preventDefault();
-  //   const form = e.target;
-  //   const email = form.email.value;
-  //   const password = form.password.value;
-
-  //   logInUser(email, password)
-  //     .then((res) => {
-  //       const loggedUser = res.user;
-  //       localStorage.setItem("email", email);
-  //       if (loggedUser) {
-  //         navigate("/dashboard");
-  //       }
-  //     })
-  //     .catch((error) => setError(error.message));
-  // };
-
-  const handleLogin = (e) => {
-    e.preventDefault();
-    // const form = e.target;
-    // const email = form.email.value;
-    // const password = form.password.value;
-    if (!email) {
-      setError("Please provide email");
-      return;
-    }
-    if (!password) {
-      setError("Please provide password");
-      return;
-    }
-
-    logInUser(email, password)
-      .then((res) => {
-        const loggedUser = res.user;
-        // localStorage.setItem("email", email);
-        if (loggedUser) {
-          navigate("/dashboard");
-        }
-      })
-      .catch((error) => {
-        if (error.code === "auth/email-already-in-use") {
-          setError("This email is already in use. Please log in.");
-        } else if (
-          error.code === "auth/invalid-login-credentials" ||
-          error.code === "auth/wrong-password"
-        ) {
-          setError("Please check your email or password.");
-        } else if (error.code === "auth/user-not-found") {
-          setError("No account found with this email. Please sign up.");
-        } else if (error.code === "auth/weak-password") {
-          setError("Password is too weak.");
-        } else if (error.code === "auth/network-request-failed") {
-          setError("Network error. Please check your internet connection.");
-        } else {
-          // console.error(error);
-          setError("An unexpected error occurred. Please try again.");
-        }
-      });
-  };
-
-  // const [open, setOpen] = useState(false);
-  // const handleOpen = () => setOpen(true);
-  // const handleClose = () => setOpen(false);
-
+  // Redirect to dashboard if user is authenticated
   useEffect(() => {
     if (user) {
       navigate("/");
     }
   }, [user, navigate]);
 
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setError("Please enter your email address.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const res = await logInUser(cleanEmail, password);
+
+      if (res?.user) {
+        // Verify user role: block Partner role from accessing Admin Portal
+        try {
+          const userDocRef = doc(db, "users", res.user.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            const isExplicitAdmin = ["Admin", "admin"].includes(userData?.role) ||
+              ["admin@gmail.com", "thaiseva_admin@gmail.com"].includes(res.user?.email);
+
+            if (userData?.role === "Partner" && !isExplicitAdmin) {
+              await logOut();
+              setError("Partner accounts cannot access the Admin Portal. Please use the Partner Portal.");
+              return;
+            }
+          }
+        } catch (roleErr) {
+          console.warn("Could not verify user role on login:", roleErr);
+        }
+
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      switch (err.code) {
+        case "auth/invalid-login-credentials":
+        case "auth/invalid-credential":
+        case "auth/wrong-password":
+          setError("Invalid email or password. Please verify your credentials and try again.");
+          break;
+        case "auth/user-not-found":
+          setError("No account found with this email address.");
+          break;
+        case "auth/invalid-email":
+          setError("The email address provided is improperly formatted.");
+          break;
+        case "auth/user-disabled":
+          setError("This account has been deactivated. Please contact support.");
+          break;
+        case "auth/too-many-requests":
+          setError("Too many attempts. Access temporarily locked for security.");
+          break;
+        case "auth/network-request-failed":
+          setError("Network connection error. Please verify your internet connection.");
+          break;
+        default:
+          setError(err.message || "An unexpected error occurred during sign in. Please try again.");
+          break;
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccess("");
+
+    const targetEmail = resetEmail.trim() || email.trim();
+    if (!targetEmail) {
+      setResetError("Please provide your email address to receive password reset instructions.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const auth = getAuth(app);
+      await sendPasswordResetEmail(auth, targetEmail);
+      setResetSuccess(
+        `A password recovery link has been dispatched to ${targetEmail}. Please check your inbox.`
+      );
+      setResetEmail("");
+    } catch (err) {
+      if (err.code === "auth/user-not-found") {
+        setResetError("No account associated with this email address was found.");
+      } else if (err.code === "auth/invalid-email") {
+        setResetError("Please provide a valid email address.");
+      } else {
+        setResetError(err.message || "Unable to send password recovery email. Please try again.");
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
-    <>
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
-        <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-lg">
-          <div className="text-center mb-8">
-            <img src={logo} alt="Thaiseva" className="w-[50%] m-auto" />
-            {/* <h1 className="text-4xl font-bold text-gray-800">Thaiseva</h1> */}
-            {/* <h2 className="text-2xl font-semibold text-gray-600 mt-2">
-              {"Sign In"}
-            </h2> */}
+    <div className="h-screen w-screen overflow-hidden flex flex-col lg:flex-row bg-gradient-to-br from-blue-100 via-indigo-50 to-purple-100 select-none">
+      
+      {/* ========================================================= */}
+      {/* LEFT PANEL: Brand Showcase (Executive Redesign)           */}
+      {/* ========================================================= */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-[52%] flex-col justify-between p-8 xl:p-12 relative overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#1e40af] text-white h-full">
+        
+        {/* Ambient background glows */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-500/25 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute top-1/2 -right-20 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl" />
+          <div className="absolute -bottom-20 left-1/4 w-80 h-80 bg-sky-400/20 rounded-full blur-3xl" />
+          <div
+            className="absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.8) 1px, transparent 1px)`,
+              backgroundSize: "24px 24px",
+            }}
+          />
+        </div>
+
+        {/* Top Header */}
+        <div className="relative z-10 flex items-center justify-between">
+          <div className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-white/20 flex items-center">
+            <img
+              src={logo}
+              alt="Thaiseva Logo"
+              className="h-10 w-auto object-contain"
+            />
           </div>
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label
-                className="block text-gray-700 text-sm font-bold mb-2"
-                htmlFor="email"
-              >
-                Email
-              </label>
-              <div className="flex items-center border-2 rounded-lg px-3 py-2 focus-within:border-blue-500 transition duration-300">
-                <FaEnvelope className="text-gray-400 mr-2" />
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full focus:outline-none"
-                  placeholder="Enter your email"
-                  required
-                />
-              </div>
-            </div>
-            <div>
-              <label
-                className="block text-gray-700 text-sm font-bold mb-2"
-                htmlFor="password"
-              >
-                Password
-              </label>
-              <div className="flex items-center border-2 rounded-lg px-3 py-2 focus-within:border-blue-500 transition duration-300">
-                <FaLock className="text-gray-400 mr-2" />
-                <input
-                  type={`${showpsw ? "text" : "password"}`}
-                  id="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full focus:outline-none"
-                  placeholder="Enter your password"
-                  required
-                />
-                {showpsw ? (
-                  <FaRegEye
-                    onClick={() => setShowpsw((p) => !p)}
-                    className="text-gray-400 ml-2 cursor-pointer"
-                  />
-                ) : (
-                  <FaRegEyeSlash
-                    onClick={() => setShowpsw((p) => !p)}
-                    className="text-gray-400 ml-2 cursor-pointer"
-                  />
-                )}
-              </div>
-            </div>
-            {error && (
-              <div
-                className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
-                role="alert"
-              >
-                <FaExclamationCircle className="inline mr-2" />
-                <span className="block sm:inline">{error}</span>
-              </div>
-            )}
-            <button
-              type="submit"
-              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition duration-300 "
-            >
-              {"Sign In"}
-            </button>
-          </form>
-          <div className="mt-3 text-center">
-            <p className="text-blue-500 hover:text-blue-600 text-sm">
-              {"Want to be a partner?"}
-            </p>
-          </div>
-          <div className="grid gap-3 grid-cols-1 mt-3">
-            <button
-              onClick={() => {
-                navigate("/partner-onboarding");
-              }}
-              className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg flex items-center justify-center hover:bg-gray-50 focus:outline-none focus:shadow-outline transition duration-300"
-            >
-              <FaUser className="mr-4 text-blue-500 " /> Local Assistance
-            </button>
-            {/* <button
-              onClick={() => {
-                navigate("/driver-onboarding");
-              }}
-              className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg flex items-center justify-center hover:bg-gray-50 focus:outline-none focus:shadow-outline transition duration-300"
-            >
-              <FaCar className="mr-4 text-blue-500 " /> Driver
-            </button>
-            <Link
-              to="https://thaiseva-food-portal.web.app/"
-              className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg flex items-center justify-center hover:bg-gray-50 focus:outline-none focus:shadow-outline transition duration-300"
-            >
-              <IoRestaurant className="mr-4 text-blue-500 " /> Restaurant
-            </Link> */}
+
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-xs font-semibold text-white/90">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Administrative Console</span>
           </div>
         </div>
-      </div>
-      {/* <div className="w-screen h-screen flex items-center justify-center md:px-10 p-2 py-12 bg-[var(--primary-bg)]">
-        <Paper
-          elevation={3}
-          sx={{
-            p: { xs: 2, sm: 3, md: 4 },
-            mx: "auto",
-            height: "fit-content",
-            width: { xs: "100%", sm: "50%", md: "40%" },
-          }}
-          className="shadow-xl shadow-black"
-        >
-          <h3 className="text-center text-[var(--primary-bg)] font-bold text-2xl mb-3">
-            Login
-          </h3>
-          <Box component="form" onSubmit={handleLogin}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <TextField
-                  label="Email"
-                  type="email"
-                  name="email"
-                  defaultValue=""
-                  fullWidth
-                />
-              </Grid>
 
-              <Grid item xs={12}>
-                <TextField
-                  label="Password"
-                  type="password"
-                  name="password"
-                  defaultValue=""
-                  fullWidth
-                />
-              </Grid>
-            </Grid>
-            {error && <span className="text-red-500">{error}</span>}
-            <Box textAlign="center" sx={{ my: 2 }}>
-              <Button
-                type="submit"
-                variant="contained"
-                sx={{ backgroundColor: "var(--primary-bg)" }}
-              >
-                Login
-              </Button>
-            </Box>
+        {/* Center Hero Content */}
+        <div className="relative z-10 my-auto py-4 max-w-lg">
+          <h1 className="text-2xl xl:text-3xl 2xl:text-4xl font-black text-white tracking-tight leading-tight mb-3">
+            Central Operations & Fleet Dispatch Hub
+          </h1>
 
-            <div>
-              Want to be a partner?{" "}
-              <div
-                onClick={handleOpen}
-                className="text-[blue] underline inline-block"
-              >
-                Click Here
+          <p className="text-blue-100/80 text-xs xl:text-sm leading-relaxed mb-6">
+            Real-time management for vehicle rentals, tour packages, and automated commission reconciliations across Thailand.
+          </p>
+
+          {/* Feature Showcase Cards */}
+          <div className="space-y-3">
+            {/* Card 1: Travel & Logistics */}
+            <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 hover:bg-white/15 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-cyan-500/20">
+                <DirectionsCarIcon sx={{ fontSize: 20 }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="font-bold text-white text-xs xl:text-sm truncate">Transport & Tour Dispatch</h2>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 whitespace-nowrap">
+                    Active
+                  </span>
+                </div>
+                <p className="text-blue-100/75 text-[11px] leading-tight mt-0.5 truncate">
+                  Vehicle rentals, transfer dispatch, and package bookings.
+                </p>
               </div>
             </div>
-          </Box>
-        </Paper>
-        <Modal
-          open={open}
-          onClose={handleClose}
-          aria-labelledby="modal-modal-title"
-          aria-describedby="modal-modal-description"
-        >
-          <Box sx={style}>
-            <h3 className="font-bold text-xl text-slate-600">
-              Which type of partner do you want to be?
-            </h3>
 
-            <ul className="list-disc pl-4">
-              <li>
-                <Link
-                  to="/partner-onboarding"
-                  className="online-block text-blue-600 hover:text-blue-800 underline"
+            {/* Card 2: Financial Ledgers */}
+            <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 hover:bg-white/15 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-600 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-indigo-500/20">
+                <ReceiptIcon sx={{ fontSize: 20 }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="font-bold text-white text-xs xl:text-sm truncate">Financial Ledgers & Settlements</h2>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-400/20 text-blue-200 border border-blue-400/30 whitespace-nowrap">
+                    Automated
+                  </span>
+                </div>
+                <p className="text-blue-100/75 text-[11px] leading-tight mt-0.5 truncate">
+                  Partner commission ledgers, invoices, and settlement logs.
+                </p>
+              </div>
+            </div>
+
+            {/* Card 3: Persistent Session Access */}
+            <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 hover:bg-white/15 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-700 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-blue-500/20">
+                <AdminPanelSettingsIcon sx={{ fontSize: 20 }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="font-bold text-white text-xs xl:text-sm truncate">Persistent Session Access</h2>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-400/20 text-sky-200 border border-sky-400/30 whitespace-nowrap">
+                    No Timeout
+                  </span>
+                </div>
+                <p className="text-blue-100/75 text-[11px] leading-tight mt-0.5 truncate">
+                  Continuous administrative session without automatic logouts.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom subtle note */}
+        <div className="relative z-10 text-[11px] text-blue-200/60 font-medium">
+          Thaiseva Enterprise Management Portal
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* RIGHT PANEL: Authentication Panel (Polished & Refined)     */}
+      {/* ========================================================= */}
+      <div className="w-full lg:w-1/2 xl:w-[48%] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 h-full overflow-y-auto lg:overflow-hidden relative">
+        
+        {/* Ambient subtle light halos behind card */}
+        <div className="absolute top-1/4 right-10 w-80 h-80 bg-blue-300/25 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 left-10 w-80 h-80 bg-indigo-200/30 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Main Card Container with top accent gradient ribbon */}
+        <div className="w-full max-w-[430px] mx-auto bg-white/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_60px_-15px_rgba(30,58,138,0.18),0_0_0_1px_rgba(226,232,240,0.8)] overflow-hidden relative z-10 transition-all">
+          
+          {/* Top Gradient Ribbon */}
+          <div className="h-1.5 w-full bg-gradient-to-r from-blue-700 via-indigo-600 to-sky-400" />
+
+          <div className="p-7 sm:p-8">
+            {/* Header */}
+            <div className="text-center mb-6">
+              {/* Logo on small screens */}
+              <img
+                src={logo}
+                alt="Thaiseva Logo"
+                className="h-10 w-auto object-contain mx-auto mb-3 lg:hidden"
+              />
+
+              {/* Executive Icon Badge */}
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#1e40af] via-blue-600 to-indigo-600 text-white flex items-center justify-center mx-auto mb-3.5 shadow-lg shadow-blue-600/30 ring-4 ring-blue-50/80">
+                <AdminPanelSettingsIcon sx={{ fontSize: 24 }} />
+              </div>
+
+              <h1 className="text-2xl sm:text-[26px] font-black text-slate-900 tracking-tight">
+                Sign In to Dashboard
+              </h1>
+              <p className="text-xs sm:text-[13px] text-slate-500 mt-1.5 leading-relaxed">
+                Enter your administrative credentials to continue.
+              </p>
+            </div>
+
+            {/* Error Alert */}
+            {error && (
+              <div
+                className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2 animate-in fade-in duration-200"
+                role="alert"
+              >
+                <FaExclamationCircle className="text-red-500 text-sm flex-shrink-0 mt-0.5" />
+                <div className="flex-1 font-medium leading-tight">{error}</div>
+                <button
+                  type="button"
+                  onClick={() => setError("")}
+                  className="text-red-400 hover:text-red-600 p-0.5 rounded transition-colors"
+                  aria-label="Dismiss error"
                 >
-                  Local Partner
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/driver-onboarding"
-                  className="online-block text-blue-600 hover:text-blue-800 underline"
+                  <Close sx={{ fontSize: 14 }} />
+                </button>
+              </div>
+            )}
+
+            {/* Login Form */}
+            <form onSubmit={handleLogin} className="space-y-4" noValidate>
+              
+              {/* Email Field */}
+              <div>
+                <label
+                  htmlFor="login-email"
+                  className="block text-xs font-bold text-slate-700 mb-1.5"
                 >
-                  Driving
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="https://thaiseva-food-portal.web.app/"
-                  className="online-block text-blue-600 hover:text-blue-800 underline"
+                  Email Address
+                </label>
+                <div className="relative flex items-center rounded-xl border border-slate-200/90 bg-slate-50/70 hover:bg-white hover:border-slate-300 focus-within:bg-white focus-within:border-blue-600 focus-within:ring-4 focus-within:ring-blue-100/80 transition-all duration-200 shadow-2xs">
+                  <div className="pl-3.5 pr-2.5 flex items-center pointer-events-none text-slate-400">
+                    <FaEnvelope className="text-xs" />
+                  </div>
+                  <input
+                    id="login-email"
+                    name="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="admin@thaiseva.com"
+                    autoComplete="email"
+                    required
+                    disabled={isSubmitting}
+                    className="w-full py-2.5 pr-3 bg-transparent text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none disabled:opacity-60 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* Password Field */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label
+                    htmlFor="login-password"
+                    className="block text-xs font-bold text-slate-700"
+                  >
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetEmail(email);
+                      setResetError("");
+                      setResetSuccess("");
+                      setShowForgotModal(true);
+                    }}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors focus:outline-none cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+                <div className="relative flex items-center rounded-xl border border-slate-200/90 bg-slate-50/70 hover:bg-white hover:border-slate-300 focus-within:bg-white focus-within:border-blue-600 focus-within:ring-4 focus-within:ring-blue-100/80 transition-all duration-200 shadow-2xs">
+                  <div className="pl-3.5 pr-2.5 flex items-center pointer-events-none text-slate-400">
+                    <FaLock className="text-xs" />
+                  </div>
+                  <input
+                    id="login-password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    required
+                    disabled={isSubmitting}
+                    className="w-full py-2.5 pr-9 bg-transparent text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none disabled:opacity-60 font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors focus:outline-none cursor-pointer"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <FaRegEye className="text-sm" />
+                    ) : (
+                      <FaRegEyeSlash className="text-sm" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3.5 px-4 mt-1 rounded-xl font-bold text-xs sm:text-sm text-white bg-gradient-to-r from-[#1e40af] via-blue-600 to-[#2563eb] hover:from-[#1e3a8a] hover:via-[#1e40af] hover:to-blue-700 active:scale-[0.99] transition-all duration-200 shadow-lg shadow-blue-700/25 hover:shadow-xl hover:shadow-blue-700/35 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-65 disabled:cursor-not-allowed group"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Authenticating...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign In to Dashboard</span>
+                    <ArrowForwardIosRoundedIcon sx={{ fontSize: 13 }} className="opacity-90 transition-transform group-hover:translate-x-1" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Subtle Security & Status Badge */}
+            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-medium">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-slate-600 font-semibold">Console Active</span>
+              </div>
+              <span className="text-slate-400">Authorized Personnel Only</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-3.5 text-center text-[11px] text-slate-400 font-medium">
+          © {new Date().getFullYear()} Thaiseva Systems • Enterprise Edition
+        </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* FORGOT PASSWORD MODAL                                     */}
+      {/* ========================================================= */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+            <div className="h-1.5 w-full bg-gradient-to-r from-[#1e40af] to-blue-500" />
+            
+            <div className="p-5 sm:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#1e40af] flex items-center justify-center">
+                    <FaLock className="text-xs" />
+                  </div>
+                  <h2 className="text-base font-bold text-slate-900">
+                    Reset Password
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotModal(false);
+                    setResetError("");
+                    setResetSuccess("");
+                  }}
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+                  aria-label="Close modal"
                 >
-                  Restaurant
-                </Link>
-              </li>
-            </ul>
-          </Box>
-        </Modal>
-      </div> */}
-    </>
+                  <Close sx={{ fontSize: 16 }} />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                Enter your administrative email address to receive password reset instructions.
+              </p>
+
+              {resetSuccess && (
+                <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
+                  <CheckCircle sx={{ fontSize: 16 }} className="text-emerald-600 mt-0.5 flex-shrink-0" />
+                  <div className="leading-snug">{resetSuccess}</div>
+                </div>
+              )}
+
+              {resetError && (
+                <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+                  <FaExclamationCircle className="text-red-500 text-xs mt-0.5 flex-shrink-0" />
+                  <div className="leading-snug">{resetError}</div>
+                </div>
+              )}
+
+              {!resetSuccess ? (
+                <form onSubmit={handleResetPassword} className="space-y-3.5">
+                  <div>
+                    <label
+                      htmlFor="reset-email"
+                      className="block text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1"
+                    >
+                      Email Address
+                    </label>
+                    <div className="relative flex items-center rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white focus-within:bg-white focus-within:border-[#1e40af] focus-within:ring-4 focus-within:ring-blue-100 transition-all duration-200">
+                      <div className="pl-3 pr-2 flex items-center pointer-events-none text-slate-400">
+                        <FaEnvelope className="text-xs" />
+                      </div>
+                      <input
+                        id="reset-email"
+                        type="email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="admin@thaiseva.com"
+                        required
+                        disabled={resetLoading}
+                        className="w-full py-2 pr-3 bg-transparent text-xs text-slate-800 placeholder-slate-400 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(false)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={resetLoading}
+                      className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#1e40af] hover:bg-[#1d4ed8] shadow-sm shadow-blue-600/30 transition-all duration-200 flex items-center gap-1.5 disabled:opacity-60"
+                    >
+                      {resetLoading ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Sending...</span>
+                        </>
+                      ) : (
+                        <span>Send Link</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <div className="pt-1 text-right">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotModal(false);
+                      setResetSuccess("");
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-white bg-[#1e40af] hover:bg-[#1d4ed8] transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

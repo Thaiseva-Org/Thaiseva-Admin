@@ -114,17 +114,24 @@ const AuthProvider = ({ children }) => {
               const isExplicitAdmin = ["Admin", "admin"].includes(userData?.role) ||
                 ["admin@gmail.com", "thaiseva_admin@gmail.com"].includes(currentUser?.email);
 
+              // Partner role is turned off on the Admin Portal
               if (userData?.role === "Partner" && !isExplicitAdmin) {
+                console.warn("Partner role is blocked from the Admin Portal. Signing out...");
+                await signOut(auth);
+                setUser(null);
+                setUserData(null);
                 setIsAdmin(false);
-                setIsPatner(true);
-                setIsSubAdmin(false);
-                setIsVerifiedPartner(userData?.status === "Verified");
-              } else {
-                setIsAdmin(true);
                 setIsPatner(false);
                 setIsSubAdmin(false);
                 setIsVerifiedPartner(false);
+                setLoading(false);
+                return;
               }
+
+              setIsAdmin(true);
+              setIsPatner(false);
+              setIsSubAdmin(false);
+              setIsVerifiedPartner(false);
             } else {
               setUserData({ role: "Admin", email: currentUser.email });
               setIsAdmin(true);

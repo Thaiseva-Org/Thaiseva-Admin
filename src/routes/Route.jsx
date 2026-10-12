@@ -6,7 +6,7 @@
  * route protection (PrivetRouter, AdminRoute, PartnerRoute, HeadAdminRoute).
  */
 
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
 import PrivetRouter from "./PrivetRouter";
 import PartnerRoute from "./PartnerRoute";
 import AdminRoute from "./AdminRoute";
@@ -609,17 +609,7 @@ export const router = createBrowserRouter([
   {
     path: "/partner-onboarding",
     errorElement: <GlobalError />,
-    element: (
-      <Suspense
-        fallback={
-          <div className="h-screen flex items-center">
-            <Loading />
-          </div>
-        }
-      >
-        <PartnerOnboarding />
-      </Suspense>
-    ),
+    element: <Navigate to="/login" replace />,
   },
   // {
   //   path: "/driver-onboarding",
