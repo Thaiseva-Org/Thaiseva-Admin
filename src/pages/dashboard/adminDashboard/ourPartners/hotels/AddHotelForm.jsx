@@ -1,3 +1,4 @@
+import { hotelPackagePricing } from "../../../../../utils/hotel-package-pricing";
 import ListingStatus from "../../../../../components/ListingStatus";
 import { isListingActive, listingStatusFields } from "../../../../../utils/listing-status";
 import React, { useState, useRef, useContext, useEffect } from "react";
@@ -178,8 +179,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     const [petsAllowed, setPetsAllowed] = useState(false);
     const [nearbyAttractions, setNearbyAttractions] = useState([]);
     const [attractionInput, setAttractionInput] = useState("");
-    const [hotelDiscount, setHotelDiscount] = useState("");
-    const [manualStartingPrice, setManualStartingPrice] = useState("");
 
     const [logoError, setLogoError] = useState(false);
     const [locationError, setLocationError] = useState(false);
@@ -188,6 +187,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
 
     const [roomTypes, setRoomTypes] = useState([]);
+    const packagePricing = hotelPackagePricing(roomTypes);
     const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
     const [editingRoomId, setEditingRoomId] = useState(null);
     const initialRoomState = {
@@ -273,7 +273,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             setHotelGallery(h.images?.gallery || effectiveInitialData.images?.gallery || []);
             setPetsAllowed(h.petsAllowed ?? effectiveInitialData.petsAllowed ?? false);
             setNearbyAttractions(h.nearbyAttractions || effectiveInitialData.nearbyAttractions || []);
-            setHotelDiscount(h.discount ?? effectiveInitialData.discount ?? 0);
 
             const features = h.features || effectiveInitialData.features || h.amenities || effectiveInitialData.amenities || [];
             const predefinedIds = ['pool', 'gym', 'wifi', 'parking', 'restaurant', 'spa'];
@@ -295,9 +294,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             }
             const addr = h.address || effectiveInitialData.address;
             if (addr) setAddressInputValue(addr);
-
-            const sp = h.startingPrice || effectiveInitialData.startingPrice;
-            if (sp) setManualStartingPrice(sp);
 
             // Fetch Rooms from Subcollection if editing
             const targetHid = resolvedHotelId;
@@ -531,14 +527,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
         setSubmissionError("");
 
-        if (manualStartingPrice !== "" && manualStartingPrice !== null && manualStartingPrice !== undefined) {
-            const manualPriceNum = Number(manualStartingPrice);
-            if (isNaN(manualPriceNum) || manualPriceNum <= 0) {
-                toast.error("Starting price must be greater than 0");
-                return;
-            }
-        }
-
         const effectiveData = effectiveInitialData;
         const targetHotelId = isEdit
             ? (resolvedHotelId || effectiveData?.uid || effectiveData?.id || effectiveData?.hotel?.hotelId || effectiveData?.hotel?.hotelUid || hotelId)
@@ -563,29 +551,14 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                 ...(existingAvailabilityConfig || {}),
             };
 
-            const validRoomPrices = roomTypes
-                .map(r => Number(r.pricing?.pricePerNightAfterDiscount || r.pricing?.basePrice || 0))
-                .filter(p => p > 0);
-
-            let resolvedStartingPrice = 1;
-            if (manualStartingPrice !== "" && manualStartingPrice !== null && manualStartingPrice !== undefined) {
-                const num = Number(manualStartingPrice);
-                if (num > 0) resolvedStartingPrice = num;
-            } else if (validRoomPrices.length > 0) {
-                resolvedStartingPrice = Math.min(...validRoomPrices);
-            }
-            if (resolvedStartingPrice <= 0) {
-                resolvedStartingPrice = 1;
-            }
-
             const hotelObjectPayload = {
                 hotelId: targetHotelId,
                 hotelUid: targetHotelId,
                 hotelName: data.hotelName || "",
                 country: data.country || "Thailand",
                 currency: "THB",
-                startingPrice: Math.max(1, resolvedStartingPrice),
-                discount: Math.min(99, Math.max(0, Number(hotelDiscount) || 0)),
+                startingPrice: packagePricing.startingPrice,
+                discount: packagePricing.discount,
                 totalRooms: derivedTotalRooms,
                 address: addressInputValue || data.address || "",
                 description: data.description || "",
@@ -614,8 +587,8 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                 hotelName: data.hotelName || "",
                 country: data.country || "Thailand",
                 currency: "THB",
-                startingPrice: Math.max(1, resolvedStartingPrice),
-                discount: Math.min(99, Math.max(0, Number(hotelDiscount) || 0)),
+                startingPrice: packagePricing.startingPrice,
+                discount: packagePricing.discount,
                 totalRooms: derivedTotalRooms,
                 address: addressInputValue || data.address || "",
                 description: data.description || "",
@@ -936,7 +909,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                 </div>
 
                 {/* Rating & Etc */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">Star Rating</label>
                         <StarRating rating={rating} setRating={setRating} />
@@ -945,51 +918,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                         <span className="text-sm font-bold text-gray-700">Pets Allowed?</span>
                         <input type="checkbox" checked={petsAllowed} onChange={(e) => setPetsAllowed(e.target.checked)} className="w-5 h-5" />
                     </div>
-                    <TextField
-                        label="Starting Price (฿)"
-                        type="number"
-                        inputProps={{ min: 1 }}
-                        value={manualStartingPrice}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === "") {
-                                setManualStartingPrice("");
-                            } else {
-                                const num = Number(val);
-                                if (num > 0) {
-                                    setManualStartingPrice(num);
-                                }
-                            }
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === "-" || e.key === "+" || e.key === "e") {
-                                e.preventDefault();
-                            }
-                        }}
-                        helperText="Must be greater than 0"
-                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                    />
-                    <TextField
-                        label="Discount (%)"
-                        type="number"
-                        inputProps={{ min: 0, max: 99 }}
-                        value={hotelDiscount}
-                        onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === "") {
-                                setHotelDiscount("");
-                            } else {
-                                const num = Math.min(99, Math.max(0, Number(val)));
-                                setHotelDiscount(num);
-                            }
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === "-" || e.key === "+" || e.key === "e") {
-                                e.preventDefault();
-                            }
-                        }}
-                        sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
-                    />
                 </div>
 
                 {/* Nearby Attractions */}
@@ -1219,7 +1147,9 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                 )}
                                 <p><span className="font-semibold text-gray-900">Amenities:</span> {[...selectedAmenities, ...customAmenities].length} selected</p>
                                 <p><span className="font-semibold text-gray-900">Pets Allowed:</span> {petsAllowed ? "Yes" : "No"}</p>
-                                <p><span className="font-semibold text-gray-900">Discount:</span> {hotelDiscount}%</p>
+                                <p><span className="font-semibold text-gray-900">Package Starting Price:</span> THB {packagePricing.startingPrice}</p>
+                                <p><span className="font-semibold text-gray-900">Room Discount:</span> {packagePricing.discount}%</p>
+                                <p><span className="font-semibold text-gray-900">Price After Discount:</span> THB {Number((packagePricing.startingPrice * (1 - packagePricing.discount / 100)).toFixed(2))}</p>
                                 <p><span className="font-semibold text-gray-900">Images:</span> {hotelGallery.length + (logoURL ? 1 : 0)} uploaded</p>
                             </div>
                         </div>

@@ -1,6 +1,7 @@
 import ListingStatus, { StatusFilters } from "../../../../../components/ListingStatus";
 import { useListingStatus } from "../../../../../hooks/useListingStatus";
 import { isListingActive, listingStatusFields } from "../../../../../utils/listing-status";
+import { hotelPackagePricingUpdate } from "../../../../../utils/hotel-package-pricing";
 import { CloseIcon } from "@icons";
 import {
     Box,
@@ -140,10 +141,16 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         if (confirm("Are you sure to delete this package?")) {
             try {
                 await deleteDoc(doc(hotelPackages, id)).catch(() => { });
-                await deleteDoc(doc(hotelPackageDetails, id));
+                const batch = writeBatch(db);
+                batch.delete(doc(hotelPackageDetails, id));
                 if (hotelUid) {
-                    await deleteDoc(doc(db, "HotelDB", hotelUid, "rooms", id)).catch(() => { });
+                    batch.delete(doc(db, "HotelDB", hotelUid, "rooms", id));
+                    batch.update(doc(db, "HotelDB", hotelUid), {
+                        ...hotelPackagePricingUpdate(myRooms.filter((room) => room.id !== id)),
+                        updatedAt: serverTimestamp(),
+                    });
                 }
+                await batch.commit();
                 alert("The package is deleted successfully.");
             } catch (e) {
                 console.error(e);
@@ -279,6 +286,13 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
         const batch = writeBatch(db);
         batch.set(doc(hotelPackageDetails, id), packageDetails, { merge: true });
         batch.set(doc(db, "HotelDB", hotelUid, "rooms", id), packageDetails, { merge: true });
+        batch.update(doc(db, "HotelDB", hotelUid), {
+            ...hotelPackagePricingUpdate([
+                ...myRooms.filter((room) => room.id !== id),
+                packageDetails,
+            ]),
+            updatedAt: serverTimestamp(),
+        });
         try { await batch.commit(); } catch (error) { console.error(error); alert('Room package could not be saved.'); return; }
         successNotification(
             `The Package is ${roomDetails?.packageName ? "updated" : "added"
