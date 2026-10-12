@@ -933,12 +933,12 @@ const AddSightseeingPackage = () => {
                                         <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">⚙️ Booking Configuration</Typography>
                                         <Grid container spacing={4}>
                                             <Grid item xs={12}>
-                                                <div className="p-4 bg-blue-50 text-blue-800 rounded-xl border border-blue-100 flex items-center gap-3">
-                                                    <span className="text-2xl">ℹ️</span>
+                                                <div className="p-4 bg-purple-50 text-purple-900 rounded-xl border border-purple-100 flex items-center gap-3">
+                                                    <span className="text-2xl">⚡</span>
                                                     <div>
-                                                        <Typography variant="subtitle1" fontWeight="bold">Global Weekly Limit Applied</Typography>
+                                                        <Typography variant="subtitle1" fontWeight="bold">Global Daily Limit Applied</Typography>
                                                         <Typography variant="body2">
-                                                            All packages currently use the global weekly booking limit configured in the "Sightseeing Packages" main page settings.
+                                                            All packages currently use the global daily booking limit configured in the "Sightseeing Packages" main page settings.
                                                         </Typography>
                                                     </div>
                                                 </div>

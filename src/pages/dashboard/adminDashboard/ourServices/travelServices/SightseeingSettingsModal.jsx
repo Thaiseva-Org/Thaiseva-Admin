@@ -6,7 +6,6 @@ import {
     DialogActions,
     Button,
     TextField,
-    Typography,
     Box,
     CircularProgress,
     InputAdornment
@@ -16,7 +15,6 @@ import { db } from "../../../../../firebase/firebase.config";
 import { successNotification } from "../../../../../utils/utils";
 
 const SightseeingSettingsModal = ({ open, onClose }) => {
-    const [limit, setLimit] = useState(200);
     const [dailyLimit, setDailyLimit] = useState(20);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -33,7 +31,6 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
             const docRef = doc(db, "settings", "sightseeingConfig");
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
-                setLimit(docSnap.data().globalWeeklyLimit || 200);
                 setDailyLimit(docSnap.data().globalDailyLimit ?? 20);
             }
         } catch (error) {
@@ -44,7 +41,6 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
 
     const handleSave = async () => {
         const parsedDaily = parseInt(dailyLimit);
-        const parsedWeekly = parseInt(limit);
         if (isNaN(parsedDaily) || parsedDaily < 0) {
             alert("Please enter a valid daily limit (0 or greater).");
             return;
@@ -53,14 +49,13 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
         setSaving(true);
         try {
             await setDoc(doc(db, "settings", "sightseeingConfig"), {
-                globalWeeklyLimit: isNaN(parsedWeekly) ? 200 : parsedWeekly,
                 globalDailyLimit: parsedDaily,
                 updatedAt: new Date()
             }, { merge: true });
             if (typeof successNotification === "function") {
-                successNotification("Daily Limit and tour settings updated successfully!");
+                successNotification("Daily Limit updated successfully!");
             } else {
-                alert("Settings updated successfully!");
+                alert("Daily limit updated successfully!");
             }
             onClose();
         } catch (error) {
@@ -99,9 +94,9 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
             >
                 <span className="text-2xl">⚡</span>
                 <div>
-                    <div>Daily Limit & Tour Capacity</div>
+                    <div>Daily Tour Booking Limit</div>
                     <div className="text-xs text-purple-200 font-normal mt-0.5">
-                        Configure daily booking thresholds and weekly limits
+                        Configure global daily tour-date booking limit
                     </div>
                 </div>
             </DialogTitle>
@@ -123,7 +118,7 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
                             fullWidth
                             value={dailyLimit}
                             onChange={(e) => setDailyLimit(e.target.value)}
-                            helperText="Maximum allowed instant bookings per tour day."
+                            helperText="Maximum allowed instant bookings per tour day across all sightseeing packages."
                             InputProps={{
                                 inputProps: { min: 0 },
                                 startAdornment: <InputAdornment position="start">📊</InputAdornment>
@@ -133,24 +128,6 @@ const SightseeingSettingsModal = ({ open, onClose }) => {
                                     borderRadius: "12px",
                                     fontSize: "1.05rem",
                                     fontWeight: 600
-                                }
-                            }}
-                        />
-
-                        <TextField
-                            label="Global Weekly Booking Limit"
-                            type="number"
-                            fullWidth
-                            value={limit}
-                            onChange={(e) => setLimit(e.target.value)}
-                            helperText="Applies as default capacity across all packages unless overridden."
-                            InputProps={{
-                                inputProps: { min: 1 },
-                                startAdornment: <InputAdornment position="start">📈</InputAdornment>
-                            }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: "12px"
                                 }
                             }}
                         />
