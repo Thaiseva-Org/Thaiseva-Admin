@@ -312,7 +312,7 @@ const PartnerProvider = ({ children }) => {
     const unSub = onSnapshot(
       query(hotelPackageDetails, orderBy("updatedAt", "desc")),
       (result) => {
-        const list = result.docs.map((doc) => doc.data());
+        const list = result.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
         setRooms(list);
         setLoadingData(false);
       },

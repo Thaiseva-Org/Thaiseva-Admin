@@ -1,3 +1,5 @@
+import ListingStatus, { StatusBadge, StatusFilters, StatusSummary } from "../../../../../components/ListingStatus";
+import { useListingStatus } from "../../../../../hooks/useListingStatus";
 import {
   TablePagination,
   IconButton,
@@ -16,15 +18,9 @@ import {
   Button
 } from "@mui/material";
 import {
-  collection,
   deleteDoc,
   doc,
-  getCountFromServer,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  startAfter,
+  onSnapshot,
 } from "firebase/firestore";
 import { MdEdit, MdDelete, MdInfo } from "@icons";
 import { GridView, ViewList, AccessTime, LocationOn, MonetizationOn, Star, Search } from "@icons";
@@ -49,68 +45,36 @@ import { MdSettings } from "@icons";
 
 const TravelServices = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
+  const [matchedTravelServices, setMatchedTravelServices] = useState([]);
+  const visibility = useListingStatus('tour', matchedTravelServices);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
   const navigate = useNavigate();
   const [travelServices, setTravelServices] = useState([]);
-  const [matchedTravelServices, setMatchedTravelServices] = useState([]);
   const [loadingServices, setLoadingServices] = useState(false);
-  const [refetch, setRefetch] = useState(true);
   const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [lastDocs, setLastDocs] = useState([]);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openSettingsModal, setOpenSettingsModal] = useState(false);
 
   const [viewMode, setViewMode] = useState('list');
 
-  // fetching all services
-  const fetchTotalPages = async () => {
-    let q = query(travelServicesCollection, orderBy("timestamp", "desc"));
-    const querySnapshot = await getCountFromServer(q);
-    setTotalPages(Math.ceil(querySnapshot.data().count));
-  };
-
-  const fetchData = async () => {
-    setLoadingServices(true);
-    let q = query(
-      travelServicesCollection,
-      orderBy("timestamp", "desc"),
-      limit(rowsPerPage)
-    );
-
-    if (page > 0 && lastDocs[page - 1]) {
-      q = query(
-        travelServicesCollection,
-        orderBy("timestamp", "desc"),
-        startAfter(lastDocs[page - 1]),
-        limit(rowsPerPage)
-      );
-    }
-    const querySnapshot = await getDocs(q);
-    const newData = querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    const lastDoc =
-      querySnapshot.docs.length > 0
-        ? querySnapshot.docs[querySnapshot.docs.length - 1]
-        : null;
-    setLastDocs((prev) => {
-      const updated = [...prev];
-      updated[page] = lastDoc;
-      return updated;
-    });
-    setTravelServices(newData);
-    setMatchedTravelServices(newData);
-    setLoadingServices(false);
-  };
   useEffect(() => {
-    if (isAdmin || isSubAdmin) {
-      fetchTotalPages();
-      fetchData();
-    }
-  }, [isAdmin, isSubAdmin, refetch, page, rowsPerPage]);
+    if (!(isAdmin || isSubAdmin)) return;
+    setLoadingServices(true);
+    return onSnapshot(travelServicesCollection, (snapshot) => {
+      const records = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+      records.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+      setTravelServices(records);
+      setMatchedTravelServices(records);
+      setLoadingServices(false);
+    }, () => setLoadingServices(false));
+  }, [isAdmin, isSubAdmin]);
+  const statusTours = matchedTravelServices.map((record) => ({ ...record, isActive: visibility.resolve(record) })).filter((record) =>
+    [record.title, record.location].some((value) => String(value || '').toLowerCase().includes(searchText)));
+  const handleTogglePackageActive = (packageId, currentStatus) => visibility.toggle(travelServices.find((record) => record.id === packageId), !currentStatus);
 
   const columns = [
+    { id: "visibility", label: "Status", width: "15%" },
     { id: "title", label: "Title", width: "20%" },
     {
       id: "location",
@@ -172,30 +136,9 @@ const TravelServices = () => {
   }
 
   // calling createData function with driver's data
-  const rows = matchedTravelServices.map((service) => {
-    return createData(
-      service.title,
-      service.description,
-      service.location,
-      service.period,
-      service.price,
-      service.discount,
-      service.rating,
-      service.id,
-      service.coverPhoto || service.images?.[0] || 'https://via.placeholder.com/300x200?text=No+Image',
-      service.maxBookingsPerWeek || 200
-    );
-  });
-
-  const handleSearch = (text) => {
-    const matchingObjects = travelServices.filter(
-      (item) =>
-        item.location.toLowerCase().includes(text.toLowerCase()) ||
-        item.title.toLowerCase().includes(text.toLowerCase())
-    );
-
-    setMatchedTravelServices(matchingObjects);
-  };
+  const filteredTours = statusTours.filter((record) => statusFilter === 'all' || record.isActive === (statusFilter === 'active'));
+  const rows = filteredTours.slice(page * rowsPerPage, (page + 1) * rowsPerPage).map((service) => ({ ...service, coverPhoto: service.coverPhoto || service.images?.[0] }));
+  const handleSearch = (text) => { setSearchText(String(text || '').toLowerCase().trim()); setPage(0); };
 
   const renderPackageList = (packageRows, title) => {
     if (packageRows.length === 0) return null; // Or show empty message if preferred, but filtering removes noise
@@ -235,7 +178,9 @@ const TravelServices = () => {
                           let value = row[column.id];
                           return (
                             <td key={column.id} className="px-6 py-4 text-center">
-                              {column.id === "action" ? (
+                              {column.id === "visibility" ? (
+ <ListingStatus active={row.isActive} disabled={visibility.pending[row.id]} onChange={() => handleTogglePackageActive(row.id, row.isActive)} label={`Visibility of ${row.title}`} />
+ ) : column.id === "action" ? (
                                 <div className="flex items-center justify-center gap-2">
                                   <Tooltip title="Edit Package">
                                     <IconButton
@@ -312,6 +257,7 @@ const TravelServices = () => {
                         borderColor: 'divider',
                         '&:hover': { transform: 'translateY(-4px)', boxShadow: 4, borderColor: 'primary.main' }
                       }}>
+                        <Box sx={{ position: 'absolute', top: 12, left: 12, zIndex: 1 }}><StatusBadge active={row.isActive} /></Box>
                         <CardMedia
                           component="img"
                           height="200"
@@ -342,7 +288,8 @@ const TravelServices = () => {
                             )}
                           </div>
                         </CardContent>
-                        <div className="border-t border-gray-100 p-3 flex justify-between items-center bg-gray-50">
+                        <div className="border-t border-gray-100 p-3 flex flex-wrap gap-2 justify-between items-center bg-gray-50">
+ <ListingStatus active={row.isActive} disabled={visibility.pending[row.id]} onChange={() => handleTogglePackageActive(row.id, row.isActive)} label={`Visibility of ${row.title}`} />
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Tooltip title="Edit">
                               <IconButton size="small" onClick={() => handleViewPackage(row.id)} sx={{ color: '#f59e0b', bgcolor: 'white', border: '1px solid #f3f4f6', '&:hover': { bgcolor: '#fffbeb', borderColor: '#fcd34d' } }}>
@@ -397,7 +344,7 @@ const TravelServices = () => {
         await deleteDoc(doc(travelServicesDetailsCollection, id));
 
         deleteNotification("The Package is deleted successfully.");
-        setRefetch((p) => !p);
+
       }
       // }
     } catch (error) {
@@ -420,57 +367,8 @@ const TravelServices = () => {
         icon="🗺️"
       />
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-primary-100 text-sm font-medium mb-1">
-                Total Packages
-              </p>
-              <p className="text-3xl font-bold">
-                {matchedTravelServices.length}
-              </p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">🗺️</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-success-100 text-sm font-medium mb-1">
-                Active Tours
-              </p>
-              <p className="text-3xl font-bold">
-                {matchedTravelServices.length}
-              </p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">✅</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-orange-100 text-sm font-medium mb-1">
-                Locations
-              </p>
-              <p className="text-3xl font-bold">
-                {new Set(matchedTravelServices.map((s) => s.location)).size}
-              </p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">📍</span>
-            </div>
-          </div>
-        </div>
-      </div >
-
+      <StatusSummary records={statusTours} noun="Tours" />
+      <StatusFilters records={statusTours} value={statusFilter} onChange={(value) => { setStatusFilter(value); setPage(0); }} />
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between mb-6">
         <ToggleButtonGroup
           value={viewMode}
@@ -588,7 +486,7 @@ const TravelServices = () => {
         <TablePagination
           rowsPerPageOptions={[10, 25, 100]}
           component="div"
-          count={totalPages}
+          count={filteredTours.length}
           rowsPerPage={rowsPerPage}
           page={page}
           onPageChange={handleChangePage}

@@ -1,3 +1,5 @@
+import {isListingActive} from "./listingStatus";
+import {HttpsError} from "firebase-functions/v2/https";
 /**
  * Simple hotel stock — one source of truth: numbers on night docs.
  *
@@ -410,6 +412,7 @@ export const checkStock = async (
     config.bookingOpenFrom,
     config.bookingOpenTo,
   );
+  if ((hotel && !isListingActive(hotel)) || (pkg && !isListingActive(pkg))) throw new HttpsError("failed-precondition", "This hotel or room package is currently unavailable.");
   const autoBookingEnabled = config.autoBookingEnabled !== false;
 
   let reasonCode: string | null = null;
@@ -696,6 +699,13 @@ export const lockStock = async (
 
   const config = await loadStockConfig(db, hotelId);
   if ((kind === "hold" || kind === "book") && !force) {
+    const [hotel, pkg] = await Promise.all([
+      loadHotel(db, hotelId),
+      loadPackage(db, packageId, hotelId),
+    ]);
+    if ((hotel && !isListingActive(hotel)) || (pkg && !isListingActive(pkg))) {
+      return {ok: false, error: "This hotel or room package is currently unavailable.", code: "LISTING_INACTIVE"};
+    }
     const windowOk = isWithinBookableWindow(
       checkIn,
       checkOut,

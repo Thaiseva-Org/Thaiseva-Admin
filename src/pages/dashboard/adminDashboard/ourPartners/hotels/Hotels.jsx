@@ -1,3 +1,5 @@
+import ListingStatus, { StatusBadge, StatusFilters, StatusSummary } from "../../../../../components/ListingStatus";
+import { useListingStatus } from "../../../../../hooks/useListingStatus";
 import { CloseIcon } from "@icons";
 import { MdVisibility, MdEdit, MdDelete, MdMeetingRoom, MdAdd, MdEventAvailable } from "@icons"; // Icons
 import AddHotelForm from "./AddHotelForm"; // Import Form
@@ -69,6 +71,10 @@ import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
 import { AuthContext } from "../../../../../contextAPIs/AuthProvider";
 
 const Hotels = () => {
+  const [matchedHotels, setMatchedHotels] = useState([]);
+  const visibility = useListingStatus('hotel', matchedHotels);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -84,7 +90,6 @@ const Hotels = () => {
   const [status, setStatus] = useState("Pending");
   const { hotels, loadingPartnerData, setUid, roomBookings } = useContext(PartnerContext);
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
-  const [matchedHotels, setMatchedHotels] = useState([]);
   const [comission, setComission] = useState(0);
   // const [isBestHotel, setIsBestHotel] = useState(false);
 
@@ -98,9 +103,12 @@ const Hotels = () => {
   }, []);
 
   useEffect(() => {
-    const loadHotels = async () => {
+    const loadHotels = () => {
+      let revision = 0;
+      let disposed = false;
       setLoading(true);
       const unSub = onSnapshot(hotelsCollection, async (result) => {
+        const current = ++revision;
         if (result) {
           let list = result.docs.map((doc) => ({ ...doc.data(), uid: doc.id }));
 
@@ -161,6 +169,7 @@ const Hotels = () => {
             }
           }));
 
+          if (disposed || current !== revision) return;
           if (list?.length > 0) {
             setMatchedHotels(list);
             setLoading(false);
@@ -172,11 +181,12 @@ const Hotels = () => {
       });
 
       return () => {
+        disposed = true;
         unSub();
       };
     };
 
-    (isAdmin || isSubAdmin) && loadHotels();
+    if (isAdmin || isSubAdmin) return loadHotels();
   }, [isAdmin, isSubAdmin, roomBookings]);
 
   // Partners table header
@@ -194,6 +204,7 @@ const Hotels = () => {
     { id: "phoneNumber", label: "Phone", width: "15%" },
     { id: "email", label: "Email", width: "20%" },
     { id: "address", label: "Address", width: "30%" },
+    { id: "visibility", label: "Status", width: "15%" },
     { id: "action", label: "Action", width: "20%" },
   ];
 
@@ -227,7 +238,11 @@ const Hotels = () => {
   }
 
   // calling createData function with partner's data
-  const rows = matchedHotels?.map((hotel) => {
+  const statusHotels = matchedHotels.map((hotel) => ({ ...hotel, isActive: visibility.resolve(hotel) })).filter((hotel) => {
+    const h = hotel.hotel || hotel.hotelInformation || hotel;
+    return [h.hotelName, h.address, h.phoneNumber].some((value) => String(value || '').toLowerCase().includes(searchText));
+  });
+  const rows = statusHotels.filter((hotel) => statusFilter === 'all' || hotel.isActive === (statusFilter === 'active')).map((hotel) => {
     return createData(
       hotel.hotelInformation?.hotelName || hotel.hotelName || hotel.hotel?.hotelName,
       hotel.hotelInformation?.phoneNumber || hotel.phoneNumber || hotel.hotel?.phoneNumber,
@@ -316,22 +331,9 @@ const Hotels = () => {
   //   setMatchedHotels(matchingObjects);
   // };
 
-  const handleSearch = (text) => {
-    const q = String(text || "").toLowerCase().trim();
-    if (!q) {
-      setMatchedHotels(hotels);
-      return;
-    }
-    const matchingObjects = hotels.filter((item) => {
-      const h = item.hotel || item.hotelInformation || item;
-      const name = String(h.hotelName || item.hotelName || "").toLowerCase();
-      const address = String(h.address || item.address || "").toLowerCase();
-      const phone = String(h.phoneNumber || item.phoneNumber || "").toLowerCase();
-      return name.includes(q) || address.includes(q) || phone.includes(q);
-    });
+  const handleSearch = (text) => { setSearchText(String(text || '').toLowerCase().trim()); setPage(0); };
+  const handleToggleHotelActive = (hotelUid, currentStatus) => visibility.toggle(matchedHotels.find((hotel) => hotel.uid === hotelUid), !currentStatus);
 
-    setMatchedHotels(matchingObjects);
-  };
   /* =============================================================
               serach functionalities end
   =============================================================*/
@@ -371,22 +373,8 @@ const Hotels = () => {
         icon="🏨"
       />
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-primary-100 text-sm font-medium mb-1">
-                Total Hotels
-              </p>
-              <p className="text-3xl font-bold">{matchedHotels.length}</p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">🏨</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <StatusSummary records={statusHotels} noun="Hotels" />
+      <StatusFilters records={statusHotels} value={statusFilter} onChange={(value) => { setStatusFilter(value); setPage(0); }} />
       {/* <Grid container spacing={0.5} sx={{ mb: 2, mt: 0.5 }}>
         <Grid item xs={12} sm={6} md={3}>
           <TextField
@@ -533,7 +521,9 @@ const Hotels = () => {
                               key={column.id}
                               className="px-6 py-4 text-center"
                             >
-                              {column.id === "email" ? (
+                              {column.id === "visibility" ? (
+ <ListingStatus active={row.fullData.isActive} disabled={visibility.pending[row.uid]} onChange={() => handleToggleHotelActive(row.uid, row.fullData.isActive)} label={`Visibility of ${row.hotelName}`} />
+ ) : column.id === "email" ? (
                                 <span
                                   title={value}
                                   className="text-sm text-neutral-700"
@@ -637,6 +627,7 @@ const Hotels = () => {
                         borderColor: 'divider',
                         '&:hover': { transform: 'translateY(-4px)', boxShadow: 4, borderColor: 'primary.main' }
                       }}>
+                        <Box sx={{ position: 'absolute', top: 12, left: 12, zIndex: 1 }}><StatusBadge active={row.fullData.isActive} /></Box>
                         <CardMedia
                           component="img"
                           height="200"
@@ -658,7 +649,8 @@ const Hotels = () => {
                             </Typography>
                           </div>
                         </CardContent>
-                        <div className="border-t border-gray-100 p-3 flex justify-between items-center bg-gray-50">
+                        <div className="border-t border-gray-100 p-3 flex flex-wrap gap-2 justify-between items-center bg-gray-50">
+ <ListingStatus active={row.fullData.isActive} disabled={visibility.pending[row.uid]} onChange={() => handleToggleHotelActive(row.uid, row.fullData.isActive)} label={`Visibility of ${row.hotelName}`} />
                           <Box sx={{ display: 'flex', gap: 1 }}>
                             <Tooltip title="Manage Room Availability">
                               <IconButton

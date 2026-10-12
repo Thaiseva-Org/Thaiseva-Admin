@@ -1,3 +1,6 @@
+import ListingStatus, { StatusFilters } from "../../../../../components/ListingStatus";
+import { useListingStatus } from "../../../../../hooks/useListingStatus";
+import { isListingActive, listingStatusFields } from "../../../../../utils/listing-status";
 import { CloseIcon } from "@icons";
 import {
     Box,
@@ -17,7 +20,7 @@ import {
     TableRow,
     TextField,
 } from "@mui/material";
-import { deleteDoc, doc, setDoc, onSnapshot, query, where, serverTimestamp } from "firebase/firestore";
+import { collection, deleteDoc, doc, onSnapshot, query, where, serverTimestamp, writeBatch } from "firebase/firestore";
 import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { v4 as uuid } from "uuid";
@@ -40,6 +43,9 @@ import {
 
 const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) => {
     const [myRooms, setMyRooms] = useState([]);
+  const visibility = useListingStatus('room', myRooms);
+    const [isActive, setIsActive] = useState(true);
+    const [statusFilter, setStatusFilter] = useState('all');
     const [loading, setLoading] = useState(true);
     const [addServiceModal, setOpenModal] = useState(false);
     const [coverPhotoURL, setCoverPhotoURL] = useState("");
@@ -88,22 +94,38 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
     useEffect(() => {
         if (!hotelUid) return;
         setLoading(true);
+        let legacy = [];
+        let nested = [];
+        const publish = () => {
+            const combined = new Map(legacy.map((room) => [room.id, room]));
+            nested.forEach((room) => combined.set(room.id, { ...combined.get(room.id), ...room }));
+            setMyRooms(Array.from(combined.values()).map((room) => ({
+                ...room,
+                hotelUid,
+                packageName: room.packageName || room.roomName || room.name || "Room",
+                price: room.price ?? room.pricing?.basePrice ?? 0,
+                discount: room.discount ?? room.pricing?.discountPercent ?? 0,
+            })));
+            setLoading(false);
+        };
         const unSub = onSnapshot(
             query(hotelPackageDetails, where("hotelUid", "==", hotelUid)),
             (result) => {
-                if (result.docs.length > 0) {
-                    const list = result.docs.map((doc) => doc.data());
-                    setMyRooms(list);
-                } else {
-                    setMyRooms([]);
-                }
-                setLoading(false);
+                legacy = result.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+                publish();
             }
         );
-        return () => unSub();
+        const unsubRooms = onSnapshot(collection(db, "HotelDB", hotelUid, "rooms"), (result) => {
+            nested = result.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+            publish();
+        });
+        return () => { unSub(); unsubRooms(); };
     }, [hotelUid]);
 
+    const statusRooms = myRooms.map((room) => ({ ...room, isActive: visibility.resolve(room) }));
+    const visibleRooms = statusRooms.filter((room) => statusFilter === 'all' || room.isActive === (statusFilter === 'active'));
     let columns = [
+        { property: "visibility", label: "Status", width: "15%" },
         { property: "packageName", label: "Package Name", width: "18%" },
         { property: "price", label: "Price", width: "12%" },
         { property: "discount", label: "Discount", width: "10%" },
@@ -131,6 +153,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
     };
 
     const handleCloseModal = () => {
+        setIsActive(true);
         reset({
             packageName: "",
             price: "",
@@ -245,7 +268,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                 ),
             },
             pricingOverrides: pricingOverrides,
-            status: "Approved", // Default status as per requirement
+            ...listingStatusFields(isActive),
             updatedAt: serverTimestamp(),
         };
 
@@ -253,21 +276,10 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
             packageDetails.createdAt = serverTimestamp();
         }
 
-        // Dual-write: HotelDB rooms (availability/booking) + legacy package details
-        await setDoc(doc(hotelPackageDetails, id), packageDetails, { merge: true });
-        if (hotelUid) {
-            await setDoc(
-                doc(db, "HotelDB", hotelUid, "rooms", id),
-                {
-                    ...packageDetails,
-                    id,
-                    hotelUid,
-                    packageName,
-                    roomName: packageName,
-                },
-                { merge: true }
-            );
-        }
+        const batch = writeBatch(db);
+        batch.set(doc(hotelPackageDetails, id), packageDetails, { merge: true });
+        batch.set(doc(db, "HotelDB", hotelUid, "rooms", id), packageDetails, { merge: true });
+        try { await batch.commit(); } catch (error) { console.error(error); alert('Room package could not be saved.'); return; }
         successNotification(
             `The Package is ${roomDetails?.packageName ? "updated" : "added"
             } successfully`
@@ -277,6 +289,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
     };
 
     const handleEditRoom = (room) => {
+        setIsActive(isListingActive(room));
         const adults =
             room.maxAdults !== undefined && room.maxAdults !== null && room.maxAdults !== ""
                 ? room.maxAdults
@@ -462,6 +475,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                     Add Room
                 </button>
             </div>
+            <StatusFilters records={statusRooms} value={statusFilter} onChange={setStatusFilter} />
             <Paper sx={{ width: "100%", overflowX: "hidden" }}>
                 <TableContainer>
                     {loading ? (
@@ -486,7 +500,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {myRooms.map((row, i) => {
+                                {visibleRooms.map((row, i) => {
                                     return (
                                         <TableRow hover role="checkbox" tabIndex={-1} key={i}>
                                             {columns.map((column) => {
@@ -495,7 +509,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                                                 return (
                                                     <TableCell key={column.property} align="center">
 
-                                                        {(column.property === "discountPrice" &&
+                                                        {(column.property === "visibility" && <ListingStatus active={row.isActive} disabled={visibility.pending[row.id]} onChange={(active) => visibility.toggle(row, active)} label={`Visibility of ${row.packageName}`} />) || (column.property === "discountPrice" &&
                                                             `฿ ${calculateDiscountPrice(
                                                                 row["price"],
                                                                 row["discount"]
@@ -533,9 +547,9 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                                         </TableRow>
                                     );
                                 })}
-                                {myRooms.length === 0 && (
+                                {visibleRooms.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={8} align="center">
+                                        <TableCell colSpan={columns.length} align="center">
                                             No rooms found. Add a room to get started.
                                         </TableCell>
                                     </TableRow>
@@ -571,6 +585,7 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
                     </IconButton>
 
                     <DialogContent dividers sx={{ p: { xs: 2, md: 2 } }}>
+ <ListingStatus active={isActive} onChange={setIsActive} label="Room package visibility" />
                         <Grid container spacing={2} sx={{ mb: 2, mt: 0.5 }}>
                             {textField(
                                 "Package Name",

@@ -1,3 +1,5 @@
+import ListingStatus from "../../../../../components/ListingStatus";
+import { isListingActive, listingStatusFields } from "../../../../../utils/listing-status";
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -21,7 +23,7 @@ import { v4 as uuid } from "uuid";
 
 import {
     doc,
-    setDoc,
+    writeBatch,
     getDoc,
     getDocs,
     collection,
@@ -79,6 +81,7 @@ const AddSightseeingPackage = () => {
     const isEdit = !!packageId;
 
     // Multi-step Wizard State
+    const [isActive, setIsActive] = useState(true);
     const [currentStep, setCurrentStep] = useState(1);
     const totalSteps = 3;
 
@@ -186,6 +189,7 @@ const AddSightseeingPackage = () => {
                 const snapshot = await getDoc(doc(collection(db, "sightseeingPackagesDetails"), packageId));
                 if (snapshot.exists()) {
                     const existingData = snapshot.data();
+                    setIsActive(isListingActive(existingData));
 
                     setPackageDetails({
                         id: existingData.id || existingData.packageId,
@@ -479,6 +483,7 @@ const AddSightseeingPackage = () => {
         const timestamp = isEdit && packageDetails.timestamp ? packageDetails.timestamp : new Date();
 
         const travelInfo = {
+            ...listingStatusFields(isActive),
             id,
             title,
             description,
@@ -547,8 +552,10 @@ const AddSightseeingPackage = () => {
         };
 
         try {
-            await setDoc(doc(travelServicesCollection, id), travelInfo);
-            await setDoc(doc(collection(db, "sightseeingPackagesDetails"), id), travelDetails, { merge: true });
+            const batch = writeBatch(db);
+            batch.set(doc(travelServicesCollection, id), travelInfo, { merge: true });
+            batch.set(doc(db, "sightseeingPackagesDetails", id), travelDetails, { merge: true });
+            await batch.commit();
 
             successNotification(`The Package is ${isEdit ? "updated" : "added"} successfully`);
             navigate("/dashboard/travel-services");
@@ -613,6 +620,8 @@ const AddSightseeingPackage = () => {
             </div>
 
             <div className="max-w-5xl mx-auto space-y-8">
+                <ListingStatus active={isActive} onChange={setIsActive} label="Tour package visibility" />
+                <p className="text-sm text-slate-500">Active tours are visible and bookable on the website.</p>
                 <ProgressBar currentStep={currentStep} totalSteps={totalSteps} />
 
 

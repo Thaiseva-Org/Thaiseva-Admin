@@ -1,3 +1,4 @@
+import {isListingActive} from "../utils/listingStatus";
 /** Package bookings: instant from day 3 within daily capacity; otherwise pay after confirmation. */
 import * as admin from "firebase-admin";
 import {onRequest} from "firebase-functions/v2/https";
@@ -21,6 +22,7 @@ export const createSightseeingBooking = onRequest(httpsOpts, withBookingHttp(asy
     pkg = found.docs[0];
   }
   const catalog = pkg.data() || {};
+  if (!isListingActive(catalog)) throw new HttpError(409, "This package is currently unavailable.", "LISTING_INACTIVE");
   const adults = Math.min(50, Math.max(1, parsePositiveInt(body.adults, 1)));
   const children = Math.min(50, Math.max(0, parsePositiveInt(body.children, 0)));
   const arrivalDate = stringValue(body.arrivalDate || body.travelDate || body.date || body.pickUpTime, 10);

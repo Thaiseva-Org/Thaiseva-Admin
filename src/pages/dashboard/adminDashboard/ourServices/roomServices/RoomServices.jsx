@@ -1,3 +1,6 @@
+import ListingStatus, { StatusBadge, StatusFilters, StatusSummary } from "../../../../../components/ListingStatus";
+import { useListingStatus } from "../../../../../hooks/useListingStatus";
+import { isListingActive } from "../../../../../utils/listing-status";
 import { CloseIcon } from "@icons";
 import {
   Box,
@@ -7,15 +10,11 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  FormControl,
   Grid,
   IconButton,
-  InputLabel,
-  MenuItem,
-  Select,
   TablePagination,
 } from "@mui/material";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { useContext, useEffect, useState } from "react";
 
 import LoadingContent from "../../../../../components/LoadingContent";
@@ -34,11 +33,14 @@ import { calculateDiscountPrice } from "../../../../../utils/utils";
 const RoomServices = () => {
   const { rooms, loadingData, setPage, setRowsPerPage, page, rowsPerPage } =
     useContext(PartnerContext);
+  const [matchedRooms, setMatchedRooms] = useState([]);
+  const visibility = useListingStatus('room', matchedRooms);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
   const [openModal, setOpenModal] = useState(false); //Add service modal
   const [viewHotelDetailsModal, setViewHotelDetailsModal] = useState(false);
   const [hotelDetails, setHotelDetails] = useState({});
-  const [status, setStatus] = useState("Pending");
-  const [matchedRooms, setMatchedRooms] = useState([]);
+  const [status, setStatus] = useState(true);
   const [roomDetails, setRoomDetails] = useState({
     id: "",
     packageName: "",
@@ -106,8 +108,9 @@ const RoomServices = () => {
   }
 
   // calling createData function with partner's data
-  const rows = matchedRooms?.map((room) => {
-    return createData(
+  const statusRooms = matchedRooms.map((room) => ({ ...room, isActive: visibility.resolve(room) })).filter((room) => String(room.packageName || '').toLowerCase().includes(searchText));
+  const rows = statusRooms.filter((room) => statusFilter === 'all' || room.isActive === (statusFilter === 'active')).map((room) => {
+    return { ...room, ...createData(
       room?.hotelName || "-",
       room?.packageName || "-",
       room?.price || "-",
@@ -119,7 +122,7 @@ const RoomServices = () => {
       room?.status || "-",
       room?.id || "-",
       room?.hotelUid || "-"
-    );
+    ) };
   });
 
   /* =============================================================
@@ -132,13 +135,8 @@ const RoomServices = () => {
   //   setMatchedRooms(matchingObjects);
   // };
 
-  const handleSearch = (text) => {
-    const matchingObjects = rooms.filter((room) =>
-      room.packageName.toLowerCase().includes(text.toLowerCase())
-    );
+  const handleSearch = (text) => { setSearchText(String(text || '').toLowerCase().trim()); setPage(0); };
 
-    setMatchedRooms(matchingObjects);
-  };
 
   // const handleSearchByServiceArea = (text) => {
   //   const matchingObjects = rooms.filter((item) =>
@@ -199,19 +197,14 @@ const RoomServices = () => {
     const snapshot = await getDoc(doc(hotelPackageDetails, id));
     if (snapshot.exists()) {
       const existingData = snapshot.data();
-      setRoomDetails(existingData);
+      setRoomDetails({ ...existingData, id: snapshot.id });
+      setStatus(isListingActive(existingData));
     }
     setOpenModal(true);
   };
 
-  const handleUpdateStatus = async (id) => {
-    // console.log(id);
-    const updatedStatus = { status: status };
-
-    // await updateDoc(doc(hotelPackages, id), updatedStatus);
-    await updateDoc(doc(hotelPackageDetails, id), updatedStatus).then(() => {
-      setOpenModal(false);
-    });
+  const handleUpdateStatus = async () => {
+    if (await visibility.toggle(roomDetails, status)) setOpenModal(false);
   };
 
   const handleViewHotelDetails = async (id) => {
@@ -255,69 +248,8 @@ const RoomServices = () => {
         icon="🛏️"
       />
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-primary-100 text-sm font-medium mb-1">
-                Total Rooms
-              </p>
-              <p className="text-3xl font-bold">{matchedRooms.length}</p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">🛏️</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-success-100 text-sm font-medium mb-1">
-                Approved
-              </p>
-              <p className="text-3xl font-bold">
-                {matchedRooms.filter((r) => r.status === "Approved").length}
-              </p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">✅</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-warning-500 to-warning-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-warning-100 text-sm font-medium mb-1">
-                Pending
-              </p>
-              <p className="text-3xl font-bold">
-                {matchedRooms.filter((r) => r.status === "Pending").length}
-              </p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">⏳</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-danger-500 to-danger-600 rounded-xl p-6 text-white shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-danger-100 text-sm font-medium mb-1">Denied</p>
-              <p className="text-3xl font-bold">
-                {matchedRooms.filter((r) => r.status === "Denied").length}
-              </p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <span className="text-3xl">❌</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <StatusSummary records={statusRooms} noun="Room Packages" />
+      <StatusFilters records={statusRooms} value={statusFilter} onChange={(value) => { setStatusFilter(value); setPage(0); }} />
       <SearchBar handleSearch={handleSearch} btn={false} />
 
       {/* Modern Table Container */}
@@ -357,7 +289,9 @@ const RoomServices = () => {
                               key={column.property}
                               className="px-6 py-4 text-center"
                             >
-                              {value === "Pending" ||
+                              {column.property === "status" ? (
+ <ListingStatus active={row.isActive} disabled={visibility.pending[row.id]} onChange={(active) => visibility.toggle(row, active)} label={`Visibility of ${row.name}`} />
+ ) : value === "Pending" ||
                                 value === "Approved" ||
                                 value === "Denied" ? (
                                 <span
@@ -579,30 +513,10 @@ const RoomServices = () => {
               <Grid container spacing={2} sx={{ mb: 2, mt: 0.5, p: 1 }}>
                 <Grid item xs={12} sm={6} md={6}>
                   <span className="font-bold ">Current Status : </span>{" "}
-                  <span
-                    className={`${(roomDetails?.status === "Pending" &&
-                        "bg-orange-300 text-black") ||
-                      (roomDetails?.status === "Approved" && "bg-green-500") ||
-                      (roomDetails?.status === "Denied" && "bg-red-600")
-                      } text-white  py-1 px-2 rounded`}
-                  >
-                    {roomDetails?.status}
-                  </span>
+                  <StatusBadge active={isListingActive(roomDetails)} />
                 </Grid>
                 <Grid item xs={12} sm={6} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel id="status-label ">Change Status</InputLabel>
-                    <Select
-                      labelId="status-label"
-                      label="Change Status"
-                      defaultValue={roomDetails?.status}
-                      onChange={(e) => setStatus(e.target.value)}
-                    >
-                      <MenuItem value="Pending">Pending</MenuItem>
-                      <MenuItem value="Approved">Approved</MenuItem>
-                      <MenuItem value="Denied">Denied</MenuItem>
-                    </Select>
-                  </FormControl>
+                  <ListingStatus active={status === true} onChange={setStatus} disabled={visibility.pending[roomDetails.id]} label="Room package visibility" />
                 </Grid>
               </Grid>
             </Grid>
@@ -618,7 +532,8 @@ const RoomServices = () => {
                 hover: "none",
               }}
               className="add-new-btn"
-              onClick={() => handleUpdateStatus(roomDetails?.id)}
+              disabled={visibility.pending[roomDetails.id]}
+              onClick={handleUpdateStatus}
             >
               Update
             </Button>

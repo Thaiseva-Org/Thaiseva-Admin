@@ -1,3 +1,5 @@
+import ListingStatus from "../../../../../components/ListingStatus";
+import { isListingActive, listingStatusFields } from "../../../../../utils/listing-status";
 import React, { useState, useRef, useContext, useEffect } from "react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import {
@@ -34,7 +36,7 @@ import {
 } from "../../../../../firebase/firebase.config";
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
-import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc, getDocs, deleteDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc, getDocs, deleteDoc, writeBatch } from "firebase/firestore";
 import { db } from "../../../../../firebase/firebase.config";
 import { getFileUrl, successNotification } from "../../../../../utils/utils";
 import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
@@ -123,6 +125,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     const isEdit = _propIsEdit || !!hotelId;
 
     const handleClose = onClose || (() => navigate("/dashboard/hotels"));
+    const [isActive, setIsActive] = useState(() => isListingActive(initialData || {}));
     const [currentStep, setCurrentStep] = useState(1);
     const totalSteps = 3;
 
@@ -223,6 +226,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
     useEffect(() => {
         if (isEdit && initialData) {
+            setIsActive(isListingActive(initialData));
             const h = initialData.hotel || initialData;
 
             setValue("hotelName", h.hotelName);
@@ -532,6 +536,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             }
 
             const finalPayload = {
+                ...listingStatusFields(isActive),
                 hotel: {
                     hotelId: isEdit ? (initialData.hotel?.hotelId || initialData.uid) : (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7)),
                     hotelUid: isEdit ? (initialData.hotel?.hotelUid || initialData.uid) : (Math.random().toString(36).substring(7)), // Should be user UID but for new manual add we need logic
@@ -557,7 +562,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     email: data.email || "",
                     rating: rating,
                     numberOfReviews: isEdit ? (initialData.hotel?.numberOfReviews || 0) : 0,
-                    status: "Verified",
+                    ...listingStatusFields(isActive),
                     updatedAt: new Date().toISOString(),
                     location: location // Keeping location object if available
                 }
@@ -613,7 +618,12 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     const existingSnap = await getDocs(roomsSubCollectionRef);
                     const deletePromises = existingSnap.docs
                         .filter((d) => !keepIds.has(d.id))
-                        .map((d) => deleteDoc(d.ref));
+                        .map(async (d) => {
+                            const batch = writeBatch(db);
+                            batch.delete(d.ref);
+                            batch.delete(doc(db, 'hotelPackageDetails', d.id));
+                            await batch.commit();
+                        });
                     await Promise.all(deletePromises);
                 } catch (delErr) {
                     console.warn("Room type cleanup failed", delErr);
@@ -625,8 +635,14 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                 const roomDocRef = doc(roomsSubCollectionRef, roomId);
                 const isExtraBed = room.policies?.extraBed === "Available" || room.hasExtraBed === true || room.allowExtraBed === true;
                 const extraBedSinglePrice = isExtraBed ? Math.max(1, Number(room.policies?.extraBedPrice ?? room.extraBedPrice ?? 0)) : 0;
-                await setDoc(roomDocRef, {
+                const roomPayload = {
+                    ...listingStatusFields(isListingActive(room)),
+                    id: roomId,
+                    packageName: room.roomName || room.packageName || room.name || "Room",
+                    hotelName: data.hotelName,
+                    updatedAt: serverTimestamp(),
                     ...room,
+                    ...listingStatusFields(isListingActive(room)),
                     hotelUid: hotelIdForSubColl,
                     // Normalize extra bed for booking pricing
                     allowExtraBed: isExtraBed,
@@ -639,7 +655,11 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                         extraBedMaxAdults: isExtraBed ? 1 : 0,
                         extraBedMaxChildren: 0,
                     }
-                }, { merge: true });
+                };
+                const batch = writeBatch(db);
+                batch.set(roomDocRef, roomPayload, { merge: true });
+                batch.set(doc(db, 'hotelPackageDetails', roomId), roomPayload, { merge: true });
+                await batch.commit();
             });
 
             await Promise.all(roomPromises);
@@ -1164,6 +1184,8 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
                 </Box>
 
+                <ListingStatus active={isActive} onChange={setIsActive} label="Hotel visibility" />
+                <p className="text-sm text-slate-500 mb-4">Active hotels are visible and bookable on the website.</p>
                 <ProgressBar currentStep={currentStep} totalSteps={totalSteps} isEdit={isEdit} />
 
                 <form
@@ -1271,6 +1293,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                 >
                     <DialogTitle sx={{ fontWeight: 800, fontSize: '1.5rem', textAlign: 'center' }}>{editingRoomId ? "Edit Room" : "Add New Room"}</DialogTitle>
                     <DialogContent>
+                            <ListingStatus active={isListingActive(newRoom)} onChange={(active) => setNewRoom((room) => ({ ...room, ...listingStatusFields(active) }))} label="Room visibility" />
                         {(() => {
                             const defaultCapacity = getDefaultRoomCapacity(newRoom);
 

@@ -1026,3 +1026,6 @@ When adding new documents or updating forms, prefer these patterns:
 - Avoid mixing `phoneNo` and `phoneNumber` in new code
 - Avoid creating more top-level hotel shapes; prefer the nested `hotel` model already used by admin hotel creation
 - Avoid creating more sightseeing variants; prefer the current `sightseeingPackages` + `sightseeingPackagesDetails` pairing
+## Catalog visibility (12 October 2026)
+
+Catalog `isActive` and `Active` / `Inactive` status fields are now synchronized across hotel root/nested fields, sightseeing summary/detail documents and room package/subcollection documents. Missing fields remain active. See [Listing status](documentation/LISTING_STATUS.md) for exact precedence and atomic write behavior. Booking and user verification statuses remain separate.

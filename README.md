@@ -296,3 +296,6 @@ Deployments are managed via the Firebase CLI:
     ```bash
     firebase deploy
     ```
+# Listing visibility
+
+Hotels, sightseeing packages and hotel room packages support Active / Inactive visibility with atomic Firestore persistence. See [Listing status](documentation/LISTING_STATUS.md) for UI behavior, data compatibility and validation.

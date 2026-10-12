@@ -1,3 +1,4 @@
+import {isListingActive} from "./utils/listingStatus";
 import {assertActiveAccount} from "./activeAccount";
 /**
  * Hotel booking flows on simple stock (check / lock / unlock numbers).
@@ -264,6 +265,7 @@ export async function runCreateHotelBookingWithAvailability(
   ]);
   if (!hotel) throw new HttpsError("not-found", "Hotel not found.");
 
+  if (!hotel || !pkg || !isListingActive(hotel) || !isListingActive(pkg)) throw new HttpsError("failed-precondition", "This hotel or room package is currently unavailable.");
   const pricing = getRoomPricing(pkg, hotel);
   const amountTHB = computeAmount(
     pricing.roomPrice,
@@ -444,6 +446,11 @@ export async function runCompleteHotelBookingHold(
   }
   const notes = stringValue(body.notes, 1000);
 
+  const [hotel, pkg] = await Promise.all([
+    loadHotel(db(), hotelId),
+    loadPackage(db(), packageId, hotelId),
+  ]);
+  if (!hotel || !pkg || !isListingActive(hotel) || !isListingActive(pkg)) throw new HttpsError("failed-precondition", "This hotel or room package is currently unavailable.");
   const converted = await lockStock(db(), {
     action: "convert",
     lockId,
@@ -460,10 +467,6 @@ export async function runCompleteHotelBookingHold(
     throw new HttpsError("failed-precondition", converted.error);
   }
 
-  const [hotel, pkg] = await Promise.all([
-    loadHotel(db(), hotelId),
-    loadPackage(db(), packageId, hotelId),
-  ]);
   const pricing = getRoomPricing(pkg, hotel);
   const amountTHB = computeAmount(
     pricing.roomPrice,
