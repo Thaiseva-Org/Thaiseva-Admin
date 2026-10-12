@@ -54,7 +54,7 @@ Request response example:
 {"success":true,"bookingId":"pkg_...","bookingCollection":"travelBookingDetails","bookingFlow":"REQUEST","bookingStatus":"PENDING_REVIEW","isBookingConfirmed":false,"isPaymentDone":false,"payNow":false,"stripeUrl":null,"reasonCode":"PREPARATION_REQUIRED"}
 ```
 
-Instant card response includes the reserved `bookingId`, `bookingFlow: INSTANT`, `payNow: true`, `stripeUrl`, and `stripeSessionId`. Verification updates the same document. Repeated submissions return the existing booking. Later payment uses `createCheckoutSession` or `createManualBooking` with an existing confirmed booking. Legacy new-package checkout/manual calls must use `createSightseeingBooking` to avoid bypassing policy.
+Instant card response includes the reserved `bookingId`, `bookingFlow: INSTANT`, `payNow: true`, `stripeUrl`, and `stripeSessionId`. Verification updates the same document. Retries with the same `bookingRequestId` return the existing booking. New checkout request IDs permit separate reservations for the same account, package and dates. Later payment uses `createCheckoutSession` or `createManualBooking` with an existing confirmed booking. Legacy new-package checkout/manual calls must use `createSightseeingBooking` to avoid bypassing policy.
 
 The app must pre-check before opening PaymentSheet. An already-paid PaymentIntent does not make a pending request eligible.
 
@@ -63,3 +63,14 @@ The app must pre-check before opening PaymentSheet. An already-paid PaymentInten
 Validation covers Thailand midnight/date boundaries, full and zero limits, pending/canceled exclusion, payment guards, checkout expiry, and Firestore-emulator simultaneous reservations, duplicates and all near-date payment methods.
 
 Deploy affected functions before both hosting sites. The website owns sightseeing creation/pre-check; the admin source owns asia-east2 checkout/payment handlers and sightseeing triggers. Legacy us-central1 payment endpoints must enforce the same confirmation rule. Both sites use project `gothai-ffea1`: `thaigo` (website), `gothai-admin` (admin). Use the fresh website build and its generated CSP hashes. Deploy no unrelated rules/functions.
+
+
+## Booking updates (13 October 2026)
+
+The website-owned `createSightseeingBooking` endpoint accepts `bookingRequestId`: a 16 to 128 character string containing ASCII letters, digits, underscores or hyphens. Website checkouts generate a UUID, reuse it for retries, and generate a new one for each new checkout. The server hashes authenticated UID plus request ID into the booking document ID. Without a request ID, a supplied PaymentIntent ID is used for identity; otherwise each create allocates a new document. Consumers must use the returned `bookingId` rather than infer it from dates. Existing reservation IDs remain valid.
+
+The capacity message is now: ?We are receiving a high number of booking requests for this date. Our team needs to verify availability before confirming your booking. Payment is collected only after confirmation.? The daily capacity and payment rules are unchanged.
+
+Customer My Bookings retains All, including paid and accepted bookings. Admin package bookings have no All status tab and start on Pending. The remaining tabs are Pending, Thai QR / Onsite, Paid & Accepted, Declined, and Next 7 Days. Each tab has an icon and a count badge; counts above nine display `9+`, and the tooltip shows the exact count. These counts reflect the current booking source used for statistics, not a new server-wide unread counter. Paid and accepted records remain available in their dedicated admin queue.
+
+Hotel repeat checkouts clear the consumed hold and user-scoped flow ID after a successful create so a new booking starts a fresh hold. A retry of the same hold continues to return its original booking.

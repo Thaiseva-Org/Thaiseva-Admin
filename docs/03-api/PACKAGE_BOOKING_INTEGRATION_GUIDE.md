@@ -86,11 +86,7 @@ Every stage of the sightseeing package flow is implemented in clean, modular Typ
 ## 3. Database Collections & Schema Models
 
 ### 3.1 Primary Collections
-- **`travelBookingDetails/{bookingId}`**: Destination collection for all package bookings. Document IDs follow the deterministic format:
-  ```text
-  pkg_{userId}_{packageId}_{arrivalDate}_{departureDate}
-  ```
-  *(Characters sanitized to alphanumeric and underscores, max 120 chars).*
+- **`travelBookingDetails/{bookingId}`**: Destination collection for package bookings. Treat the returned ID as opaque. The website-owned create endpoint uses `pkg_{sha256}` derived from authenticated UID and `bookingRequestId`; a PaymentIntent ID is the fallback retry identity, or a new Firestore ID is allocated when neither is supplied. Separate checkouts can reserve the same package and dates. Reuse a request ID only for retries of one checkout. Existing legacy IDs remain valid, including the historical IDs illustrated below. See [current contract](../../documentation/PACKAGE_BOOKING_FLOWS.md#booking-updates-13-october-2026).
 - **`sightseeingPackagesDetails/{packageId}`**: Catalog of available tours, containing rates, durations, itineraries, and inclusions.
 - **`settings/sightseeingConfig`**: Global platform controls:
   - `globalDailyLimit`: Integer limit of instant bookings per day (default `20`).
