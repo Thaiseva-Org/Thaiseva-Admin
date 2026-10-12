@@ -98,8 +98,8 @@ const TravelServices = () => {
       width: "10%",
     },
     {
-      id: "maxBookingsPerWeek",
-      label: "Capacity/Week",
+      id: "dailyLimit",
+      label: "Daily Limit",
       width: "10%",
     },
     {
@@ -130,7 +130,7 @@ const TravelServices = () => {
     rating,
     id,
     coverPhoto,
-    maxBookingsPerWeek
+    dailyLimit
   ) {
     return {
       title,
@@ -142,7 +142,7 @@ const TravelServices = () => {
       rating,
       id,
       coverPhoto,
-      maxBookingsPerWeek
+      dailyLimit
     };
   }
 
@@ -218,6 +218,16 @@ const TravelServices = () => {
                                     </IconButton>
                                   </Tooltip>
                                 </div>
+                              ) : column.id === "dailyLimit" ? (
+                                row.dailyLimit ? (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                                    {row.dailyLimit} / day
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-neutral-100 text-neutral-500">
+                                    Global ({dailyLimit})
+                                  </span>
+                                )
                               ) : column.id === "price" ? (
                                 <span className="font-semibold text-success-600">
                                   ฿{value}

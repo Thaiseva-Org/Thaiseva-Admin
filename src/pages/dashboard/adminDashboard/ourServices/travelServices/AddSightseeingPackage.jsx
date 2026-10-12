@@ -15,6 +15,7 @@ import {
     Paper,
     Autocomplete,
     CircularProgress,
+    InputAdornment,
 } from "@mui/material";
 import { AddCircleIcon, CloseIcon, SaveIcon, ArrowBackIcon } from "@icons";
 import { toast } from "react-toastify";
@@ -103,7 +104,7 @@ const AddSightseeingPackage = () => {
         location: "",
         period: 0,
         pricePerChild: 0,
-        maxBookingsPerWeek: 200,
+        dailyLimit: "",
     });
 
     const [arrayData, setArrayData] = useState({
@@ -201,7 +202,7 @@ const AddSightseeingPackage = () => {
                         period: existingData.period || existingData.duration?.days || 0,
                         timestamp: existingData.timestamp,
                         pricePerChild: existingData?.pricingStructure?.pricePerChild || 0,
-                        maxBookingsPerWeek: existingData?.maxBookingsPerWeek || 200,
+                        dailyLimit: existingData?.dailyLimit !== undefined && existingData?.dailyLimit !== null ? existingData.dailyLimit : (existingData?.maxBookingsPerDay ?? ""),
                     });
 
                     // Set form values for react-hook-form
@@ -212,7 +213,7 @@ const AddSightseeingPackage = () => {
                     setValue("location", existingData.location);
                     setValue("discount", existingData.discount);
                     setValue("pricePerChild", existingData?.pricingStructure?.pricePerChild || 0);
-                    setValue("maxBookingsPerWeek", existingData?.maxBookingsPerWeek || 200);
+                    setValue("dailyLimit", existingData?.dailyLimit !== undefined && existingData?.dailyLimit !== null ? existingData.dailyLimit : (existingData?.maxBookingsPerDay ?? ""));
 
                     setCoverPhotoURL(existingData.coverPhoto || existingData.thumbnailImage);
 
@@ -482,6 +483,10 @@ const AddSightseeingPackage = () => {
         const id = isEdit ? packageId : uuid();
         const timestamp = isEdit && packageDetails.timestamp ? packageDetails.timestamp : new Date();
 
+        const parsedDailyLimit = data.dailyLimit !== "" && data.dailyLimit !== undefined && data.dailyLimit !== null
+            ? parseInt(data.dailyLimit)
+            : null;
+
         const travelInfo = {
             ...listingStatusFields(isActive),
             id,
@@ -491,7 +496,7 @@ const AddSightseeingPackage = () => {
             discount: numDiscount,
             location,
             period: numPeriod,
-            maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
+            dailyLimit: parsedDailyLimit,
             coverPhoto: coverPhotoURL,
             timestamp,
             images: arrayData?.pictures || [],
@@ -546,7 +551,7 @@ const AddSightseeingPackage = () => {
                 pricePerChild: numChildPrice,
             },
 
-            maxBookingsPerWeek: parseInt(data.maxBookingsPerWeek || 200),
+            dailyLimit: parsedDailyLimit,
 
             rating: { average: 5, totalReviews: 0 },
         };
@@ -928,17 +933,37 @@ const AddSightseeingPackage = () => {
                             {currentStep === 3 && (
                                 <div className="w-full animate-fade-in space-y-8">
 
-                                    {/* Advanced Pricing */}
+                                    {/* Booking Configuration */}
                                     <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                                        <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">⚙️ Booking Configuration</Typography>
+                                        <Typography variant="h6" className="text-gray-800 font-bold mb-6 flex items-center gap-2">⚙️ Booking Capacity & Limits</Typography>
                                         <Grid container spacing={4}>
-                                            <Grid item xs={12}>
-                                                <div className="p-4 bg-purple-50 text-purple-900 rounded-xl border border-purple-100 flex items-center gap-3">
+                                            <Grid item xs={12} md={6}>
+                                                <TextField
+                                                    label="Individual Package Daily Limit"
+                                                    type="number"
+                                                    fullWidth
+                                                    placeholder="e.g. 15 (Leave blank for global limit)"
+                                                    defaultValue={packageDetails?.dailyLimit ?? ""}
+                                                    helperText="Maximum allowed bookings per tour day for this package. Leave empty to use global limit."
+                                                    InputProps={{
+                                                        inputProps: { min: 0 },
+                                                        startAdornment: <InputAdornment position="start">📊</InputAdornment>
+                                                    }}
+                                                    InputLabelProps={{ shrink: true }}
+                                                    sx={{ "& .MuiOutlinedInput-root": { borderRadius: "12px" } }}
+                                                    {...register("dailyLimit", {
+                                                        min: { value: 0, message: "Daily limit cannot be negative" }
+                                                    })}
+                                                />
+                                                {errors?.dailyLimit && <span className="text-red-500 text-sm mt-1">{errors.dailyLimit.message}</span>}
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                                <div className="p-4 bg-purple-50 text-purple-900 rounded-xl border border-purple-100 flex items-center gap-3 h-full">
                                                     <span className="text-2xl">⚡</span>
                                                     <div>
-                                                        <Typography variant="subtitle1" fontWeight="bold">Global Daily Limit Applied</Typography>
-                                                        <Typography variant="body2">
-                                                            All packages currently use the global daily booking limit configured in the "Sightseeing Packages" main page settings.
+                                                        <Typography variant="subtitle2" fontWeight="bold">Global Fallback Active</Typography>
+                                                        <Typography variant="body2" className="text-purple-700 text-xs mt-0.5">
+                                                            If left blank, bookings for this package will be governed by the Global Daily Limit configured on the Sightseeing Packages dashboard.
                                                         </Typography>
                                                     </div>
                                                 </div>
