@@ -8,7 +8,7 @@ import {
   IconButton,
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@icons";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useForm, Controller } from "react-hook-form";
 import { MdLocationOn } from "@icons";
@@ -37,6 +37,10 @@ const DriverOnBoarding = () => {
   const [error, setError] = useState({ for: "", text: "" });
   const [photoURL, setPhotoURL] = useState("");
   const [license, setLicense] = useState("");
+  const [profileFile, setProfileFile] = useState(null);
+  const [licenseFile, setLicenseFile] = useState(null);
+  useEffect(() => () => { if (photoURL.startsWith("blob:")) URL.revokeObjectURL(photoURL); }, [photoURL]);
+  useEffect(() => () => { if (license.startsWith("blob:")) URL.revokeObjectURL(license); }, [license]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
@@ -105,6 +109,11 @@ const DriverOnBoarding = () => {
         const createdUser = res.user;
 
         if (createdUser) {
+          const profileUpload = await getFileUrl([profileFile], "private");
+          const licenseUpload = await getFileUrl([licenseFile], "private");
+          if (profileUpload.error || licenseUpload.error) throw new Error(profileUpload.message || licenseUpload.message);
+          driverInformation.photoURL = profileUpload.url;
+          driverInformation.license = licenseUpload.url;
           // adding users data to the useres collection
           await setDoc(doc(usersCollection, createdUser.uid), {
             email: email,
@@ -120,7 +129,7 @@ const DriverOnBoarding = () => {
           serviceInfo.uid = createdUser.uid; // adding unique uid
 
           navigate("/dashboard");
-          await updateUserProfile(fullName, photoURL); //updating user name and photoURL
+          await updateUserProfile(fullName, profileUpload.url); //updating user name and photoURL
           await setDoc(doc(driversCollection, createdUser.uid), serviceInfo);
 
           const hasRoom = await getDoc(
@@ -207,24 +216,26 @@ const DriverOnBoarding = () => {
   const handleUploadProfile = async (e) => {
     const { files } = e.target;
     setError({ for: "", text: "" });
-    const result = await getFileUrl(files);
-    if (result?.error) {
-      setError({ for: "profile", text: result.message });
-    } else {
-      setPhotoURL(result.url);
+    const file = files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png"].includes(file.type) || file.size > 15 * 1024 * 1024) {
+      return setError({ for: "profile", text: "Choose a JPG or PNG up to 15MB." });
     }
+    setProfileFile(file);
+    setPhotoURL(URL.createObjectURL(file));
   };
 
   // upload licence
   const handleUploadLicense = async (e) => {
     const { files } = e.target;
     setError({ for: "", text: "" });
-    const result = await getFileUrl(files);
-    if (result?.error) {
-      setError({ for: "license", text: result.message });
-    } else {
-      setLicense(result.url);
+    const file = files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png"].includes(file.type) || file.size > 15 * 1024 * 1024) {
+      return setError({ for: "license", text: "Choose a JPG or PNG up to 15MB." });
     }
+    setLicenseFile(file);
+    setLicense(URL.createObjectURL(file));
   };
 
   // custom text field for common data

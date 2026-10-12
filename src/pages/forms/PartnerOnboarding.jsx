@@ -55,6 +55,8 @@ const PartnerOnboarding = ({ isModal = false, onClose = () => {}, onSuccess = ()
   const { createUser, updateUserProfile } = useContext(AuthContext);
   const [serviceCategory, setServiceCategory] = useState("Others");
   const [profileURL, setProfileURL] = useState("");
+  const [profileFile, setProfileFile] = useState(null);
+  useEffect(() => () => { if (profileURL.startsWith("blob:")) URL.revokeObjectURL(profileURL); }, [profileURL]);
   const [map, setMap] = useState(null);
   const [location, setLocation] = useState(null);
   const [searchBox, setSearchBox] = useState(null);
@@ -184,6 +186,12 @@ const PartnerOnboarding = ({ isModal = false, onClose = () => {}, onSuccess = ()
 
     setIsSubmitting(true);
     try {
+      let uploadedProfileURL = profileURL;
+      if (isModal && profileFile) {
+        const upload = await getFileUrl([profileFile], "private");
+        if (upload.error) throw new Error(upload.message);
+        uploadedProfileURL = upload.url;
+      }
       let createdUser = null;
 
       if (isModal) {
@@ -198,7 +206,7 @@ const PartnerOnboarding = ({ isModal = false, onClose = () => {}, onSuccess = ()
           if (fullName || profileURL) {
             await updateProfile(createdUser, {
               displayName: fullName,
-              photoURL: profileURL,
+              photoURL: uploadedProfileURL,
             });
           }
         } finally {
@@ -207,18 +215,24 @@ const PartnerOnboarding = ({ isModal = false, onClose = () => {}, onSuccess = ()
       } else {
         const res = await createUser(email, password);
         createdUser = res.user;
-        if (fullName || profileURL) {
-          await updateUserProfile(fullName, profileURL);
+        if (profileFile) {
+          const upload = await getFileUrl([profileFile], "private");
+          if (upload.error) throw new Error(upload.message);
+          uploadedProfileURL = upload.url;
+        }
+        if (fullName || uploadedProfileURL) {
+          await updateUserProfile(fullName, uploadedProfileURL);
         }
       }
 
       if (createdUser) {
         partnerInfo.uid = createdUser.uid;
+        partnerInfo.personalInformation.photoURL = uploadedProfileURL;
 
         await setDoc(doc(usersCollection, createdUser.uid), {
           email: email,
           displayName: fullName,
-          photoURL: profileURL,
+          photoURL: uploadedProfileURL,
           role: "Partner",
           status: currentStatus,
           serviceCategory,
@@ -360,12 +374,13 @@ const PartnerOnboarding = ({ isModal = false, onClose = () => {}, onSuccess = ()
   const handleUploadProfile = async (e) => {
     const { files } = e.target;
     setError("");
-    const result = await getFileUrl(files);
-    if (result.error) {
-      setError({ for: "profile", text: result.message });
-    } else {
-      setProfileURL(result.url);
+    const file = files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png"].includes(file.type) || file.size > 15 * 1024 * 1024) {
+      return setError({ for: "profile", text: "Choose a JPG or PNG up to 15MB." });
     }
+    setProfileFile(file);
+    setProfileURL(URL.createObjectURL(file));
   };
 
   const handleChangeServiceCategory = (e) => {

@@ -121,7 +121,7 @@ const DriverProfile = ({ partnerDetails }) => {
   const handleUploadProfile = async (e) => {
     const { files } = e.target;
     setError({ for: "", text: "" });
-    const result = await getFileUrl(files);
+    const result = await getFileUrl(files, "private");
     if (result?.error) {
       setError({ for: "profile", text: result.message });
     } else {

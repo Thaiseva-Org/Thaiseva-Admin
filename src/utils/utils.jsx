@@ -1,4 +1,5 @@
 import { Grid } from "@mui/material";
+import { getAuth } from "firebase/auth";
 import {
   deleteObject,
   getDownloadURL,
@@ -208,7 +209,17 @@ const item = (label, value, is12) => {
   );
 };
 
-const getFileUrl = async (files) => {
+// Public catalog images default to admin-managed media. Personal documents and
+// partner profile images must select their owner-scoped folder explicitly.
+function imageUploadPath(folder) {
+  const uid = getAuth().currentUser?.uid;
+  if (!uid) throw new Error("Sign in before uploading a file.");
+  if (folder === "private") return `users/${uid}/files/${crypto.randomUUID()}`;
+  if (folder === "partner") return `partners/${uid}/media/${crypto.randomUUID()}`;
+  return `images/${crypto.randomUUID()}`;
+}
+
+const getFileUrl = async (files, folder = "catalog") => {
   const allowedExtensions = ["jpg", "jpeg", "png"];
   let err = "";
   let url = "";
@@ -222,7 +233,7 @@ const getFileUrl = async (files) => {
     return { error: true, message: err };
   }
 
-  const fileRef = ref(storage, `${file.lastModified}-file`);
+  const fileRef = ref(storage, imageUploadPath(folder));
   //  // Uploading the file image to storage
   const fileTask = await uploadBytesResumable(fileRef, file);
 
@@ -256,7 +267,7 @@ const deleteFile = async (url) => {
   }
 };
 
-const uploadFileUrl = async (file) => {
+const uploadFileUrl = async (file, folder = "catalog") => {
   const allowedExtensions = ["jpg", "jpeg", "png"];
   let err = "";
   let url = "";
@@ -270,7 +281,7 @@ const uploadFileUrl = async (file) => {
     return { error: true, message: err };
   }
 
-  const fileRef = ref(storage, `${file.lastModified}-file`);
+  const fileRef = ref(storage, imageUploadPath(folder));
   //  // Uploading the file image to storage
   const fileTask = await uploadBytesResumable(fileRef, file);
 

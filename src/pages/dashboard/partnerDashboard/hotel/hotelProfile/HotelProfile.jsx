@@ -159,7 +159,7 @@ const HotelProfile = ({ partnerDetails }) => {
   const handleUploadPictures = async (e) => {
     const { files } = e.target;
     setError("");
-    const result = await getFileUrl(files);
+    const result = await getFileUrl(files, "partner");
     if (result?.error) {
       setError(result.message);
     } else {
