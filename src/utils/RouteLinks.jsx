@@ -259,21 +259,21 @@ export const localAssislinks = [
     url: "/dashboard/customer-chat",
     lable: "Customer Chat",
   },
-  {
-    url: "/dashboard/local-partners",
-    lable: "Local Partners",
-    icon: <ManageAccountsIcon />,
-  },
-  {
-    icon: <TaskAltIcon />,
-    url: "/dashboard/local-requirements",
-    lable: "Local Requirements",
-  },
-  {
-    icon: <Diversity1Icon />,
-    url: "/dashboard/partner-chat",
-    lable: "Partner Chat",
-  },
+  // {
+  //   url: "/dashboard/local-partners",
+  //   lable: "Local Partners",
+  //   icon: <ManageAccountsIcon />,
+  // },
+  // {
+  //   icon: <TaskAltIcon />,
+  //   url: "/dashboard/local-requirements",
+  //   lable: "Local Requirements",
+  // },
+  // {
+  //   icon: <Diversity1Icon />,
+  //   url: "/dashboard/partner-chat",
+  //   lable: "Partner Chat",
+  // },
 ];
 
 export const primelocationslinks = [
