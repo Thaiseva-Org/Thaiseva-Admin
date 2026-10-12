@@ -55,8 +55,19 @@ const TravelServices = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openSettingsModal, setOpenSettingsModal] = useState(false);
+  const [dailyLimit, setDailyLimit] = useState(20);
 
   const [viewMode, setViewMode] = useState('list');
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "sightseeingConfig"), (snap) => {
+      if (snap.exists()) {
+        const val = snap.data().globalDailyLimit;
+        if (val !== undefined) setDailyLimit(val);
+      }
+    }, (err) => console.warn("Failed to listen to sightseeingConfig:", err));
+    return () => unsub?.();
+  }, []);
 
   useEffect(() => {
     if (!(isAdmin || isSubAdmin)) return;
@@ -456,6 +467,16 @@ const TravelServices = () => {
           />
 
 
+
+          <button
+            type="button"
+            className="px-5 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap"
+            onClick={() => setOpenSettingsModal(true)}
+            title="Update Daily Tour-Date Booking Limit"
+          >
+            <MdSettings className="text-xl" />
+            <span>Daily Limit: <span className="bg-white/20 px-2 py-0.5 rounded-md font-bold">{dailyLimit}</span></span>
+          </button>
 
           <button
             className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 active:scale-95 flex items-center justify-center gap-2 whitespace-nowrap"
