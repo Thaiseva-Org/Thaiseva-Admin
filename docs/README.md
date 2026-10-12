@@ -1,7 +1,5 @@
 # Thaiseva Documentation Hub
 
-> Privacy/security status updated 11 October 2026: [current verified status](05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
-
 Welcome to the central documentation hub for the **Thaiseva Admin Portal, Partner Dashboard & Booking Ecosystem**.
 
 This documentation set provides the authoritative reference for engineers, architects, operations teams, security auditors, and business stakeholders.
@@ -25,7 +23,6 @@ docs/
 │   └── DATA_SCHEMA_DICTIONARY.md     # Authoritative Firestore schema & subcollection dictionary
 ├── 05-security/
 │   ├── SECURITY_AND_RBAC.md          # Multi-tenant security model, RBAC matrix & rules audit
-│   ├── DATA_PRIVACY_PDPA.md          # Thailand PDPA compliance & account deletion workflows
 │   └── INTERNAL_DASHBOARD_REVIEW.md  # Technical review of internal dashboard data handling & access controls
 ├── 06-devops/
 │   └── DEPLOYMENT_RUNBOOK.md         # Local setup, Firebase deploy & production release gates
@@ -33,8 +30,10 @@ docs/
 │   └── ADMIN_USER_MANUAL.md          # Step-by-step operations manual for Admins and Partners
 ├── 08-operations/
 │   └── OPERATIONS_RUNBOOK.md         # SRE runbook, stuck hold resolution & incident procedures
-└── 09-testing/
-    └── TEST_STRATEGY.md              # Test strategy, concurrency tests & QA release gates
+├── 09-testing/
+│   └── TEST_STRATEGY.md              # Test strategy, concurrency tests & QA release gates
+└── documentation/
+    └── LISTING_STATUS.md             # Active & inactive catalog status specification & validation
 ```
 
 ---
@@ -49,8 +48,8 @@ docs/
 | [Package Booking Integration Guide](03-api/PACKAGE_BOOKING_INTEGRATION_GUIDE.md) | Full Stack, Web & Mobile Devs | Complete end-to-end integration guide for sightseeing tours, dual-flow routing, pricing & Stripe. |
 | [Third-Party Integrations](03-api/THIRD_PARTY_INTEGRATIONS.md) | Backend & DevOps | Stripe Webhooks, Google Maps Platform, Zoho ZeptoMail OTP, and WhatsApp integration. |
 | [Data Schema Dictionary](04-data/DATA_SCHEMA_DICTIONARY.md) | Full Stack & Data Engineers | Authoritative NoSQL Firestore schema, subcollections, indexes, and legacy mappings. |
+| [Listing Visibility & Catalog Status](../documentation/LISTING_STATUS.md) | Full Stack, Operations | Active/Inactive catalog toggle controls, dual-store atomic persistence, and booking gating. |
 | [Security & RBAC](05-security/SECURITY_AND_RBAC.md) | Security Auditors, Leads | Access control matrix, Firestore Security Rules governance, and threat model. |
-| [Data Privacy & PDPA](05-security/DATA_PRIVACY_PDPA.md) | Legal, Compliance, Ops | Thailand PDPA (B.E. 2562) compliance, Right to Erasure, and account deletion. |
 | [Internal Dashboard Review](05-security/INTERNAL_DASHBOARD_REVIEW.md) | Security, DevOps, Admins | Technical review of staff access, export coverage, session management, and retention controls. |
 | [Deployment Runbook](06-devops/DEPLOYMENT_RUNBOOK.md) | DevOps, Release Engineers | Local environment setup, Firebase CLI commands, and deployment checklists. |
 | [Admin User Manual](07-user-guides/ADMIN_USER_MANUAL.md) | Operations Staff, Partners | Guide for managing bookings, onboarding partners, chat support, and PDF invoicing. |

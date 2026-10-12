@@ -1,7 +1,5 @@
 # Test Strategy & Quality Assurance Plan
 
-> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
-
 **System:** Thaiseva Admin Portal, Partner Dashboard & Booking Ecosystem  
 **Target Codebase:** `Thaiseva-Admin-Portal-Web-App`  
 **Quality Lead:** Senior QA Lead / Test Architect  

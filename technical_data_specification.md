@@ -21,7 +21,8 @@ This collection stores the core tour products. Fields are grouped logically to r
 | Field Name | Data Type | Indexing | Description / Nesting |
 | :--- | :--- | :--- | :--- |
 | `id` | String (UUID) | 🔑 Primary | Unique Document ID. |
-| `status` | String | ✅ | Enum: `active`, `draft`, `archived`. |
+| `isActive` | Boolean | ✅ | Catalog visibility flag (default true). |
+| `status` | String | ✅ | Enum: `Active`, `Inactive`, `active`, `draft`, `archived`. |
 | `meta` | Object | - | **Basic Info** |
 | ├── `title` | String | ✅ (Text) | Display Name (`packageName`). |
 | ├── `slug` | String | ✅ | URL-friendly ID. |
@@ -56,11 +57,13 @@ This collection stores the core tour products. Fields are grouped logically to r
 ### B. Module: Hotels & Accommodation
 **Collection Name:** `hotels` (or `HotelDB`)
 
-Stores partner hotel profiles. Room types are stored as a **Sub-collection** to keep the main document lightweight.
+Stores partner hotel profiles. Room types are stored as a **Sub-collection** (`rooms`) and mirrored into `hotelPackageDetails`.
 
 | Field Name | Data Type | Indexing | Description / Nesting |
 | :--- | :--- | :--- | :--- |
 | `id` | String (UUID) | 🔑 Primary | Hotel ID. |
+| `isActive` | Boolean | ✅ | Catalog visibility flag (synced root and nested hotel). |
+| `status` | String | ✅ | Enum: `Active`, `Inactive`, `Verified`, `Pending`, `Draft`. |
 | `info` | Object | - | **Public Profile** |
 | ├── `name` | String | ✅ (Text) | Hotel Name. |
 | ├── `description` | String | - | About text. |
@@ -77,11 +80,13 @@ Stores partner hotel profiles. Room types are stored as a **Sub-collection** to 
 | ├── `commission` | Number | - | % cut taken by platform. |
 | ├── `uid` | String | ✅ | Linked Partner Account ID. |
 
-**Sub-Collection:** `rooms` (Child of `hotels`)
+**Sub-Collection:** `rooms` (Child of `hotels`, mirrored in `hotelPackageDetails`)
 *   `name` (String)
 *   `capacity` (Number) - Max guests.
 *   `price` (Number) - Nightly rate.
 *   `stock` (Number) - **Hidden Logic** for availability.
+*   `isActive` (Boolean) - Catalog visibility flag (default true).
+*   `status` (String) - `Active` / `Inactive` visibility state.
 
 ---
 

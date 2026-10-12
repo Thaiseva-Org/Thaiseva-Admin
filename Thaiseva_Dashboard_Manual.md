@@ -48,12 +48,13 @@ Manage the public-facing Thaiseva website and app content directly from the dash
 - **Contact Us:** View and respond to inquiries submitted through the public contact form.
 
 ### 🏨 Hotel Related Management
-- **Hotels:** A directory of all onboarded hotel partners. Admins can manually add new hotels or edit existing hotel profiles.
+- **Hotels:** A directory of all onboarded hotel partners. Admins can manually add new hotels or edit existing hotel profiles. Includes live **Active / Inactive** status switches in table and card views, status badges, summary count cards (Total, Active, Inactive), and segmented status filter buttons (`All`, `Active`, `Inactive`) with real-time multi-session sync.
+- **Room Services & Room Manager:** Manage individual hotel room package listings with inline Active/Inactive visibility switches. Toggling status atomically synchronizes `hotelPackageDetails` and `HotelDB/{hotelUid}/rooms` collections.
 - **Room Availability:** An administrative override calendar. Admins can view the availability of any hotel and manually block/unblock rooms if a partner is unable to do so themselves.
 - **Room Bookings:** Manage all customer reservations for hotels. Approve, modify, or cancel bookings as needed.
 
 ### ✈️ Travel & Transport Related
-- **Sightseeing Packages:** Build and manage travel itineraries, set pricing, define inclusions/exclusions, and link hotel partners or add manual hotel options with image uploads. Simplified form without obsolete partner packages or early bird discounts; deferred payments require confirmed package status.
+- **Sightseeing Packages:** Build and manage travel itineraries, set pricing, define inclusions/exclusions, and link hotel partners or add manual hotel options with image uploads. Features live **Active / Inactive** visibility switches in table and card views, summary metrics banners, and status filter buttons (`All`, `Active`, `Inactive`). Updates persist atomically across `sightseeingPackages` and `sightseeingPackagesDetails`. Simplified form without obsolete partner packages or early bird discounts; deferred payments require confirmed package status.
 - **Sightseeing Bookings:** Manage customer purchases of travel packages.
 - **Taxi & Van Management:** Register fleet vehicles, assign drivers, and manage transport assets.
 - **Van Bookings:** Specific reservations for large group van transport.

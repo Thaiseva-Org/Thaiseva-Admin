@@ -1,7 +1,5 @@
 # Security Architecture & RBAC Specification
 
-> Privacy/security status updated 11 October 2026: [current verified status](DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
-
 This document defines the multi-tenant security architecture, Role-Based Access Control (RBAC) model, Firestore and Cloud Storage security rules governance, and vulnerability remediation procedures for the Thaiseva ecosystem.
 
 ---

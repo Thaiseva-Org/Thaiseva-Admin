@@ -20,7 +20,6 @@ Complete technical, architectural, API, and operational documentation is consoli
 *   🌐 **[Third-Party Integrations Guide](./docs/03-api/THIRD_PARTY_INTEGRATIONS.md)**: Stripe webhooks, Google Maps Platform, Zoho ZeptoMail OTP, and WhatsApp.
 *   🗄️ **[Firestore Data Schema Dictionary](./docs/04-data/DATA_SCHEMA_DICTIONARY.md)**: Authoritative NoSQL collections, subcollections, and legacy field fallbacks.
 *   🔒 **[Security & RBAC Architecture](./docs/05-security/SECURITY_AND_RBAC.md)**: Multi-tenant boundaries, roles matrix, and security rules governance.
-*   ⚖️ **[Thailand PDPA & Data Deletion Guide](./docs/05-security/DATA_PRIVACY_PDPA.md)**: Right to erasure, 30-day grace period, and tax retention rules.
 *   🚀 **[DevOps & Deployment Runbook](./docs/06-devops/DEPLOYMENT_RUNBOOK.md)**: Local setup, emulator execution, and phased Firebase deployments.
 *   📖 **[Admin & Partner Operations Manual](./docs/07-user-guides/ADMIN_USER_MANUAL.md)**: Operational guide for admins, hotels, and fleet operators.
 *   🛠️ **[Operations & Incident Runbook](./docs/08-operations/OPERATIONS_RUNBOOK.md)**: SRE guide for stuck holds, failed webhooks, and index errors.

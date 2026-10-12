@@ -1,7 +1,5 @@
 # Admin & Partner Operations Manual
 
-> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
-
 Welcome to the operational manual for the **Thaiseva Admin Portal and Partner Dashboard**. This manual provides comprehensive, step-by-step procedures for daily operations, catalog governance, booking lifecycles, billing, and compliance management.
 
 ---
@@ -109,6 +107,20 @@ Platform operators can onboard partners directly from the admin interface withou
 #### Hotel Listings Directory (`/dashboard/hotels`)
 - Add new hotel properties or update existing profiles (name, star rating, address, GPS coordinates, property amenities, and photo galleries).
 - Configure room types under the hotel profile (rack rates, discounted rates, maximum guest capacity, bed configurations).
+- **Active & Inactive Listing Visibility Toggles (12 October 2026):**
+  - **Table & Card Switches:** Every hotel entry features an inline switch and a status badge (**Active** in green, **Inactive** in slate) in both Table view and Grid Card view.
+  - **Image Thumbnail Badge:** Card listings display a prominent overlay chip indicating active or inactive catalog visibility.
+  - **Summary Metrics Banner:** Displays real-time counts for **Total Hotels**, **Active Hotels**, and **Inactive Hotels**.
+  - **Status Filter Controls:** Use the toggle button bar (`All (N)`, `Active (N)`, `Inactive (N)`) to filter the directory instantly alongside search queries and pagination.
+  - **Creation & Edit Visibility:** The hotel creation and update form preserves visibility (`isActive` boolean and `status` string). New properties default to **Active**.
+  - **Optimistic Updates & Rollback:** Toggling a switch updates the UI instantly and disables the switch during save to prevent double-clicks. If Firestore fails, the previous state is restored with an error notification.
+  - **Multi-Session Synchronization:** Live Firestore listeners reflect status changes made by other administrative staff immediately without refreshing the page.
+
+#### Room Services (`/dashboard/room-services`) & Hotel Rooms Manager (`/dashboard/hotels/:hotelId/rooms`)
+- **Direct Room Visibility Toggles:** Toggle individual room package availability directly from the room management table.
+- **Dual-Store Synchronization:** Updating a room's status atomically updates both `hotelPackageDetails/{id}` and `HotelDB/{hotelUid}/rooms/{id}` via `writeBatch`.
+- **Room Status Modal & Forms:** Room creation, edit forms, and the room status modal maintain visibility flags, defaulting newly created rooms to **Active**. Removing a room from the hotel form deletes both records.
+- **Immediate Public Exclusion:** Inactive rooms are filtered out of public hotel room selectors, price calculations, and checkout APIs in real time.
 
 #### Room Availability Calendar Overrides (`/dashboard/hotel-room-availability`)
 Hoteliers manage their own inventory, but platform administrators can intervene during offline emergencies:
@@ -126,6 +138,11 @@ Hoteliers manage their own inventory, but platform administrators can intervene 
 - Manage guided tours, adventure excursions, and multi-day packages.
 - Define day-by-day itineraries, inclusions (e.g., lunch, speedboat, entry tickets), exclusions, and pricing structures (`pricePerAdult`, `pricePerChild`, `extraAdult`).
 - Link partner hotels or add manual hotel accommodations with built-in image uploading and validation.
+- **Active & Inactive Tour Visibility Toggles (12 October 2026):**
+  - **Table & Card Controls:** Manage catalog visibility directly with status switches and status chips in both table rows and card views.
+  - **Metrics & Filter Bar:** View live metrics (**Total Packages**, **Active Packages**, **Inactive Packages**) and filter by status (`All`, `Active`, `Inactive`).
+  - **Dual Collection Atomic Sync:** Toggling a package atomically synchronizes `sightseeingPackages/{id}` and `sightseeingPackagesDetails/{id}` in a single batch write.
+  - **Public Gating:** Inactive tours are immediately hidden from public tour catalogs, detail pages, and search indices. Checkout attempts for inactive packages are blocked with HTTP 409 `LISTING_INACTIVE`.
 - **Streamlined Configuration:** The package creation form has been streamlined: obsolete partner package types, early bird discount matrices, transport logistics, and redundant person fields were deprecated to accelerate listing creation.
 - **Deferred Payment Safety:** In package booking checkouts, deferred payments strictly require explicit package confirmation prior to payment completion.
 

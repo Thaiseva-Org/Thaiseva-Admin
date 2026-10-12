@@ -1,7 +1,5 @@
 # System Architecture Document (SAD)
 
-> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
-
 **System Name:** Thaiseva Admin Portal, Partner Dashboard & Booking Ecosystem  
 **Target Codebase:** `Thaiseva-Admin-Portal-Web-App`  
 **System Classification:** Multi-Tenant B2B SaaS & Serverless E-Commerce Booking Engine  
@@ -289,6 +287,43 @@ sequenceDiagram
     Trigger->>Firestore: Assign assignedDriverUid & set status: 'Assigned'
     Firestore->>Driver: onSnapshot triggers "New Assigned Ride" notification
     Driver->>Firestore: Driver accepts ride & updates status to 'EnRoute'
+```
+
+---
+
+### 4.3 Catalog Visibility & Dual-Store Synchronization Architecture (12 October 2026)
+
+Catalog items (Hotels, Tour Packages, and Hotel Room Packages) support active and inactive visibility. Inactive items are hidden from public discovery, search engines, and booking gateways while remaining fully manageable by platform operators.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin as Operations Staff
+    participant AdminUI as Admin Portal SPA (useListingStatus)
+    participant Firestore as Cloud Firestore
+    participant WebPublic as Public Website & Sitemaps
+    participant Functions as Cloud Functions (Stock & Booking)
+
+    Admin->>AdminUI: Toggles Status Switch (Active <-> Inactive)
+    AdminUI->>AdminUI: Optimistic UI state update & acquire lock
+    alt Hotel Property
+        AdminUI->>Firestore: Single write: root {isActive, status} + hotel {isActive, status}
+    else Sightseeing Package
+        AdminUI->>Firestore: writeBatch: /sightseeingPackages & /sightseeingPackagesDetails
+    else Hotel Room Package
+        AdminUI->>Firestore: writeBatch: /hotelPackageDetails & /HotelDB/{hotelId}/rooms/{roomId}
+    end
+    Firestore-->>AdminUI: Commit acknowledged (toast success)
+    Firestore->>AdminUI: onSnapshot broadcast to other active admin sessions
+    Firestore->>WebPublic: onSnapshot filters inactive listings out of public catalogs
+    Note over Functions: When customer invokes stock lock or booking:
+    Functions->>Firestore: Read hotel / room / tour catalog doc
+    Functions->>Functions: isListingActive(record) evaluation
+    alt Record is Inactive
+        Functions-->>WebPublic: Rejects with 409 / failed-precondition (LISTING_INACTIVE)
+    else Record is Active
+        Functions->>Firestore: Proceed with stock reservation & Stripe checkout
+    end
 ```
 
 ---

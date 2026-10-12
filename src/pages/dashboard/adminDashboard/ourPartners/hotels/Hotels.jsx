@@ -41,6 +41,8 @@ import {
   onSnapshot,
   query,
   updateDoc,
+  setDoc,
+  serverTimestamp,
   collection
 } from "firebase/firestore";
 import { GridView, ViewList, LocationOn, Star, Search } from "@icons";
@@ -61,6 +63,7 @@ import {
 import {
   askingForDelete,
   deleteNotification,
+  errorNotification,
   item,
   successNotification,
 } from "../../../../../utils/utils";
@@ -351,18 +354,32 @@ const Hotels = () => {
   };
 
   const handleUpdateHotel = async () => {
-    const updatedData = {
-      ...hotelDetails,
-      comission: Number(comission),
-    };
-
-    await updateDoc(doc(hotelsCollection, hotelDetails.uid), updatedData);
-    await updateDoc(doc(usersCollection, hotelDetails.uid), updatedData).then(
-      async () => {
-        successNotification("Hotel details updated successfully");
-        handleClose();
+    try {
+      const targetUid = hotelDetails?.uid || hotelDetails?.id || hotelDetails?.hotel?.hotelUid;
+      if (!targetUid) {
+        errorNotification("Hotel ID not found");
+        return;
       }
-    );
+      const updatedData = {
+        ...hotelDetails,
+        comission: Number(comission),
+        updatedAt: serverTimestamp(),
+      };
+
+      await setDoc(doc(hotelsCollection, targetUid), updatedData, { merge: true });
+
+      try {
+        await setDoc(doc(usersCollection, targetUid), { comission: Number(comission) }, { merge: true });
+      } catch (userErr) {
+        console.warn("User collection comission update skipped:", userErr);
+      }
+
+      successNotification("Hotel details updated successfully");
+      handleClose();
+    } catch (err) {
+      console.error("Failed to update hotel:", err);
+      errorNotification("Failed to update hotel: " + (err.message || "Unknown error"));
+    }
   };
 
   return (

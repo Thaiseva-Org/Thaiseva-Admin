@@ -36,7 +36,7 @@ import {
 } from "../../../../../firebase/firebase.config";
 import { initializeApp, deleteApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signOut, updateProfile } from "firebase/auth";
-import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc, getDocs, deleteDoc, writeBatch } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, addDoc, collection, updateDoc, getDocs, getDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { db } from "../../../../../firebase/firebase.config";
 import { getFileUrl, successNotification } from "../../../../../utils/utils";
 import CountryPhoneInput from "../../../../../components/CountryPhoneInput";
@@ -124,10 +124,42 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     const initialData = _propInitialData || routerLocation.state;
     const isEdit = _propIsEdit || !!hotelId;
 
+    const [fetchedHotel, setFetchedHotel] = useState(null);
+    const [isLoadingHotel, setIsLoadingHotel] = useState(false);
+    const effectiveInitialData = initialData || fetchedHotel;
+    const resolvedHotelId = effectiveInitialData?.uid || effectiveInitialData?.id || effectiveInitialData?.hotel?.hotelId || effectiveInitialData?.hotel?.hotelUid || hotelId;
+
     const handleClose = onClose || (() => navigate("/dashboard/hotels"));
-    const [isActive, setIsActive] = useState(() => isListingActive(initialData || {}));
+    const [isActive, setIsActive] = useState(() => isListingActive(effectiveInitialData || {}));
     const [currentStep, setCurrentStep] = useState(1);
     const totalSteps = 3;
+
+    useEffect(() => {
+        if (isEdit && !initialData && hotelId) {
+            setIsLoadingHotel(true);
+            const loadHotel = async () => {
+                try {
+                    const snap = await getDoc(doc(db, "HotelDB", hotelId));
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        setFetchedHotel({
+                            ...data,
+                            id: snap.id,
+                            uid: snap.id,
+                        });
+                    } else {
+                        toast.error("Hotel not found in database");
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch hotel details:", err);
+                    toast.error("Failed to load hotel details");
+                } finally {
+                    setIsLoadingHotel(false);
+                }
+            };
+            loadHotel();
+        }
+    }, [isEdit, initialData, hotelId]);
 
     const { handleSubmit, control, setValue, getValues, register, formState: { errors }, trigger } = useForm({
         shouldUnregister: false // Keep values when fields unmount (step change)
@@ -225,52 +257,54 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     };
 
     useEffect(() => {
-        if (isEdit && initialData) {
-            setIsActive(isListingActive(initialData));
-            const h = initialData.hotel || initialData;
+        if (isEdit && effectiveInitialData) {
+            setIsActive(isListingActive(effectiveInitialData));
+            const h = effectiveInitialData.hotel || effectiveInitialData;
 
-            setValue("hotelName", h.hotelName);
-            setValue("email", initialData.email || h.email || "");
-            setValue("phoneNumber", h.phoneNumber);
-            setValue("address", h.address || "");
-            setValue("country", h.country || "");
-            setValue("description", h.description || "");
-            setValue("policies", h.policies || "");
+            setValue("hotelName", h.hotelName || effectiveInitialData.hotelName || "");
+            setValue("email", effectiveInitialData.email || h.email || "");
+            setValue("phoneNumber", h.phoneNumber || effectiveInitialData.phoneNumber || "");
+            setValue("address", h.address || effectiveInitialData.address || "");
+            setValue("country", h.country || effectiveInitialData.country || "Thailand");
+            setValue("description", h.description || effectiveInitialData.description || "");
+            setValue("policies", h.policies || effectiveInitialData.policies || "");
 
-            setLogoURL(h.images?.logo || h.logoURL || "");
-            setHotelGallery(h.images?.gallery || []);
-            setPetsAllowed(h.petsAllowed || false);
-            setNearbyAttractions(h.nearbyAttractions || []);
-            setHotelDiscount(h.discount || 0);
+            setLogoURL(h.images?.logo || effectiveInitialData.images?.logo || h.logoURL || effectiveInitialData.logoURL || "");
+            setHotelGallery(h.images?.gallery || effectiveInitialData.images?.gallery || []);
+            setPetsAllowed(h.petsAllowed ?? effectiveInitialData.petsAllowed ?? false);
+            setNearbyAttractions(h.nearbyAttractions || effectiveInitialData.nearbyAttractions || []);
+            setHotelDiscount(h.discount ?? effectiveInitialData.discount ?? 0);
 
-            const features = h.features || h.amenities || [];
+            const features = h.features || effectiveInitialData.features || h.amenities || effectiveInitialData.amenities || [];
             const predefinedIds = ['pool', 'gym', 'wifi', 'parking', 'restaurant', 'spa'];
-            const foundPredefined = features.filter(f => predefinedIds.includes(f));
-            const foundCustom = features.filter(f => !predefinedIds.includes(f));
+            const foundPredefined = Array.isArray(features) ? features.filter(f => predefinedIds.includes(f)) : [];
+            const foundCustom = Array.isArray(features) ? features.filter(f => !predefinedIds.includes(f)) : [];
 
             setSelectedAmenities(foundPredefined);
             setCustomAmenities(foundCustom);
-            setRating(h.rating || 0);
+            setRating(h.rating ?? effectiveInitialData.rating ?? 0);
 
-            if (initialData.rooms) {
-                setRoomTypes(initialData.rooms);
+            if (effectiveInitialData.rooms && Array.isArray(effectiveInitialData.rooms)) {
+                setRoomTypes(effectiveInitialData.rooms);
             }
 
-            if (h.images?.logo) setLogoURL(h.images.logo);
-
-            if (h.location) {
-                setLocation(h.location);
-                if (map) map.panTo(h.location);
+            const loc = h.location || effectiveInitialData.location;
+            if (loc) {
+                setLocation(loc);
+                if (map) map.panTo(loc);
             }
-            if (h.address) setAddressInputValue(h.address);
-            if (h.startingPrice) setManualStartingPrice(h.startingPrice);
-            if (h.startingPrice) setManualStartingPrice(h.startingPrice);
+            const addr = h.address || effectiveInitialData.address;
+            if (addr) setAddressInputValue(addr);
 
-            // Fetch Rooms from Subcollection if editing and not available in initialData
-            if (initialData.uid) {
+            const sp = h.startingPrice || effectiveInitialData.startingPrice;
+            if (sp) setManualStartingPrice(sp);
+
+            // Fetch Rooms from Subcollection if editing
+            const targetHid = resolvedHotelId;
+            if (targetHid) {
                 const fetchSubRooms = async () => {
                     try {
-                        const roomsRef = collection(db, "HotelDB", initialData.uid, "rooms");
+                        const roomsRef = collection(db, "HotelDB", targetHid, "rooms");
                         const roomSnap = await getDocs(roomsRef);
                         if (!roomSnap.empty) {
                             const dbRooms = roomSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -283,7 +317,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                 fetchSubRooms();
             }
         }
-    }, [isEdit, initialData, setValue, map]); // Added map dependency
+    }, [isEdit, effectiveInitialData, resolvedHotelId, setValue, map]);
 
     const handleRoomPhotoUpload = async (e) => {
         const { files } = e.target;
@@ -505,14 +539,23 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             }
         }
 
+        const effectiveData = effectiveInitialData;
+        const targetHotelId = isEdit
+            ? (resolvedHotelId || effectiveData?.uid || effectiveData?.id || effectiveData?.hotel?.hotelId || effectiveData?.hotel?.hotelUid || hotelId)
+            : (doc(hotelsCollection).id);
+
+        if (isEdit && !targetHotelId) {
+            toast.error("Hotel identifier not found. Cannot update.");
+            return;
+        }
+
         try {
             const existingAvailabilityConfig =
-                initialData?.availabilityConfig ||
-                initialData?.hotel?.availabilityConfig;
+                effectiveData?.availabilityConfig ||
+                effectiveData?.hotel?.availabilityConfig;
             const derivedTotalRooms = sumRoomInventory(roomTypes);
             const availabilityConfig = {
                 autoBookingEnabled: true,
-                // Default per type when a type has no qty — not a hotel-level total
                 defaultRoomInventory: 5,
                 notifyOnFull: true,
                 notifyOnFreed: true,
@@ -535,84 +578,103 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                 resolvedStartingPrice = 1;
             }
 
-            const finalPayload = {
+            const hotelObjectPayload = {
+                hotelId: targetHotelId,
+                hotelUid: targetHotelId,
+                hotelName: data.hotelName || "",
+                country: data.country || "Thailand",
+                currency: "THB",
+                startingPrice: Math.max(1, resolvedStartingPrice),
+                discount: Math.min(99, Math.max(0, Number(hotelDiscount) || 0)),
+                totalRooms: derivedTotalRooms,
+                address: addressInputValue || data.address || "",
+                description: data.description || "",
+                policies: data.policies || "",
+                images: {
+                    logo: logoURL || "",
+                    gallery: hotelGallery || []
+                },
+                petsAllowed: petsAllowed,
+                nearbyAttractions: nearbyAttractions || [],
+                features: [...selectedAmenities, ...customAmenities],
+                phoneNumber: data.phoneNumber || "",
+                email: data.email || "",
+                rating: rating || 0,
+                numberOfReviews: isEdit ? (effectiveData?.hotel?.numberOfReviews || effectiveData?.numberOfReviews || 0) : 0,
                 ...listingStatusFields(isActive),
-                hotel: {
-                    hotelId: isEdit ? (initialData.hotel?.hotelId || initialData.uid) : (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7)),
-                    hotelUid: isEdit ? (initialData.hotel?.hotelUid || initialData.uid) : (Math.random().toString(36).substring(7)), // Should be user UID but for new manual add we need logic
-                    hotelName: data.hotelName,
-                    country: data.country || "Thailand",
-
-                    currency: "THB",
-                    startingPrice: Math.max(1, resolvedStartingPrice),
-                    discount: Math.min(99, Math.max(0, Number(hotelDiscount) || 0)),
-                    // Derived from room types only (not a separate form field)
-                    totalRooms: derivedTotalRooms,
-                    address: addressInputValue || data.address || "",
-                    description: data.description || "",
-                    policies: data.policies || "",
-                    images: {
-                        logo: logoURL,
-                        gallery: hotelGallery
-                    },
-                    petsAllowed: petsAllowed,
-                    nearbyAttractions: nearbyAttractions,
-                    features: [...selectedAmenities, ...customAmenities],
-                    phoneNumber: data.phoneNumber || "",
-                    email: data.email || "",
-                    rating: rating,
-                    numberOfReviews: isEdit ? (initialData.hotel?.numberOfReviews || 0) : 0,
-                    ...listingStatusFields(isActive),
-                    updatedAt: new Date().toISOString(),
-                    location: location // Keeping location object if available
-                }
+                updatedAt: new Date().toISOString(),
+                location: location || null
             };
 
-            const hotelDocRef = isEdit ? doc(db, "HotelDB", initialData.uid) : doc(hotelsCollection);
-            const hotelIdForSubColl = isEdit ? initialData.uid : hotelDocRef.id;
+            const finalPayload = {
+                ...listingStatusFields(isActive),
+                uid: targetHotelId,
+                id: targetHotelId,
+                hotelUid: targetHotelId,
+                hotelName: data.hotelName || "",
+                country: data.country || "Thailand",
+                currency: "THB",
+                startingPrice: Math.max(1, resolvedStartingPrice),
+                discount: Math.min(99, Math.max(0, Number(hotelDiscount) || 0)),
+                totalRooms: derivedTotalRooms,
+                address: addressInputValue || data.address || "",
+                description: data.description || "",
+                policies: data.policies || "",
+                images: {
+                    logo: logoURL || "",
+                    gallery: hotelGallery || []
+                },
+                logoURL: logoURL || "",
+                petsAllowed: petsAllowed,
+                nearbyAttractions: nearbyAttractions || [],
+                features: [...selectedAmenities, ...customAmenities],
+                phoneNumber: data.phoneNumber || "",
+                email: data.email || "",
+                rating: rating || 0,
+                location: location || null,
+                hotel: hotelObjectPayload,
+                updatedAt: serverTimestamp()
+            };
 
-            // Ensure hotelUid is consistent if new
-            if (!isEdit) {
-                finalPayload.hotel.hotelUid = hotelIdForSubColl;
-            }
+            const hotelDocRef = doc(db, "HotelDB", targetHotelId);
 
-            if (isEdit && initialData?.uid) {
-                await updateDoc(hotelDocRef, {
-                    ...finalPayload,
-                    updatedAt: serverTimestamp()
-                });
+            if (isEdit) {
+                await setDoc(hotelDocRef, finalPayload, { merge: true });
 
-                // Also update user doc if needed (use setDoc with merge to avoid "No document to update" error)
-                await setDoc(doc(db, "users", initialData.uid), {
-                    status: "Verified",
-                    isVerified: true
-                }, { merge: true });
-
+                // Synchronize user doc if possible, but don't fail the hotel update if user doc doesn't exist
+                try {
+                    await setDoc(doc(db, "users", targetHotelId), {
+                        status: "Verified",
+                        isVerified: true
+                    }, { merge: true });
+                } catch (userErr) {
+                    console.warn("User doc update skipped or failed:", userErr);
+                }
             } else {
                 await setDoc(hotelDocRef, finalPayload);
             }
 
-            // Availability lives beside rooms under this hotel. For an edited
-            // hotel, only migrate legacy inline settings when they are present;
-            // an existing availability/config document remains untouched.
             if (!isEdit || existingAvailabilityConfig) {
-                await setDoc(
-                    doc(db, "HotelDB", hotelIdForSubColl, "availability", "config"),
-                    {
-                        ...availabilityConfig,
-                        recordType: "config",
-                        hotelUid: hotelIdForSubColl,
-                        updatedAt: serverTimestamp(),
-                    },
-                    { merge: true }
-                );
+                try {
+                    await setDoc(
+                        doc(db, "HotelDB", targetHotelId, "availability", "config"),
+                        {
+                            ...availabilityConfig,
+                            recordType: "config",
+                            hotelUid: targetHotelId,
+                            updatedAt: serverTimestamp(),
+                        },
+                        { merge: true }
+                    );
+                } catch (availErr) {
+                    console.warn("Availability config save warning:", availErr);
+                }
             }
 
             // Save Rooms to Sub-collection
-            const roomsSubCollectionRef = collection(db, "HotelDB", hotelIdForSubColl, "rooms");
+            const roomsSubCollectionRef = collection(db, "HotelDB", targetHotelId, "rooms");
             const keepIds = new Set(roomTypes.map((r) => String(r.id)));
 
-            // Delete room types removed in the UI so they cannot still be booked
             if (isEdit) {
                 try {
                     const existingSnap = await getDocs(roomsSubCollectionRef);
@@ -631,7 +693,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
             }
 
             const roomPromises = roomTypes.map(async (room) => {
-                const roomId = room.id.toString();
+                const roomId = String(room.id || (crypto.randomUUID ? crypto.randomUUID() : Date.now()));
                 const roomDocRef = doc(roomsSubCollectionRef, roomId);
                 const isExtraBed = room.policies?.extraBed === "Available" || room.hasExtraBed === true || room.allowExtraBed === true;
                 const extraBedSinglePrice = isExtraBed ? Math.max(1, Number(room.policies?.extraBedPrice ?? room.extraBedPrice ?? 0)) : 0;
@@ -643,8 +705,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                     updatedAt: serverTimestamp(),
                     ...room,
                     ...listingStatusFields(isListingActive(room)),
-                    hotelUid: hotelIdForSubColl,
-                    // Normalize extra bed for booking pricing
+                    hotelUid: targetHotelId,
                     allowExtraBed: isExtraBed,
                     hasExtraBed: isExtraBed,
                     extraBedPrice: extraBedSinglePrice,
@@ -664,20 +725,21 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
 
             await Promise.all(roomPromises);
 
-            successNotification(isEdit ? "Hotel & Rooms updated successfully! " : "New Hotel & Rooms Added!");
+            successNotification(isEdit ? "Hotel & Rooms updated successfully!" : "New Hotel & Rooms Added!");
             handleClose();
 
         } catch (error) {
             console.error("Submission Error:", error);
             setSubmissionError("Failed to save hotel. " + error.message);
-            toast.error("Failed to save hotel.");
+            toast.error("Failed to save hotel: " + error.message);
         }
     };
 
     const onMapLoad = (mapInstance) => {
         setMap(mapInstance);
-        if (isEdit && initialData?.hotel?.location) {
-            mapInstance.panTo(initialData.hotel.location);
+        const loc = effectiveInitialData?.hotel?.location || effectiveInitialData?.location;
+        if (isEdit && loc) {
+            mapInstance.panTo(loc);
         }
     };
 
@@ -1167,6 +1229,17 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
         </FadeIn>
     );
 
+    if (isLoadingHotel) {
+        return (
+            <Box className="bg-[#f8f9fa] min-h-screen p-6 font-sans relative flex items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <p className="text-gray-600 font-medium">Loading hotel details...</p>
+                </div>
+            </Box>
+        );
+    }
+
     return (
         <Box className="bg-[#f8f9fa] min-h-screen p-6 font-sans relative">
             <ToastContainer
@@ -1264,7 +1337,16 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                         ) : (
                             <Button
                                 type="button"
-                                onClick={handleSubmit(onSubmit)}
+                                onClick={handleSubmit(onSubmit, (errs) => {
+                                    console.warn("Form validation errors:", errs);
+                                    const errorFields = Object.keys(errs);
+                                    if (errorFields.length > 0) {
+                                        toast.error(`Please fix validation errors: ${errorFields.join(", ")}`);
+                                        if (['hotelName', 'email', 'phoneNumber', 'address', 'country'].some(f => errorFields.includes(f))) {
+                                            setCurrentStep(1);
+                                        }
+                                    }
+                                })}
                                 variant="contained"
                                 sx={{
                                     backgroundColor: "#22c55e",
@@ -1278,7 +1360,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
                                     "&:hover": { backgroundColor: "#16a34a" }
                                 }}
                             >
-                                Submit Hotel
+                                {isEdit ? "Update Hotel" : "Submit Hotel"}
                             </Button>
                         )}
                     </div>

@@ -36,10 +36,14 @@ Collections used for retrieving website content, service listings, and configura
   "nearbyAttractions": ["String"],
   "features": ["String (Amenities: pool, gym, wifi, etc.)"],
   "phoneNumber": "String",
-  "email": "String",
   "rating": "Number",
   "numberOfReviews": "Number",
-  "status": "String ('Verified', 'Pending', etc.)",
+  "isActive": "Boolean (Catalog visibility; default true)",
+  "status": "String ('Active', 'Inactive', 'Verified', 'Pending', etc.)",
+  "hotel": {
+    "isActive": "Boolean",
+    "status": "String ('Active', 'Inactive')"
+  },
   "location": {
     "lat": "Number",
     "lng": "Number"
@@ -54,6 +58,9 @@ Collections used for retrieving website content, service listings, and configura
   "id": "String (Room Type ID)",
   "roomName": "String",
   "packageName": "String",
+  "hotelUid": "String (Parent Hotel ID)",
+  "isActive": "Boolean (Catalog visibility; default true)",
+  "status": "String ('Active', 'Inactive')",
   "totalRooms": "Number (inventory for auto-book; default 5)",
   "quantity": "Number (alias of totalRooms)",
   "maxGuests": "Number",
@@ -135,10 +142,14 @@ Collections used for retrieving website content, service listings, and configura
 **Path:** `hotelRoomInventory/{hotelUid}_{packageId}/nights/{YYYY-MM-DD}`  
 Used by optional Cloud Functions; admin UI computes remaining live without requiring these docs.
 
+### `hotelPackageDetails`
+**Purpose:** Standalone room package documents mirrored in sync with `HotelDB/{hotelUid}/rooms/{id}` via atomic batch writes (`writeBatch`).
+- Document ID matches room ID and includes `hotelUid`, `isActive: Boolean`, `status: 'Active' | 'Inactive'`, `pricing`, `policies`, and amenities.
+
 ---
 
-### `sightseeingPackagesDetails`
-**Purpose:** Stores detailed information for tour and sightseeing packages.
+### `sightseeingPackagesDetails` & `sightseeingPackages`
+**Purpose:** Stores tour and sightseeing packages. Synchronized atomically via `writeBatch` across `sightseeingPackages/{id}` (summary) and `sightseeingPackagesDetails/{id}` (detail).
 
 #### Package Schema
 ```json
@@ -149,6 +160,8 @@ Used by optional Cloud Functions; admin UI computes remaining live without requi
   "startingPrice": "Number",
   "currency": "String (Default: 'THB')",
   "discount": "Number",
+  "isActive": "Boolean (Catalog visibility; default true)",
+  "status": "String ('Active', 'Inactive', 'active', 'draft', 'archived')",
   "location": "String",
   "duration": {
     "days": "Number",

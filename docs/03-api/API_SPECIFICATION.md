@@ -2,8 +2,6 @@
 
 > Updated 11 October 2026: [Package booking flows and API contract](../../documentation/PACKAGE_BOOKING_FLOWS.md) supersedes earlier package payment-first behavior. Tomorrow/day 2 require confirmation; instant booking starts day 3 within the daily limit. Request payment opens only after admin confirmation.
 
-> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
-
 **Service Region:** `asia-east2` (Hong Kong)  
 **Base URL:** `https://asia-east2-<PROJECT_ID>.cloudfunctions.net/<FunctionName>`  
 **Production Host:** `https://asia-east2-gothai-admin.cloudfunctions.net`  
@@ -58,6 +56,7 @@ Clients send `paymentMethod` (or `paymentMethodIntent`). Accepted values and bus
 | `FORBIDDEN` | 403 | Caller lacks required role or permission (e.g. non-admin invoking admin callables). |
 | `INVALID_ARGUMENT` | 400 | Required fields missing or validation failed (e.g. checkOut $\le$ checkIn). |
 | `ROOM_UNAVAILABLE` | 409 | Desired room inventory is fully booked or locked for the requested dates. |
+| `LISTING_INACTIVE` | 409 / failed-precondition | Attempted to check stock, lock inventory, or book an inactive hotel, room, or tour package (`isActive: false` or `status: 'Inactive'`). |
 | `HOLD_EXPIRED` | 410 | The 15-minute reservation hold token has expired. |
 | `TRANSPORT_NO_STRIPE` | 400 | Attempted to submit a car or self-drive booking with `paymentMethod: 'STRIPE'`. |
 | `ONSITE_NOT_SUPPORTED_FOR_HOTEL` | 400 | Attempted to book hotel rooms with `paymentMethod: 'ONSITE'`. |
@@ -71,11 +70,17 @@ Clients send `paymentMethod` (or `paymentMethodIntent`). Accepted values and bus
 The inventory model guarantees that:
 $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Booked Rooms})$$
 
+### Catalog Status Gating (12 October 2026)
+All hotel stock and booking endpoints strictly validate catalog visibility (`isListingActive` helper):
+- Checks root `isActive` boolean, nested `hotel.isActive` boolean, and status string (`!== 'Inactive'`).
+- Missing visibility fields and legacy `Verified` / `Pending` / `Approved` records remain active by default.
+- If either the hotel or room package is inactive, stock checks throw `failed-precondition` / `LISTING_INACTIVE` ("This hotel or room package is currently unavailable.").
+
 ### 2.1 Check Room Stock
 **Endpoint:** `POST /checkHotelStock`  
 **Compatibility Alias:** `POST /checkHotelAvailability`  
 **Auth:** Optional / Public  
-**Description:** Checks unreserved room stock across a date range.
+**Description:** Checks unreserved room stock across a date range. Rejects inactive hotels or room packages with `failed-precondition`.
 
 **Request Body:**
 ```json
@@ -113,7 +118,7 @@ $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Book
 **Endpoint:** `POST /lockHotelStock`  
 **Compatibility Alias:** Callable `startHotelBookingHold`  
 **Auth:** Optional / Firebase Auth  
-**Description:** Creates a temporary 15-minute reservation hold so inventory is protected while the customer enters payment details.
+**Description:** Creates a temporary 15-minute reservation hold so inventory is protected while the customer enters payment details. Rejects inactive hotel properties or room packages, returning `{ ok: false, error: "This hotel or room package is currently unavailable.", code: "LISTING_INACTIVE" }`.
 
 **Request Body:**
 ```json
@@ -178,7 +183,7 @@ $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Book
 ### 3.1 Create Hotel Booking
 **Endpoint:** `POST /createHotelBooking`  
 **Auth:** Required (`Bearer <token>`)  
-**Description:** Validates customer details, verifies the active hold token, writes to `hotelBookingData`, and returns a Stripe checkout session if `paymentMethod === 'STRIPE'`.
+**Description:** Validates customer details, verifies the active hold token, writes to `hotelBookingData`, and returns a Stripe checkout session if `paymentMethod === 'STRIPE'`. Both `runCreateHotelBookingWithAvailability` and `runCompleteHotelBookingHold` strictly verify `isListingActive` on both hotel and room; if either is inactive, the checkout is rejected with `HttpsError("failed-precondition", "This hotel or room package is currently unavailable.")`.
 
 **Request Body:**
 ```json
@@ -197,7 +202,7 @@ $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Book
 }
 ```
 
-**Success Response (200 OK) â€” Stripe:**
+**Success Response (200 OK) — Stripe:**
 ```json
 {
   "status": "success",
@@ -210,7 +215,7 @@ $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Book
 }
 ```
 
-**Success Response (200 OK) â€” Thai QR:**
+**Success Response (200 OK) — Thai QR:**
 ```json
 {
   "status": "success",
@@ -236,7 +241,7 @@ $$\text{Free Rooms} = \text{Total Inventory} - (\text{Locked Rooms} + \text{Book
 - Server-Side Pricing: [`functions/src/payments/packagePricing.ts`](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/functions/src/payments/packagePricing.ts)
 **Integration Guide:** See the comprehensive [Sightseeing Package Booking API & Integration Guide](PACKAGE_BOOKING_INTEGRATION_GUIDE.md).
 
-**Description:** Creates an atomic tour package reservation in `travelBookingDetails`. Evaluates Thailand calendar dates and daily capacity (`settings/sightseeingConfig.globalDailyLimit`). Tours starting tomorrow/day 2 or during full capacity enter the `REQUEST` flow (`PENDING_REVIEW`) with payment opening after admin confirmation. Tours starting on Day 3+ within capacity enter the `INSTANT` flow, reserving inventory and issuing a Stripe Checkout session (`payNow: true`).
+**Description:** Creates an atomic tour package reservation in `travelBookingDetails`. Validates catalog status (`isListingActive`); inactive packages throw HTTP 409 `LISTING_INACTIVE` ("This package is currently unavailable."). Evaluates Thailand calendar dates and daily capacity (`settings/sightseeingConfig.globalDailyLimit`). Tours starting tomorrow/day 2 or during full capacity enter the `REQUEST` flow (`PENDING_REVIEW`) with payment opening after admin confirmation. Tours starting on Day 3+ within capacity enter the `INSTANT` flow, reserving inventory and issuing a Stripe Checkout session (`payNow: true`).
 
 **Request Body:**
 ```json

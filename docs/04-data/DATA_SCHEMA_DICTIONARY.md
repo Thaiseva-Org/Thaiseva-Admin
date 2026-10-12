@@ -1,7 +1,5 @@
 # Firestore Data Architecture & Schema Dictionary
 
-> Privacy/security status updated 11 October 2026: [current verified status](../05-security/DATA_PRIVACY_PDPA.md) supersedes older privacy, role, retention and deployment claims below. One Admin staff role is active; current erasure removes scoped records and queues remaining review, rather than proving complete deletion. Historical gaps remain open, Secret Manager migration is IAM-blocked, and Storage/uploads were not changed. Earlier plans, example rules and compliance assertions are not evidence of live readiness.
-
 This document represents the **authoritative single source of truth** for all Google Cloud Firestore collections, subcollections, document shapes, field mappings, and composite indexes across the Thaiseva ecosystem. It consolidates all data specifications from legacy references into a unified, verified standard.
 
 ---
@@ -188,7 +186,15 @@ interface HotelDocument {
   };
   rating: number;                            // Customer star rating (1.0 - 5.0)
   numberOfReviews: number;
-  status: 'Verified' | 'Pending' | 'Draft';
+  isActive?: boolean;                        // Catalog visibility flag (Default: true)
+  status: 'Active' | 'Inactive' | 'Verified' | 'Pending' | 'Draft'; // Visibility / verification status
+  hotel?: {                                  // Nested model written by admin hotel forms
+    isActive?: boolean;
+    status?: string;
+    hotelName?: string;
+    startingPrice?: number;
+    [key: string]: unknown;
+  };
   images: {
     logo: string;                            // Main property banner URL
     gallery: string[];                       // Array of property photo URLs
@@ -202,13 +208,16 @@ interface HotelDocument {
 ```
 
 #### Subcollection: `HotelDB/{hotelId}/rooms/{roomId}`
-**Purpose:** Detailed room types and physical inventory allocation.
+**Purpose:** Detailed room types and physical inventory allocation under parent hotel.
 
 ```typescript
 interface RoomDocument {
   id: string;                                // Room Type ID
   roomName: string;                          // e.g., "Deluxe Ocean View"
   packageName?: string;                      // Legacy alias
+  hotelUid: string;                          // Parent Hotel ID / Partner UID
+  isActive?: boolean;                        // Catalog visibility flag (Default: true)
+  status?: 'Active' | 'Inactive';            // Catalog visibility status ('Active' | 'Inactive')
   totalRooms: number;                        // Max physical inventory (Default: 5)
   quantity?: number;                         // Alias of totalRooms (Legacy)
   maxGuests: number;
@@ -232,7 +241,15 @@ interface RoomDocument {
     paymentInfo?: string;
     refundable: boolean;
   };
+  updatedAt?: Timestamp;
 }
+```
+
+#### Collection: `hotelPackageDetails/{roomId}`
+**Purpose:** Global standalone room package collection queried by public website catalog, room services, and stock availability APIs.
+- **Dual-Store Synchronization:** Mirrored synchronously with `HotelDB/{hotelId}/rooms/{roomId}` via atomic `writeBatch`.
+- Document ID matches `roomId` and must contain `hotelUid` identifying the parent property.
+- Contains the same schema as `RoomDocument` (`isActive`, `status`, `pricing`, `policies`, `photos`, `amenities`). Removing a room deletes both copies.
 ```
 
 #### Subcollection: `HotelDB/{hotelId}/availability/config`
@@ -287,8 +304,10 @@ Stores hotel booking operational parameters:
 
 ## 2.3 Tour & Sightseeing Packages
 
-#### Collection: `sightseeingPackagesDetails` (Alias: `sightseeingPackages`)
+#### Collections: `sightseeingPackages` & `sightseeingPackagesDetails`
 **Purpose:** Guided tour itineraries, adventure activities, and transport combinations.
+- **Dual-Store Synchronization:** `sightseeingPackages/{id}` (summary catalog) and `sightseeingPackagesDetails/{id}` (extended itineraries, hotels, amenities) are kept in parity via atomic batch writes (`writeBatch`).
+- Visibility updates set `isActive: boolean`, `status: 'Active' | 'Inactive'`, and `updatedAt: Timestamp` across both documents.
 
 ```typescript
 interface TourPackageDocument {
@@ -296,7 +315,8 @@ interface TourPackageDocument {
   packageId?: string;                        // Alias of document ID
   packageName?: string;                      // Display name
   title?: string;
-  status: 'active' | 'draft' | 'archived';
+  isActive?: boolean;                        // Catalog visibility flag (Default: true)
+  status: 'Active' | 'Inactive' | 'active' | 'draft' | 'archived'; // Catalog visibility status
   meta?: {
     title: string;
     slug: string;
@@ -323,8 +343,10 @@ interface TourPackageDocument {
     hotelName: string;
     roomType: string;
     nights: number;
+    images?: string[];                       // Manual hotel room photos
   }>;
   createdAt: Timestamp;
+  updatedAt?: Timestamp;
 }
 ```
 
@@ -612,6 +634,39 @@ interface DeletionRequestDocument {
 
 ---
 
+## 2.9 Catalog Visibility & Dual-Store Synchronization (12 October 2026)
+
+Active and inactive visibility is enforced across Hotels, Sightseeing Packages, and Hotel Room Packages. Public customer platforms display active listings only; administrative operators can view and toggle both states.
+
+### Data Contract & Atomic Persistence
+
+| Record Domain | Storage Locations | Atomic Persistence Pattern |
+|---|---|---|
+| **Hotel Properties** | `HotelDB/{hotelId}` | Single write updates root `isActive` & `status`, plus nested `hotel.isActive` & `hotel.status` along with `updatedAt`. |
+| **Sightseeing Tour Packages** | `sightseeingPackages/{id}` and `sightseeingPackagesDetails/{id}` | Atomic `writeBatch` synchronizing visibility fields across summary and detail documents. |
+| **Hotel Room Packages** | `hotelPackageDetails/{id}` and `HotelDB/{hotelUid}/rooms/{id}` | Atomic `writeBatch` synchronizing visibility across standalone room package catalog and hotel subcollection. |
+
+### Evaluation Precedence (`isListingActive`)
+
+Both client (`src/utils/listing-status.js`) and backend (`functions/src/utils/listingStatus.ts`) evaluate listing visibility using identical deterministic precedence:
+
+```typescript
+function isListingActive(record = {}) {
+  // 1. Explicit root boolean takes top precedence
+  if (typeof record.isActive === 'boolean') return record.isActive;
+  // 2. Nested hotel boolean fallback (common in legacy hotel documents)
+  if (typeof record.hotel?.isActive === 'boolean') return record.hotel.isActive;
+  // 3. String status fallback: only explicit case-insensitive 'inactive' hides record
+  return String(record.status || record.hotel?.status || '').toLowerCase() !== 'inactive';
+}
+```
+
+- **Default Behavior:** Missing visibility fields or legacy verification statuses (`Verified`, `Approved`, `Pending`, `Draft`) remain **active** by default. No bulk database migration was required.
+- **Strict Domain Separation:** Catalog visibility (`isActive`, `status: 'Active' | 'Inactive'`) controls public catalog display and booking gating only. It does **not** alter booking statuses (`Pending`, `Accepted`, `Completed`, `Canceled`) or partner verification statuses (`Pending`, `Verified`, `Rejected`).
+- **Public Gating:** Public mappers, real-time listeners, and Cloud Function checkout endpoints (`checkHotelStock`, `lockStock`, `runCreateHotelBookingWithAvailability`, `createSightseeingBooking`) reject inactive listings with `LISTING_INACTIVE` or `failed-precondition`.
+
+---
+
 ## 3. Legacy Field Fallbacks & Mapping Table
 
 To prevent runtime errors when reading legacy records, the codebase enforces the following fallback precedence:
@@ -625,6 +680,7 @@ To prevent runtime errors when reading legacy records, the codebase enforces the
 | `pricingStructure.pricePerAdult` | `adultPrice`, `startingPrice` | `doc.pricingStructure?.pricePerAdult ?? doc.adultPrice ?? doc.startingPrice ?? 0` |
 | `car_bookings` | `travelBookingDetails` | All driver rides query `car_bookings`; tours query `travelBookingDetails`. |
 | `hotelName` | `hotel.hotelName`, `hotelInformation.hotelName` | `doc.hotelName \|\| doc.hotel?.hotelName \|\| doc.hotelInformation?.hotelName` |
+| `isActive` | `hotel.isActive`, `status`, `hotel.status` | `typeof doc.isActive === 'boolean' ? doc.isActive : typeof doc.hotel?.isActive === 'boolean' ? doc.hotel.isActive : String(doc.status \|\| doc.hotel?.status \|\| '').toLowerCase() !== 'inactive'` |
 
 ---
 
