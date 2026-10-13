@@ -1,109 +1,57 @@
-# Thaiseva Dashboard User Manual (Comprehensive Edition)
+# 🌴 Thaiseva Dashboard & Partner Operations Manual
 
 > [!NOTE]
-> **Consolidated Specification:** This user guide has been unified into the authoritative **[Admin & Partner Operations User Manual](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md)**. Refer to that document for full role workflows, booking dispute flows, and invoice generation guides.
-
-Welcome to the guide for navigating the Thaiseva Dashboard. This manual covers sections, features, and configurations available in the portal, categorized by user role (Admin vs. Partner).
-
----
-
-## 1. Access & Global Features
-
-### Logging In
-- Navigate to the `/login` page.
-- Enter your registered email and password. 
-- Based on your assigned role (Admin, Sub-Admin, or Partner), the system will automatically route you to your tailored dashboard.
-- **Session Continuity:** Client-side inactivity auto-logout timers are disabled; operator sessions remain continuously logged in without disruptive timeouts.
-
-### Dashboard Global Interface
-- **Sidebar Navigation:** Located on the left side of the screen. This is dynamically generated based on your permissions. On smaller screens, use the "hamburger" menu icon in the top left to expand the sidebar. Includes real-time pending notification badges on sections like **Local Partners**.
-- **Top Header:** 
-  - **Breadcrumbs / Current Page:** Displays where you are.
-  - **Search/Query Field:** Filter data tables quickly.
-  - **Notification Bell:** Click to view alerts (e.g., new bookings, partner requests).
-  - **Profile Avatar:** Click to log out or view your account summary.
+> **Authoritative Specification:** This document has been updated into the official **[Thaiseva Admin Portal: Complete Step-by-Step Action Manual](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md)** (Version 3.2.0).  
+> It covers all 30 operational action modules in simple, numbered `[STEP 1]` $\rightarrow$ `[STEP 2]` $\rightarrow$ `[STEP 3]` format with visual screen breakdowns.
 
 ---
 
-## 2. Admin & Sub-Admin Dashboard Capabilities
+## 🧭 Complete 30-Action Quick Directory
 
-Administrators have extensive tools to manage all aspects of the Thaiseva platform. The sidebar for Admins is broken down into specific operational categories.
+### 🔐 Part I: Access, Governance & Staff Setup
+- **[1. How to Sign In & Navigate](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#1-how-to-sign-in--navigate-the-global-dashboard)**
+- **[2. How to Manage Account Settings & Password](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#2-how-to-manage-your-account-settings--password)**
+- **[3. How to Add & Manage Sub-Admins](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#3-how-to-add-edit--decommission-sub-admin-staff-accounts)**
+- **[4. How to Inspect Users & Booking History](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#4-how-to-inspect-registered-users--booking-histories)**
+- **[5. How to Process Deletion Requests (PDPA 30 Days)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#5-how-to-process-account-deletion-requests-pdpa-30-day-rule)**
 
-### 🏠 General Operations (Primary Links)
-- **Dashboard:** The main landing page, offering quick glances at recent activities.
-- **Manage Notifications:** Send, review, and manage push notifications to app users or partners.
-- **Statistics:** A comprehensive analytics page showing data like Total Revenue, User Growth, and Booking Volumes across all sectors.
-- **Records (Bookings Record):** A historical log of completed and past bookings across all services.
-- **Users Data:** A directory of all registered app users. You can view their profiles and activity.
-- **Deletion Requests:** Handle compliance by processing user requests to delete their accounts and data from the system.
+### 🏨 Part II: Hotel Accommodation Management
+- **[6. How to Add a Hotel (3-Step Wizard)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#6-how-to-add-a-new-hotel-3-step-wizard)**
+- **[7. How to Edit Hotel Profiles & Amenities](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#7-how-to-edit-hotel-profiles-amenities--photos)**
+- **[8. How to Toggle Hotel Active/Inactive Visibility](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#8-how-to-toggle-hotel-activeinactive-visibility-instantly)**
+- **[9. How to Add Room Categories](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#9-how-to-add-room-categories-to-a-hotel)**
+- **[10. How to Edit Room Pricing & Extra Beds](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#10-how-to-edit-room-pricing-beds--extra-bed-options)**
+- **[11. How Room Availability Works (The Formula)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#11-how-room-availability-works-the-simple-math-formula)**
+- **[12. How Room Availability Updates (Auto vs. Manual)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#12-how-room-availability-updates-auto-holds-vs-manual-overrides)**
+- **[13. How to Manually Block Dates on the Calendar](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#13-how-to-manually-block-dates-on-the-room-availability-calendar)**
+- **[14. How to Add Extra Room Stock for Holidays](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#14-how-to-add-extra-room-stock-for-holidays--peak-dates)**
+- **[15. How to Release Stuck 10-Minute Holds](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#15-how-to-release-stuck--orphaned-10-minute-checkout-holds)**
 
-### 🤝 General Partners
-- **Manage Partners:** Onboard, verify, or deny general service partners who apply to work with Thaiseva. View their submitted documents and approve their "Pending" status to "Verified".
+### 📋 Part III: Customer Order Triage
+- **[16. How to Approve a Pending Room Booking](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#16-how-to-approve-confirm-a-pending-hotel-room-booking)**
+- **[17. How to Decline a Room Booking](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#17-how-to-decline-a-hotel-room-booking)**
+- **[18. How to Verify a Thai PromptPay QR Payment](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#18-how-to-verify-a-thai-promptpay-qr-payment-shield-icon)**
+- **[19. How to Use Bulk Actions on Bookings](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#19-how-to-use-bulk-actions-on-hotel-bookings)**
+- **[20. How to Safely Delete Canceled Bookings](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#20-how-to-safely-delete-canceled-bookings-without-locking-inventory)**
+- **[21. How to Switch to Calendar (Gantt) View](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#21-how-to-switch-between-list-view--calendar-gantt-view)**
+- **[22. How to Approve or Decline Tour Bookings](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#22-how-to-approve-or-decline-a-tour-package-booking)**
+- **[23. How the 2-Day Prep Rule & Daily Limits Work](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#23-how-the-2-day-preparation-rule--daily-capacity-work)**
 
-### ⚙️ Website Configuration
-Manage the public-facing Thaiseva website and app content directly from the dashboard:
-- **Blogs:** Write, edit, and publish blog articles for SEO and marketing.
-- **FAQs:** Add or modify Frequently Asked Questions to assist users.
-- **Testimonials:** Approve and display customer reviews.
-- **Contact Us:** View and respond to inquiries submitted through the public contact form.
+### 🌴 Part IV: Sightseeing Packages & Excursions
+- **[24. How to Add a Tour Package (3-Step Wizard)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#24-how-to-add-a-new-sightseeing-tour-package-3-step-wizard)**
+- **[25. How to Edit, Toggle Visibility & Delete Tours](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#25-how-to-edit-toggle-visibility--delete-tour-packages)**
+- **[26. How to Set Global Daily Tour Capacity](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#26-how-to-adjust-the-global-daily-tour-capacity-limit)**
 
-### 🏨 Hotel Related Management
-- **Hotels:** A directory of all onboarded hotel partners. Admins can manually add new hotels or edit existing hotel profiles. Includes live **Active / Inactive** status switches in table and card views, status badges, summary count cards (Total, Active, Inactive), and segmented status filter buttons (`All`, `Active`, `Inactive`) with real-time multi-session sync.
-- **Room Services & Room Manager:** Manage individual hotel room package listings with inline Active/Inactive visibility switches. Toggling status atomically synchronizes `hotelPackageDetails` and `HotelDB/{hotelUid}/rooms` collections.
-- **Room Availability:** An administrative override calendar. Admins can view the availability of any hotel and manually block/unblock rooms if a partner is unable to do so themselves.
-- **Room Bookings:** Manage all customer reservations for hotels. Approve, modify, or cancel bookings as needed.
+### 🚐 Part V: Transport Fleet & Driver Dispatch
+- **[27. How to Register Fleet Vehicles (Vans, Cars)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#27-how-to-register-fleet-vehicles-vans-sedans-rentals)**
+- **[28. How to Dispatch & Assign Drivers to Rides](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#28-how-to-dispatch--assign-drivers-to-airport-pickups--rides)**
+- **[29. How to Review Self-Drive Car Rentals](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#29-how-to-review-self-drive-car-rental-bookings)**
 
-### ✈️ Travel & Transport Related
-- **Sightseeing Packages:** Build and manage travel itineraries, set pricing, define inclusions/exclusions, and link hotel partners or add manual hotel options with image uploads. Features live **Active / Inactive** visibility switches in table and card views, summary metrics banners, and status filter buttons (`All`, `Active`, `Inactive`). Updates persist atomically across `sightseeingPackages` and `sightseeingPackagesDetails`. Simplified form without obsolete partner packages or early bird discounts; deferred payments require confirmed package status.
-- **Sightseeing Bookings:** Manage customer purchases of travel packages.
-- **Taxi & Van Management:** Register fleet vehicles, assign drivers, and manage transport assets.
-- **Van Bookings:** Specific reservations for large group van transport.
-- **Car Bookings:** Standard taxi or point-to-point car reservations.
-- **Self Drive Bookings:** Manage reservations for rental cars without drivers.
-
-### 💬 Local Assistance & Communication
-- **Customer Chat:** Directly chat with app users needing assistance.
-- **Local Partners:** Manage freelance or independent local guides. Includes an **Add New Partner** inline modal popup (with direct "Verified" or "Pending" status assignment and background auth protection), interactive filter tabs (Pending Requests, Verified Partners, Denied), and sidebar notification badges.
-- **Local Requirements:** Review custom requests posted by users needing specific local assistance.
-- **Partner Chat:** Dedicated support channel for communicating with verified partners.
-- *(Note: Legacy App Chat has been retired to focus staff on Customer, Driver, Hotel, and Local Partner support.)*
-
-### 📍 Prime Locations
-- **Shops:** Manage listings of recommended shopping malls or local stores.
-- **Clubs:** Manage listings of nightlife venues and clubs.
-
----
-
-## 3. Partner Dashboard Capabilities
-
-If you are a verified Partner, your dashboard is strictly limited to the tools required to operate your specific business with Thaiseva.
-
-### 👤 Global Partner Features
-- **Profile:** View your business profile, edit contact details, and update your banking/payout information.
-- **Support:** Submit tickets or view FAQs specifically designed for partners.
-- **Messages:** A direct chat window to communicate with Thaiseva Administrators regarding disputes, payouts, or help.
-
-### 🏨 Hotel Partners
-*If your service category is "Hotel":*
-- **Added Rooms:** Create and manage your room inventory. Upload photos, set amenities (e.g., WiFi, AC, Balcony), and set base pricing.
-- **Room Availability (Calendar):** A crucial tool. Use this calendar to block out dates when your hotel is fully booked offline to prevent double-booking on Thaiseva.
-- **Bookings:** View all incoming reservations. You will see guest details, check-in/out dates, and payment status.
-- **Today Arrivals:** A quick-glance manifest of all guests scheduled to check in today.
-
-### 🚗 Driver & Transport Partners
-*If your service category is "Driving" or Transport:*
-- **My Services:** Define your typical routes, vehicle type, and availability status.
-- **Assigned Rides / Bookings:** View upcoming scheduled rides, pickup locations, and passenger details.
-
-### 🤝 Local Partners & Guides
-*If your service category falls under general/local assistance:*
-- **My Services:** List the specific skills or tours you offer (e.g., Translation, City Tour).
-- **Requirements:** Browse custom requests posted by users (e.g., "Need a translator for a business meeting tomorrow") and accept jobs.
-
----
-
-## 4. Best Practices & Troubleshooting
-
-- **Caching Issues:** If the dashboard seems stuck or data isn't refreshing, use the reload button on your browser. The dashboard uses real-time Firebase listeners, so it should sync instantly, but a hard refresh resolves localized state issues.
-- **Approving Partners (For Admins):** Always ensure legal documents are reviewed before moving a partner from "Pending" to "Verified". Unverified partners cannot access their dashboards.
-- **Maintaining Inventory (For Hotel Partners):** It is your responsibility to keep the "Room Availability" calendar updated. Thaiseva is not liable for overbookings caused by outdated calendars.
+### 🤝 Part VI: Partner Management, Chat & Announcements
+- **[30. How to Onboard & Verify Partners (KYC)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#30-how-to-onboard--verify-a-new-partner-kyc-document-review)**
+- **[31. How to Add a Partner with Inline Dialog](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#31-how-to-add-a-partner-directly-with-the-inline-popup-dialog)**
+- **[32. How to Live Chat with Travelers & Hotels](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#32-how-to-live-chat-with-travelers--hotel-front-desks)**
+- **[33. How to Send Push Notifications with Photo Crop](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#33-how-to-broadcast-a-push-notification-with-cropped-photo--expiry)**
+- **[34. How to Manage Shops & Nightlife Clubs](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#34-how-to-manage-prime-locations-shops--nightlife-clubs)**
+- **[35. How to Manage Blogs, FAQs, Reviews & Inquiries](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#35-how-to-manage-website-content-blogs-faqs-reviews--inquiries)**
+- **[36. How to View Earnings & Export to Excel](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md#36-how-to-view-platform-earnings--export-financial-reports-to-excel)**

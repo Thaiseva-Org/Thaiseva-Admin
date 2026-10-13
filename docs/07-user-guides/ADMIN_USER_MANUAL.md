@@ -1,204 +1,766 @@
-# Admin & Partner Operations Manual
-
-Welcome to the operational manual for the **Thaiseva Admin Portal and Partner Dashboard**. This manual provides comprehensive, step-by-step procedures for daily operations, catalog governance, booking lifecycles, billing, and compliance management.
+# 🌴 Thaiseva Admin Portal: Complete Step-by-Step Action Manual
+**The Ultimate Practical "How-To" Operations Guide Covering Every Action in the Admin Panel**  
+*Version 3.2.0 | Digital Core Enterprise Edition | Updated October 2026*
 
 ---
 
-## 1. Access, Navigation & Dashboard Global Layout
+## 🎨 Theme, Badges & Quick Action Legend
 
-Users sign in via `/login` using their registered email and password (or passwordless Email OTP). The interface dynamically personalizes navigation options based on assigned permissions:
+Every action in this manual is designed for instant understanding with zero guesswork:
+
+| Badge / Icon | Meaning | Example |
+| :--- | :--- | :--- |
+| **`[STEP 1]`** | **Trigger Action** | Click a specific button, tab, or menu item |
+| **`[STEP 2]`** | **Data Entry & Selection** | Type in fields, upload photos, or toggle switches |
+| **`[STEP 3]`** | **Verification & Save** | Review the popup confirmation and click Save/Confirm |
+| 🟢 **Green** | **Active / Confirmed / Paid** | Everything is live, settled, or verified |
+| 🟡 **Yellow** | **Pending / Action Needed** | Requires review or action by staff/admin |
+| 🔴 **Red** | **Declined / Canceled / Blocked** | Rejected, out of stock, or archived |
+| 🔵 **Blue** | **In Progress / Unverified** | Bank slip uploaded or dispatch in transit |
+| 🧭 **What is on Screen?** | **Visual Breakdown** | Exact buttons, tables, toggles, and inputs |
+| 💡 **Quick Tip** | **Staff Pro-Tip** | Time-saving shortcuts and best practices |
+| ⚠️ **Warning** | **Caution Alert** | How to prevent errors and inventory loss |
+
+---
+
+## 📑 Complete Action Directory (30 Modules)
+
+### 🔐 Part I: Access, Governance & Staff Setup
+1. [How to Sign In & Navigate the Global Dashboard](#1-how-to-sign-in--navigate-the-global-dashboard)
+2. [How to Manage Your Account Settings & Password](#2-how-to-manage-your-account-settings--password)
+3. [How to Add, Edit & Decommission Sub-Admin Staff Accounts](#3-how-to-add-edit--decommission-sub-admin-staff-accounts)
+4. [How to Inspect Registered Users & Booking Histories](#4-how-to-inspect-registered-users--booking-histories)
+5. [How to Process Account Deletion Requests (PDPA 30-Day Rule)](#5-how-to-process-account-deletion-requests-pdpa-30-day-rule)
+
+### 🏨 Part II: Hotel Accommodation Management
+6. [How to Add a New Hotel (3-Step Wizard)](#6-how-to-add-a-new-hotel-3-step-wizard)
+7. [How to Edit Hotel Profiles, Amenities & Photos](#7-how-to-edit-hotel-profiles-amenities--photos)
+8. [How to Toggle Hotel Active/Inactive Visibility Instantly](#8-how-to-toggle-hotel-activeinactive-visibility-instantly)
+9. [How to Add Room Categories to a Hotel](#9-how-to-add-room-categories-to-a-hotel)
+10. [How to Edit Room Pricing, Beds & Extra Bed Options](#10-how-to-edit-room-pricing-beds--extra-bed-options)
+11. [How Room Availability Works (The Simple Math Formula)](#11-how-room-availability-works-the-simple-math-formula)
+12. [How Room Availability Updates (Auto Holds vs. Manual Overrides)](#12-how-room-availability-updates-auto-holds-vs-manual-overrides)
+13. [How to Manually Block Dates on the Room Availability Calendar](#13-how-to-manually-block-dates-on-the-room-availability-calendar)
+14. [How to Add Extra Room Stock for Holidays & Peak Dates](#14-how-to-add-extra-room-stock-for-holidays--peak-dates)
+15. [How to Release Stuck / Orphaned 10-Minute Checkout Holds](#15-how-to-release-stuck--orphaned-10-minute-checkout-holds)
+
+### 📋 Part III: Customer Order Triage (Hotels & Tours)
+16. [How to Approve (Confirm) a Pending Hotel Room Booking](#16-how-to-approve-confirm-a-pending-hotel-room-booking)
+17. [How to Decline a Hotel Room Booking](#17-how-to-decline-a-hotel-room-booking)
+18. [How to Verify a Thai PromptPay QR Payment (Shield Icon)](#18-how-to-verify-a-thai-promptpay-qr-payment-shield-icon)
+19. [How to Use Bulk Actions on Hotel Bookings](#19-how-to-use-bulk-actions-on-hotel-bookings)
+20. [How to Safely Delete Canceled Bookings without Locking Inventory](#20-how-to-safely-delete-canceled-bookings-without-locking-inventory)
+21. [How to Switch Between List View & Calendar (Gantt) View](#21-how-to-switch-between-list-view--calendar-gantt-view)
+22. [How to Approve or Decline a Tour Package Booking](#22-how-to-approve-or-decline-a-tour-package-booking)
+23. [How the 2-Day Preparation Rule & Daily Capacity Work](#23-how-the-2-day-preparation-rule--daily-capacity-work)
+
+### 🌴 Part IV: Sightseeing Packages & Excursions
+24. [How to Add a New Sightseeing Tour Package (3-Step Wizard)](#24-how-to-add-a-new-sightseeing-tour-package-3-step-wizard)
+25. [How to Edit, Toggle Visibility & Delete Tour Packages](#25-how-to-edit-toggle-visibility--delete-tour-packages)
+26. [How to Adjust the Global Daily Tour Capacity Limit](#26-how-to-adjust-the-global-daily-tour-capacity-limit)
+
+### 🚐 Part V: Transport Fleet & Driver Dispatch
+27. [How to Register Fleet Vehicles (Vans, Sedans, Rentals)](#27-how-to-register-fleet-vehicles-vans-sedans-rentals)
+28. [How to Dispatch & Assign Drivers to Airport Pickups & Rides](#28-how-to-dispatch--assign-drivers-to-airport-pickups--rides)
+29. [How to Review Self-Drive Car Rental Bookings](#29-how-to-review-self-drive-car-rental-bookings)
+
+### 🤝 Part VI: Partner Management, Chat & Announcements
+30. [How to Onboard & Verify a New Partner (KYC Document Review)](#30-how-to-onboard--verify-a-new-partner-kyc-document-review)
+31. [How to Add a Partner Directly with the Inline Popup Dialog](#31-how-to-add-a-partner-directly-with-the-inline-popup-dialog)
+32. [How to Live Chat with Travelers & Hotel Front Desks](#32-how-to-live-chat-with-travelers--hotel-front-desks)
+33. [How to Broadcast a Push Notification with Cropped Photo & Expiry](#33-how-to-broadcast-a-push-notification-with-cropped-photo--expiry)
+34. [How to Manage Prime Locations (Shops & Nightlife Clubs)](#34-how-to-manage-prime-locations-shops--nightlife-clubs)
+35. [How to Manage Website Content (Blogs, FAQs, Reviews & Inquiries)](#35-how-to-manage-website-content-blogs-faqs-reviews--inquiries)
+36. [How to View Platform Earnings & Export Financial Reports to Excel](#36-how-to-view-platform-earnings--export-financial-reports-to-excel)
+
+---
+
+## Part I: Access, Governance & Staff Setup
+
+### 1. How to Sign In & Navigate the Global Dashboard
+
+#### 🎯 Purpose
+Log in to your authorized operational console and find your tools fast.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]` Open Login Screen**: Navigate to `/login`.
+- **`[STEP 2]` Type Credentials**: Enter your work **Email** and **Password**. Click the eye icon if you need to double-check spelling.
+- **`[STEP 3]` Click "Sign In"**: The button will spin briefly, verify your security token, and open your tailored dashboard:
+  - **Admins & Sub-Admins**: Land on the master operational dashboard.
+  - **Hotel Partners**: Land directly on their room inventory and today's arrivals manifest.
+
+#### 🧭 What is on the Screen?
+- **Left Sidebar**: Your main control panel organized into clean groups:
+  - 🏠 *General Operations*: Dashboard, Settings, Notifications, Statistics, Records, Users, Deletion Requests.
+  - 🏨 *Hotel Related*: Hotels, Room Availability, Room Bookings.
+  - 🌴 *Travel & Transport*: Sightseeing Packages, Tour Bookings, Vans, Car Bookings, Self-Drive.
+  - 🤝 *Partners*: Local Partners (with a live badge for pending requests).
+  - 💬 *Communication*: Customer Chat, Hotel Chat, Partner Chat.
+  - ⚙️ *Website Config*: Site Statistics, Media, Blogs, FAQs, Reviews, Contact Us.
+- **Top Header Bar**:
+  - 🔍 **Quick Search**: Filters rows in the active table instantly.
+  - 🔔 **Notification Bell**: Shows unread alerts and booking requests.
+  - 👤 **Avatar Profile**: Click to open Account Settings or Log Out.
+
+> [!NOTE]
+> **Continuous Sessions:** The portal does not use inactivity timers. Your session will not kick you out in the middle of a shift.
+
+---
+
+### 2. How to Manage Your Account Settings & Password
+
+#### 🎯 Purpose
+Update your staff display name, email, or change your account password.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: Click your **Avatar** in the top right corner $\rightarrow$ Click **"Account Settings"** (or click `/dashboard/settings` in the sidebar).
+- **`[STEP 2]`**: 
+  - To update profile: Edit **Full Name** and **Phone Number**.
+  - To change password: Enter **Current Password**, followed by your **New Password** (minimum 8 characters).
+- **`[STEP 3]`**: Click **"Save Changes"**. A green toast confirms update.
+
+---
+
+### 3. How to Add, Edit & Decommission Sub-Admin Staff Accounts
+
+#### 🎯 Purpose
+*(Head Administrator Only)* Provision logins for new operational staff, set their permissions, or revoke access when someone leaves.
+
+#### 📋 Step-by-Step Procedure: Adding a Sub-Admin
+- **`[STEP 1]`**: In the sidebar, click **Sub-Admins** (`/dashboard/sub-admins`).
+- **`[STEP 2]`**: Click the blue **"+ Add New Sub-Admin"** button in the header.
+- **`[STEP 3]`**: In the popup dialog, fill in:
+  - **Full Name**: (e.g., *"Somchai Prasert"*).
+  - **Company Email**: (e.g., *"somchai@thaiseva.com"*).
+  - **Temporary Password**: (min 8 chars, 1 uppercase, 1 number).
+  - **Scopes**: Check the authorized duties (`Bookings`, `Catalog`, `Partners`, `Support`).
+- **`[STEP 4]`**: Click **"Create Account"**.
+
+#### 🧭 What is on the Screen?
+- **Sub-Admins Table**: Displays staff avatar, name, email, created date, and action icons.
+- **Delete Staff Icon (`DeleteButton`)**: Click the red trash icon to immediately revoke a departed staff member's login token.
+
+> [!IMPORTANT]
+> The creation form uses an isolated background auth session. The Head Admin's active login is never disconnected when creating new accounts.
+
+---
+
+### 4. How to Inspect Registered Users & Booking Histories
+
+#### 🎯 Purpose
+Look up consumer travelers, check their contact details, and review their past reservations.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Users Data** (`/dashboard/user-data`).
+- **`[STEP 2]`**: Type the traveler's name, email, or phone number in the search bar.
+- **`[STEP 3]`**: Click **View Profile** (`ViewDetailsIcon`) on the user row.
+
+#### 🧭 What is on the Screen?
+- User avatar, registered email, mobile phone with country dial code.
+- Joined date and account verification status.
+- Linked booking records table showing all past hotel stays and sightseeing excursions.
+
+---
+
+### 5. How to Process Account Deletion Requests (PDPA 30-Day Rule)
+
+#### 🎯 Purpose
+Comply with Thailand's Personal Data Protection Act (PDPA Section 33) and Google Play / Apple Store rules when a user asks to delete their account.
+
+```mermaid
+flowchart LR
+    A["User submits deletion request in mobile app"] --> B["System starts 30-Day Waiting Period\n(Status: Pending)"]
+    B --> C{"Days Remaining <= 0?"}
+    C -->|No: User can still cancel| D["Stays in 'Pending' Tab"]
+    C -->|Yes: 30 Days Finished| E["Moves to 'Due Now' Tab\nAdmin Clicks 'Approve & Delete'"]
+    E --> F["Auth Deleted; Profile Scrubbed;\nFinancial Ledgers Anonymized"]
+```
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Deletion Requests** (`/dashboard/deletion-requests`).
+- **`[STEP 2]`**: Click the **"Due Now"** tab. This filters requests where the 30-day waiting period has elapsed (`daysRemaining <= 0`).
+- **`[STEP 3]`**: On the target user row, click the red button: **"Approve & Delete Login Account"**.
+- **`[STEP 4]`**: In the warning modal, click **"Confirm Permanent Deletion"**.
+
+#### 🧭 What is on the Screen?
+- **Tabs**: `All`, `Pending` (active grace period), `Due Now` (action required), `Completed`, `Cancelled`.
+- **Days Remaining Column**: Shows exact days left in the 30-day window.
+
+> [!CAUTION]
+> Approving a deletion permanently destroys the customer's Firebase Auth login and scrubs their profile. Booking financial ledgers are kept in anonymized form for official accounting audits.
+
+---
+
+## Part II: Hotel Accommodation Management
+
+### 6. How to Add a New Hotel (3-Step Wizard)
+
+#### 🎯 Purpose
+Publish a brand-new hotel property so travelers can discover it and book rooms on `thaiseva.com` and the mobile app.
 
 ```mermaid
 flowchart TD
-    Login["Sign In (/login)"] --> AuthRole{"Evaluate Role & Verification Status"}
-    AuthRole -- "Head Admin / Sub-Admin" --> AdminLayout["Admin Operations Dashboard"]
-    AuthRole -- "Verified Partner" --> PartnerLayout["Partner Self-Service Hub"]
-    AuthRole -- "Pending Partner" --> PendingScreen["Account Pending Verification Screen"]
+    Step1["Step 1: Hotel Details\n(Name, Stars, City, Google Map Pin, Amenities, Photos)"] --> Step2["Step 2: Room Types\n(Deluxe King, Twin, Nightly Prices, Extra Bed Rules)"]
+    Step2 --> Step3["Step 3: Configuration\n(Commission %, Contact Email, Active Switch)"]
+    Step3 --> Finish["Click 'Create Hotel Listing'\nHotel is Live on Website!"]
 ```
 
-### Global Interface Elements
-- **Dynamic Sidebar Navigation:** Located on the left. On mobile or tablet devices, use the hamburger menu button in the top header.
-- **Top Header Bar:** Displays current page breadcrumbs, quick global search filter, notification bell alerts, and user profile avatar for account settings and logout.
-- **Role-Based Views:**
-  - **Head Admin:** Complete platform governance, sub-admin management, financial summaries, and account deletion approvals.
-  - **Sub-Admin:** Daily operations, partner document vetting, booking management, and customer support chat.
-  - **Verified Partners:** Strictly scoped to their own listings, room calendars, assigned trips, and payout statements.
-- **Session Lifecycle & Persistence:**
-  - Client-side inactivity auto-logout timers have been permanently removed. Administrative and operator sessions persist continuously across active shifts without forced timeouts. Session security is governed by standard Firebase Auth token lifecycles and HTTPS transport.
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]` Open Wizard**: In the sidebar, click **Hotels** (`/dashboard/hotels`) $\rightarrow$ Click **"+ Add Hotel"** (top right).
+- **`[STEP 2]` Step 1: Hotel Details**:
+  - Enter **Hotel Name** (e.g., *"Centara Grand Beach Resort"*).
+  - Enter **Thai Name** *(Optional)*.
+  - Click **Star Rating** (`1` to `5` stars).
+  - Choose **City / Province** (Bangkok, Phuket, Chiang Mai, Pattaya, Krabi, Koh Samui).
+  - Type **Address**, then drag the red pin on the Google Map to lock the GPS location.
+  - Click verified **Amenity Chips** (🏊 Pool, 📶 WiFi, 🏋️ Gym, 🍳 Restaurant, 🧖‍♀️ Spa, 🅿️ Parking).
+  - Click the upload box to upload 1 horizontal cover photo + 3 to 10 gallery photos.
+  - Click **"Next: Room Types"**.
+- **`[STEP 3]` Step 2: Room Types**:
+  - Click **"+ Add Room Category"**.
+  - Enter **Room Title** (e.g., *"Deluxe Ocean View King"*).
+  - Select **Bed Configuration** (1 King Bed, 2 Twin Beds, 1 Queen Bed).
+  - Enter **Base Price (THB)** (e.g., `3,500`).
+  - Set **Max Occupancy**: Adults = `2`, Children = `1`.
+  - If rollaway beds fit: Toggle **"Allow Extra Bed"** and enter extra bed fee (e.g., `800` THB).
+  - Upload room photo $\rightarrow$ Click **"Save Room"**. *(Repeat for more rooms)*.
+  - Click **"Next: Configuration"**.
+- **`[STEP 4]` Step 3: Configuration & Publish**:
+  - Set **Commission Rate** (standard is `15`% or `20`%).
+  - Enter front desk email and telephone.
+  - Make sure the status toggle is set to 🟢 **Active**.
+  - Click **"Create Hotel Listing"**.
+
+#### 🧭 What is on the Screen?
+- Animated progress bar showing `1. Hotel Details` $\rightarrow$ `2. Room Types` $\rightarrow$ `3. Configuration`.
+- Interactive Google Map with autocomplete search.
 
 ---
 
-## 2. Administrator Operational Procedures
+### 7. How to Edit Hotel Profiles, Amenities & Photos
 
-### 2.1 General Operations & Analytics
+#### 🎯 Purpose
+Update an existing hotel's photos, change phone numbers, or adjust amenities.
 
-#### Platform Statistics & Revenue Analytics (`/dashboard/admin-statistics`)
-- Displays real-time Gross Merchandise Value (GMV), total completed orders, active partner counts, and monthly user growth charts.
-- **Exporting Financial Records:** Click **Export to Excel** at the top right to download full spreadsheet manifests compiled via `exportAdminStatisticsExcel.js` for accounting audits.
-
-#### User Directory (`/dashboard/user-data`)
-- Browse all registered consumer mobile app users.
-- Inspect user profile details, contact emails, registration dates, and linked bookings.
-
-#### Promotional Coupons Management (`/dashboard/coupons`)
-- Create promotional discount codes for marketing campaigns.
-- Configure coupon code, discount type (**Percentage** or **Fixed THB**), minimum cart spend, and expiration date.
-- Uses `voucher-code-generator` for bulk campaign code creation.
-
-#### Push Notifications Dispatch (`/dashboard/manage-notifications`)
-- Broadcast announcements and operational alerts to consumer mobile apps or partner dashboards.
-- Filter audience by user role (e.g., *All Travelers*, *All Hotel Partners*, *All Drivers*).
-
-#### Sub-Admin Governance (`/dashboard/sub-admins`) *(Head Admin Only)*
-- Provision new operational staff accounts.
-- Assign granular operational scopes or revoke access for departed personnel.
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In **Hotels** (`/dashboard/hotels`), locate the hotel row.
+- **`[STEP 2]`**: Click the **Edit Pencil Icon** (`MdEdit`).
+- **`[STEP 3]`**: The 3-step wizard opens pre-filled with the current data. Make your edits.
+- **`[STEP 4]`**: Click **"Update Hotel"** on Step 3.
 
 ---
 
-### 2.2 Partner Onboarding & Credential Verification
+### 8. How to Toggle Hotel Active/Inactive Visibility Instantly
 
-When a business applies to become a Thaiseva partner, their account is placed into `Pending` status:
+#### 🎯 Purpose
+Take a hotel offline temporarily (e.g., for seasonal closure or contract renewal) without deleting it.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: Go to **Hotels** (`/dashboard/hotels`).
+- **`[STEP 2]`**: Locate the hotel in the table or card grid.
+- **`[STEP 3]`**: Click the **Active / Inactive Toggle Switch**.
+  - 🟢 **Active**: The hotel is online and bookable.
+  - ⚪ **Inactive**: The hotel is hidden from public search immediately.
+
+#### 🧭 What is on the Screen?
+- **Filter Bar**: Click `All (N)`, `Active (N)`, or `Inactive (N)` to filter the list.
+- **Summary Cards**: Displays live counts for Total, Active, and Inactive hotels.
+
+> [!NOTE]
+> The switch uses optimistic UI updates. It updates instantly on screen while saving to Firestore in the background.
+
+---
+
+### 9. How to Add Room Categories to a Hotel
+
+#### 🎯 Purpose
+Add a new room category (e.g., adding a *"Family 2-Bedroom Villa"*) to a hotel.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In **Hotels** (`/dashboard/hotels`), find your hotel and click the **Rooms Icon** (`MdMeetingRoom` - door icon).
+- **`[STEP 2]`**: You are now on `/dashboard/hotels/:hotelId/rooms`. Click **"+ Add Room"**.
+- **`[STEP 3]`**: Fill in Room Name, Bed Type, Base Price THB, Max Guests, and Amenities.
+- **`[STEP 4]`**: Click **"Save Room"**. The room becomes live on the website immediately!
+
+---
+
+### 10. How to Edit Room Pricing, Beds & Extra Bed Options
+
+#### 🎯 Purpose
+Adjust room prices for high season, change bed types, or enable extra rollaway beds.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: Go to the hotel's room list (`/dashboard/hotels/:hotelId/rooms`).
+- **`[STEP 2]`**: Click the **Edit Icon** on the target room card.
+- **`[STEP 3]`**: Update **Base Price (THB)** or toggle **Allow Extra Bed**.
+- **`[STEP 4]`**: Click **"Save Changes"**. Dual-store synchronization updates both the room and package collections automatically.
+
+---
+
+### 11. How Room Availability Works (The Simple Math Formula)
+
+#### 🎯 Purpose
+Understand how the platform calculates whether rooms can be booked instantly.
+
+#### 🧮 The Simple Math Formula
+
+$$\text{Remaining Rooms} = \text{Base Inventory} + \text{Extra Added} - \text{Blocked} - \text{Confirmed Bookings} - \text{Active Holds}$$
+
+#### Real-Life Example for Saturday Night:
+- **Base Inventory**: 10 Superior Rooms.
+- **Extra Added**: 0.
+- **Blocked**: 1 room (plumbing leak).
+- **Confirmed Bookings**: 4 guests already checked in/booked.
+- **Active 10-Minute Hold**: 1 guest currently entering their credit card number on the website.
+
+$$\text{Remaining Rooms} = 10 + 0 - 1 - 4 - 1 = \mathbf{4\text{ Rooms Available}}$$
+
+#### 🎨 Color Codes on the Availability Grid:
+- 🟢 **Green (3+ rooms)**: Healthy inventory. Customers book and pay instantly.
+- 🟡 **Yellow (1 to 2 rooms)**: Low stock warning badge shown on consumer site.
+- 🔴 **Red (0 rooms)**: **Sold Out**. Customers cannot pay instantly; they can only send a booking inquiry.
+- ⚪ **Gray Striped**: Dates closed or blocked by staff.
+
+---
+
+### 12. How Room Availability Updates (Auto Holds vs. Manual Overrides)
+
+#### 🎯 Purpose
+Know what updates automatically and when staff need to intervene.
+
+#### A. What the System Does Automatically:
+1. When a traveler enters checkout, the system places a **10-minute soft hold** on the room (remaining count drops by 1).
+2. If the traveler pays via Stripe, the hold turns into a permanent booking.
+3. If the traveler closes their tab or the 10-minute timer runs out, the room **automatically returns to the available inventory pool (+1)**.
+
+#### B. What Staff Controls Manually:
+1. Staff can click dates on the calendar to take rooms offline.
+2. Staff can add extra inventory for holiday periods.
+3. Staff can clear stuck holds with one click.
+
+---
+
+### 13. How to Manually Block Dates on the Room Availability Calendar
+
+#### 🎯 Purpose
+Close dates when a hotel is fully booked offline (e.g. from walk-in guests or private weddings).
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Room Availability** (`/dashboard/hotel-room-availability`).
+- **`[STEP 2]`**: Select your hotel from the dropdown and navigate to the target month.
+- **`[STEP 3]`**: Click the target date cell on the calendar (or drag across multiple dates).
+- **`[STEP 4]`**: In the popup dialog, choose **"Block Out Rooms"**.
+- **`[STEP 5]`**: Enter how many rooms to block (or check *"Block Entire Category"*), add a quick reason note (e.g., *"Offline front desk booking"*), and click **"Confirm Override"**.
+
+#### 🧭 What is on the Screen?
+- The calendar cells turn gray with a padlock icon. Storefront checkouts for those dates are disabled immediately.
+
+---
+
+### 14. How to Add Extra Room Stock for Holidays & Peak Dates
+
+#### 🎯 Purpose
+Increase daily room allocation when a hotel grants additional inventory during peak travel seasons.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: Go to **Room Availability** (`/dashboard/hotel-room-availability`) $\rightarrow$ Select hotel.
+- **`[STEP 2]`**: Click the target holiday dates on the calendar.
+- **`[STEP 3]`**: In the popup dialog, select **"Add Extra Rooms"**.
+- **`[STEP 4]`**: Enter `+5` (or desired amount) $\rightarrow$ Click **"Confirm"**.
+- *Result*: The available room count increments immediately!
+
+---
+
+### 15. How to Release Stuck / Orphaned 10-Minute Checkout Holds
+
+#### 🎯 Purpose
+Free up rooms when a customer's browser crashes or network drops during card entry, leaving an expired hold.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In **Room Availability** (`/dashboard/hotel-room-availability`), look at the top action header.
+- **`[STEP 2]`**: Click the button: **"Release Orphaned Holds"**.
+- **`[STEP 3]`**: Review the identified expired hold IDs in the modal $\rightarrow$ Click **"Release All Expired Holds"**.
+- *Result*: The holds delete, and the rooms return to the available pool instantly.
+
+---
+
+## Part III: Customer Order Triage (Hotels & Tours)
+
+### 16. How to Approve (Confirm) a Pending Hotel Room Booking
+
+#### 🎯 Purpose
+Confirm room availability with the hotel front desk and approve an incoming on-request reservation.
+
+```mermaid
+flowchart LR
+    A["Open Room Bookings (/dashboard/room-bookings)"] --> B["Click 'Pending' Tab"]
+    B --> C["Click Eye Icon to Review Dates & Guest Notes"]
+    C --> D{"Rooms Available?"}
+    D -->|Yes| E["Click Green Checkmark 'Confirm Booking'"]
+    E --> F["Rooms Locked for Dates;\nTraveler Gets Alert to Pay"]
+```
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Room Bookings** (`/dashboard/room-bookings`).
+- **`[STEP 2]`**: Ensure the **Pending** tab (`Tab 0`) is selected.
+- **`[STEP 3]`**: Click the **Eye Icon** (`MdVisibility`) to inspect guest name, room count, check-in dates, and special requests.
+- **`[STEP 4]`**: In the Actions column, click the **Green Checkmark** button (`DoneRoundedIcon`).
+- **`[STEP 5]`**: In the confirmation popup, click **"OK"**.
+
+#### 🧭 What Happens Automatically?
+- Rooms are deducted from inventory for those stay dates.
+- Booking status changes to **Accepted**.
+- Booking moves to the **Waiting for Payment** tab.
+- Customer receives an instant phone notification: *"Your room request was accepted! Please complete payment to confirm your booking."*
+
+---
+
+### 17. How to Decline a Hotel Room Booking
+
+#### 🎯 Purpose
+Reject a booking request when the hotel is completely full.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: Go to **Room Bookings** (`/dashboard/room-bookings`) $\rightarrow$ Click **Pending** tab.
+- **`[STEP 2]`**: On the target booking row, click the **Red 'X' Button** (`CloseRoundedIcon`).
+- **`[STEP 3]`**: In the prompt, click **"OK"**.
+- *Result*: Status changes to **Canceled**; the customer receives an alert that rooms were unavailable.
+
+---
+
+### 18. How to Verify a Thai PromptPay QR Payment (Shield Icon)
+
+#### 🎯 Purpose
+Verify that Thai Baht funds were received in the company bank account before issuing a confirmed voucher.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Partner as Vendor Applicant
-    participant Portal as Onboarding Form
-    participant AdminUI as Admin Dashboard (/dashboard/manage-partners)
-    participant Storage as Cloud Storage (/partner_docs/)
-    participant Firestore as Firestore (/users & /partners)
+    actor Traveler as Traveler
+    participant Bank as Bank Statement
+    actor Staff as Admin Staff (/dashboard/room-bookings)
 
-    Partner->>Portal: Submits business license, bank payout info & ID proofs
-    Portal->>Storage: Uploads verification documents
-    Portal->>Firestore: Writes record with status: 'Pending'
-    AdminUI->>AdminUI: Staff inspects Pending Partners queue
-    AdminUI->>AdminUI: Reviews submitted licenses, tax registration & bank accounts
-    alt Approved
-        AdminUI->>Firestore: Update status: 'Verified'
-        Firestore-->>Partner: Partner dashboard unlocked immediately
-    else Rejected
-        AdminUI->>Firestore: Update status: 'Rejected' with reason note
-    end
+    Traveler->>Bank: Transfers Baht via Mobile Banking QR
+    Traveler->>Staff: Booking displays "PAYMENT PENDING VERIFICATION"
+    Staff->>Bank: Verifies exact Baht amount & time in company bank app
+    Staff->>Staff: Clicks Shield Icon ("Verify Payment")
+    Staff-->>Traveler: Status updates to "VERIFIED"; Green voucher issued!
 ```
 
-1. Navigate to **General Partners → Manage Partners** or **Local Assistance → Local Partners**.
-2. Filter table by **Status: Pending**.
-3. Click **Review** on the target application to inspect business registration documents, TAT tourism licenses, driver's licenses, and bank account details.
-4. If documents satisfy legal standards, click **Verify Partner**. The partner gains instant access to their self-service tools.
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In **Room Bookings** or **Sightseeing Bookings**, locate bookings with the blue badge: **`PAYMENT PENDING VERIFICATION`**.
+- **`[STEP 2]`**: Click the **Eye Icon** to check the **Amount (THB)** and transfer time.
+- **`[STEP 3]`**: Open your company bank account app/portal and verify the transfer arrived.
+- **`[STEP 4]`**: On the booking row, click the **Shield Icon** (`VerifyPaymentIconButton`).
+- **`[STEP 5]`**: Confirm the prompt: *"Verify payment for this booking?"* $\rightarrow$ Click **"OK"**.
 
-#### Direct Partner Registration Modal (`/dashboard/local-partners`)
-Platform operators can onboard partners directly from the admin interface without navigating to the public onboarding page:
-1. Navigate to **Local Assistance → Local Partners** (`/dashboard/local-partners`).
-2. Click **Add New Partner** in the search and action bar.
-3. An inline popup `<Dialog>` opens directly over the current page:
-   - **Initial Status Switch:** Select whether the partner is created as **Verified (Active)** immediately or placed in **Pending Review**.
-   - **Credential & KYC Entry:** Enter credentials, contact profile, interactive Google Map location coordinates, service categories/sub-services, and payout banking information.
-   - **Isolated Admin Auth Session:** Employs an isolated secondary Firebase Auth app instance under the hood, ensuring the logged-in administrator's active session is never invalidated or logged out.
-   - **Real-Time Data Refresh:** On successful submission, the dialog closes automatically, and the Local Partners table and summary cards refresh immediately.
-4. **Partner Filter Tabs & Notification Badges:**
-   - Filter directly between **⏳ Pending Requests**, **✅ Verified Partners**, and **❌ Denied**.
-   - Interactive metric cards reflect total, pending, verified, and denied counts.
-   - A live badge counter is displayed in the sidebar navigation next to **Local Partners** reflecting pending partner registration requests awaiting attention.
+#### 🧭 What Happens Instantly?
+- Payment status updates to **`VERIFIED`**.
+- `isPaymentDone` becomes `true`.
+- The booking moves to the **Paid & Accepted** tab.
+- Platform revenue stats update automatically.
+- Traveler's digital voucher displays a green verified badge.
 
 ---
 
-### 2.3 Accommodation & Room Availability Management
+### 19. How to Use Bulk Actions on Hotel Bookings
 
-#### Hotel Listings Directory (`/dashboard/hotels`)
-- Add new hotel properties or update existing profiles (name, star rating, address, GPS coordinates, property amenities, and photo galleries).
-- Configure room types under the hotel profile (rack rates, discounted rates, maximum guest capacity, bed configurations).
-- **Active & Inactive Listing Visibility Toggles (12 October 2026):**
-  - **Table & Card Switches:** Every hotel entry features an inline switch and a status badge (**Active** in green, **Inactive** in slate) in both Table view and Grid Card view.
-  - **Image Thumbnail Badge:** Card listings display a prominent overlay chip indicating active or inactive catalog visibility.
-  - **Summary Metrics Banner:** Displays real-time counts for **Total Hotels**, **Active Hotels**, and **Inactive Hotels**.
-  - **Status Filter Controls:** Use the toggle button bar (`All (N)`, `Active (N)`, `Inactive (N)`) to filter the directory instantly alongside search queries and pagination.
-  - **Creation & Edit Visibility:** The hotel creation and update form preserves visibility (`isActive` boolean and `status` string). New properties default to **Active**.
-  - **Optimistic Updates & Rollback:** Toggling a switch updates the UI instantly and disables the switch during save to prevent double-clicks. If Firestore fails, the previous state is restored with an error notification.
-  - **Multi-Session Synchronization:** Live Firestore listeners reflect status changes made by other administrative staff immediately without refreshing the page.
+#### 🎯 Purpose
+Approve or decline multiple room requests at once during busy morning shifts.
 
-#### Room Services (`/dashboard/room-services`) & Hotel Rooms Manager (`/dashboard/hotels/:hotelId/rooms`)
-- **Direct Room Visibility Toggles:** Toggle individual room package availability directly from the room management table.
-- **Dual-Store Synchronization:** Updating a room's status atomically updates both `hotelPackageDetails/{id}` and `HotelDB/{hotelUid}/rooms/{id}` via `writeBatch`.
-- **Room Status Modal & Forms:** Room creation, edit forms, and the room status modal maintain visibility flags, defaulting newly created rooms to **Active**. Removing a room from the hotel form deletes both records.
-- **Immediate Public Exclusion:** Inactive rooms are filtered out of public hotel room selectors, price calculations, and checkout APIs in real time.
-
-#### Room Availability Calendar Overrides (`/dashboard/hotel-room-availability`)
-Hoteliers manage their own inventory, but platform administrators can intervene during offline emergencies:
-1. Select the target hotel property from the dropdown.
-2. Locate the specific room type and date cell on the availability calendar.
-3. Click the date to view **Total Inventory**, **Locked Holds**, and **Confirmed Bookings**.
-4. Select **Manual Lock / Block Dates** to take rooms offline.
-5. Click **Release Orphaned Holds** if a customer's abandoned checkout hold failed to expire automatically.
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In **Room Bookings**, check the square checkboxes on the left of multiple rows.
+- **`[STEP 2]`**: A blue **Bulk Action Bar** appears at the top of the table showing *"[N] Selected"*.
+- **`[STEP 3]`**: 
+  - Click **"Approve Selected"** to batch-confirm all checked requests.
+  - Click **"Decline Selected"** to batch-reject all checked requests.
 
 ---
 
-### 2.4 Travel, Sightseeing & Transport Management
+### 20. How to Safely Delete Canceled Bookings without Locking Inventory
 
-#### Sightseeing & Tour Packages (`/dashboard/sightseeing-packages`)
-- Manage guided tours, adventure excursions, and multi-day packages.
-- Define day-by-day itineraries, inclusions (e.g., lunch, speedboat, entry tickets), exclusions, and pricing structures (`pricePerAdult`, `pricePerChild`, `extraAdult`).
-- Link partner hotels or add manual hotel accommodations with built-in image uploading and validation.
-- **Active & Inactive Tour Visibility Toggles (12 October 2026):**
-  - **Table & Card Controls:** Manage catalog visibility directly with status switches and status chips in both table rows and card views.
-  - **Metrics & Filter Bar:** View live metrics (**Total Packages**, **Active Packages**, **Inactive Packages**) and filter by status (`All`, `Active`, `Inactive`).
-  - **Dual Collection Atomic Sync:** Toggling a package atomically synchronizes `sightseeingPackages/{id}` and `sightseeingPackagesDetails/{id}` in a single batch write.
-  - **Public Gating:** Inactive tours are immediately hidden from public tour catalogs, detail pages, and search indices. Checkout attempts for inactive packages are blocked with HTTP 409 `LISTING_INACTIVE`.
-- **Streamlined Configuration:** The package creation form has been streamlined: obsolete partner package types, early bird discount matrices, transport logistics, and redundant person fields were deprecated to accelerate listing creation.
-- **Deferred Payment Safety:** In package booking checkouts, deferred payments strictly require explicit package confirmation prior to payment completion.
+#### 🎯 Purpose
+Clean up old canceled bookings from the database safely.
 
-#### Transport & Fleet Operations (`/dashboard/taxi-van-management`)
-- Register fleet vehicles (`transportVehicles`), license plates, and seat capacities.
-- Assign verified drivers to specific vehicles.
-- Review incoming ride requests (`car_bookings`) across car, van, airport taxi, and self-drive rentals.
-- Set quoted prices for custom passenger routes before dispatching trips to drivers.
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In **Room Bookings**, switch to the **Declined** tab (`Tab 3`).
+- **`[STEP 2]`**: Click the **Trash Icon** (`DeleteForeverIcon`) on the canceled row.
+- **`[STEP 3]`**: Confirm the deletion modal.
+- *Safety Guarantee*: The system automatically checks `inventoryReleased`. If inventory was still locked, it releases the rooms before deleting the document.
 
 ---
 
-### 2.5 Dynamic Billing & Invoicing Engine (`/dashboard/invoices`)
+### 21. How to Switch Between List View & Calendar (Gantt) View
 
-The portal includes an integrated PDF billing engine powered by `@react-pdf/renderer` and `jspdf-autotable`:
-1. Navigate to **Invoices / Billing**.
-2. Select the partner company and specify the billing cycle (e.g., Bi-weekly or Monthly).
-3. The system aggregates all completed orders, calculating:
-   - **Gross Merchandise Value (GMV)**
-   - **Platform Commission Deductions**
-   - **Net Payout Payable to Partner**
-4. Click **Preview Invoice** to inspect the live client-side PDF document.
-5. Click **Generate & Issue PDF** to record the invoice in `partner_invoices` and export an official statement.
+#### 🎯 Purpose
+View hotel bookings on a visual timeline chart to see check-ins and check-outs across dates.
 
----
-
-### 2.6 Account Deletion Compliance (`/dashboard/deletion-requests`)
-
-To comply with the Thailand Personal Data Protection Act (PDPA):
-1. Navigate to **General Operations â†’ Deletion Requests**.
-2. Review pending requests. The **Days Remaining** column tracks the application 30-day waiting period (not a statutory grace period).
-3. Requests with 0 or negative days remaining appear in the **Due** tab.
-4. Click **Approve & Delete Login Account**.
-5. Confirm the warning dialog. The system invokes `deleteUserFunction`, removing the login and scoped operational data, setting `Erasure Pending` and queuing remaining records for Admin review. Do not tell the customer all copies are erased until that review is complete.
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: At the top of `/dashboard/room-bookings`, find the view toggle buttons:
+  - Click **"List View"** for the standard table.
+  - Click **"Calendar View"** for the visual Gantt timeline.
+- **`[STEP 2]`**: In Calendar View, use the **Filter Hotel** dropdown to isolate one hotel, and pick a start date.
+- **`[STEP 3]`**: Colored booking bars show guest names, stay durations, and room counts across 14 consecutive days.
 
 ---
 
-## 3. Partner Self-Service Procedures
+### 22. How to Approve or Decline a Tour Package Booking
 
-### 3.1 Hotel Partners
-- **Managing Added Rooms:** Configure room types, upload high-resolution photos, list room amenities (WiFi, Bathtub, Balcony), and set nightly rack rates.
-- **Room Availability Calendar:** The most critical daily tool. Partners must click and block dates whenever their hotel is booked offline by phone or walk-in guests to prevent overbooking on Thaiseva.
-- **Today's Arrivals Manifest:** Real-time list of guests checking in today, displaying guest names, check-in/out dates, and payment settlement flags.
+#### 🎯 Purpose
+Verify tour guide and speedboat seats, check hotel pickup locations, and confirm excursion bookings.
 
-### 3.2 Transport & Driver Partners
-- **Assigned Rides:** View scheduled pickups, flight numbers, passenger headcounts, luggage counts, and drop-off destinations.
-- **Trip Status Updates:** Update ride status to **En Route**, **Picked Up**, or **Completed** so dispatch operators and passengers track trip progress in real-time.
-
-### 3.3 Multi-Channel Support Messaging
-- Access live support directly from the top navigation bar.
-- Dedicated channels exist for **Customer Support**, **Driver Support**, **Hotel Support**, and **Local Partner Support**.
-- **Voice Audio Notes:** Click the microphone icon to record and send voice messages directly to Thaiseva operations staff for rapid communication while on the road.
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Sightseeing Bookings** (`/dashboard/travel-bookings`).
+- **`[STEP 2]`**: The screen defaults to the **Pending Review** tab (`Tab 1`).
+- **`[STEP 3]`**: Click the **Eye Icon** to check the passenger count (adults/children) and pickup hotel.
+- **`[STEP 4]`**: 
+  - To Approve: Click the **Green Checkmark** (`DoneRoundedIcon`) $\rightarrow$ Click **OK**.
+  - To Decline: Click the **Red 'X'** (`CloseRoundedIcon`) $\rightarrow$ Click **OK**.
 
 ---
 
-## 4. Operational Best Practices & Troubleshooting
+### 23. How the 2-Day Preparation Rule & Daily Capacity Work
 
-- **Double Booking Prevention:** Hotel partners must update their Room Availability calendar at least once daily. Thaiseva is not liable for double-bookings caused by out-of-date partner calendars.
-- **Browser Caching:** The portal uses real-time Firestore listeners (`onSnapshot`). If data tables appear stalled due to localized network drops, perform a hard refresh (`Ctrl + Shift + R` or `Cmd + Shift + R`).
-- **Partner KYC Enforcement:** Never verify a partner without verifying their government-issued ID and commercial bank payout documentation.
+#### 🎯 Purpose
+Understand why some tour bookings require staff approval while others allow instant checkout.
+
+#### ⏳ The 2-Day Rule Explained:
+- **Tours for Tomorrow or Day 2**: Customer pays **0 THB upfront**. It is submitted as a **Free Request**. Staff must confirm guide and boat seats before taking payment.
+- **Tours for Day 3 Onward**: Customer can pay right away with credit card or PromptPay QR.
+- **Daily Capacity Limit**: If 20 bookings already exist for a date, all extra bookings automatically switch to the Request Flow.
+
+---
+
+## Part IV: Sightseeing Packages & Excursions
+
+### 24. How to Add a New Sightseeing Tour Package (3-Step Wizard)
+
+#### 🎯 Purpose
+Publish a new tour or guided excursion on `https://thaiseva.com/tours`.
+
+```mermaid
+flowchart TD
+    S1["Step 1: Basics\n(Title, Destination, Hours, Prices per Adult/Child, Cover Photo)"] --> S2["Step 2: Details\n(Timeline Stops, Inclusions, Exclusions, Pickup Notes)"]
+    S2 --> S3["Step 3: Configuration\n(Active Toggle, Hotel Link, Pickup Zones)"]
+    S3 --> Pub["Click 'Publish Package'\nTour is Live on /tours!"]
+```
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]` Open Wizard**: In the sidebar, click **Sightseeing Packages** (`/dashboard/travel-services`) $\rightarrow$ Click **"+ Add Sightseeing Package"**.
+- **`[STEP 2]` Step 1: Basics**:
+  - Enter **Package Title** (e.g., *"Phi Phi & Maya Bay Speedboat Tour with Buffet Lunch"*).
+  - Select **Destination** (Bangkok, Phuket, Krabi, Chiang Mai, etc.).
+  - Select **Duration** (`Full Day` or `Half Day`) and **Departure Time** (e.g., `07:30 AM`).
+  - Enter **Adult Price (THB)** (e.g., `2,400`) and **Child Price (THB)** (e.g., `1,600`).
+  - Upload horizontal cover photo $\rightarrow$ Click **"Next: Details"**.
+- **`[STEP 3]` Step 2: Details & Itinerary**:
+  - Add timeline stops (07:30 pickup, 09:00 pier departure, 12:30 lunch, 16:30 return).
+  - Add **Inclusions** (Guide, Lunch, Park Fees, Snorkel gear, Insurance).
+  - Add **Exclusions** (Alcohol, Personal tips).
+  - Add **What to Bring** (Sunscreen, Swimwear, Towel).
+  - Click **"Next: Configuration"**.
+- **`[STEP 4]` Step 3: Configuration & Publish**:
+  - Enter free **Pickup Zones** (e.g., *"Free pickup in Patong, Kata, and Karon"*).
+  - Ensure status switch is 🟢 **Active**.
+  - Click **"Publish Package"**.
+
+---
+
+### 25. How to Edit, Toggle Visibility & Delete Tour Packages
+
+#### 🎯 Purpose
+Update tour prices, pause tours during monsoons, or archive old itineraries.
+
+#### 📋 Step-by-Step Procedure
+- **To Toggle Online / Offline**: In `/dashboard/travel-services`, click the **Active / Inactive Switch** on the tour row. It updates atomically across both package collections.
+- **To Edit Tour**: Click the **Edit Pencil Icon** $\rightarrow$ modify stops or prices $\rightarrow$ Click **Save**.
+- **To Delete**: Click the **Trash Icon** $\rightarrow$ confirm deletion.
+
+---
+
+### 26. How to Adjust the Global Daily Tour Capacity Limit
+
+#### 🎯 Purpose
+Change the daily booking ceiling (e.g. increase from 20 to 30 during high season).
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: Go to **Sightseeing Packages** (`/dashboard/travel-services`).
+- **`[STEP 2]`**: Click the gear icon / **"Daily Capacity Settings"** button in the header.
+- **`[STEP 3]`**: Change the numerical limit (e.g. set to `25`) $\rightarrow$ Click **"Save Configuration"**.
+
+---
+
+## Part V: Transport Fleet & Driver Dispatch
+
+### 27. How to Register Fleet Vehicles (Vans, Sedans, Rentals)
+
+#### 🎯 Purpose
+Add company transport assets (VIP vans, sedans, self-drive rental cars) to the dispatch system.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Taxi & Van Management** (`/dashboard/vans`).
+- **`[STEP 2]`**: Click **"+ Add New Vehicle"**.
+- **`[STEP 3]`**: Fill in:
+  - **Vehicle Model**: (e.g., *"Toyota Commuter VIP 9-Seater"*).
+  - **License Plate**: Thai registered commercial plate number.
+  - **Seat Capacity**: (e.g., `9` passengers + luggage).
+  - **Assigned Driver**: Select driver partner from dropdown.
+  - **Operating Province**: (e.g., *Suvarnabhumi BKK*, *Phuket HKT*).
+- **`[STEP 4]`**: Click **"Save Vehicle"**.
+
+---
+
+### 28. How to Dispatch & Assign Drivers to Airport Pickups & Rides
+
+#### 🎯 Purpose
+Assign a vehicle and driver to travelers who booked airport transfers.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Van Bookings** (`/dashboard/van-bookings`) or **Car Bookings** (`/dashboard/car-bookings`).
+- **`[STEP 2]`**: Click on a new ride to inspect Flight Number, Pickup Airport, Hotel Destination, and Headcount.
+- **`[STEP 3]`**: Click **"Assign Vehicle & Driver"** $\rightarrow$ select available vehicle and driver $\rightarrow$ Click **"Confirm Dispatch"**.
+- *Result*: The driver gets the manifest on their mobile app; the customer receives an alert with driver phone and license plate.
+
+---
+
+### 29. How to Review Self-Drive Car Rental Bookings
+
+#### 🎯 Purpose
+Confirm car rental bookings where travelers drive the vehicle themselves.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Self Drive Bookings** (`/dashboard/self-drive-bookings`).
+- **`[STEP 2]`**: Click **View Details** to inspect rental duration and uploaded International Driving Permit / Passport copies.
+- **`[STEP 3]`**: Click **Confirm Rental** to reserve the vehicle for handover at the airport counter.
+
+---
+
+## Part VI: Partner Management, Chat & Announcements
+
+### 30. How to Onboard & Verify a New Partner (KYC Document Review)
+
+#### 🎯 Purpose
+Review supplier applications and legal licenses before they are authorized to sell on Thaiseva.
+
+```mermaid
+flowchart TD
+    A["Partner applies on website"] --> B["Application appears in 'Pending Requests' Tab\n(Sidebar badge shows counter)"]
+    B --> C["Staff clicks Eye Icon to inspect KYC Scans:\n1. TAT Tourism License\n2. DBD Company Certificate\n3. Bank Account Bookbank"]
+    C --> D{"Documents Valid & Unexpired?"}
+    D -->|Yes| E["Select Status: 'Verified' -> Click Save\nPartner Console Unlocked!"]
+    D -->|No| F["Select Status: 'Denied' -> Click Save\nApplication Rejected"]
+```
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Local Partners** (`/dashboard/local-partners`).
+- **`[STEP 2]`**: Click the **"⏳ Pending Requests"** tab.
+- **`[STEP 3]`**: Click the **Eye Icon** (`ViewDetailsIcon`) on the applicant row.
+- **`[STEP 4]`**: In the **KYC Review Dialog**, inspect:
+  - 📄 **TAT Tourism License**: Check license number and expiration date.
+  - 🏢 **DBD Company Registration**: Verify registered legal entity.
+  - 💳 **Bank Book (Bookbank)**: Name must match company or owner.
+- **`[STEP 5]`**: In the Status dropdown, select **"Verified"** (to approve) or **"Denied"** (to reject) $\rightarrow$ Click **"Save Changes"**.
+
+---
+
+### 31. How to Add a Partner Directly with the Inline Popup Dialog
+
+#### 🎯 Purpose
+Register a partner immediately while talking to them at your Bangkok office without logging out.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In **Local Partners** (`/dashboard/local-partners`), click **"+ Add New Partner"** in the top action bar.
+- **`[STEP 2]`**: In the popup dialog:
+  - Select **Initial Status**: choose **Verified (Active)** for instant activation.
+  - Enter Business Name, Owner Name, Email, Phone, and Category (Hotel, Guide, Transport).
+  - Pin their operating location on the Google Map.
+  - Enter bank payout details.
+- **`[STEP 3]`**: Click **"Submit Partner Registration"**. The modal saves and closes automatically without refreshing the page!
+
+---
+
+### 32. How to Live Chat with Travelers & Hotel Front Desks
+
+#### 🎯 Purpose
+Answer traveler questions in real time or coordinate check-in with hotel front desks.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: Click **Customer Chat** (`/dashboard/customer-chat`) or **Hotel Chat** (`/dashboard/hotel-chat`).
+- **`[STEP 2]`**: Threads with unread messages show a red counter badge. Click a conversation thread.
+- **`[STEP 3]`**: Type your response in the bottom text box. Use the paperclip icon if you need to attach a photo.
+- **`[STEP 4]`**: Press `Enter` or click **Send**. The customer sees your reply instantly in their app.
+
+---
+
+### 33. How to Broadcast a Push Notification with Cropped Photo & Expiry
+
+#### 🎯 Purpose
+Send promotional flash sales, weather advisories, or announcements to travelers' phones.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Manage Notifications** (`/dashboard/notifications`).
+- **`[STEP 2]`**: Type **Title** (max 60 chars) and **Message Body** (max 240 chars).
+- **`[STEP 3]` Add Photo** *(Optional)*:
+  - Click **Upload Image** (JPG or PNG).
+  - Use the interactive cropper slider to zoom and center the photo nicely.
+- **`[STEP 4]` Set Expiry** *(Optional)*:
+  - Toggle **"Set Expiry Date"** ON and pick the campaign end date.
+- **`[STEP 5]`**: Click **"Preview"** to check the simulated phone display $\rightarrow$ Click **"Send Broadcast"**.
+
+---
+
+### 34. How to Manage Prime Locations (Shops & Nightlife Clubs)
+
+#### 🎯 Purpose
+Add recommended shopping centers and nightlife venues to the traveler city guide.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Shops** (`/dashboard/shopping-malls`) or **Clubs** (`/dashboard/clubs`).
+- **`[STEP 2]`**: Click **"+ Add Shopping Mall"** or **"+ Add Club"**.
+- **`[STEP 3]`**: Enter Venue Name, Operating Hours, City, Address, Description, and upload photos.
+- **`[STEP 4]`**: Click **"Save Listing"**.
+
+---
+
+### 35. How to Manage Website Content (Blogs, FAQs, Reviews & Inquiries)
+
+#### 🎯 Purpose
+Control marketing and customer service content on `https://thaiseva.com`.
+
+#### 📋 Step-by-Step Procedure
+- **Blogs (`/dashboard/website-config/blogs`)**: Click **"+ Add Blog"** to write travel guides with rich text and cover photos.
+- **FAQs (`/dashboard/website-config/faqs`)**: Click **"+ Add FAQ"** to add questions and answers categorized by topic.
+- **Testimonials (`/dashboard/website-config/testimonials`)**: Review traveler reviews and click the toggle switch to display them on the homepage.
+- **Contact Inquiries (`/dashboard/website-config/contact-us`)**: Read messages submitted via the public contact form and click **"Mark Resolved"**.
+- **Images & Media (`/dashboard/website-config/media`)**: Update homepage hero background photos, banners, and logos.
+- **Site Statistics (`/dashboard/website-config/site-statistics`)**: Update homepage social proof counters (e.g. *10,000+ Happy Travelers*).
+
+---
+
+### 36. How to View Platform Earnings & Export Financial Reports to Excel
+
+#### 🎯 Purpose
+Track platform revenue across the 5 business verticals and download `.xlsx` workbooks for accounting.
+
+#### 📋 Step-by-Step Procedure
+- **`[STEP 1]`**: In the sidebar, click **Statistics** (`/dashboard/admin-statistics`).
+- **`[STEP 2]`**: Select a date range using the **Start Date** and **End Date** filters.
+- **`[STEP 3]` Review Numbers**: Inspect summary cards:
+  - 💰 **Total Gross Revenue (GMV)**
+  - 🏨 **Hotel Accommodations**
+  - 🌴 **Sightseeing Excursions**
+  - 🚐 **Private Vans**
+  - 🚗 **Sedan Taxis**
+  - 🔑 **Self-Drive Rentals**
+- **`[STEP 4]` Download Excel**: Click the green **"Export to Excel"** button (`DownloadIcon`). A multi-sheet spreadsheet (`Thaiseva_Financial_Audit.xlsx`) downloads immediately to your computer.
+
+---
+
+## 📞 Operational Hotline & Emergency Contacts
+
+- **Bangkok 24/7 Operations Desk**: `+66 88 779 2897`
+- **WhatsApp Concierge**: Official Thaiseva Business Channel
+- **Engineering Helpdesk**: For platform downtime or database sync issues.
+
+---
+*End of the Official Thaiseva Admin Operations Manual (v3.2.0)*

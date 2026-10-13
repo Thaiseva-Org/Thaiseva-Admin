@@ -52,7 +52,7 @@ docs/
 | [Security & RBAC](05-security/SECURITY_AND_RBAC.md) | Security Auditors, Leads | Access control matrix, Firestore Security Rules governance, and threat model. |
 | [Internal Dashboard Review](05-security/INTERNAL_DASHBOARD_REVIEW.md) | Security, DevOps, Admins | Technical review of staff access, export coverage, session management, and retention controls. |
 | [Deployment Runbook](06-devops/DEPLOYMENT_RUNBOOK.md) | DevOps, Release Engineers | Local environment setup, Firebase CLI commands, and deployment checklists. |
-| [Admin User Manual](07-user-guides/ADMIN_USER_MANUAL.md) | Operations Staff, Partners | Guide for managing bookings, onboarding partners, chat support, and PDF invoicing. |
+| [Admin Operations Manual](07-user-guides/ADMIN_USER_MANUAL.md) | Operations Staff, Partners | Comprehensive step-by-step How-To action manual covering all 36 operations, hotels, inventory, tours, and dispatch. |
 | [Operations & SRE Runbook](08-operations/OPERATIONS_RUNBOOK.md) | SRE, Support Leads | Troubleshooting stuck holds, failed Stripe webhooks, and manual overrides. |
 | [Test Strategy & QA Plan](09-testing/TEST_STRATEGY.md) | QA Leads, Engineers | Testing pyramid, emulator concurrency tests, webhook replay & release gates. |
 
