@@ -3,6 +3,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import * as logger from "firebase-functions/logger";
 import {getStorage} from "firebase-admin/storage";
 import {requireSuperAdmin} from "./privilegedAccounts";
+import {held} from "./retentionPolicy";
 
 const REGION = "asia-east2";
 
@@ -35,8 +36,32 @@ async function isCallerAdmin(
  * A request is never described as fully erased while retained records await review.
  */
 export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"): Promise<void> {
-  if (!uid) {
+  if (!uid || uid.includes("/")) {
     throw new HttpsError("invalid-argument", "uid is required.");
+  }
+
+  // A request/profile hold requires a reviewed decision before destructive work.
+  const profile = await db().collection("users").doc(uid).get();
+  const legacyProfile = await db().collection("Users").doc(uid).get();
+  if (held(profile.data() || {}) || held(legacyProfile.data() || {})) {
+    throw new HttpsError("failed-precondition", "This account has a retention hold; review it before erasure.");
+  }
+
+  // Preserve attachment evidence referenced by held customer orders/support records.
+  let attachmentHold = false;
+  for (const field of ["userId", "uid", "Receiver.id"]) {
+    for (const holdField of ["legalHold", "retentionHold", "disputeOpen", "chargebackOpen"]) {
+      const heldOrders = await db().collection("orders").where(field, "==", uid).where(holdField, "==", true).limit(1).get();
+      if (!heldOrders.empty) attachmentHold = true;
+    }
+  }
+  const supportPaths = [`foodCustomerSupportChats/${uid}`, `chats/${uid}_CustomerSupport`];
+  for (const path of supportPaths) {
+    const support = (await db().doc(path).get()).data() || {};
+    if (held(support) || (Array.isArray(support.messages) && support.messages.some(message => message && held(message)))) attachmentHold = true;
+    for (const holdField of ["legalHold", "retentionHold", "disputeOpen", "chargebackOpen"]) {
+      if (!(await db().doc(path).collection("messages").where(holdField, "==", true).limit(1).get()).empty) attachmentHold = true;
+    }
   }
 
   const job = db().collection("privacyErasureJobs").doc(uid);
@@ -57,6 +82,7 @@ export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"
   }
 
   // These are user-scoped operational records, not booking/payment ledgers.
+  const preservedOperationalPaths: string[] = [];
   for (const record of [`users/${uid}`, `Users/${uid}`, `cart/${uid}`,
     `foodCustomerSupportChats/${uid}`, `chats/${uid}_CustomerSupport`, `userDevices/${uid}`,
     `notifications/users/${uid}`]) {
@@ -64,7 +90,12 @@ export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"
     if (record.startsWith("notifications/")) {
       await db().recursiveDelete(db().collection(record));
     } else {
-      await db().recursiveDelete(db().doc(record));
+      const reference = db().doc(record);
+      if (!(attachmentHold && supportPaths.includes(record)) && !held((await reference.get()).data() || {})) {
+        await db().recursiveDelete(reference);
+      } else {
+        preservedOperationalPaths.push(record);
+      }
     }
   }
   const directory = db().doc("chatRooms/CustomerSupport");
@@ -78,13 +109,16 @@ export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"
       }
     }
   });
-  for (const folder of ["users", "chat", "chats", "chatMedia"]) {
-    await getStorage().bucket().deleteFiles({prefix: `${folder}/${uid}/`});
+  const erasedStoragePrefixes = (attachmentHold ? [] : ["users", "chat", "chats", "chatMedia", "uploads", "food_orders"]).map(folder => `${folder}/${uid}/`);
+  for (const prefix of erasedStoragePrefixes) {
+    await getStorage().bucket().deleteFiles({prefix});
   }
+  await getStorage().bucket().file(`profile_pics/${uid}.jpg`).delete({ignoreNotFound: true});
   await job.set({
-    status: "PENDING_RECORD_REVIEW", profileErased: true, uploadsErased: true,
-    operationalRecordsErased: true, actorUid,
-    remainingReview: ["bookings", "orders", "sharedMessages", "legacyUploads", "logs", "exports", "backups"],
+    status: "PENDING_RECORD_REVIEW", profileErased: true, uploadsErased: !attachmentHold,
+    operationalRecordsErased: preservedOperationalPaths.length === 0, preservedOperationalPaths, attachmentHold, actorUid,
+    erasedStoragePrefixes, erasedStorageObjects: [`profile_pics/${uid}.jpg`],
+    remainingReview: ["bookings", "orders", "partnerOrderViews", "sharedMessages", "legacyUploads", "logs", "exports", "backups", ...(attachmentHold ? ["heldAttachments"] : [])],
     reviewDueAt: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400000),
     reviewOwner: "Admin",
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -131,6 +165,9 @@ export const deleteUserFunction = onCall(
     if (!deletionRequest.exists || deletionRequest.data()?.uid !== uid ||
         !["Pending", "Erasure Pending"].includes(deletionRequest.data()?.status)) {
       throw new HttpsError("failed-precondition", "The deletion request must match this customer and be pending.");
+    }
+    if (held(deletionRequest.data() || {})) {
+      throw new HttpsError("failed-precondition", "This request has a retention hold; review it before erasure.");
     }
 
     const target = await db().collection("users").doc(uid).get();

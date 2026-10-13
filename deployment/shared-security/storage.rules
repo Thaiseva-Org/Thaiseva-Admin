@@ -1,0 +1,135 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function authenticated() { return request.auth != null; }
+    function isAdmin() {
+      return authenticated() && (
+        request.auth.token.get('admin', false) == true ||
+        userRole() in ['Admin', 'admin', 'Sub Admin']
+      );
+    }
+    function userRole() {
+      return firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        ? firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.get('role', '')
+        : (firestore.exists(/databases/(default)/documents/Users/$(request.auth.uid))
+          ? firestore.get(/databases/(default)/documents/Users/$(request.auth.uid)).data.get('role', '')
+          : '');
+    }
+    function isFoodAdmin() {
+      return authenticated() && (
+        request.auth.token.get('foodRole', '') == 'masterAdmin' ||
+        request.auth.token.get('foodMasterAdmin', false) == true
+      );
+    }
+    function owner(uid) { return authenticated() && request.auth.uid == uid; }
+    function sized(bytes) { return request.resource == null || request.resource.size <= bytes; }
+    function image() { return request.resource == null || request.resource.contentType.matches('image/.*'); }
+    function documentUpload() {
+      return sized(15 * 1024 * 1024) && (request.resource == null ||
+        request.resource.contentType.matches('image/.*') || request.resource.contentType == 'application/pdf');
+    }
+
+    // Mobile app profile images are public; only the named owner can change them.
+    match /profile_pics/{fileName} {
+      allow read: if true;
+      allow create, update: if authenticated() && fileName == request.auth.uid + '.jpg' &&
+        request.resource.size <= 15 * 1024 * 1024 &&
+        request.resource.contentType == 'image/jpeg';
+      allow delete: if authenticated() && fileName == request.auth.uid + '.jpg';
+    }
+    // Any signed-in account can submit an attachment under its own UID.
+    // Submitters cannot read or replace submitted attachments.
+    match /uploads/{uid}/{file=**} {
+      allow read: if isAdmin() || isFoodAdmin();
+      allow create: if owner(uid) && resource == null &&
+        request.resource.size <= 15 * 1024 * 1024;
+      allow update: if false;
+      allow delete: if isAdmin() || isFoodAdmin();
+    }
+    // Delivery photos are private. Legacy paths use the authorized photo callable.
+    match /food_orders/{uid}/{file=**} {
+      allow read: if owner(uid) || isAdmin() || isFoodAdmin();
+      allow create, update: if owner(uid) &&
+        request.resource.size <= 15 * 1024 * 1024 &&
+        request.resource.contentType.matches('image/.*');
+      allow delete: if owner(uid) || isAdmin() || isFoodAdmin();
+    }
+
+    function assignedOrderReader(uid, orderId) {
+      let path = /databases/(default)/documents/orders/$(orderId);
+      let order = firestore.get(path).data;
+      return authenticated() && firestore.exists(path) &&
+        order.get('Receiver', {}).get('id', '') == uid &&
+        (order.get('Restaurant', {}).get('ownerId', '') == request.auth.uid ||
+         order.get('assignedRiderId', '') == request.auth.uid ||
+         order.get('DeliveryPartner', {}).get('id', '') == request.auth.uid);
+    }
+    match /food_orders/{uid}/{orderId}/{file=**} {
+      allow read: if assignedOrderReader(uid, orderId);
+    }
+
+    // Public reads are explicit and never overlap private documents.
+    match /site-media/{file=**} {
+      allow read: if true;
+      allow write: if isAdmin() && sized(50 * 1024 * 1024);
+    }
+    // Unclassified legacy root objects are staff-only; publish catalog assets under explicit public folders.
+    match /{fileName} {
+      allow read: if fileName.matches('[0-9]+-file') && (isAdmin() || isFoodAdmin());
+      allow write: if false;
+    }
+    match /{folder}/{file=**} {
+      allow read: if folder in ['images', 'restaurantImages', 'blogImages', 'hotelImages', 'hotel-images', 'serviceImages'];
+      allow write: if folder in ['images', 'restaurantImages', 'blogImages', 'hotelImages', 'hotel-images', 'serviceImages'] &&
+        (isAdmin() || isFoodAdmin()) && image() && sized(15 * 1024 * 1024);
+    }
+    match /users/{uid}/{file=**} {
+      allow read: if owner(uid) || isAdmin();
+      allow write: if (owner(uid) || isAdmin()) && sized(15 * 1024 * 1024);
+    }
+    // Exclude public media here so its image validation cannot be bypassed.
+    match /{collection}/{uid}/{folder}/{file=**} {
+      allow read: if collection in ['partners', 'hotels', 'HotelDB'] && (owner(uid) || isAdmin());
+      allow write: if collection in ['partners', 'hotels', 'HotelDB'] &&
+        folder != 'media' && (owner(uid) || isAdmin()) && sized(15 * 1024 * 1024);
+    }
+    match /{collection}/{uid}/{fileName} {
+      allow read: if collection in ['partners', 'hotels', 'HotelDB'] && (owner(uid) || isAdmin());
+      allow write: if collection in ['partners', 'hotels', 'HotelDB'] &&
+        (owner(uid) || isAdmin()) && sized(15 * 1024 * 1024);
+    }
+    // Public partner media belongs in these explicit subfolders.
+    match /{collection}/{uid}/media/{file=**} {
+      allow read: if collection in ['partners', 'hotels', 'HotelDB'];
+      allow write: if collection in ['partners', 'hotels', 'HotelDB'] &&
+        (owner(uid) || isAdmin()) && image() && sized(15 * 1024 * 1024);
+    }
+    match /restaurants/{uid}/documents/{file=**} {
+      allow read: if owner(uid) || isAdmin() || isFoodAdmin();
+      allow write: if (isAdmin() || isFoodAdmin() ||
+        (owner(uid) && resource == null && request.resource != null)) && documentUpload();
+    }
+    match /restaurants/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if (owner(uid) || isAdmin() || isFoodAdmin()) && image() && sized(15 * 1024 * 1024);
+    }
+    match /restaurants/{uid}/{folder}/{file=**} {
+      allow read: if folder in ['media', 'images', 'menu', 'profile', 'items'];
+      allow write: if folder in ['media', 'images', 'menu', 'profile', 'items'] &&
+        (owner(uid) || isAdmin() || isFoodAdmin()) && image() && sized(15 * 1024 * 1024);
+    }
+    // Public application uploads use the validated backend; no direct client writes.
+    match /applications/{applicationId}/{file=**} {
+      allow read: if isAdmin() || isFoodAdmin();
+      allow write: if false;
+    }
+    // Legacy sender-scoped chat media: private to the sender and support staff.
+    match /{folder}/{uid}/{file=**} {
+      allow read: if folder in ['chat', 'chats', 'chatMedia'] && (owner(uid) || isAdmin() || isFoodAdmin());
+      allow write: if folder in ['chat', 'chats', 'chatMedia'] && owner(uid) && sized(20 * 1024 * 1024);
+    }
+    match /{file=**} {
+      allow read, write: if false;
+    }
+  }
+}

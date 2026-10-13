@@ -521,7 +521,6 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
         }, 0);
 
     const onSubmit = async (data) => {
-        console.log("onSubmit triggered! Data:", data);
         if (!logoURL) { setLogoError(true); return; }
         if (!location && !addressInputValue) { setLocationError(true); return; }
 

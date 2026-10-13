@@ -21,3 +21,11 @@ test('chat cleanup preserves fresh and undated messages', () => {
 test('ambiguous dates cannot trigger erasure', () => {
   for(const value of [null,0,123,'01/02/2020','not a date']) assert.equal(millis(value),null);
 });
+
+test('legacy message dates expire while embedded message holds and malformed dates survive', () => {
+  const old = {date:'2020-01-01T00:00:00Z'};
+  const held = {...old,legalHold:true};
+  const dispute = {...old,disputeOpen:true};
+  const ambiguous = {date:'01/02/2020'};
+  assert.deepEqual(expiredMessages([old,held,dispute,ambiguous],now),[held,dispute,ambiguous]);
+});

@@ -444,12 +444,17 @@ service cloud.firestore {
       allow read: if isAdmin() || isFoodAdmin()
         || isOwner('uid')
         || isOwner('userId')
-        || isFoodOrderRestaurantOwner()
         || isFoodOrderReceiver()
         || isFoodOrderSender();
       allow update: if false; // Order cancellation is an admin callable action.
       // Money / delivery / earnings / kitchen status: Cloud Functions (Admin SDK) only
       allow delete: if isAdmin() || isFoodAdmin();
+    }
+
+    // Server-generated delivery/settlement projection. No customer email/account or payment-provider IDs.
+    match /partnerOrderViews/{orderId} {
+      allow read: if isAdmin() || isFoodAdmin() || isFoodOrderRestaurantOwner();
+      allow create, update, delete: if false;
     }
 
     // Dine-in reservations are created and updated only by validated callables.

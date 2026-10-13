@@ -46,13 +46,26 @@ service firebase.storage {
       allow update: if false;
       allow delete: if isAdmin() || isFoodAdmin();
     }
-    // Requested visibility: all signed-in users can view order location photos.
+    // Delivery photos are private. Legacy paths use the authorized photo callable.
     match /food_orders/{uid}/{file=**} {
-      allow read: if authenticated();
+      allow read: if owner(uid) || isAdmin() || isFoodAdmin();
       allow create, update: if owner(uid) &&
         request.resource.size <= 15 * 1024 * 1024 &&
         request.resource.contentType.matches('image/.*');
       allow delete: if owner(uid) || isAdmin() || isFoodAdmin();
+    }
+
+    function assignedOrderReader(uid, orderId) {
+      let path = /databases/(default)/documents/orders/$(orderId);
+      let order = firestore.get(path).data;
+      return authenticated() && firestore.exists(path) &&
+        order.get('Receiver', {}).get('id', '') == uid &&
+        (order.get('Restaurant', {}).get('ownerId', '') == request.auth.uid ||
+         order.get('assignedRiderId', '') == request.auth.uid ||
+         order.get('DeliveryPartner', {}).get('id', '') == request.auth.uid);
+    }
+    match /food_orders/{uid}/{orderId}/{file=**} {
+      allow read: if assignedOrderReader(uid, orderId);
     }
 
     // Public reads are explicit and never overlap private documents.
@@ -60,9 +73,9 @@ service firebase.storage {
       allow read: if true;
       allow write: if isAdmin() && sized(50 * 1024 * 1024);
     }
-    // Existing dashboard image links remain readable; new root uploads are denied.
+    // Unclassified legacy root objects are staff-only; publish catalog assets under explicit public folders.
     match /{fileName} {
-      allow read: if fileName.matches('[0-9]+-file');
+      allow read: if fileName.matches('[0-9]+-file') && (isAdmin() || isFoodAdmin());
       allow write: if false;
     }
     match /{folder}/{file=**} {

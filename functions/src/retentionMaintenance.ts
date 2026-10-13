@@ -4,16 +4,17 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {getAuth} from "firebase-admin/auth";
 import {requireSuperAdmin} from "./privilegedAccounts";
 import {deleteAuthAccountKeepData} from "./accountDeletion";
-import {bookingAction, expiredMessages, held, millis, cutoff, LOCATION_FIELDS, POLICY_VERSION} from "./retentionPolicy";
+import {bookingAction, expiredMessages, held, millis, messageMillis, cutoff, LOCATION_FIELDS, POLICY_VERSION} from "./retentionPolicy";
 
 const collections = ["hotelBookingData", "travelBookingDetails", "car_bookings", "self_driving_bookings",
   "vanBookings", "bookings", "orders", "foodOrders", "dineInBookings", "foodCustomerSupportChats",
-  "foodRestaurantChats", "chats", "messages", "ContactMessages", "DeletionRequests"];
+  "foodRestaurantChats", "foodCustomerChats", "T2TWorldChatRoom", "chats", "messages", "ContactMessages", "DeletionRequests"];
+const chatCollection = (name: string) => name === "chats" || name === "T2TWorldChatRoom" || name.endsWith("Chats");
 export async function maintainRetention(dryRun: boolean): Promise<Record<string, unknown>> {
   const db = getFirestore();
   const now = new Date();
   const counts = {scanned: 0, deleted: 0, locationsRemoved: 0, messagesRemoved: 0,
-    accountsErased: 0, reviewRequired: 0, failures: 0};
+    accountsErased: 0, credentialFieldsRemoved: 0, reviewRequired: 0, failures: 0};
   // Bound work, persist cursors and revisit every document over subsequent daily runs.
   for (const collection of collections) {
     const stateRef = db.collection("privacyRetentionState").doc(collection);
@@ -25,8 +26,24 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
       counts.scanned++;
       try {
         if (collection === "DeletionRequests") {
+          // Legacy credentials have no place in a privacy request, including completed requests.
+          await db.runTransaction(async tx => {
+            const fresh = await tx.get(document.ref);
+            const data = fresh.data() || {};
+            const fields = ["password", "confirmPassword", "currentPassword"].filter(field => field in data);
+            if (!fields.length) return;
+            counts.credentialFieldsRemoved += fields.length;
+            if (!dryRun) tx.update(document.ref, Object.fromEntries(fields.map(field => [field, FieldValue.delete()])));
+          });
           const data = document.data();
           const requested = millis(data.createdAt);
+          if (["Pending", "Completed"].includes(data.status) && (typeof data.uid !== "string" || !data.uid)) {
+            counts.reviewRequired++;
+            if (!dryRun) await db.collection("privacyRetentionReviews").doc(`DeletionRequests_${document.id}`).set({
+              recordPath: document.ref.path, reason: "LEGACY_REQUEST_IDENTITY_REVIEW", status: "PENDING", updatedAt: FieldValue.serverTimestamp(),
+            });
+            continue;
+          }
           if (!["Pending", "Erasure Pending"].includes(data.status) || held(data)) continue;
           const existingJob = await db.collection("privacyErasureJobs").doc(data.uid || "invalid").get();
           if (existingJob.data()?.profileErased === true) continue;
@@ -35,6 +52,14 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
           }
           if (requested > cutoff(now, 0, 30)) continue;
           const profile = await db.collection("users").doc(data.uid).get();
+          const legacyProfile = await db.collection("Users").doc(data.uid).get();
+          if (held(profile.data() || {}) || held(legacyProfile.data() || {})) {
+            counts.reviewRequired++;
+            if (!dryRun) await db.collection("privacyRetentionReviews").doc(`DeletionRequests_${document.id}`).set({
+              recordPath: document.ref.path, reason: "RETENTION_HOLD", status: "PENDING", updatedAt: FieldValue.serverTimestamp(),
+            });
+            continue;
+          }
           const user = await getAuth().getUser(data.uid).catch(error => {
             if (error.code === "auth/user-not-found") return null;
             throw error;
@@ -44,7 +69,7 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
             ["Admin", "admin", "Sub Admin", "Partner", "restaurantOwner", "hotelOwner", "rider", "driver"].includes(profile.data()?.role)) {
             counts.reviewRequired++; continue;
           }
-          // Staff may cancel during the grace period. Lock the request before any erasure.
+          // Staff may cancel during the product's request delay. Lock before erasure.
           if (!dryRun) {
             const locked = await db.runTransaction(async tx => {
               const fresh = await tx.get(document.ref);
@@ -59,7 +84,7 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
           }
           counts.accountsErased++; continue;
         }
-        if ((collection === "chats" || collection.endsWith("Chats")) && !held(document.data())) {
+        if (chatCollection(collection) && !held(document.data())) {
           const childState = db.collection("privacyRetentionState").doc(`messages_${collection}_${document.id}`);
           const childCursor = (await childState.get()).data()?.cursor;
           let childQuery = document.ref.collection("messages").orderBy(FieldPath.documentId()).limit(100);
@@ -70,7 +95,7 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
               const [parent, fresh] = await Promise.all([tx.get(document.ref), tx.get(child.ref)]);
               if (!parent.exists || !fresh.exists || held(parent.data() || {}) || held(fresh.data() || {})) return;
               const data = fresh.data() || {};
-              const timestamp = millis(data.createdAt ?? data.timestamp ?? data.sentAt);
+              const timestamp = messageMillis(data);
               if (timestamp !== null && timestamp <= cutoff(now, 2)) {
                 counts.messagesRemoved++;
                 if (!dryRun) tx.delete(child.ref);
@@ -88,7 +113,7 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
           const data = fresh.data();
           if (!data || held(data)) return;
           if (collection === "ContactMessages" || collection === "messages") {
-            const timestamp = millis(data.createdAt ?? data.timestamp ?? data.sentAt);
+            const timestamp = messageMillis(data);
             if (timestamp === null) {
               counts.reviewRequired++;
               if (!dryRun) tx.set(db.collection("privacyRetentionReviews").doc(`${collection}_${document.id}`),
@@ -97,9 +122,8 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
               counts.deleted++;
               if (!dryRun) tx.delete(document.ref);
             }
-          } else if (collection.endsWith("Chats") || collection === "chats") {
+          } else if (chatCollection(collection)) {
             if (!Array.isArray(data.messages)) {
-              if (collection !== "chats") counts.reviewRequired++;
               return;
             }
             const retained = expiredMessages(data.messages, now);
@@ -107,7 +131,7 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
             counts.messagesRemoved += removed;
             if (removed && !dryRun) tx.update(document.ref, {messages: retained,
               retentionProcessedAt: FieldValue.serverTimestamp()});
-            if (retained.some(message => millis(message.createdAt ?? message.timestamp ?? message.sentAt) === null)) counts.reviewRequired++;
+            if (retained.some(message => !message || messageMillis(message) === null)) counts.reviewRequired++;
           } else {
             const action = bookingAction(data, now);
             if (action === "REVIEW") {
@@ -120,7 +144,10 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
               const children = await document.ref.listCollections();
               if (children.length) {counts.reviewRequired++; return;}
               counts.deleted++;
-              if (!dryRun) tx.delete(document.ref);
+              if (!dryRun) {
+                tx.delete(document.ref);
+                if (collection === "orders") tx.delete(db.doc(`partnerOrderViews/${document.id}`));
+              }
             }
             if (action === "LOCATION" && ["car_bookings", "self_driving_bookings", "vanBookings"].includes(collection)) {
               const update: Record<string, unknown> = {};
@@ -144,7 +171,7 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
       updatedAt: FieldValue.serverTimestamp()});
   }
   const result = {policyVersion: POLICY_VERSION, dryRun, ...counts,
-    remainingScope: ["partner documents/offboarding dates", "legacy chat schemas and uploads",
+    remainingScope: ["partner documents/offboarding dates", "unmapped legacy uploads",
       "external analytics anonymization/retention", "exports", "backups", "records missing lifecycle dates"]};
   await db.collection("privacyRetentionRuns").add({...result, createdAt: FieldValue.serverTimestamp()});
   return result;

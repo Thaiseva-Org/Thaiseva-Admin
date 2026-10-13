@@ -1,5 +1,5 @@
 export type RetentionData = Record<string, any>;
-export const POLICY_VERSION = "2026-10-09";
+export const POLICY_VERSION = "2026-10-13";
 export function millis(value: any): number | null {
   let result: number;
   if (value && typeof value.toMillis === "function") result = value.toMillis();
@@ -19,9 +19,13 @@ export function held(data: RetentionData): boolean {
   return data.legalHold === true || data.retentionHold === true ||
     data.disputeOpen === true || data.chargebackOpen === true;
 }
+export function messageMillis(message: RetentionData): number | null {
+  return millis(message.createdAt ?? message.timestamp ?? message.sentAt ?? message.date);
+}
 export function expiredMessages(messages: any[], now: Date): any[] {
   return messages.filter(message => {
-    const timestamp = millis(message.createdAt ?? message.timestamp ?? message.sentAt);
+    if (!message || typeof message !== "object" || held(message)) return true;
+    const timestamp = messageMillis(message);
     return timestamp === null || timestamp > cutoff(now, 2);
   });
 }

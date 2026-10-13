@@ -1,4 +1,5 @@
 import { initializeApp } from "firebase-admin/app";
+export {getFoodOrderPhoto} from "./orderMedia";
 export { createVerifiedAccount } from "./verifiedSignup";
 export {createSubAdmin, exportCustomerData} from "./privilegedAccounts";
 export {
