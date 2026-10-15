@@ -1,5 +1,7 @@
+export {recordHotelPrivacyLifecycle} from "./privacyLifecycle";
 import { initializeApp } from "firebase-admin/app";
 export {getFoodOrderPhoto} from "./orderMedia";
+export {getIdentityDocument} from "./identityMedia";
 export { createVerifiedAccount } from "./verifiedSignup";
 export {createSubAdmin, exportCustomerData} from "./privilegedAccounts";
 export {

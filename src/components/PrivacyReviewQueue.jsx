@@ -23,7 +23,7 @@ export default function PrivacyReviewQueue({refreshKey}) {
         <p>{job.recordPath ? "Record needs a retention decision before cleanup." : job.status === "RETRY_REQUIRED" ? "Cleanup failed partway. Retry the original request after checking the cause." :
           job.status === "PROCESSING" ? "Cleanup is running. If this remains unchanged, check the server logs before retrying." : "Direct cleanup finished; remaining records need review."}</p>
         {job.reason && <p>Manual review needed: {job.reason === "MISSING_LIFECYCLE_DATE" ? "lifecycle date is missing" : job.reason === "LEGACY_REQUEST_IDENTITY_REVIEW" ? "verify the historical request identity and outcome" : job.reason === "RETENTION_HOLD" ? "a retention hold requires review" : job.reason}.</p>}
-        {job.attachmentHold && <p>Attachments were preserved for a hold or dispute. Review them before closing this request.</p>}
+        {job.attachmentHold && <p>Attachments were preserved for a hold, dispute or linked-record review. Review them before closing this request.</p>}
         {job.remainingReview?.length > 0 && <p className="mt-1">Review: {job.remainingReview.join(", ")}</p>}
       </li>)}</ul>}
   </section>;

@@ -55,6 +55,20 @@ export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"
       if (!heldOrders.empty) attachmentHold = true;
     }
   }
+  // Travel identity evidence may also be covered by a booking hold. Query only
+  // indexed UID fields; a full bounded page is preserved for manual review.
+  const bookingCollections = ["hotelBookingData", "travelBookingDetails", "car_bookings",
+    "self_driving_bookings", "vanBookings", "bookings", "foodOrders", "dineInBookings"];
+  const bookingIdentityFields = ["userId", "authUid", "uId", "uid", "customerId", "Receiver.id"];
+  let bookingAttachmentReview = false;
+  for (const collection of bookingCollections) {
+    const matches = await Promise.all(bookingIdentityFields.map(field =>
+      db().collection(collection).where(field, "==", uid).limit(100).get()));
+    if (matches.some(page => page.size === 100 || page.docs.some(record => held(record.data())))) {
+      attachmentHold = true;
+      bookingAttachmentReview = true;
+    }
+  }
   const supportPaths = [`foodCustomerSupportChats/${uid}`, `chats/${uid}_CustomerSupport`];
   for (const path of supportPaths) {
     const support = (await db().doc(path).get()).data() || {};
@@ -116,7 +130,7 @@ export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"
   await getStorage().bucket().file(`profile_pics/${uid}.jpg`).delete({ignoreNotFound: true});
   await job.set({
     status: "PENDING_RECORD_REVIEW", profileErased: true, uploadsErased: !attachmentHold,
-    operationalRecordsErased: preservedOperationalPaths.length === 0, preservedOperationalPaths, attachmentHold, actorUid,
+    operationalRecordsErased: preservedOperationalPaths.length === 0, preservedOperationalPaths, attachmentHold, bookingAttachmentReview, actorUid,
     erasedStoragePrefixes, erasedStorageObjects: [`profile_pics/${uid}.jpg`],
     remainingReview: ["bookings", "orders", "partnerOrderViews", "sharedMessages", "legacyUploads", "logs", "exports", "backups", ...(attachmentHold ? ["heldAttachments"] : [])],
     reviewDueAt: admin.firestore.Timestamp.fromMillis(Date.now() + 7 * 86400000),

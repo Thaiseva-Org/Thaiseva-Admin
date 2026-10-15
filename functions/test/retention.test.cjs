@@ -29,3 +29,9 @@ test('legacy message dates expire while embedded message holds and malformed dat
   const ambiguous = {date:'01/02/2020'};
   assert.deepEqual(expiredMessages([old,held,dispute,ambiguous],now),[held,dispute,ambiguous]);
 });
+
+test('a previous outcome date cannot expire a newly cancelled or completed booking',()=>{
+  const record={createdAt:'2010-01-01T00:00:00Z',completedAt:'2010-02-01T00:00:00Z',status:'Cancelled'};
+  assert.equal(bookingAction(record,now),'REVIEW');
+  assert.equal(bookingAction({...record,cancelledAt:'2026-10-01T00:00:00Z'},now),'KEEP');
+});

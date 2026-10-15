@@ -2,7 +2,7 @@ const {test,before,after}=require('node:test');const assert=require('node:assert
 if(!process.env.FIRESTORE_EMULATOR_HOST||!process.env.FIREBASE_AUTH_EMULATOR_HOST||!process.env.FIREBASE_STORAGE_EMULATOR_HOST)throw Error('All emulators required; production forbidden');
 const projectId='demo-thaiseva-otp';const app=admin.initializeApp({projectId,storageBucket:projectId+'.appspot.com'});const db=admin.firestore();const bucket=admin.storage().bucket();const {deleteAuthAccountKeepData}=require('../lib/accountDeletion');const {maintainRetention}=require('../lib/retentionMaintenance');const ts=year=>admin.firestore.Timestamp.fromDate(new Date(`${year}-01-01T00:00:00Z`));
 before(async()=>{await fetch(`http://${process.env.FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/${projectId}/databases/(default)/documents`,{method:'DELETE'});await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/emulator/v1/projects/${projectId}/accounts`,{method:'DELETE'});});
-test('current erasure removes login, profiles, nested operational data and scoped files; retains legal records and queues review',async()=>{const uid='retention-test-customer';await admin.auth().createUser({uid,email:'retention-fixture@example.invalid'});for(const p of [`users/${uid}`,`Users/${uid}`,`cart/${uid}`,`cart/${uid}/items/item`,`foodCustomerSupportChats/${uid}`,`foodCustomerSupportChats/${uid}/messages/m`,`chats/${uid}_CustomerSupport`,`chats/${uid}_CustomerSupport/messages/m`,`userDevices/${uid}`,`notifications/users/${uid}/notice`])await db.doc(p).set({fixture:true});await db.doc('chatRooms/CustomerSupport').set({fixture:{userInfo:{uid}},other:{userInfo:{uid:'other-customer'}}});await db.doc('hotelBookingData/held').set({userId:uid,legalHold:true,bookingStatus:'completed',createdAt:ts(2010),completedAt:ts(2010)});await bucket.file(`users/${uid}/photo.txt`).save('synthetic file');await bucket.file(`chatMedia/${uid}/media.txt`).save('synthetic file');await bucket.file('users/other-customer/keep.txt').save('other fixture');await deleteAuthAccountKeepData(uid,'test-admin');await assert.rejects(admin.auth().getUser(uid),e=>e.code==='auth/user-not-found');for(const p of [`users/${uid}`,`Users/${uid}`,`cart/${uid}`,`cart/${uid}/items/item`,`chats/${uid}_CustomerSupport/messages/m`,`foodCustomerSupportChats/${uid}/messages/m`,`userDevices/${uid}`,`notifications/users/${uid}/notice`])assert.equal((await db.doc(p).get()).exists,false,p);assert.equal((await bucket.file(`users/${uid}/photo.txt`).exists())[0],false);assert.equal((await bucket.file(`chatMedia/${uid}/media.txt`).exists())[0],false);assert.equal((await bucket.file('users/other-customer/keep.txt').exists())[0],true);const dir=(await db.doc('chatRooms/CustomerSupport').get()).data();assert.equal(dir.fixture,undefined);assert.ok(dir.other);assert.equal((await db.doc('hotelBookingData/held').get()).exists,true);const job=(await db.doc(`privacyErasureJobs/${uid}`).get()).data();assert.equal(job.status,'PENDING_RECORD_REVIEW');assert.equal(job.profileErased,true);assert.ok(job.remainingReview.includes('bookings'));});
+test('current erasure removes login, profiles, nested operational data and scoped files; retains legal records and queues review',async()=>{const uid='retention-test-customer';await admin.auth().createUser({uid,email:'retention-fixture@example.invalid'});for(const p of [`users/${uid}`,`Users/${uid}`,`cart/${uid}`,`cart/${uid}/items/item`,`foodCustomerSupportChats/${uid}`,`foodCustomerSupportChats/${uid}/messages/m`,`chats/${uid}_CustomerSupport`,`chats/${uid}_CustomerSupport/messages/m`,`userDevices/${uid}`,`notifications/users/${uid}/notice`])await db.doc(p).set({fixture:true});await db.doc('chatRooms/CustomerSupport').set({fixture:{userInfo:{uid}},other:{userInfo:{uid:'other-customer'}}});await db.doc('hotelBookingData/retained').set({userId:uid,bookingStatus:'completed',createdAt:ts(2026),completedAt:ts(2026)});await bucket.file(`users/${uid}/photo.txt`).save('synthetic file');await bucket.file(`chatMedia/${uid}/media.txt`).save('synthetic file');await bucket.file('users/other-customer/keep.txt').save('other fixture');await deleteAuthAccountKeepData(uid,'test-admin');await assert.rejects(admin.auth().getUser(uid),e=>e.code==='auth/user-not-found');for(const p of [`users/${uid}`,`Users/${uid}`,`cart/${uid}`,`cart/${uid}/items/item`,`chats/${uid}_CustomerSupport/messages/m`,`foodCustomerSupportChats/${uid}/messages/m`,`userDevices/${uid}`,`notifications/users/${uid}/notice`])assert.equal((await db.doc(p).get()).exists,false,p);assert.equal((await bucket.file(`users/${uid}/photo.txt`).exists())[0],false);assert.equal((await bucket.file(`chatMedia/${uid}/media.txt`).exists())[0],false);assert.equal((await bucket.file('users/other-customer/keep.txt').exists())[0],true);const dir=(await db.doc('chatRooms/CustomerSupport').get()).data();assert.equal(dir.fixture,undefined);assert.ok(dir.other);assert.equal((await db.doc('hotelBookingData/retained').get()).exists,true);const job=(await db.doc(`privacyErasureJobs/${uid}`).get()).data();assert.equal(job.status,'PENDING_RECORD_REVIEW');assert.equal(job.profileErased,true);assert.ok(job.remainingReview.includes('bookings'));});
 test('scheduler processes eligible customer requests but preserves cancelled, held and staff requests',async()=>{for(const [uid,status,extra]of [['due-customer','Pending',{}],['cancelled-customer','Cancelled',{}],['held-customer','Pending',{legalHold:true}],['staff-customer','Pending',{}]]){await admin.auth().createUser({uid});await db.doc(`users/${uid}`).set({role:uid==='staff-customer'?'Admin':'Customer'});await db.doc(`DeletionRequests/${uid}`).set({uid,status,createdAt:ts(2020),...extra});}const result=await maintainRetention(false);assert.equal(result.failures,0);await assert.rejects(admin.auth().getUser('due-customer'),e=>e.code==='auth/user-not-found');assert.equal((await db.doc('DeletionRequests/due-customer').get()).data().status,'Erasure Pending');for(const uid of ['cancelled-customer','held-customer','staff-customer'])assert.ok(await admin.auth().getUser(uid));});
 test('dry run leaves expired contacts untouched; actual cleanup removes dated expiry and preserves holds/undated records',async()=>{await db.doc('ContactMessages/expired').set({createdAt:ts(2020)});await db.doc('ContactMessages/held').set({createdAt:ts(2020),legalHold:true});await db.doc('ContactMessages/no-date').set({fixture:true});await maintainRetention(true);assert.equal((await db.doc('ContactMessages/expired').get()).exists,true);const result=await maintainRetention(false);assert.equal(result.failures,0);assert.equal((await db.doc('ContactMessages/expired').get()).exists,false);assert.equal((await db.doc('ContactMessages/held').get()).exists,true);assert.equal((await db.doc('ContactMessages/no-date').get()).exists,true);assert.equal((await db.doc('privacyRetentionReviews/ContactMessages_no-date').get()).exists,true);});
 test('legacy chat dates and T2T nested messages expire; parent and child holds survive',async()=>{
@@ -67,4 +67,43 @@ test('terminal order retention removes the derived partner copy in the same clea
   await maintainRetention(false);
   assert.equal((await db.doc('orders/expired-source').get()).exists,false);assert.equal((await db.doc('partnerOrderViews/expired-source').get()).exists,false);
 });
+test('travel booking holds preserve identity files while account cleanup stays explicitly incomplete',async()=>{
+  const uid='held-travel-customer';await admin.auth().createUser({uid});
+  await db.doc(`users/${uid}`).set({role:'Customer'});
+  await db.doc('self_driving_bookings/identity-hold').set({authUid:uid,retentionHold:true});
+  const file=bucket.file(`users/${uid}/passports/passport.jpg`);await file.save('synthetic',{metadata:{contentType:'image/jpeg'}});
+  await deleteAuthAccountKeepData(uid,'test-admin');
+  assert.equal((await file.exists())[0],true);
+  const job=(await db.doc(`privacyErasureJobs/${uid}`).get()).data();
+  assert.equal(job.uploadsErased,false);assert.equal(job.bookingAttachmentReview,true);assert.equal(job.status,'PENDING_RECORD_REVIEW');
+});
+
+test('identity previews enforce ownership, current privilege, suspension, revocation and safe content',async()=>{
+  const {getIdentityDocument}=require('../lib/identityMedia');
+  for(const uid of ['id-owner','id-other','id-admin'])await admin.auth().createUser({uid});
+  await db.doc('users/id-admin').set({role:'Admin'});
+  const path='users/id-owner/passports/passport.jpg';await bucket.file(path).save('synthetic image',{metadata:{contentType:'image/jpeg',metadata:{firebaseStorageDownloadTokens:'unchanged-fixture'}}});
+  const call=(uid,value=path,authTime=Math.ceil(Date.now()/1000))=>getIdentityDocument.run({auth:{uid,token:{auth_time:authTime}},data:{path:value}});
+  assert.ok((await call('id-owner')).contentBase64);assert.ok((await call('id-admin')).contentBase64);
+  await assert.rejects(call('id-other'),e=>e.code==='permission-denied');
+  await db.doc('users/id-owner').set({isSuspended:true});await assert.rejects(call('id-owner'),e=>e.code==='permission-denied');
+  await db.doc('users/id-owner').set({isSuspended:false});await admin.auth().revokeRefreshTokens('id-owner');await assert.rejects(call('id-owner',path,1),e=>e.code==='permission-denied');
+  const bad='users/id-owner/licences/unsafe.html';await bucket.file(bad).save('<html>',{metadata:{contentType:'text/html'}});
+  await assert.rejects(call('id-owner',bad),e=>e.code==='failed-precondition');
+  const [meta]=await bucket.file(path).getMetadata();assert.equal(meta.metadata.firebaseStorageDownloadTokens,'unchanged-fixture');
+});
+
+test('new hotel outcomes record server dates and ignore stale events or duplicate retries',async()=>{
+  const {recordLifecycleTransition}=require('../lib/privacyLifecycle');
+  const ref=db.doc('hotelBookingData/lifecycle-fixture');
+  await ref.set({status:'Completed'});const commit=ts(2026);
+  await recordLifecycleTransition(ref,{status:'Pending'},{status:'Completed'},commit);
+  assert.equal((await ref.get()).data().completedAt.toMillis(),commit.toMillis());
+  await recordLifecycleTransition(ref,{status:'Pending'},{status:'Completed'},ts(2020));
+  assert.equal((await ref.get()).data().completedAt.toMillis(),commit.toMillis());
+  await ref.update({status:'Pending'});
+  await recordLifecycleTransition(ref,{status:'Pending'},{status:'Completed'},ts(2027));
+  assert.equal((await ref.get()).data().completedAt.toMillis(),commit.toMillis());
+});
+
 after(async()=>{await app.delete();});

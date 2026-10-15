@@ -34,7 +34,9 @@ export function bookingAction(data: RetentionData, now: Date): "DELETE" | "LOCAT
   const status = String(data.bookingStatus ?? data.status ?? "").toLowerCase();
   if (!["completed", "done", "cancelled", "canceled", "rejected"].includes(status)) return "KEEP";
   const created = millis(data.createdAt ?? data.timestamp ?? data.orderedAt);
-  const finished = millis(data.completedAt ?? data.cancelledAt ?? data.canceledAt ?? data.rejectedAt);
+  // Use the date for the current outcome, never an obsolete earlier outcome.
+  const finished = ["completed", "done"].includes(status) ? millis(data.completedAt) :
+    ["cancelled", "canceled"].includes(status) ? millis(data.cancelledAt ?? data.canceledAt) : millis(data.rejectedAt);
   if (created === null || finished === null) return "REVIEW";
   if (Math.max(created, finished) <= cutoff(now, 5)) return "DELETE";
   if (["completed", "done"].includes(status) && finished <= cutoff(now, 0, 90)) return "LOCATION";

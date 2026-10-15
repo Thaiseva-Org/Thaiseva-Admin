@@ -1,3 +1,4 @@
+import PrivateIdentityDocument from "../PrivateIdentityDocument";
 import {
   Alert,
   Button,
@@ -138,7 +139,7 @@ const BookingDetailsDialog = ({ open, booking, busy, error, onClose, onVerifyDoc
             ].map(([type, label, link, status]) => (
               <div key={type} className="border rounded-xl p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2"><h3 className="font-bold">{label}</h3><BookingStatusBadge status={status} /></div>
-                {link ? <a href={link} target="_blank" rel="noreferrer"><img src={link} alt={label} className="w-full h-52 object-contain bg-neutral-50 rounded-lg" /></a> : <p className="h-52 grid place-items-center bg-neutral-50 rounded-lg text-neutral-500">Not uploaded</p>}
+                {link ? <PrivateIdentityDocument path={link} label={label} /> : <p className="h-52 grid place-items-center bg-neutral-50 rounded-lg text-neutral-500">Not uploaded</p>}
                 <div className="flex gap-2">
                   <Button disabled={busy || !link || !documentsEditable} size="small" color="success" variant="outlined" onClick={() => onVerifyDocument(type, "Verified")}>Verify</Button>
                   <Button disabled={busy || !link || !documentsEditable} size="small" color="error" variant="outlined" onClick={() => onVerifyDocument(type, "Rejected")}>Reject</Button>
