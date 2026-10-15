@@ -2,10 +2,12 @@
 
 Project: gothai-ffea1. These rules affect Website, Food, Admin and mobile together.
 
-The 14 October 2026 release deploys `firestore.compat.rules`: the previous live rules plus read-only `partnerOrderViews`. Legacy restaurant reads of raw orders remain pending mobile migration. `storage.deployed.rules` records the unchanged 12 October live bucket policy. These snapshots contain rules only, no credentials or customer data.
+On 15 October 2026 the owner confirmed that the app team completed the mobile changes. `firebase.strict.json` was used to deploy the current `firestore.rules` and `storage.rules` with only `firestore:rules,storage` selected. No indexes or other products were redeployed.
 
-`firestore.rules` and `storage.rules` are the prepared stricter policy. Do not activate them until mobile/legacy attachment readers and old public catalog references are verified. Deploy configuration explicitly; never deploy every product blindly from a default Firebase file.
+The current policy preserves the previous production suspension, support-chat and privacy-review protections. It removes email-only administrator shortcuts, removes restaurant-only access to full orders, and restricts delivery-photo files to the owner, authorized staff or participants of a linked order. Legacy photo paths use the authorized photo callable. The 10 shared access/integration tests passed before deployment.
 
-Six partner-order indexes were created additively via the Firestore Admin API. Existing indexes and TTL configuration were preserved. Check ready state before publishing projected readers.
+Unclassified legacy root objects retain their previous access pending classification, so public catalog references are not broken. Existing private bearer tokens need separate revocation; rules alone do not revoke them. See the current remaining-work document for verified cleanup status.
 
-See ../../docs/05-security/PDPA_RELEASE_2026-10-14.md for actual deployment results and pending work.
+`firestore.compat.rules` and `storage.deployed.rules` are historical snapshots from before this cutover. Do not use them as the current deployed policy. Six partner-order indexes were previously created additively; existing indexes and TTL configuration were preserved.
+
+See ../../docs/05-security/PDPA_REMAINING.md for remaining work and app effects.

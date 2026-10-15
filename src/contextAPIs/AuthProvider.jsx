@@ -14,7 +14,7 @@ import {
   signOut,
   updateProfile,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { loadAdminAccess } from "../utils/adminAccess";
 
 /**
  * Context for authentication state and functions.
@@ -93,73 +93,37 @@ const AuthProvider = ({ children }) => {
 
   //   observing the user
   useEffect(() => {
+    let generation = 0;
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-        setLoading(true);
-        setUserData({});
-        setIsAdmin(false);
-        setIsPatner(false);
-        setIsSubAdmin(false);
-        setIsVerifiedPartner(false);
-
-          try {
-            const userDocRef = doc(db, "users", currentUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            
-            if (userDocSnap.exists()) {
-              const userData = userDocSnap.data();
-              setUserData(userData);
-
-              const isExplicitAdmin = ["Admin", "admin"].includes(userData?.role) ||
-                ["admin@gmail.com", "thaiseva_admin@gmail.com"].includes(currentUser?.email);
-
-              // Partner role is turned off on the Admin Portal
-              if (userData?.role === "Partner" && !isExplicitAdmin) {
-                console.warn("Partner role is blocked from the Admin Portal. Signing out...");
-                await signOut(auth);
-                setUser(null);
-                setUserData(null);
-                setIsAdmin(false);
-                setIsPatner(false);
-                setIsSubAdmin(false);
-                setIsVerifiedPartner(false);
-                setLoading(false);
-                return;
-              }
-
-              setIsAdmin(true);
-              setIsPatner(false);
-              setIsSubAdmin(false);
-              setIsVerifiedPartner(false);
-            } else {
-              setUserData({ role: "Admin", email: currentUser.email });
-              setIsAdmin(true);
-              setIsPatner(false);
-              setIsSubAdmin(false);
-              setIsVerifiedPartner(false);
-            }
-          } catch (error) {
-            console.error("Error fetching user data:", error);
-            setUserData({ role: "Admin", email: currentUser.email });
+      const request = ++generation;
+      setUser(null);
+      setUserData(null);
+      setIsAdmin(false);
+      setIsPatner(false);
+      setIsSubAdmin(false);
+      setIsVerifiedPartner(false);
+      setLoading(true);
+      try {
+        if (currentUser) {
+          const access = await loadAdminAccess(currentUser, db);
+          if (request !== generation) return;
+          if (access.allowed) {
+            setUser(currentUser);
+            setUserData(access.profile);
             setIsAdmin(true);
-            setIsPatner(false);
-            setIsSubAdmin(false);
-            setIsVerifiedPartner(false);
-          } finally {
-            setLoading(false);
+          } else {
+            await signOut(auth);
           }
-      } else {
-        setUser(null);
-        setLoading(false);
-        setUserData(null);
-        setIsAdmin(false);
-        setIsPatner(false);
-        setIsSubAdmin(false);
+        }
+      } catch {
+        // A missing/unreadable role must never grant administrative access.
+        if (request === generation && auth.currentUser === currentUser) await signOut(auth);
+      } finally {
+        if (request === generation) setLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => { generation++; unsubscribe(); };
   }, []);
 
   /**

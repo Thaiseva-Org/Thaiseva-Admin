@@ -3,7 +3,7 @@ import { AuthContext } from "../../contextAPIs/AuthProvider";
 import { useNavigate } from "react-router-dom";
 import { app, db } from "../../firebase/firebase.config";
 import { getAuth, sendPasswordResetEmail } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { loadAdminAccess } from "../../utils/adminAccess";
 import {
   FaEnvelope,
   FaLock,
@@ -26,7 +26,7 @@ import { logo } from "../../assets";
  * Dual-panel layout styled in Thaiseva's original blue and gradient theme.
  */
 const Login = () => {
-  const { logInUser, logOut, user } = useContext(AuthContext);
+  const { logInUser, logOut, user, isAdmin, loading } = useContext(AuthContext);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -44,10 +44,10 @@ const Login = () => {
 
   // Redirect to dashboard if user is authenticated
   useEffect(() => {
-    if (user) {
+    if (user && isAdmin && !loading) {
       navigate("/");
     }
-  }, [user, navigate]);
+  }, [user, isAdmin, loading, navigate]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -69,28 +69,17 @@ const Login = () => {
       const res = await logInUser(cleanEmail, password);
 
       if (res?.user) {
-        // Verify user role: block Partner role from accessing Admin Portal
-        try {
-          const userDocRef = doc(db, "users", res.user.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            const isExplicitAdmin = ["Admin", "admin"].includes(userData?.role) ||
-              ["admin@gmail.com", "thaiseva_admin@gmail.com"].includes(res.user?.email);
-
-            if (userData?.role === "Partner" && !isExplicitAdmin) {
-              await logOut();
-              setError("Partner accounts cannot access the Admin Portal. Please use the Partner Portal.");
-              return;
-            }
-          }
-        } catch (roleErr) {
-          console.warn("Could not verify user role on login:", roleErr);
+        const access = await loadAdminAccess(res.user, db);
+        if (!access.allowed) {
+          await logOut();
+          setError("This account does not have active administrator access. Contact support@thaiseva.com.");
+          return;
         }
 
         navigate("/dashboard");
       }
     } catch (err) {
+      if (getAuth(app).currentUser) await logOut();
       switch (err.code) {
         case "auth/invalid-login-credentials":
         case "auth/invalid-credential":

@@ -45,8 +45,6 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && (
         request.auth.token.get('admin', false) == true ||
-        request.auth.token.get('email', '') in ['admin@gmail.com', 'thaiseva_admin@gmail.com'] ||
-        ('email' in request.auth.token && request.auth.token.email in ['admin@gmail.com', 'thaiseva_admin@gmail.com']) ||
         userRole() in ["Admin", "admin"]
       );
     }
@@ -54,8 +52,6 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isAuthenticated() && (
         request.auth.token.get('admin', false) == true ||
-        request.auth.token.get('email', '') in ['admin@gmail.com', 'thaiseva_admin@gmail.com'] ||
-        ('email' in request.auth.token && request.auth.token.email in ['admin@gmail.com', 'thaiseva_admin@gmail.com']) ||
         userRole() in ["Admin", "admin"]
       );
     }
@@ -225,7 +221,6 @@ service cloud.firestore {
       return isAuthenticated() && (
         request.auth.token.get('foodRole', '') == 'masterAdmin' ||
         request.auth.token.get('foodMasterAdmin', false) == true ||
-        request.auth.token.get('email', '') in ['admin@gmail.com', 'thaiseva_admin@gmail.com'] ||
         isAdmin()
       );
     }
@@ -437,6 +432,13 @@ service cloud.firestore {
     // ============================================================
 
     // Production order rules kept; food schema adds Restaurant.ownerId / Receiver / Sender.
+    // PDPA release: minimized views for current Food web readers.
+    // Legacy raw-order restaurant reads remain until mobile compatibility is verified.
+    match /partnerOrderViews/{orderId} {
+      allow read: if isAdmin() || isFoodAdmin() || isFoodOrderRestaurantOwner();
+      allow create, update, delete: if false;
+    }
+
     match /orders/{orderId} {
       // Order creation shifted to Cloud Functions (createFoodOrder) for secure price verification
       allow create: if false;
@@ -449,12 +451,6 @@ service cloud.firestore {
       allow update: if false; // Order cancellation is an admin callable action.
       // Money / delivery / earnings / kitchen status: Cloud Functions (Admin SDK) only
       allow delete: if isAdmin() || isFoodAdmin();
-    }
-
-    // Server-generated delivery/settlement projection. No customer email/account or payment-provider IDs.
-    match /partnerOrderViews/{orderId} {
-      allow read: if isAdmin() || isFoodAdmin() || isFoodOrderRestaurantOwner();
-      allow create, update, delete: if false;
     }
 
     // Dine-in reservations are created and updated only by validated callables.
