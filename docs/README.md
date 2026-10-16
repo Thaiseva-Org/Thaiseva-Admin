@@ -6,6 +6,8 @@ This documentation set provides the authoritative reference for engineers, archi
 
 ---
 
+Manual QA: [shared 254-case testing guide and results sheets](09-testing/MANUAL_TESTING_GUIDE.md), covering the website and all dashboards.
+
 ## 🧭 Documentation Map
 
 ```
