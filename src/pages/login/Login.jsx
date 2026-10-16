@@ -14,16 +14,85 @@ import {
   Close,
   CheckCircle,
   DirectionsCarIcon,
-  ReceiptIcon,
+  DirectionsBusIcon,
+  ApartmentIcon,
+  LuggageIcon,
+  NightlifeIcon,
+  ForumIcon,
+  AccountBalanceWalletIcon,
   ArrowForwardIosRoundedIcon,
 } from "@icons";
 import { logo } from "../../assets";
+
+// Core service verticals provided by Thaiseva ecosystem
+const THAISEVA_SERVICES = [
+  {
+    id: "hotels",
+    title: "Hotels & Stays",
+    tag: "Live Sync",
+    tagColor: "bg-emerald-400/20 text-emerald-300 border-emerald-400/30",
+    desc: "Resort bookings, room availability & instant hold management.",
+    gradient: "from-emerald-400 to-teal-600",
+    shadow: "shadow-emerald-500/25",
+    icon: <ApartmentIcon sx={{ fontSize: 18 }} />,
+  },
+  {
+    id: "tours",
+    title: "Sightseeing Tours",
+    tag: "Excursions",
+    tagColor: "bg-amber-400/20 text-amber-300 border-amber-400/30",
+    desc: "Curated island packages, cultural trips & capacity triage.",
+    gradient: "from-amber-400 to-orange-600",
+    shadow: "shadow-amber-500/25",
+    icon: <LuggageIcon sx={{ fontSize: 18 }} />,
+  },
+  {
+    id: "vans",
+    title: "Transfers & Fleet",
+    tag: "VIP Fleet",
+    tagColor: "bg-cyan-400/20 text-cyan-300 border-cyan-400/30",
+    desc: "Airport pickups, VIP vans, city commutes & driver dispatch.",
+    gradient: "from-cyan-400 to-blue-600",
+    shadow: "shadow-cyan-500/25",
+    icon: <DirectionsBusIcon sx={{ fontSize: 18 }} />,
+  },
+  {
+    id: "cars",
+    title: "Self-Drive Rentals",
+    tag: "Verified",
+    tagColor: "bg-sky-400/20 text-sky-300 border-sky-400/30",
+    desc: "Sedan & SUV rentals with verified digital license onboarding.",
+    gradient: "from-sky-400 to-indigo-600",
+    shadow: "shadow-sky-500/25",
+    icon: <DirectionsCarIcon sx={{ fontSize: 18 }} />,
+  },
+  {
+    id: "spots",
+    title: "Shops & Nightlife",
+    tag: "Hotspots",
+    tagColor: "bg-pink-400/20 text-pink-300 border-pink-400/30",
+    desc: "Curated shopping malls, exclusive beach clubs & premier dining.",
+    gradient: "from-pink-400 to-rose-600",
+    shadow: "shadow-pink-500/25",
+    icon: <NightlifeIcon sx={{ fontSize: 18 }} />,
+  },
+  {
+    id: "concierge",
+    title: "24/7 Concierge Chat",
+    tag: "Live Support",
+    tagColor: "bg-violet-400/20 text-violet-300 border-violet-400/30",
+    desc: "Real-time guest, hotel & driver communication dispatch.",
+    gradient: "from-purple-400 to-indigo-600",
+    shadow: "shadow-purple-500/25",
+    icon: <ForumIcon sx={{ fontSize: 18 }} />,
+  },
+];
 
 /**
  * Full-Page Screen-Fitted Login Component
  * 
  * Fits cleanly within 100vh without vertical overflow/scrolling on desktop.
- * Dual-panel layout styled in Thaiseva's original blue and gradient theme.
+ * Dual-panel layout showcasing all Thaiseva service verticals on the left.
  */
 const Login = () => {
   const { logInUser, logOut, user, isAdmin, loading } = useContext(AuthContext);
@@ -146,118 +215,141 @@ const Login = () => {
     <div className="h-screen w-screen overflow-hidden flex flex-col lg:flex-row bg-gradient-to-br from-blue-100 via-indigo-50 to-purple-100 select-none">
       
       {/* ========================================================= */}
-      {/* LEFT PANEL: Brand Showcase (Executive Redesign)           */}
+      {/* LEFT PANEL: Comprehensive Service Ecosystem Showcase       */}
       {/* ========================================================= */}
-      <div className="hidden lg:flex lg:w-1/2 xl:w-[52%] flex-col justify-between p-8 xl:p-12 relative overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#1e3a8a] to-[#1e40af] text-white h-full">
+      <div className="hidden lg:flex lg:w-1/2 xl:w-[54%] flex-col justify-between p-6 xl:p-9 2xl:p-11 relative overflow-hidden bg-gradient-to-br from-[#070e23] via-[#0d2259] to-[#1e40af] text-white h-full">
         
-        {/* Ambient background glows */}
+        {/* Ambient multi-layered luminous background glows */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-500/25 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute top-1/2 -right-20 w-80 h-80 bg-indigo-500/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 left-1/4 w-80 h-80 bg-sky-400/20 rounded-full blur-3xl" />
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute top-1/3 -right-24 w-80 h-80 bg-indigo-500/25 rounded-full blur-3xl" />
+          <div className="absolute -bottom-24 left-1/4 w-96 h-96 bg-sky-400/20 rounded-full blur-3xl" />
+          <div className="absolute top-2/3 left-10 w-64 h-64 bg-cyan-400/15 rounded-full blur-3xl" />
           <div
-            className="absolute inset-0 opacity-[0.04]"
+            className="absolute inset-0 opacity-[0.05]"
             style={{
-              backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.8) 1px, transparent 1px)`,
-              backgroundSize: "24px 24px",
+              backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.9) 1px, transparent 1px)`,
+              backgroundSize: "22px 22px",
             }}
           />
         </div>
 
-        {/* Top Header */}
+        {/* Top Header Row */}
         <div className="relative z-10 flex items-center justify-between">
-          <div className="bg-white/95 backdrop-blur-md px-4 py-2 rounded-2xl shadow-lg border border-white/20 flex items-center">
+          <div className="bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-2xl shadow-xl border border-white/20 flex items-center">
             <img
               src={logo}
               alt="Thaiseva Logo"
-              className="h-10 w-auto object-contain"
+              className="h-8 xl:h-9 w-auto object-contain"
             />
           </div>
 
-          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-xs font-semibold text-white/90">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span>Administrative Console</span>
-          </div>
-        </div>
-
-        {/* Center Hero Content */}
-        <div className="relative z-10 my-auto py-4 max-w-lg">
-          <h1 className="text-2xl xl:text-3xl 2xl:text-4xl font-black text-white tracking-tight leading-tight mb-3">
-            Central Operations & Fleet Dispatch Hub
-          </h1>
-
-          <p className="text-blue-100/80 text-xs xl:text-sm leading-relaxed mb-6">
-            Real-time management for vehicle rentals, tour packages, and automated commission reconciliations across Thailand.
-          </p>
-
-          {/* Feature Showcase Cards */}
-          <div className="space-y-3">
-            {/* Card 1: Travel & Logistics */}
-            <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 hover:bg-white/15 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-cyan-500/20">
-                <DirectionsCarIcon sx={{ fontSize: 20 }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-bold text-white text-xs xl:text-sm truncate">Transport & Tour Dispatch</h2>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 whitespace-nowrap">
-                    Active
-                  </span>
-                </div>
-                <p className="text-blue-100/75 text-[11px] leading-tight mt-0.5 truncate">
-                  Vehicle rentals, transfer dispatch, and package bookings.
-                </p>
-              </div>
+          <div className="flex items-center gap-2.5">
+            <div className="hidden xl:flex items-center gap-1.5 bg-emerald-500/15 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30 text-[11px] font-semibold text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span>7 Services Active</span>
             </div>
-
-            {/* Card 2: Financial Ledgers */}
-            <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 hover:bg-white/15 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-600 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-indigo-500/20">
-                <ReceiptIcon sx={{ fontSize: 20 }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-bold text-white text-xs xl:text-sm truncate">Financial Ledgers & Settlements</h2>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-400/20 text-blue-200 border border-blue-400/30 whitespace-nowrap">
-                    Automated
-                  </span>
-                </div>
-                <p className="text-blue-100/75 text-[11px] leading-tight mt-0.5 truncate">
-                  Partner commission ledgers, invoices, and settlement logs.
-                </p>
-              </div>
-            </div>
-
-            {/* Card 3: Persistent Session Access */}
-            <div className="flex items-center gap-3.5 p-3.5 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 hover:bg-white/15 transition-all">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-700 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-blue-500/20">
-                <AdminPanelSettingsIcon sx={{ fontSize: 20 }} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="font-bold text-white text-xs xl:text-sm truncate">Persistent Session Access</h2>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-400/20 text-sky-200 border border-sky-400/30 whitespace-nowrap">
-                    No Timeout
-                  </span>
-                </div>
-                <p className="text-blue-100/75 text-[11px] leading-tight mt-0.5 truncate">
-                  Continuous administrative session without automatic logouts.
-                </p>
-              </div>
+            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-xs font-semibold text-white/95 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              <span>Admin Console</span>
             </div>
           </div>
         </div>
 
-        {/* Bottom subtle note */}
-        <div className="relative z-10 text-[11px] text-blue-200/60 font-medium">
-          Thaiseva Enterprise Management Portal
+        {/* Center Hero & All Services Showcase */}
+        <div className="relative z-10 my-auto py-2 xl:py-3 max-w-2xl">
+          {/* Eyebrow & Headline */}
+          <div className="mb-3 xl:mb-4">
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-widest text-sky-300/90 mb-1">
+              <span>🌴</span>
+              <span>All-In-One Hospitality & Tourism Platform</span>
+            </div>
+            <h1 className="text-xl xl:text-2xl 2xl:text-3xl font-black text-white tracking-tight leading-snug">
+              Thailand Operations & Service Verticals
+            </h1>
+            <p className="text-blue-100/75 text-xs xl:text-[13px] leading-relaxed mt-1 max-w-xl">
+              Centralized administrative dispatch across all customer-facing services — connecting global travelers, luxury accommodations, transport fleets, and regional merchants.
+            </p>
+          </div>
+
+          {/* 6 Core Services Grid (2 Columns, Screen-Fitted) */}
+          <div className="grid grid-cols-2 gap-2 xl:gap-2.5 mb-2.5 xl:mb-3">
+            {THAISEVA_SERVICES.map((service) => (
+              <div
+                key={service.id}
+                className="group relative p-2.5 xl:p-3 rounded-xl xl:rounded-2xl bg-white/[0.07] hover:bg-white/[0.13] border border-white/10 hover:border-white/25 backdrop-blur-md transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-blue-500/10 cursor-default"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div
+                    className={`w-8 h-8 rounded-lg xl:rounded-xl bg-gradient-to-br ${service.gradient} flex items-center justify-center flex-shrink-0 text-white shadow-md ${service.shadow} group-hover:scale-105 transition-transform duration-200`}
+                  >
+                    {service.icon}
+                  </div>
+                  <span
+                    className={`text-[9px] xl:text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap ${service.tagColor}`}
+                  >
+                    {service.tag}
+                  </span>
+                </div>
+                <h2 className="font-bold text-white text-xs xl:text-[13px] tracking-tight mt-2 group-hover:text-sky-200 transition-colors truncate">
+                  {service.title}
+                </h2>
+                <p className="text-blue-100/70 text-[10px] xl:text-[11px] leading-snug mt-0.5 line-clamp-2">
+                  {service.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* 7th Vertical: Financial Settlements & PromptPay QR Bar */}
+          <div className="flex items-center gap-3 p-2.5 xl:p-3 rounded-xl xl:rounded-2xl bg-gradient-to-r from-blue-600/30 via-indigo-600/25 to-teal-600/20 border border-blue-400/30 backdrop-blur-md hover:border-blue-400/45 transition-all shadow-sm group">
+            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-gradient-to-br from-teal-400 to-blue-600 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-teal-500/25 group-hover:scale-105 transition-transform duration-200">
+              <AccountBalanceWalletIcon sx={{ fontSize: 19 }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-bold text-white text-xs xl:text-[13px] tracking-tight truncate">
+                  PromptPay QR & Partner Ledgers
+                </h2>
+                <span className="text-[9px] xl:text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 whitespace-nowrap">
+                  Automated
+                </span>
+              </div>
+              <p className="text-blue-100/75 text-[10px] xl:text-[11px] leading-tight mt-0.5 truncate">
+                Direct QR slip verification, automated commission settlements & financial reports.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Trust & Platform Metrics Bar */}
+        <div className="relative z-10 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] xl:text-[11px] text-blue-200/70 font-medium">
+          <div className="flex items-center gap-2 xl:gap-3 flex-wrap">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+              <span>77 Provinces</span>
+            </span>
+            <span className="text-white/25">•</span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span>Real-Time Triage</span>
+            </span>
+            <span className="text-white/25">•</span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-300" />
+              <span>PDPA Compliant</span>
+            </span>
+          </div>
+          <div className="text-blue-200/50 text-[10px] font-semibold tracking-wide whitespace-nowrap ml-2">
+            Thaiseva Enterprise v3.2
+          </div>
         </div>
       </div>
 
       {/* ========================================================= */}
       {/* RIGHT PANEL: Authentication Panel (Polished & Refined)     */}
       {/* ========================================================= */}
-      <div className="w-full lg:w-1/2 xl:w-[48%] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 h-full overflow-y-auto lg:overflow-hidden relative">
+      <div className="w-full lg:w-1/2 xl:w-[46%] flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 h-full overflow-y-auto lg:overflow-hidden relative">
         
         {/* Ambient subtle light halos behind card */}
         <div className="absolute top-1/4 right-10 w-80 h-80 bg-blue-300/25 rounded-full blur-3xl pointer-events-none" />
