@@ -19,7 +19,6 @@ import {
   LuggageIcon,
   NightlifeIcon,
   ForumIcon,
-  AccountBalanceWalletIcon,
   ArrowForwardIosRoundedIcon,
 } from "@icons";
 import { logo } from "../../assets";
@@ -244,22 +243,16 @@ const Login = () => {
             />
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <div className="hidden xl:flex items-center gap-1.5 bg-emerald-500/15 backdrop-blur-md px-3 py-1 rounded-full border border-emerald-400/30 text-[11px] font-semibold text-emerald-300">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>7 Services Active</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-xs font-semibold text-white/95 shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-              <span>Admin Console</span>
-            </div>
+          <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/20 text-xs font-semibold text-white/95 shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Administrative Console</span>
           </div>
         </div>
 
         {/* Center Hero & All Services Showcase */}
-        <div className="relative z-10 my-auto py-2 xl:py-3 max-w-2xl">
+        <div className="relative z-10 my-auto py-2 xl:py-4 max-w-2xl">
           {/* Eyebrow & Headline */}
-          <div className="mb-3 xl:mb-4">
+          <div className="mb-4 xl:mb-5">
             <div className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-widest text-sky-300/90 mb-1">
               <span>🌴</span>
               <span>All-In-One Hospitality & Tourism Platform</span>
@@ -273,15 +266,15 @@ const Login = () => {
           </div>
 
           {/* 6 Core Services Grid (2 Columns, Screen-Fitted) */}
-          <div className="grid grid-cols-2 gap-2 xl:gap-2.5 mb-2.5 xl:mb-3">
+          <div className="grid grid-cols-2 gap-2.5 xl:gap-3.5">
             {THAISEVA_SERVICES.map((service) => (
               <div
                 key={service.id}
-                className="group relative p-2.5 xl:p-3 rounded-xl xl:rounded-2xl bg-white/[0.07] hover:bg-white/[0.13] border border-white/10 hover:border-white/25 backdrop-blur-md transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-blue-500/10 cursor-default"
+                className="group relative p-3 xl:p-3.5 rounded-xl xl:rounded-2xl bg-white/[0.07] hover:bg-white/[0.13] border border-white/10 hover:border-white/25 backdrop-blur-md transition-all duration-200 shadow-sm hover:shadow-lg hover:shadow-blue-500/10 cursor-default"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div
-                    className={`w-8 h-8 rounded-lg xl:rounded-xl bg-gradient-to-br ${service.gradient} flex items-center justify-center flex-shrink-0 text-white shadow-md ${service.shadow} group-hover:scale-105 transition-transform duration-200`}
+                    className={`w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-gradient-to-br ${service.gradient} flex items-center justify-center flex-shrink-0 text-white shadow-md ${service.shadow} group-hover:scale-105 transition-transform duration-200`}
                   >
                     {service.icon}
                   </div>
@@ -291,7 +284,7 @@ const Login = () => {
                     {service.tag}
                   </span>
                 </div>
-                <h2 className="font-bold text-white text-xs xl:text-[13px] tracking-tight mt-2 group-hover:text-sky-200 transition-colors truncate">
+                <h2 className="font-bold text-white text-xs xl:text-[13px] tracking-tight mt-2.5 group-hover:text-sky-200 transition-colors truncate">
                   {service.title}
                 </h2>
                 <p className="text-blue-100/70 text-[10px] xl:text-[11px] leading-snug mt-0.5 line-clamp-2">
@@ -299,49 +292,6 @@ const Login = () => {
                 </p>
               </div>
             ))}
-          </div>
-
-          {/* 7th Vertical: Financial Settlements & PromptPay QR Bar */}
-          <div className="flex items-center gap-3 p-2.5 xl:p-3 rounded-xl xl:rounded-2xl bg-gradient-to-r from-blue-600/30 via-indigo-600/25 to-teal-600/20 border border-blue-400/30 backdrop-blur-md hover:border-blue-400/45 transition-all shadow-sm group">
-            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-gradient-to-br from-teal-400 to-blue-600 flex items-center justify-center flex-shrink-0 text-white shadow-md shadow-teal-500/25 group-hover:scale-105 transition-transform duration-200">
-              <AccountBalanceWalletIcon sx={{ fontSize: 19 }} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="font-bold text-white text-xs xl:text-[13px] tracking-tight truncate">
-                  PromptPay QR & Partner Ledgers
-                </h2>
-                <span className="text-[9px] xl:text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 whitespace-nowrap">
-                  Automated
-                </span>
-              </div>
-              <p className="text-blue-100/75 text-[10px] xl:text-[11px] leading-tight mt-0.5 truncate">
-                Direct QR slip verification, automated commission settlements & financial reports.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Trust & Platform Metrics Bar */}
-        <div className="relative z-10 pt-2.5 border-t border-white/10 flex items-center justify-between text-[10px] xl:text-[11px] text-blue-200/70 font-medium">
-          <div className="flex items-center gap-2 xl:gap-3 flex-wrap">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              <span>77 Provinces</span>
-            </span>
-            <span className="text-white/25">•</span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span>Real-Time Triage</span>
-            </span>
-            <span className="text-white/25">•</span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-300" />
-              <span>PDPA Compliant</span>
-            </span>
-          </div>
-          <div className="text-blue-200/50 text-[10px] font-semibold tracking-wide whitespace-nowrap ml-2">
-            Thaiseva Enterprise v3.2
           </div>
         </div>
       </div>
