@@ -361,7 +361,7 @@ service cloud.firestore {
       allow update: if isAdmin() && resource.data.status == 'Pending' &&
         request.resource.data.status == 'Cancelled' &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt']);
-      allow delete: if false;
+      allow delete: if isAdmin();
     }
 
     // ============================================================

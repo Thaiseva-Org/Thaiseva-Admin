@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { getDocs, doc, updateDoc } from "firebase/firestore";
+import { getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import {
   db,
   deleteUserFromAuth,
@@ -231,6 +231,83 @@ const DeletionRequests = () => {
     }
   };
 
+  /**
+   * Permanently deletes a single deletion request record from Firestore.
+   * 
+   * @async
+   * @param {Object} request - Deletion request object
+   */
+  const handleDeleteRecord = async (request) => {
+    if (!request?.id) return;
+
+    try {
+      const result = await Swal.fire({
+        title: "Delete Record?",
+        text: `Permanently delete this deletion record for ${request.email || request.uid || "this user"}? This action cannot be undone.`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: "Yes, Delete Record",
+      });
+
+      if (!result.isConfirmed) return;
+
+      setLoading(true);
+      await deleteDoc(doc(db, "DeletionRequests", request.id));
+
+      Swal.fire(
+        "Deleted!",
+        "The deletion request record has been permanently removed.",
+        "success"
+      );
+      if (selectedRequest?.id === request.id) {
+        setSelectedRequest(null);
+      }
+      fetchRequests();
+    } catch (error) {
+      console.error("Error deleting record:", error);
+      Swal.fire("Error!", error?.message || "Failed to delete the record.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Clears all cancelled records from Firestore.
+   * 
+   * @async
+   */
+  const handleClearCancelled = async () => {
+    const cancelledRequests = requests.filter(r => getNormalizedStatus(r.status) === "Cancelled");
+    if (cancelledRequests.length === 0) return;
+
+    try {
+      const result = await Swal.fire({
+        title: "Clear All Cancelled Records?",
+        text: `Permanently remove all ${cancelledRequests.length} cancelled deletion request records?`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonColor: "#dc2626",
+        cancelButtonColor: "#6b7280",
+        confirmButtonText: `Yes, Clear (${cancelledRequests.length})`,
+      });
+
+      if (!result.isConfirmed) return;
+
+      setLoading(true);
+      await Promise.all(cancelledRequests.map(r => deleteDoc(doc(db, "DeletionRequests", r.id))));
+
+      Swal.fire("Cleared!", "All cancelled records have been removed.", "success");
+      fetchRequests();
+    } catch (error) {
+      console.error("Error clearing cancelled records:", error);
+      Swal.fire("Error!", error?.message || "Failed to clear records.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Summary Metrics
   const stats = useMemo(() => {
     let pending = 0;
@@ -310,14 +387,26 @@ const DeletionRequests = () => {
             Manage user account deletion requests submitted via web and mobile apps in compliance with Store policies.
           </p>
         </div>
-        <button
-          onClick={fetchRequests}
-          disabled={loading}
-          className="inline-flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg border border-gray-300 shadow-sm text-sm font-medium transition-colors self-start md:self-auto cursor-pointer"
-        >
-          <i className={`fa-solid fa-rotate-right ${loading ? "animate-spin" : ""}`}></i>
-          Refresh Data
-        </button>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          {stats.cancelled > 0 && (
+            <button
+              onClick={handleClearCancelled}
+              disabled={loading}
+              className="inline-flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
+            >
+              <i className="fa-solid fa-trash-can"></i>
+              Clear Cancelled ({stats.cancelled})
+            </button>
+          )}
+          <button
+            onClick={fetchRequests}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg border border-gray-300 shadow-sm text-sm font-medium transition-colors cursor-pointer"
+          >
+            <i className={`fa-solid fa-rotate-right ${loading ? "animate-spin" : ""}`}></i>
+            Refresh Data
+          </button>
+        </div>
       </div>
 
       {/* KPI Stats Cards */}
@@ -630,6 +719,14 @@ const DeletionRequests = () => {
                               </button>
                             </>
                           )}
+
+                          <button
+                            onClick={() => handleDeleteRecord(req)}
+                            title="Delete Record"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          >
+                            <i className="fa-solid fa-trash-can text-sm"></i>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -721,29 +818,39 @@ const DeletionRequests = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-2">
-              {getNormalizedStatus(selectedRequest.status) === "Pending" && (
-                <>
-                  <button
-                    onClick={() => handleAcceptDeletion(selectedRequest)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    Accept Deletion
-                  </button>
-                  <button
-                    onClick={() => handleCancelAutoDeletion(selectedRequest.id)}
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    Cancel Request
-                  </button>
-                </>
-              )}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-2">
               <button
-                onClick={() => setSelectedRequest(null)}
-                className="bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                onClick={() => handleDeleteRecord(selectedRequest)}
+                className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
               >
-                Close
+                <i className="fa-solid fa-trash-can"></i>
+                Delete Record
               </button>
+
+              <div className="flex items-center gap-2">
+                {getNormalizedStatus(selectedRequest.status) === "Pending" && (
+                  <>
+                    <button
+                      onClick={() => handleAcceptDeletion(selectedRequest)}
+                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Accept Deletion
+                    </button>
+                    <button
+                      onClick={() => handleCancelAutoDeletion(selectedRequest.id)}
+                      className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Cancel Request
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => setSelectedRequest(null)}
+                  className="bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
