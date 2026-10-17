@@ -10,7 +10,6 @@ import LoadingContent from "../../../../components/LoadingContent";
 import { format } from "timeago.js";
 import Swal from "sweetalert2";
 import useRecentAuthAction from "../../../../hooks/useRecentAuthAction";
-import PrivacyReviewQueue from "../../../../components/PrivacyReviewQueue";
 
 /**
  * Safely parses any date representation from Firestore or JS (Timestamp, ISO string, seconds obj, etc.)
@@ -319,20 +318,6 @@ const DeletionRequests = () => {
           <i className={`fa-solid fa-rotate-right ${loading ? "animate-spin" : ""}`}></i>
           Refresh Data
         </button>
-      </div>
-
-      <PrivacyReviewQueue refreshKey={requests.map(request => `${request.id}:${request.status}`).join("|")} />
-      {/* Policy Information Card */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex flex-col sm:flex-row items-start gap-3 text-sm text-blue-900">
-        <div className="p-2 bg-blue-100 rounded-lg text-blue-600 shrink-0">
-          <i className="fa-solid fa-shield-halved text-xl"></i>
-        </div>
-        <div className="space-y-1">
-          <h4 className="font-semibold text-blue-950">Deletion review and retained records</h4>
-          <p className="text-blue-800/90 text-xs md:text-sm">
-            The countdown is an internal review target. Requests are processed by staff, not automatically deleted. Approval removes the login and direct customer records; remaining business records need a documented retention or deletion decision.
-          </p>
-        </div>
       </div>
 
       {/* KPI Stats Cards */}
