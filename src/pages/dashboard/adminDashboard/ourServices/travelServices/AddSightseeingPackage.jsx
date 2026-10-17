@@ -1,3 +1,4 @@
+import cropImageFile from "../../../../../components/websiteConfig/cropImageFile";
 import ListingStatus from "../../../../../components/ListingStatus";
 import { isListingActive, listingStatusFields } from "../../../../../utils/listing-status";
 import React, { useState, useRef, useEffect } from "react";
@@ -408,7 +409,10 @@ const AddSightseeingPackage = () => {
 
     const handleUploadCoverPhoto = async (e) => {
         try {
-            const file = e.target.files[0];
+            const original = e.target.files[0];
+            e.target.value = '';
+            if (!original) return;
+            const file = await cropImageFile(original, { width: 1200, height: 750 });
             if (!file) return;
             const fileRef = ref(storage, `images/${crypto.randomUUID()}`);
             const coverPhotoTask = await uploadBytesResumable(fileRef, file);
@@ -422,7 +426,10 @@ const AddSightseeingPackage = () => {
 
     const handleUploadPictures = async (e) => {
         try {
-            let file = e.target.files[0];
+            const original = e.target.files[0];
+            e.target.value = '';
+            if (!original) return;
+            const file = await cropImageFile(original, { width: 1200, height: 750 });
             if (!file) return;
             const imageRef = ref(storage, `images/${crypto.randomUUID()}`);
             const imageTask = await uploadBytesResumable(imageRef, file);

@@ -1,8 +1,8 @@
-import React, { useRef, useState } from "react";
+import cropImageFile from "./cropImageFile";
+import { useRef, useState } from "react";
 import { Box, Typography, Button, IconButton, CircularProgress } from "@mui/material";
 import { CloudUploadIcon } from "@icons";
 import { DeleteIcon } from "@icons";
-import { ImageIcon } from "@icons";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { storage } from "../../firebase/firebase.config";
 import Swal from "sweetalert2";
@@ -12,11 +12,15 @@ const DragDropImageUploader = ({
     image,
     onImageChange,
     folder = "images",
-    height = 200
+    height = 200,
+    cropWidth = 1200,
+    cropHeight = 750,
+    cropEnabled = true
 }) => {
     const [dragActive, setDragActive] = useState(false);
     const [loading, setLoading] = useState(false);
     const inputRef = useRef(null);
+    const busyRef = useRef(false);
 
     const handleDrag = (e) => {
         e.preventDefault();
@@ -40,41 +44,31 @@ const DragDropImageUploader = ({
     const handleChange = (e) => {
         e.preventDefault();
         if (e.target.files && e.target.files[0]) {
-            handleUpload(e.target.files[0]);
+            const file = e.target.files[0];
+            e.target.value = "";
+            handleUpload(file);
         }
     };
 
     const handleUpload = async (file) => {
-        if (!file.type.startsWith("image/")) {
-            Swal.fire("Error", "Please upload an image file", "error");
-            return;
-        }
-
+        if (busyRef.current) return;
+        busyRef.current = true;
         setLoading(true);
-        const safeFolder = folder.replace(/[^a-zA-Z0-9_-]/g, "_");
-        const storageRef = ref(storage, `site-media/${safeFolder}/${crypto.randomUUID()}`);
-
         try {
-            const uploadTask = uploadBytesResumable(storageRef, file);
-
-            uploadTask.on(
-                "state_changed",
-                null, // Progress can be handled here if needed
-                (error) => {
-                    console.error("Upload failed:", error);
-                    setLoading(false);
-                    Swal.fire("Error", "Image upload failed", "error");
-                },
-                async () => {
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    onImageChange(downloadURL); // Pass back the URL
-                    setLoading(false);
-                }
-            );
+            if (!file.type.startsWith("image/") || file.size > 20 * 1024 * 1024) throw new Error("Choose an image smaller than 20 MB.");
+            const cropped = cropEnabled ? await cropImageFile(file, { width: cropWidth, height: cropHeight, title: label }) : file;
+            if (!cropped) return;
+            const safeFolder = folder.replace(/[^a-zA-Z0-9_-]/g, "_");
+            const storageRef = ref(storage, `site-media/${safeFolder}/${crypto.randomUUID()}`);
+            const snapshot = await uploadBytesResumable(storageRef, cropped);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            onImageChange(downloadURL);
         } catch (error) {
-            console.error("Error uploading image:", error);
+            console.error("Image upload failed:", error);
+            Swal.fire("Image upload failed", error.message || "Please try again.", "error");
+        } finally {
+            busyRef.current = false;
             setLoading(false);
-            Swal.fire("Error", "Image upload failed", "error");
         }
     };
 
@@ -102,6 +96,7 @@ const DragDropImageUploader = ({
                         <Button
                             variant="contained"
                             size="small"
+                            disabled={loading}
                             onClick={() => inputRef.current.click()}
                             sx={{
                                 bgcolor: 'white',
@@ -114,6 +109,7 @@ const DragDropImageUploader = ({
                         </Button>
                         <IconButton
                             size="small"
+                            disabled={loading}
                             onClick={handleRemove}
                             sx={{ bgcolor: '#fee2e2', color: '#dc2626', '&:hover': { bgcolor: '#fecaca' } }}
                         >
@@ -148,7 +144,7 @@ const DragDropImageUploader = ({
                                 Click or Drop image here
                             </Typography>
                             <Typography variant="caption" className="text-gray-500 mt-1">
-                                Supports JPG, PNG, WEBP
+                                {cropEnabled ? `JPG, PNG, WebP - crop to ${cropWidth} x ${cropHeight} px` : "Upload a complete, readable document image"}
                             </Typography>
                         </>
                     )}
@@ -157,7 +153,8 @@ const DragDropImageUploader = ({
             <input
                 ref={inputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={loading}
                 onChange={handleChange}
                 className="hidden"
             />

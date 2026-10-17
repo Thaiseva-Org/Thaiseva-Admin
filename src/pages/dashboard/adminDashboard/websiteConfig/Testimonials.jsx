@@ -249,7 +249,7 @@ const Testimonials = () => {
                     <Grid container spacing={3} sx={{ mt: 0 }}>
                         <Grid item xs={12} className="flex justify-center">
                             <Box className="w-full">
-                                <DragDropImageUploader
+                                <DragDropImageUploader cropWidth={600} cropHeight={600}
                                     label="User Avatar"
                                     image={currentTestimonial.image}
                                     onImageChange={handleImageChange}

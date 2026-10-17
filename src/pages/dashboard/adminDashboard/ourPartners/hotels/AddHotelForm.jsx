@@ -1,3 +1,4 @@
+import cropImageFile from "../../../../../components/websiteConfig/cropImageFile";
 import { hotelPackagePricing } from "../../../../../utils/hotel-package-pricing";
 import ListingStatus from "../../../../../components/ListingStatus";
 import { isListingActive, listingStatusFields } from "../../../../../utils/listing-status";
@@ -316,8 +317,14 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     }, [isEdit, effectiveInitialData, resolvedHotelId, setValue, map]);
 
     const handleRoomPhotoUpload = async (e) => {
-        const { files } = e.target;
-        const result = await getFileUrl(files);
+        const original = e.target.files?.[0];
+        e.target.value = '';
+        if (!original) return;
+        let file;
+        try { file = await cropImageFile(original, { width: 1200, height: 750 }); }
+        catch (error) { toast.error(error.message); return; }
+        if (!file) return;
+        const result = await getFileUrl([file]);
         if (!result?.error) {
             setNewRoom(prev => ({ ...prev, photos: [...prev.photos, result.url] }));
         }
@@ -361,8 +368,14 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     };
 
     const handleUploadGallery = async (e) => {
-        const { files } = e.target;
-        const result = await getFileUrl(files);
+        const original = e.target.files?.[0];
+        e.target.value = '';
+        if (!original) return;
+        let file;
+        try { file = await cropImageFile(original, { width: 1200, height: 750 }); }
+        catch (error) { toast.error(error.message); return; }
+        if (!file) return;
+        const result = await getFileUrl([file]);
         if (result?.error) {
             toast.error(result.message);
         } else {
@@ -736,8 +749,14 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
     };
 
     const handleUploadLogo = async (e) => {
-        const { files } = e.target;
-        const result = await getFileUrl(files);
+        const original = e.target.files?.[0];
+        e.target.value = '';
+        if (!original) return;
+        let file;
+        try { file = await cropImageFile(original, { width: 800, height: 800 }); }
+        catch (error) { toast.error(error.message); return; }
+        if (!file) return;
+        const result = await getFileUrl([file]);
         if (result?.error) {
             toast.error(result.message);
         } else {

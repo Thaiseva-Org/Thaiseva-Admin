@@ -173,7 +173,7 @@ const ResourceFormDialog = ({ open, type, record, companies, vehicles = [], busy
             if (inputType === "url") {
               return (
                 <div key={name} className="md:col-span-1">
-                  <DragDropImageUploader
+                  <DragDropImageUploader cropEnabled={false}
                     label={label}
                     image={form[name] || ""}
                     onImageChange={(url) => setForm((current) => ({ ...current, [name]: url }))}

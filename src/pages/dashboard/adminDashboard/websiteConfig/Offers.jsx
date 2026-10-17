@@ -381,7 +381,7 @@ const Offers = () => {
                         />
 
                         <div className="mt-2">
-                            <DragDropImageUploader
+                            <DragDropImageUploader cropWidth={1200} cropHeight={750}
                                 label="Offer Cover Image"
                                 image={currentOffer.image}
                                 onImageChange={handleImageChange}

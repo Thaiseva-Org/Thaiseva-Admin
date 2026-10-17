@@ -466,7 +466,7 @@ const Blogs = () => {
 
                         <Grid item xs={12} md={4}>
                             <Box className="space-y-5 md:border-l md:border-gray-200 md:pl-6">
-                                <DragDropImageUploader
+                                <DragDropImageUploader cropWidth={1200} cropHeight={750}
                                     label="Cover Image"
                                     image={currentBlog.image}
                                     onImageChange={handleImageChange}

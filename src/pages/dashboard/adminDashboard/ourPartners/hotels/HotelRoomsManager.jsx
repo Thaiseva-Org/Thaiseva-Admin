@@ -1,3 +1,5 @@
+import { toast } from "react-toastify";
+import cropImageFile from "../../../../../components/websiteConfig/cropImageFile";
 import ListingStatus, { StatusFilters } from "../../../../../components/ListingStatus";
 import { useListingStatus } from "../../../../../hooks/useListingStatus";
 import { isListingActive, listingStatusFields } from "../../../../../utils/listing-status";
@@ -407,7 +409,13 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
     };
 
     const handleUploadCoverPhoto = async (e) => {
-        const file = e.target.files[0];
+        const original = e.target.files[0];
+        e.target.value = '';
+        if (!original) return;
+        let file;
+        try { file = await cropImageFile(original, { width: 1200, height: 750 }); }
+        catch (error) { toast.error(error.message); return; }
+        if (!file) return;
         const fileRef = ref(storage, `images/${crypto.randomUUID()}`);
         const coverPhotoTask = await uploadBytesResumable(fileRef, file);
         const photoURL = await getDownloadURL(coverPhotoTask.ref);
@@ -417,7 +425,13 @@ const HotelRoomsManager = ({ hotelUid, hotelName, hotelPhone, hotelLocation }) =
     };
 
     const handleUploadPictures = async (e) => {
-        let file = e.target.files[0];
+        const original = e.target.files[0];
+        e.target.value = '';
+        if (!original) return;
+        let file;
+        try { file = await cropImageFile(original, { width: 1200, height: 750 }); }
+        catch (error) { toast.error(error.message); return; }
+        if (!file) return;
         const imageRef = ref(storage, `images/${crypto.randomUUID()}`);
         const imageTask = await uploadBytesResumable(imageRef, file);
         const imageURL = await getDownloadURL(imageTask.ref);

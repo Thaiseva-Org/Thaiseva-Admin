@@ -1,3 +1,4 @@
+import cropImageFile, { mediaCropSize } from "../../../../components/websiteConfig/cropImageFile";
 /**
  * @file WebsiteMedia.jsx
  * @description Centralized administrative media asset management hub.
@@ -96,6 +97,7 @@ const WebsiteMedia = () => {
   const [uploadTab, setUploadTab] = useState(0); // 0: file upload, 1: direct URL
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState("");
+  useEffect(() => () => { if (filePreview) URL.revokeObjectURL(filePreview); }, [filePreview]);
   const [directUrl, setDirectUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -348,11 +350,13 @@ const WebsiteMedia = () => {
 
   const handleFileInputChange = (e) => {
     if (e.target.files && e.target.files[0]) {
-      handleFileSelected(e.target.files[0]);
+      const file = e.target.files[0];
+      e.target.value = "";
+      handleFileSelected(file);
     }
   };
 
-  const handleFileSelected = (file) => {
+  const handleFileSelected = async (file) => {
     if (!activeSlotForUpload) return;
 
     const isVideoSlot = activeSlotForUpload.mediaType === "video";
@@ -379,6 +383,15 @@ const WebsiteMedia = () => {
       return;
     }
 
+    if (!isVideoSlot && activeSlotForUpload.category !== 'qr_codes' && file.type !== 'image/svg+xml') {
+      try {
+        file = await cropImageFile(file, { ...mediaCropSize(activeSlotForUpload), title: `Crop: ${activeSlotForUpload.title}` });
+        if (!file) return;
+      } catch (error) {
+        Swal.fire('Cannot crop image', error.message, 'error');
+        return;
+      }
+    }
     setSelectedFile(file);
     const objectUrl = URL.createObjectURL(file);
     setFilePreview(objectUrl);
@@ -1034,6 +1047,9 @@ const WebsiteMedia = () => {
                   {activeSlotForUpload?.mediaType === "video"
                     ? "Supports MP4, WebM (Max 50MB)"
                     : "Supports PNG, JPG, WebP, SVG (Max 20MB)"}
+                </p>
+                <p className="text-xs text-slate-500 mt-2">
+                  {activeSlotForUpload?.mediaType === 'video' ? 'Videos upload as selected.' : activeSlotForUpload?.category === 'qr_codes' ? 'QR codes stay uncropped to preserve scan readability.' : 'JPG, PNG and WebP open in the crop editor. SVG artwork stays unchanged.'}
                 </p>
                 {activeSlotForUpload?.recommendedSize && (
                   <p className="text-[11px] text-orange-600 font-medium mt-2">

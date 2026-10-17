@@ -286,7 +286,7 @@ const Services = () => {
                         </Grid>
 
                         <Grid item xs={12}>
-                            <DragDropImageUploader
+                            <DragDropImageUploader cropWidth={1200} cropHeight={1000}
                                 label="Service Image"
                                 image={currentService.image}
                                 onImageChange={handleImageChange}
