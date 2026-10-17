@@ -63,6 +63,86 @@ const getNormalizedStatus = (statusStr) => {
   return "Pending";
 };
 
+// SVG Icon Components for reliable native rendering
+const InboxSvg = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+  </svg>
+);
+
+const ClockSvg = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const WarningSvg = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+  </svg>
+);
+
+const CheckCircleSvg = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const BanSvg = ({ className = "w-6 h-6" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+  </svg>
+);
+
+const TrashSvg = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
+
+const RotateSvg = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+
+const SearchSvg = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+  </svg>
+);
+
+const XMarkSvg = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+  </svg>
+);
+
+const EyeSvg = ({ className = "w-4 h-4" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+  </svg>
+);
+
+const UserXMarkSvg = ({ className = "w-3.5 h-3.5" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7a4 4 0 11-8 0 4 4 0 018 0zM9 14a6 6 0 00-6 6v1h12v-1a6 6 0 00-6-6zM21 12h-6" />
+  </svg>
+);
+
+const FolderSvg = ({ className = "w-10 h-10" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+  </svg>
+);
+
+const UserGearSvg = ({ className = "w-5 h-5" }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
+
 /**
  * DeletionRequests Administrative Dashboard Component
  * 
@@ -394,7 +474,7 @@ const DeletionRequests = () => {
               disabled={loading}
               className="inline-flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer"
             >
-              <i className="fa-solid fa-trash-can"></i>
+              <TrashSvg className="w-4 h-4" />
               Clear Cancelled ({stats.cancelled})
             </button>
           )}
@@ -403,7 +483,7 @@ const DeletionRequests = () => {
             disabled={loading}
             className="inline-flex items-center justify-center gap-2 bg-white hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-lg border border-gray-300 shadow-sm text-sm font-medium transition-colors cursor-pointer"
           >
-            <i className={`fa-solid fa-rotate-right ${loading ? "animate-spin" : ""}`}></i>
+            <RotateSvg className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             Refresh Data
           </button>
         </div>
@@ -422,8 +502,8 @@ const DeletionRequests = () => {
               <p className="text-primary-100 text-xs font-semibold uppercase tracking-wider mb-1">Total Requests</p>
               <p className="text-2xl font-bold">{stats.total}</p>
             </div>
-            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
-              <i className="fa-solid fa-inbox"></i>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white">
+              <InboxSvg className="w-6 h-6" />
             </div>
           </div>
         </div>
@@ -439,8 +519,8 @@ const DeletionRequests = () => {
               <p className="text-warning-100 text-xs font-semibold uppercase tracking-wider mb-1">Pending</p>
               <p className="text-2xl font-bold">{stats.pending}</p>
             </div>
-            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
-              <i className="fa-solid fa-clock"></i>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white">
+              <ClockSvg className="w-6 h-6" />
             </div>
           </div>
         </div>
@@ -456,8 +536,8 @@ const DeletionRequests = () => {
               <p className="text-danger-100 text-xs font-semibold uppercase tracking-wider mb-1">Due Now (30d+)</p>
               <p className="text-2xl font-bold">{stats.dueForDeletion}</p>
             </div>
-            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
-              <i className="fa-solid fa-triangle-exclamation"></i>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white">
+              <WarningSvg className="w-6 h-6" />
             </div>
           </div>
         </div>
@@ -473,8 +553,8 @@ const DeletionRequests = () => {
               <p className="text-success-100 text-xs font-semibold uppercase tracking-wider mb-1">Completed</p>
               <p className="text-2xl font-bold">{stats.completed}</p>
             </div>
-            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
-              <i className="fa-solid fa-circle-check"></i>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white">
+              <CheckCircleSvg className="w-6 h-6" />
             </div>
           </div>
         </div>
@@ -490,8 +570,8 @@ const DeletionRequests = () => {
               <p className="text-secondary-100 text-xs font-semibold uppercase tracking-wider mb-1">Cancelled</p>
               <p className="text-2xl font-bold">{stats.cancelled}</p>
             </div>
-            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white text-xl">
-              <i className="fa-solid fa-ban"></i>
+            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white">
+              <BanSvg className="w-6 h-6" />
             </div>
           </div>
         </div>
@@ -502,7 +582,7 @@ const DeletionRequests = () => {
         <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
           {/* Search Box */}
           <div className="relative w-full md:w-80">
-            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+            <SearchSvg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search email, UID, or reason..."
@@ -515,7 +595,7 @@ const DeletionRequests = () => {
                 onClick={() => setSearchQuery("")}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
               >
-                <i className="fa-solid fa-xmark"></i>
+                <XMarkSvg className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -649,19 +729,19 @@ const DeletionRequests = () => {
                           daysRemaining !== null ? (
                             daysRemaining <= 0 ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 animate-pulse">
-                                <i className="fa-solid fa-triangle-exclamation"></i> Due Now ({Math.abs(daysRemaining)}d overdue)
+                                <WarningSvg className="w-3.5 h-3.5" /> Due Now ({Math.abs(daysRemaining)}d overdue)
                               </span>
                             ) : daysRemaining <= 7 ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
-                                <i className="fa-solid fa-clock"></i> {daysRemaining} Days Left
+                                <ClockSvg className="w-3.5 h-3.5" /> {daysRemaining} Days Left
                               </span>
                             ) : daysRemaining <= 15 ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-200">
-                                <i className="fa-solid fa-clock"></i> {daysRemaining} Days Left
+                                <ClockSvg className="w-3.5 h-3.5" /> {daysRemaining} Days Left
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                <i className="fa-solid fa-clock"></i> {daysRemaining} Days Left
+                                <ClockSvg className="w-3.5 h-3.5" /> {daysRemaining} Days Left
                               </span>
                             )
                           ) : (
@@ -700,7 +780,7 @@ const DeletionRequests = () => {
                             title="View Full Details"
                             className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
                           >
-                            <i className="fa-solid fa-eye text-base"></i>
+                            <EyeSvg className="w-4 h-4" />
                           </button>
 
                           {isPending && (
@@ -709,13 +789,13 @@ const DeletionRequests = () => {
                                 onClick={() => handleAcceptDeletion(req)}
                                 className="inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer"
                               >
-                                <i className="fa-solid fa-user-xmark"></i> Accept
+                                <UserXMarkSvg className="w-3.5 h-3.5" /> Accept
                               </button>
                               <button
                                 onClick={() => handleCancelAutoDeletion(req.id)}
                                 className="inline-flex items-center gap-1 bg-gray-600 hover:bg-gray-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer"
                               >
-                                <i className="fa-solid fa-ban"></i> Cancel
+                                <BanSvg className="w-3.5 h-3.5" /> Cancel
                               </button>
                             </>
                           )}
@@ -725,7 +805,7 @@ const DeletionRequests = () => {
                             title="Delete Record"
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                           >
-                            <i className="fa-solid fa-trash-can text-sm"></i>
+                            <TrashSvg className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -736,7 +816,7 @@ const DeletionRequests = () => {
                 <tr>
                   <td colSpan="6" className="py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center space-y-2">
-                      <i className="fa-solid fa-folder-open text-3xl text-gray-300"></i>
+                      <FolderSvg className="w-12 h-12 text-gray-300 mx-auto" />
                       <p className="font-medium text-gray-600">No account deletion requests found.</p>
                       {searchQuery && (
                         <p className="text-xs text-gray-400">
@@ -760,7 +840,7 @@ const DeletionRequests = () => {
             <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                  <i className="fa-solid fa-user-gear"></i>
+                  <UserGearSvg className="w-5 h-5 text-indigo-600" />
                 </div>
                 <div>
                   <h3 className="font-bold text-gray-900">Deletion Request Details</h3>
@@ -771,7 +851,7 @@ const DeletionRequests = () => {
                 onClick={() => setSelectedRequest(null)}
                 className="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
               >
-                <i className="fa-solid fa-xmark text-lg"></i>
+                <XMarkSvg className="w-5 h-5" />
               </button>
             </div>
 
@@ -823,7 +903,7 @@ const DeletionRequests = () => {
                 onClick={() => handleDeleteRecord(selectedRequest)}
                 className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
               >
-                <i className="fa-solid fa-trash-can"></i>
+                <TrashSvg className="w-3.5 h-3.5" />
                 Delete Record
               </button>
 
