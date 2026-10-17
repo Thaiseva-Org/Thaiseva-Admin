@@ -3,6 +3,10 @@ import { initializeApp } from "firebase-admin/app";
 export {getFoodOrderPhoto} from "./orderMedia";
 export {getIdentityDocument} from "./identityMedia";
 export { createVerifiedAccount } from "./verifiedSignup";
+export {
+  registerCustomerDevice, unregisterCustomerDevice,
+  pushCustomerNotification, pushBroadcastNotification,
+} from "./customerPush";
 export {createSubAdmin, exportCustomerData} from "./privilegedAccounts";
 export {
   sendEmailOtp, resendEmailOtp, verifyEmailOtp,

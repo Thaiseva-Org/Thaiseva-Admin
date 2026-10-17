@@ -714,8 +714,11 @@ service cloud.firestore {
       );
     }
 
+    // Top-level docs are admin broadcasts (Admin portal > New Notification),
+    // shown to every signed-in user; the inboxes above keep their own rules.
     match /notifications/{docId} {
-      allow read, write, delete: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write, delete: if isAdmin();
 
       match /messages/{messageId} {
         allow read: if isAdmin();
