@@ -57,11 +57,6 @@ export const primaryLinks = [
     link: "/dashboard/local-requirements",
     label: "Local Requirements",
   },
-  {
-    icon: <Shop />,
-    link: "/dashboard/shopping-malls",
-    label: "Shops",
-  },
 ];
 
 export const clientOrderLinks = [
@@ -278,14 +273,9 @@ export const localAssislinks = [
 
 export const primelocationslinks = [
   {
-    icon: <Shop />,
-    link: "/dashboard/shopping-malls",
-    label: "Shops",
-  },
-  {
-    icon: <NightlifeIcon />,
-    link: "/dashboard/clubs",
-    label: "Clubs",
+    icon: <TravelExploreIcon />,
+    link: "/dashboard/attractions",
+    label: "Attractions & Places",
   },
 ];
 

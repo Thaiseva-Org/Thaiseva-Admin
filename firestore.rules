@@ -882,6 +882,26 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    match /shops/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /clubs/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /attraction_categories/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /attractions/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ============================================================
     // DEFAULT DENY
     // ============================================================

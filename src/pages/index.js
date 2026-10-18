@@ -168,6 +168,7 @@ const TodayArriving = lazy(() =>
 // ========== Clubs and Shops Pages ==========
 const ShoppingMalls = lazy(() => import("./ShoppingMalls"));
 const Clubs = lazy(() => import("./Clubs"));
+const Attractions = lazy(() => import("./Attractions"));
 // ========== Clubs and Shops Pages End ==========
 
 // ========== Partner Dashboard Pages ==========
@@ -288,6 +289,7 @@ export {
   // Clubs and Shops export
   ShoppingMalls,
   Clubs,
+  Attractions,
 
   // Partner Dashboard exports
   PendingPartnership,

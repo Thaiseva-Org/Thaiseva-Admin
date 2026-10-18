@@ -26,6 +26,8 @@ const usersCollection = collection(db, "users");
 const driversCollection = collection(db, "drivers");
 const shopCollection = collection(db, "shops");
 const clubCollection = collection(db, "clubs");
+const attractionCollection = collection(db, "attractions");
+const attractionCategoryCollection = collection(db, "attraction_categories");
 const requirementsCollection = collection(db, "allRequirements");
 const serviceCategoriesDoc = doc(db, "settings/Service_Categories");
 const localServicesCollection = collection(db, "localServices");
@@ -98,6 +100,8 @@ export {
   deleteUserFromAuth,
   shopCollection,
   clubCollection,
+  attractionCollection,
+  attractionCategoryCollection,
   driversCollection,
   requirementsCollection,
   serviceCategoriesDoc,

@@ -46,6 +46,7 @@ import {
   TodayArriving,
   ShoppingMalls,
   Clubs,
+  Attractions,
   NotFound,
   HotelRoomsPage,
   HotelRoomAvailabilityPage,
@@ -138,19 +139,23 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "/dashboard/shopping-malls",
+        path: "/dashboard/attractions",
         element: (
           <AdminRoute>
-            <ShoppingMalls />
+            <Attractions />
           </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/shopping-malls",
+        element: (
+          <Navigate to="/dashboard/attractions?category=shopping-malls" replace />
         ),
       },
       {
         path: "/dashboard/clubs",
         element: (
-          <AdminRoute>
-            <Clubs />
-          </AdminRoute>
+          <Navigate to="/dashboard/attractions?category=clubs-nightlife" replace />
         ),
       },
       // {
