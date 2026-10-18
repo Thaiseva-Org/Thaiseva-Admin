@@ -291,6 +291,11 @@ export const primelocationslinks = [
 
 export const websiteConfigLinks = [
   {
+    icon: <TaskIcon />,
+    link: "/dashboard/website-config/offers",
+    label: "Offers",
+  },
+  {
     icon: <SignalCellularAltIcon />,
     link: "/dashboard/website-config/site-statistics",
     label: "Site Statistics",

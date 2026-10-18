@@ -60,6 +60,7 @@ import {
   Services,
   FAQs,
   Testimonials,
+  Offers,
   ContactUs
 } from "../pages";
 import StatisticsProvider from "../contextAPIs/StatisticsProvider";
@@ -367,6 +368,14 @@ export const router = createBrowserRouter([
         element: (
           <AdminRoute>
             <FAQs />
+          </AdminRoute>
+        ),
+      },
+      {
+        path: "/dashboard/website-config/offers",
+        element: (
+          <AdminRoute>
+            <Offers />
           </AdminRoute>
         ),
       },

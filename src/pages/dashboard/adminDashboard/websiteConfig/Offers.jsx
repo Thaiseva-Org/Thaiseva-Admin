@@ -5,7 +5,6 @@ import {
     CardActions,
     CardContent,
     CardMedia,
-    Chip,
     Grid,
     IconButton,
     Switch,
@@ -13,11 +12,12 @@ import {
     TextField,
     InputAdornment,
     Skeleton,
-    Fade
+    Fade,
+    FormControlLabel
 } from "@mui/material";
 import {
     collection,
-    getDocs,
+    onSnapshot,
     addDoc,
     updateDoc,
     deleteDoc,
@@ -25,16 +25,12 @@ import {
     serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../../../../firebase/firebase.config";
-import AddBannerForm from "../../../../components/AddBannerForm"; // We'll keep using this for now or refactor it later, but let's use the new Uploader inside the form if specific page needed, or just keep standard form for now to save time on refactoring the modal heavily.
-// Actually, let's stick to valid logic: Replacing generic AddBannerForm with a custom simple Dialog here might be better to use the new Uploader.
-// For now, to be fast and premium, I will use standard Dialog with new Uploader for THIS page to show the difference.
 import DragDropImageUploader from "../../../../components/websiteConfig/DragDropImageUploader";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
 import Swal from "sweetalert2";
 import { DeleteIcon } from "@icons";
 import { EditIcon } from "@icons";
 import { SearchIcon } from "@icons";
-import { FilterListIcon } from "@icons";
 
 // Custom Modal Components
 import Dialog from "@mui/material/Dialog";
@@ -43,11 +39,15 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogActions from "@mui/material/DialogActions";
 import MenuItem from "@mui/material/MenuItem";
 
+const emptyOffer = { title: "", description: "", image: "", type: "bundle", active: true,
+    subtitle: "", order: 99, isAppOnly: false, actionUrl: "" };
+
 const Offers = () => {
     const [offers, setOffers] = useState([]);
     const [filteredOffers, setFilteredOffers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [saving, setSaving] = useState(false);
 
     // Modal State
     const [openModal, setOpenModal] = useState(false);
@@ -55,53 +55,28 @@ const Offers = () => {
     const [selectedId, setSelectedId] = useState(null);
 
     // Form State
-    const [currentOffer, setCurrentOffer] = useState({
-        title: "",
-        description: "",
-        image: "",
-        type: "bundle",
-        active: true,
-    });
+    const [currentOffer, setCurrentOffer] = useState({ ...emptyOffer });
 
-    const fetchOffers = async () => {
-        setLoading(true);
-        try {
-            const querySnapshot = await getDocs(collection(db, "OfferDB"));
-            const offersData = querySnapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data(),
-            }));
-            setOffers(offersData);
-            setFilteredOffers(offersData);
-        } catch (error) {
-            console.error("Error fetching offers:", error);
-            Swal.fire("Error", "Failed to fetch offers.", "error");
-        } finally {
-            // Add a small delay to prevent flickering if fast
-            setTimeout(() => setLoading(false), 500);
-        }
-    };
-
-    useEffect(() => {
-        fetchOffers();
-    }, []);
+    useEffect(() => onSnapshot(collection(db, "OfferDB"), (snapshot) => {
+        setOffers(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+            .sort((a, b) => (Number(a.order ?? 99) - Number(b.order ?? 99)) || a.id.localeCompare(b.id)));
+        setLoading(false);
+    }, (error) => {
+        console.error("Error fetching offers:", error);
+        setLoading(false);
+        Swal.fire("Error", "Failed to load offers. Please reload to try again.", "error");
+    }), []);
 
     useEffect(() => {
         const results = offers.filter(offer =>
-            offer.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            offer.description.toLowerCase().includes(searchTerm.toLowerCase())
+            (offer.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (offer.description || "").toLowerCase().includes(searchTerm.toLowerCase())
         );
         setFilteredOffers(results);
     }, [searchTerm, offers]);
 
     const handleOpenAdd = () => {
-        setCurrentOffer({
-            title: "",
-            description: "",
-            image: "",
-            type: "bundle",
-            active: true,
-        });
+        setCurrentOffer({ ...emptyOffer });
         setIsUpdate(false);
         setSelectedId(null);
         setOpenModal(true);
@@ -109,9 +84,11 @@ const Offers = () => {
 
     const handleOpenEdit = (offer) => {
         setCurrentOffer({
-            title: offer.title,
-            description: offer.description,
-            image: offer.image,
+            ...emptyOffer,
+            ...offer,
+            title: offer.title || "",
+            description: offer.description || "",
+            image: offer.image || "",
             type: offer.type || "bundle",
             active: offer.active !== undefined ? offer.active : true,
         });
@@ -121,7 +98,7 @@ const Offers = () => {
     };
 
     const handleCloseModal = () => {
-        setOpenModal(false);
+        if (!saving) setOpenModal(false);
     };
 
     const handleChange = (e) => {
@@ -133,31 +110,47 @@ const Offers = () => {
     }
 
     const handleSave = async () => {
-        if (!currentOffer.title || !currentOffer.image) {
+        if (saving) return;
+        if (!currentOffer.title.trim() || !currentOffer.image) {
             Swal.fire("Error", "Title and Image are required", "warning");
             return;
         }
 
+        const actionUrl = (currentOffer.actionUrl || "").trim();
+        if (actionUrl && !/^\/(?![\/])[^\\]*$/.test(actionUrl) && !/^https:\/\//i.test(actionUrl)) {
+            Swal.fire("Invalid destination", "Use a website path such as /tours or a full HTTPS URL.", "warning");
+            return;
+        }
+        const order = Number(currentOffer.order);
+        if (!Number.isInteger(order) || order < 0) {
+            Swal.fire("Invalid order", "Display order must be a whole number of zero or higher.", "warning");
+            return;
+        }
+        const { id: _id, ...fields } = currentOffer;
+        const payload = { ...fields, title: currentOffer.title.trim(), actionUrl, order };
+        setSaving(true);
         try {
             if (isUpdate && selectedId) {
                 const offerRef = doc(db, "OfferDB", selectedId);
                 await updateDoc(offerRef, {
-                    ...currentOffer,
+                    ...payload,
                     updatedAt: serverTimestamp(),
                 });
                 Swal.fire({ icon: 'success', title: 'Updated!', timer: 1500, showConfirmButton: false });
             } else {
                 await addDoc(collection(db, "OfferDB"), {
-                    ...currentOffer,
+                    ...payload,
                     createdAt: serverTimestamp(),
                 });
                 Swal.fire({ icon: 'success', title: 'Added!', timer: 1500, showConfirmButton: false });
             }
             setOpenModal(false);
-            fetchOffers();
+
         } catch (error) {
             console.error("Error saving offer:", error);
             Swal.fire("Error", "Failed to save offer.", "error");
+        } finally {
+            setSaving(false);
         }
     };
 
@@ -175,7 +168,7 @@ const Offers = () => {
                 try {
                     await deleteDoc(doc(db, "OfferDB", id));
                     Swal.fire("Deleted!", "Offer removed.", "success");
-                    fetchOffers();
+
                 } catch (error) {
                     Swal.fire("Error", "Failed to delete.", "error");
                 }
@@ -185,15 +178,17 @@ const Offers = () => {
 
     const toggleActive = async (offer) => {
         try {
-            const newStatus = !offer.active;
+            const newStatus = offer.active === false;
             // Optimistic UI Update
             setOffers(prev => prev.map(o => o.id === offer.id ? { ...o, active: newStatus } : o));
 
             const offerRef = doc(db, "OfferDB", offer.id);
-            await updateDoc(offerRef, { active: newStatus });
+            await updateDoc(offerRef, { active: newStatus, updatedAt: serverTimestamp() });
         } catch (error) {
             console.error("Error toggling status", error);
-            fetchOffers(); // Revert on error
+
+            setOffers(prev => prev.map(o => o.id === offer.id ? offer : o));
+            Swal.fire("Error", "Failed to change visibility.", "error");
         }
     }
 
@@ -201,7 +196,7 @@ const Offers = () => {
         <div className="p-6 max-w-7xl mx-auto">
             <ConfigHeader
                 title="Special Offers"
-                subtitle="Manage seasonal promotions, bundles, and discounts."
+                subtitle="Manage website offers. Saved changes appear live on the Offers page."
                 onAdd={handleOpenAdd}
                 addLabel="Add Offer"
             />
@@ -224,10 +219,6 @@ const Offers = () => {
                         sx: { borderRadius: '10px', backgroundColor: '#f8fafc', '& fieldset': { border: 'none' } }
                     }}
                 />
-                {/* Future: Add Filter logic here */}
-                <Button startIcon={<FilterListIcon />} sx={{ color: 'gray', textTransform: 'none' }}>
-                    Filters
-                </Button>
             </div>
 
             {loading ? (
@@ -366,6 +357,9 @@ const Offers = () => {
                             <MenuItem value="food">Food</MenuItem>
                             <MenuItem value="transport">Transport</MenuItem>
                             <MenuItem value="activity">Activity</MenuItem>
+                            <MenuItem value="hotel">Hotel / Stay</MenuItem>
+                            <MenuItem value="tour">Tour</MenuItem>
+                            <MenuItem value="stay">Stay</MenuItem>
                         </TextField>
 
                         <TextField
@@ -380,6 +374,11 @@ const Offers = () => {
                             InputProps={{ sx: { borderRadius: '12px' } }}
                         />
 
+                        <TextField label="Offer badge" name="subtitle" value={currentOffer.subtitle || ""} onChange={handleChange} fullWidth />
+                        <TextField label="Display order" name="order" type="number" value={currentOffer.order ?? 99} onChange={handleChange} inputProps={{ min: 0, step: 1 }} helperText="Lower numbers appear first." fullWidth />
+                        <TextField label="Promotion destination" name="actionUrl" value={currentOffer.actionUrl || ""} onChange={handleChange} helperText="Optional: /tours, /stays, or an HTTPS URL. Otherwise uses the offer type." fullWidth />
+                        <FormControlLabel control={<Switch checked={currentOffer.active !== false} onChange={e => setCurrentOffer(prev => ({ ...prev, active: e.target.checked }))} />} label="Visible on website" />
+                        <FormControlLabel control={<Switch checked={Boolean(currentOffer.isAppOnly)} onChange={e => setCurrentOffer(prev => ({ ...prev, isAppOnly: e.target.checked }))} />} label="App only (opens app download)" />
                         <div className="mt-2">
                             <DragDropImageUploader cropWidth={1200} cropHeight={750}
                                 label="Offer Cover Image"
@@ -405,6 +404,7 @@ const Offers = () => {
                     </Button>
                     <Button
                         onClick={handleSave}
+                        disabled={saving}
                         variant="contained"
                         disableElevation
                         sx={{
@@ -418,7 +418,7 @@ const Offers = () => {
                             "&:hover": { bgcolor: "var(--primary-600)" }
                         }}
                     >
-                        {isUpdate ? "Update Offer" : "Create Offer"}
+                        {saving ? "Saving..." : isUpdate ? "Update Offer" : "Create Offer"}
                     </Button>
                 </DialogActions>
             </Dialog>
