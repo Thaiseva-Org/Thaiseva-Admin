@@ -1,10 +1,4 @@
 {
-  "firestore": {
-    "rules": "firestore.rules"
-  },
-  "storage": {
-    "rules": "storage.rules"
-  },
   "hosting": {
     "site": "gothai-admin",
     "public": "dist",

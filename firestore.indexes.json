@@ -1,20 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "orders",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "Restaurant.ownerId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "timestamp",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "dineInBookings",
       "queryScope": "COLLECTION",
       "fields": [
@@ -29,6 +15,80 @@
       ]
     },
     {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "currentStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "currentStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "car_bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "driverId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "bookingStatus",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "car_bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "vehicleId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "bookingStatus",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "car_bookings",
       "queryScope": "COLLECTION",
       "fields": [
@@ -38,77 +98,7 @@
         },
         {
           "fieldPath": "timestamp",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "car_bookings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "driverId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "bookingStatus",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "car_bookings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "vehicleId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "bookingStatus",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "vanBookings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "driverId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "bookingStatus",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "vanBookings",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "vehicleId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "bookingStatus",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "transportVehicles",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "registrationNumberNormalized",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "active",
-          "order": "ASCENDING"
+          "order": "DESCENDING"
         }
       ]
     },
@@ -117,11 +107,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "hotelUid",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
+          "fieldPath": "authUid",
           "order": "ASCENDING"
         },
         {
@@ -144,7 +130,25 @@
         },
         {
           "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "hotelBookingData",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "hotelUid",
           "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
         }
       ]
     },
@@ -171,7 +175,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "holdUntil",
+          "fieldPath": "inventoryReserved",
           "order": "ASCENDING"
         }
       ]
@@ -199,7 +203,7 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "inventoryReserved",
+          "fieldPath": "holdUntil",
           "order": "ASCENDING"
         }
       ]
@@ -237,6 +241,200 @@
       ]
     },
     {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "currentStatus",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "currentStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "currentStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "partners",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "restaurants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "transportVehicles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "registrationNumberNormalized",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "active",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "travelBookingDetails",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isAppUser",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "vanBookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "vehicleId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "bookingStatus",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "vanBookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "driverId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "bookingStatus",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "partnerOrderViews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "partnerOrderViews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "currentStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "partnerOrderViews",
       "queryScope": "COLLECTION",
       "fields": [
@@ -247,6 +445,266 @@
         {
           "fieldPath": "timestamp",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "partnerOrderViews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "currentStatus",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "partnerOrderViews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "currentStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "partnerOrderViews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "currentStatus",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "car_bookings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "hotelBookingData",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "packageId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customerSupportMessagesV2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "customerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customerSupportMessagesV2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "searchTerms",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customerSupportMessagesV2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "customerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "searchTerms",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customerSupportMessagesV2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "customerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "deleted",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "categories",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customerSupportMessagesV2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "customerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customerSupportMessagesV2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "customerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "legalHold",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customerSupportMessagesV2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "customerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "retentionHold",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customerSupportMessagesV2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "customerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "disputeOpen",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "customerSupportMessagesV2",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "customerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "chargebackOpen",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "Restaurant.ownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "restaurants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "timestamp",
+          "order": "ASCENDING"
         }
       ]
     }

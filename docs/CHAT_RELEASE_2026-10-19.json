@@ -1,0 +1,105 @@
+{
+  "verifiedAt": "2026-10-18T19:31:47.299Z",
+  "project": "gothai-ffea1",
+  "indexes": {
+    "total": 46,
+    "customerChat": [
+      {
+        "id": "CICAgJjm4YQJ",
+        "state": "READY"
+      },
+      {
+        "id": "CICAgNj4yIcJ",
+        "state": "READY"
+      },
+      {
+        "id": "CICAgOi3pZQJ",
+        "state": "READY"
+      },
+      {
+        "id": "CICAgJjm4YQK",
+        "state": "READY"
+      },
+      {
+        "id": "CICAgJil0IYK",
+        "state": "READY"
+      },
+      {
+        "id": "CICAgNj4yIcK",
+        "state": "READY"
+      },
+      {
+        "id": "CICAgLjRnZMK",
+        "state": "READY"
+      },
+      {
+        "id": "CICAgOi3pZQK",
+        "state": "READY"
+      },
+      {
+        "id": "CICAgJjm4YQL",
+        "state": "READY"
+      }
+    ]
+  },
+  "functions": [
+    {
+      "name": "customerChat",
+      "region": "asia-east2",
+      "state": "ACTIVE",
+      "updateTime": "2026-10-18T19:27:44.131255037Z"
+    },
+    {
+      "name": "cleanupCustomerChatAttachments",
+      "region": "asia-east2",
+      "state": "ACTIVE",
+      "updateTime": "2026-10-18T19:27:08.390748086Z"
+    },
+    {
+      "name": "deleteUserFunction",
+      "region": "asia-east2",
+      "state": "ACTIVE",
+      "updateTime": "2026-10-18T19:27:16.847345629Z"
+    },
+    {
+      "name": "foodPartnerChat",
+      "region": "asia-southeast1",
+      "state": "ACTIVE",
+      "updateTime": "2026-10-18T19:28:30.645014304Z"
+    }
+  ],
+  "hosting": [
+    {
+      "url": "https://gothai-admin.web.app",
+      "httpStatus": 200,
+      "matchesLocalBuild": true
+    },
+    {
+      "url": "https://gothai-food.web.app",
+      "httpStatus": 200,
+      "matchesLocalBuild": true
+    }
+  ],
+  "unauthenticatedChecks": [
+    {
+      "url": "https://asia-east2-gothai-ffea1.cloudfunctions.net/customerChat",
+      "httpStatus": 401,
+      "error": "UNAUTHENTICATED"
+    },
+    {
+      "url": "https://asia-southeast1-gothai-ffea1.cloudfunctions.net/foodPartnerChat",
+      "httpStatus": 401,
+      "error": "UNAUTHENTICATED"
+    }
+  ],
+  "firestoreRules": {
+    "ruleset": "projects/gothai-ffea1/rulesets/93ea7607-03d3-4a53-8c18-ef298a33166a",
+    "matchesCanonical": true
+  },
+  "tests": {
+    "customer": 52,
+    "foodUnit": 148,
+    "foodPartnerIntegration": 6,
+    "sharedSecurity": 21
+  }
+}

@@ -1,6 +1,8 @@
 {
   "name": "functions",
   "scripts": {
+    "test:customer-chat": "npm run build && node --test test/customerChat.test.cjs",
+    "test:customer-chat:integration": "npm run build && firebase emulators:exec --config ../firebase.customer-chat-test.json --project demo-thaiseva-chat --only firestore,auth,storage \"node --test test/customerChat.integration.cjs\"",
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
     "test": "npm run build && node --test test/otp.test.cjs test/verifiedSignup.test.cjs test/retention.test.cjs test/privacy.test.cjs test/orderMedia.test.cjs test/identityMedia.test.cjs",

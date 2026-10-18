@@ -69,13 +69,17 @@ export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"
       bookingAttachmentReview = true;
     }
   }
-  const supportPaths = [`foodCustomerSupportChats/${uid}`, `chats/${uid}_CustomerSupport`];
+  const supportPaths = [`foodCustomerSupportChats/${uid}`, `chats/${uid}_CustomerSupport`, `customerSupportV2/${uid}`];
   for (const path of supportPaths) {
     const support = (await db().doc(path).get()).data() || {};
     if (held(support) || (Array.isArray(support.messages) && support.messages.some(message => message && held(message)))) attachmentHold = true;
     for (const holdField of ["legalHold", "retentionHold", "disputeOpen", "chargebackOpen"]) {
       if (!(await db().doc(path).collection("messages").where(holdField, "==", true).limit(1).get()).empty) attachmentHold = true;
     }
+  }
+
+  for (const holdField of ["legalHold", "retentionHold", "disputeOpen", "chargebackOpen"]) {
+    if (!(await db().collection("customerSupportMessagesV2").where("customerId", "==", uid).where(holdField, "==", true).limit(1).get()).empty) attachmentHold = true;
   }
 
   const job = db().collection("privacyErasureJobs").doc(uid);
@@ -98,7 +102,7 @@ export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"
   // These are user-scoped operational records, not booking/payment ledgers.
   const preservedOperationalPaths: string[] = [];
   for (const record of [`users/${uid}`, `Users/${uid}`, `cart/${uid}`,
-    `foodCustomerSupportChats/${uid}`, `chats/${uid}_CustomerSupport`, `userDevices/${uid}`,
+    `foodCustomerSupportChats/${uid}`, `chats/${uid}_CustomerSupport`, `customerSupportV2/${uid}`, `userDevices/${uid}`,
     `notifications/users/${uid}`]) {
     // notifications/users/{uid} is a collection, not a document.
     if (record.startsWith("notifications/")) {
@@ -123,7 +127,19 @@ export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"
       }
     }
   });
-  const erasedStoragePrefixes = (attachmentHold ? [] : ["users", "chat", "chats", "chatMedia", "uploads", "food_orders"]).map(folder => `${folder}/${uid}/`);
+  if (!attachmentHold) {
+    for (const name of ["customerSupportMessagesV2", "customerSupportAttachmentsV2"]) {
+      let page = await db().collection(name).where("customerId", "==", uid).limit(200).get();
+      while (!page.empty) {
+        const batch = db().batch();
+        page.docs.forEach(record => batch.delete(record.ref));
+        await batch.commit();
+        page = await db().collection(name).where("customerId", "==", uid).limit(200).get();
+      }
+    }
+  }
+  await Promise.all(["upload", "request"].map(kind => db().doc(`customerSupportRateLimits/${uid}_${kind}`).delete()));
+  const erasedStoragePrefixes = (attachmentHold ? [] : ["users", "chat", "chats", "chatMedia", "uploads", "food_orders", "customer-support-v2"]).map(folder => `${folder}/${uid}/`);
   for (const prefix of erasedStoragePrefixes) {
     await getStorage().bucket().deleteFiles({prefix});
   }

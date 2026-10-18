@@ -3,6 +3,7 @@ import { initializeApp } from "firebase-admin/app";
 export {getFoodOrderPhoto} from "./orderMedia";
 export {getIdentityDocument} from "./identityMedia";
 export {uploadPrivateChatAttachment, getPrivateChatAttachment} from "./chatMedia";
+export {customerChat, cleanupCustomerChatAttachments} from "./customerChat";
 export { createVerifiedAccount } from "./verifiedSignup";
 export {createSubAdmin, exportCustomerData} from "./privilegedAccounts";
 export {
