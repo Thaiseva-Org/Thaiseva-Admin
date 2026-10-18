@@ -78,6 +78,30 @@ test("booking picker and send enforce authoritative customer ownership", async (
     (e) => e.code === "permission-denied",
   );
 });
+
+test("booking popup returns allowlisted admin details without expanding customer cards", async () => {
+  await db.doc("hotelBookingData/alice-hotel").update({
+    roomName: "Deluxe",
+    name: "Guest",
+    amountTHB: 2400,
+    internalSecret: "private",
+  });
+  const reference = {service: "hotel", id: "alice-hotel"};
+  const result = await call("admin", "booking", {customerId: "alice", booking: reference});
+  assert.equal(result.booking.details.roomName, "Deluxe");
+  assert.equal(result.booking.details.amountTHB, 2400);
+  assert.equal(result.booking.details.internalSecret, undefined);
+  assert.equal((await call("alice", "booking", {booking: reference})).booking.details, undefined);
+  assert.equal((await call("alice", "bookings", {service: "hotel"})).items[0].details, undefined);
+  await assert.rejects(
+    call("admin", "booking", {customerId: "bob", booking: reference}),
+    (e) => e.code === "permission-denied",
+  );
+  await assert.rejects(
+    call("bob", "booking", {customerId: "alice", booking: reference}),
+    (e) => e.code === "permission-denied",
+  );
+});
 test("concurrent retries create one message and one unread increment; reused key rejects changed content", async () => {
   const payload = {
     requestId: "same-request",
@@ -446,20 +470,18 @@ test("reviewed legacy migration copies large archives and strips permanent downl
     metadata: {metadata: {firebaseStorageDownloadTokens: "old-fixture-token"}},
   });
   const [before] = await file.getMetadata();
-  await db
-    .doc(`chats/${uid}_CustomerSupport`)
-    .set({
-      messages: [
-        {
-          messageId: "archive",
-          senderId: uid,
-          text: "Historical archive",
-          date: admin.firestore.Timestamp.now(),
-          fileUrl: `https://firebasestorage.googleapis.com/v0/b/old-chat-fixture.appspot.com/o/${encodeURIComponent(sourcePath)}?alt=media&token=old-fixture-token`,
-          fileName: "historical.zip",
-        },
-      ],
-    });
+  await db.doc(`chats/${uid}_CustomerSupport`).set({
+    messages: [
+      {
+        messageId: "archive",
+        senderId: uid,
+        text: "Historical archive",
+        date: admin.firestore.Timestamp.now(),
+        fileUrl: `https://firebasestorage.googleapis.com/v0/b/old-chat-fixture.appspot.com/o/${encodeURIComponent(sourcePath)}?alt=media&token=old-fixture-token`,
+        fileName: "historical.zip",
+      },
+    ],
+  });
   const backup = fs.mkdtempSync(path.join(os.tmpdir(), "thaiseva-reviewed-migration-"));
   const command = [
     "scripts/migrate-customer-chat.cjs",

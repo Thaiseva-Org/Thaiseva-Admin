@@ -67,7 +67,7 @@ All timestamps in responses are Unix milliseconds. `items` are newest first for 
 | `delete` | `messageId` | `{success:true}`; customer may delete own messages, admin may delete either side; held records preserved |
 | `read` | `through` = timestamp of newest displayed message | `{success:true}`; advances the current user's read receipt; preserves unread arrivals newer than `through` |
 | `bookings` | `service`, optional `cursor` | `{items,nextCursor}`; 30 candidates/page, own bookings only |
-| `booking` | `booking:{service,id}` | `{booking}`; fresh, minimal verified reference details |
+| `booking` | `booking:{service,id}` | `{booking}`; fresh, verified reference details. General admins also receive an allowlisted `booking.details` object for the order-view popup; customer responses stay minimal. |
 | `upload` | `name`, `contentType`, `contentBase64` | `{attachment:{id,name,contentType,size,category}}` |
 | `download` | `attachmentId` | `{contentBase64,contentType,name}` normally; large imported files return an authenticated Storage descriptor (below); only linked active attachments are available |
 | `shared` | `category`: `media`, `documents` or `links`; optional `limit`, `cursor`, `from`, `to` | `{items,nextCursor}`; each item is its original message |

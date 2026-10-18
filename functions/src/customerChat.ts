@@ -89,7 +89,7 @@ function serialize(snap: admin.firestore.DocumentSnapshot): Data {
   };
   return {id: snap.id, ...convert(snap.data() || {})};
 }
-async function booking(uid: string, value: any): Promise<Data | null> {
+async function booking(uid: string, value: any, details = false): Promise<Data | null> {
   if (value === undefined || value === null) return null;
   const service = text(value.service, 30);
   const collection = bookingCollections[service];
@@ -101,7 +101,60 @@ async function booking(uid: string, value: any): Promise<Data | null> {
       "permission-denied",
       "This booking is not available in this customer's chat.",
     );
-  return bookingCard(service, snap);
+  const card = bookingCard(service, snap);
+  if (!details) return card;
+  const allowed = [
+    "hotelName",
+    "roomName",
+    "noOfRooms",
+    "rooms",
+    "nights",
+    "checkIn",
+    "checkOut",
+    "checkInDate",
+    "checkOutDate",
+    "roomsInstant",
+    "roomsPending",
+    "extraBedCount",
+    "extraBedCountRequested",
+    "name",
+    "fullName",
+    "phone",
+    "email",
+    "nationality",
+    "adults",
+    "children",
+    "specialNotes",
+    "amountTHB",
+    "amount",
+    "amountINR",
+    "roomAmountTHB",
+    "extraBedAmountTHB",
+    "amountPaid",
+    "amountDue",
+    "paymentMethod",
+    "paymentStatus",
+    "managerPhone",
+    "packageName",
+    "vehicleName",
+    "carName",
+    "pickUpDate",
+    "pickUpTime",
+    "dropOffDate",
+    "startDate",
+    "endDate",
+    "pickUpLocation",
+    "dropOffLocation",
+    "pickupLocation",
+    "dropoffLocation",
+  ];
+  const data = serialize(snap);
+  return {
+    ...card,
+    details: Object.fromEntries(
+      allowed.filter((key) => data[key] !== undefined).map((key) => [key, data[key]]),
+    ),
+  };
 }
 function bookingCard(service: string, snap: admin.firestore.DocumentSnapshot): Data {
   const data = snap.data() || {};
@@ -202,7 +255,7 @@ export const customerChat = onCall(
         nextCursor: snap.size > 30 ? snap.docs[29].id : null,
       };
     }
-    if (action === "booking") return {booking: await booking(uid, body.booking)};
+    if (action === "booking") return {booking: await booking(uid, body.booking, a.administrator)};
     if (action === "messages" || action === "search" || action === "shared") {
       const global = action === "search" && body.allCustomers === true;
       if (global) adminOnly(a);

@@ -2,6 +2,7 @@ import {useCallback, useEffect, useRef, useState} from "react";
 import {getAuth} from "firebase/auth";
 import {customerChatApi as api, uploadCustomerChatFile} from "../../../../utils/customerChatApi";
 import SupportAttachment from "./SupportAttachment";
+import SupportBookingDialog from "./SupportBookingDialog";
 import "./customerSupport.css";
 
 const button =
@@ -35,6 +36,11 @@ export default function CustomerSupportInbox() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [bookingDetails, setBookingDetails] = useState(null);
+  const [bookingDialog, setBookingDialog] = useState(false);
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [bookingError, setBookingError] = useState("");
+  const bookingRequest = useRef(0);
+  const bookingSelection = useRef(null);
   const [inboxLoading, setInboxLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const scope = useRef(0);
@@ -169,7 +175,7 @@ export default function CustomerSupportInbox() {
     setTab("messages");
     setSearchRun("");
     setError("");
-    setBookingDetails(null);
+    closeBooking();
     retry.current = null;
   }
   async function send(e) {
@@ -246,15 +252,29 @@ export default function CustomerSupportInbox() {
       report(e);
     }
   }
+  function closeBooking() {
+    bookingRequest.current += 1;
+    setBookingDialog(false);
+    setBookingDetails(null);
+  }
   async function showBooking(message) {
+    const request = ++bookingRequest.current;
+    bookingSelection.current = message;
+    setBookingDialog(true);
+    setBookingLoading(true);
+    setBookingError("");
+    setBookingDetails(message.booking);
     try {
       const result = await api("booking", {
         customerId: message.customerId,
         booking: message.booking,
       });
-      setBookingDetails(result.booking);
+      if (request === bookingRequest.current) setBookingDetails(result.booking);
     } catch (e) {
-      report(e);
+      if (request === bookingRequest.current)
+        setBookingError(e.message || "Could not load booking details.");
+    } finally {
+      if (request === bookingRequest.current) setBookingLoading(false);
     }
   }
   const locked = busy || !!retry.current;
@@ -565,24 +585,14 @@ export default function CustomerSupportInbox() {
                 ))}
                 <div ref={tail} />
               </div>
-              {bookingDetails && (
-                <section className="p-3 border-t bg-blue-50">
-                  <div className="flex justify-between">
-                    <strong>Booking #{bookingDetails.reference}</strong>
-                    <button
-                      aria-label="Close booking details"
-                      onClick={() => setBookingDetails(null)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <p>{bookingDetails.title}</p>
-                  <p className="text-sm">
-                    {bookingDetails.service} · {bookingDetails.date} · {bookingDetails.status}
-                  </p>
-                  <p className="text-xs break-all">Booking ID: {bookingDetails.id}</p>
-                </section>
-              )}
+              <SupportBookingDialog
+                open={bookingDialog}
+                booking={bookingDetails}
+                loading={bookingLoading}
+                error={bookingError}
+                onClose={closeBooking}
+                onRetry={() => showBooking(bookingSelection.current)}
+              />
               {picker && (
                 <section className="border-t p-3 space-y-2">
                   <div className="flex gap-2">
