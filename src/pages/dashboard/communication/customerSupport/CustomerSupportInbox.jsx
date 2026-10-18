@@ -44,6 +44,10 @@ export default function CustomerSupportInbox() {
   const uid = selected?.customerId;
   const report = (e) => setError(e.message || "Chat request failed. Please retry.");
 
+  useEffect(() => {
+    if (inbox.length) setSelected((current) => current || inbox[0]);
+  }, [inbox]);
+
   const loadInbox = useCallback(
     async (next = null) => {
       const result = await api("inbox", {...(next ? {cursor: next} : {})});
