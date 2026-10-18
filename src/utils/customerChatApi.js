@@ -1,5 +1,6 @@
 import {getFunctions, httpsCallable} from "firebase/functions";
-import {app} from "../firebase/firebase.config";
+import {getBlob, ref} from "firebase/storage";
+import {app, storage} from "../firebase/firebase.config";
 
 const invoke = httpsCallable(getFunctions(app, "asia-east2"), "customerChat");
 export async function customerChatApi(action, data = {}) {
@@ -24,9 +25,17 @@ export async function uploadCustomerChatFile(customerId, file) {
 }
 
 export async function downloadCustomerChatFile(customerId, attachmentId) {
-  const result = await customerChatApi("download", {customerId, attachmentId});
-  const bytes = Uint8Array.from(atob(result.contentBase64), (char) => char.charCodeAt(0));
-  const url = URL.createObjectURL(new Blob([bytes], {type: result.contentType}));
+  const result = await customerChatApi("download", {
+    customerId,
+    attachmentId,
+  });
+  const blob =
+    result.downloadTransport === "firebase-authenticated"
+      ? await getBlob(ref(storage, `gs://${result.bucket}/${result.storagePath}`))
+      : new Blob([Uint8Array.from(atob(result.contentBase64), (char) => char.charCodeAt(0))], {
+          type: result.contentType,
+        });
+  const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = result.name;

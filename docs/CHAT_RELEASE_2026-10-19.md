@@ -27,7 +27,7 @@ The canonical shared policy remains in `D:/projects/Thaiseva-Firebase-Security`.
 
 See [customer API guide](CUSTOMER_CHAT_APP_API.md) and `docs/PARTNER_CHAT_API.md` in the food repository. No mobile UI was created.
 
-The customer V2 chat and legacy customer store remain independent. No production customer-history migration was run. The admin keeps an explicit previous-system link during app cutover.
+The customer V2 chat and legacy customer store remain independent. After the initial release, production history was migrated and independently verified; see [the migration report](CHAT_MIGRATION_2026-10-19.md). The admin keeps an explicit previous-system link during app cutover.
 
 Food partner legacy message arrays remain available through the API, with new messages written to individual child records. The new API does not dual-write to the old array. Old food builds that write directly to Firestore need a refresh after the rules release.
 

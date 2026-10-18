@@ -67,7 +67,10 @@ async function rateLimit(a: Actor, upload = false) {
     const count = Number(previous.until) > now ? Number(previous.count || 0) + 1 : 1;
     if (count > (upload ? 10 : 180))
       throw new HttpsError("resource-exhausted", "Too many requests. Retry in one minute.");
-    tx.set(ref, {count, until: Number(previous.until) > now ? previous.until : now + 60000});
+    tx.set(ref, {
+      count,
+      until: Number(previous.until) > now ? previous.until : now + 60000,
+    });
   });
 }
 function serialize(snap: admin.firestore.DocumentSnapshot): Data {
@@ -128,7 +131,13 @@ function bookingCard(service: string, snap: admin.firestore.DocumentSnapshot): D
 }
 /** Single callable API shared by the admin portal and mobile clients. */
 export const customerChat = onCall(
-  {region: "asia-east2", memory: "512MiB", concurrency: 4, maxInstances: 10, timeoutSeconds: 60},
+  {
+    region: "asia-east2",
+    memory: "512MiB",
+    concurrency: 4,
+    maxInstances: 10,
+    timeoutSeconds: 60,
+  },
   async (request) => {
     request.rawRequest?.res?.setHeader("Cache-Control", "private, no-store");
     const a = await actor(request);
@@ -392,7 +401,10 @@ export const customerChat = onCall(
             deletedAt: Timestamp.now(),
           });
           if (fileId)
-            tx.update(attachments().doc(fileId), {deleting: true, expiresAt: Timestamp.now()});
+            tx.update(attachments().doc(fileId), {
+              deleting: true,
+              expiresAt: Timestamp.now(),
+            });
         }
         // Avoid keeping removed/edited text in inbox previews.
         tx.update(conversation, {lastMessage: "Conversation updated"});
@@ -482,7 +494,22 @@ export const customerChat = onCall(
       const message = await messages().doc(data.messageId).get();
       if (!message.exists || message.data()?.deleted || message.data()?.attachment?.id !== file.id)
         throw new HttpsError("permission-denied", "Attachment unavailable.");
-      // No reusable public URL is issued. Already downloaded bytes cannot be revoked.
+      // Large historical files use authenticated Storage downloads. A short-lived
+      // UID-bound grant avoids public URLs and callable response-size limits.
+      if (data.legacy === true && Number(data.size) > 8 * 1024 * 1024) {
+        const expiresAt = Date.now() + 60_000;
+        await file.ref.update({[`downloadGrants.${a.uid}`]: Timestamp.fromMillis(expiresAt)});
+        return {
+          downloadTransport: "firebase-authenticated",
+          storagePath: data.storagePath,
+          bucket: admin.storage().bucket().name,
+          expiresAt,
+          contentType: data.contentType,
+          name: data.name,
+          size: Number(data.size),
+        };
+      }
+      // Already downloaded bytes cannot be revoked.
       const [bytes] = await admin.storage().bucket().file(data.storagePath).download();
       return {
         contentBase64: bytes.toString("base64"),
@@ -496,7 +523,12 @@ export const customerChat = onCall(
 
 /** Removes unattached uploads and files whose messages were deleted. */
 export const cleanupCustomerChatAttachments = onSchedule(
-  {region: "asia-east2", schedule: "every 60 minutes", timeoutSeconds: 300, maxInstances: 1},
+  {
+    region: "asia-east2",
+    schedule: "every 60 minutes",
+    timeoutSeconds: 300,
+    maxInstances: 1,
+  },
   async () => {
     // Match the existing two-year chat policy, preserving held conversations/messages.
     const retentionState = db().doc("customerSupportMaintenance/retention");
@@ -577,7 +609,10 @@ export const cleanupCustomerChatAttachments = onSchedule(
     const lastCandidate = candidates.docs[candidates.size - 1];
     await cleanupState.set(
       candidates.size === 200
-        ? {time: lastCandidate.data().expiresAt.toMillis(), id: lastCandidate.id}
+        ? {
+            time: lastCandidate.data().expiresAt.toMillis(),
+            id: lastCandidate.id,
+          }
         : {time: null},
     );
   },

@@ -1,8 +1,11 @@
-// Integration example; add cloud_functions and uuid to the mobile app.
+// Integration example; add cloud_functions, firebase_storage and uuid to the mobile app.
 // Firebase must already be initialized and the customer signed in.
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:uuid/uuid.dart';
 
 class CustomerChatService {
@@ -59,7 +62,24 @@ class CustomerChatService {
 
   Future<Uint8List> download(String attachmentId) async {
     final result = await call('download', {'attachmentId': attachmentId});
+    if (result['downloadTransport'] == 'firebase-authenticated') {
+      throw StateError('Use downloadToFile for large historical attachments.');
+    }
     return base64Decode(result['contentBase64'] as String);
+  }
+
+  // Native Flutter example; web clients can use the Storage SDK's getBlob/getData.
+  Future<File> downloadToFile(String attachmentId, File destination) async {
+    final result = await call('download', {'attachmentId': attachmentId});
+    if (result['downloadTransport'] == 'firebase-authenticated') {
+      final storage = FirebaseStorage.instanceFor(
+        app: Firebase.app(), bucket: 'gs://${result['bucket']}',
+      );
+      await storage.ref(result['storagePath'] as String).writeToFile(destination);
+    } else {
+      await destination.writeAsBytes(base64Decode(result['contentBase64'] as String));
+    }
+    return destination;
   }
 
   Future<Map<String, dynamic>> markRead(int newestDisplayedTimestamp) =>

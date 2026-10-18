@@ -9,7 +9,7 @@ const {
   validatedFile,
   id,
 } = require("../lib/customerChatCore");
-const {messageMillis, held} = require("../lib/retentionPolicy");
+const { messageMillis, held } = require("../lib/retentionPolicy");
 const args = process.argv.slice(2);
 const option = (key) => args[args.indexOf(key) + 1];
 if (!args.includes("--project") || !args.includes("--uid"))
@@ -19,17 +19,20 @@ if (!args.includes("--project") || !args.includes("--uid"))
 const projectId = option("--project");
 const uid = id(option("--uid"));
 const apply = args.includes("--apply");
+const reviewedLegacyFiles = args.includes("--reviewed-legacy-files");
 if (apply && !args.includes("--backup-dir"))
   throw new Error(
     "--apply requires --backup-dir; the backup contains private messages. Keep it outside the repository.",
   );
-admin.initializeApp({
+const { db, bucket } = require("./chatMigrationConnection.cjs").connect({
   projectId,
-  storageBucket: process.env.CHAT_STORAGE_BUCKET || `${projectId}.firebasestorage.app`,
+  bucketName:
+    process.env.CHAT_STORAGE_BUCKET || `${projectId}.firebasestorage.app`,
+  firebaseToolsRoot: args.includes("--firebase-tools-root")
+    ? option("--firebase-tools-root")
+    : undefined,
 });
-const db = admin.firestore();
-const bucket = admin.storage().bucket();
-function mediaPath(value) {
+function mediaPath(value, message) {
   if (typeof value !== "string" || !value) return null;
   let candidate = value;
   if (/^https?:/.test(candidate)) {
@@ -38,9 +41,16 @@ function mediaPath(value) {
     if (
       url.hostname !== "firebasestorage.googleapis.com" ||
       !match ||
-      decodeURIComponent(match[1]) !== bucket.name
+      (decodeURIComponent(match[1]) !== bucket.name &&
+        !(
+          reviewedLegacyFiles &&
+          args.includes("--source-bucket-alias") &&
+          decodeURIComponent(match[1]) === option("--source-bucket-alias")
+        ))
     )
-      throw new Error("Untrusted legacy attachment URL; review before migrating.");
+      throw new Error(
+        "Untrusted legacy attachment URL; review before migrating.",
+      );
     candidate = decodeURIComponent(match[2]);
   }
   if (
@@ -49,61 +59,149 @@ function mediaPath(value) {
       candidate.startsWith(`chat/${uid}/`) ||
       candidate.startsWith(`chats/${uid}/`) ||
       candidate.startsWith(`chatMedia/${uid}/`) ||
-      candidate.startsWith(`private-chat/chats/${uid}_CustomerSupport/`)
+      candidate.startsWith(`private-chat/chats/${uid}_CustomerSupport/`) ||
+      (reviewedLegacyFiles &&
+        (candidate.startsWith("uploads/") ||
+          /^file-[A-Za-z0-9_-]+$/.test(candidate) ||
+          (message.senderId === "_CustomerSupport" &&
+            /^chat\/[A-Za-z0-9_-]+\//.test(candidate))))
     )
   )
-    throw new Error("Attachment is not scoped to this customer; review before migrating.");
+    throw new Error(
+      "Attachment is not scoped to this customer; review before migrating.",
+    );
   return candidate;
+}
+function validateImport(bytes, contentType, totalSize) {
+  const type = String(contentType || "")
+    .split(";")[0]
+    .toLowerCase();
+  if (!reviewedLegacyFiles)
+    return validatedFile(bytes.toString("base64"), type);
+  if (!bytes.length || totalSize > 512 * 1024 * 1024)
+    throw new Error(
+      "Historical attachment exceeds the reviewed 512 MiB migration limit.",
+    );
+  if (type === "text/plain")
+    return { contentType: type, category: "documents" };
+  if (
+    type === "application/zip" &&
+    ["504b0304", "504b0506", "504b0708"].includes(
+      bytes.subarray(0, 4).toString("hex"),
+    )
+  )
+    return { contentType: type, category: "documents" };
+  return validatedFile(
+    bytes
+      .subarray(0, Math.min(bytes.length, 8 * 1024 * 1024))
+      .toString("base64"),
+    type,
+  );
 }
 async function main() {
   const source = await db.doc(`chats/${uid}_CustomerSupport`).get();
   if (!source.exists) throw new Error("Legacy conversation not found.");
   const raw = source.data();
-  if (!Array.isArray(raw.messages)) throw new Error("Unsupported legacy chat format.");
+  if (!Array.isArray(raw.messages))
+    throw new Error("Unsupported legacy chat format.");
+  const sourceHash = fingerprint(raw.messages);
   const profile = (await db.doc(`users/${uid}`).get()).data() || {};
+  const directory =
+    (await db.doc("chatRooms/CustomerSupport").get()).data() || {};
+  const room = directory[source.id] || {};
+  const existingRecords = await db
+    .collection("customerSupportMessagesV2")
+    .where("legacySource", "==", source.ref.path)
+    .get();
+  const existingIds = new Set(existingRecords.docs.map((record) => record.id));
   const plan = [];
   const identifiers = new Set();
   // Validate every record before writes. Unknown timestamps/media fail instead of silently losing history.
   for (let index = 0; index < raw.messages.length; index++) {
     const message = raw.messages[index];
     const createdAt = messageMillis(message);
-    if (!createdAt) throw new Error(`Message ${index} has no valid timestamp; migration stopped.`);
-    const identifier = fingerprint(["legacy", uid, message.id || index]);
+    if (!createdAt)
+      throw new Error(
+        `Message ${index} has no valid timestamp; migration stopped.`,
+      );
+    const identifier = fingerprint([
+      "legacy",
+      uid,
+      message.id || message.messageId || index,
+    ]);
     if (identifiers.has(identifier))
-      throw new Error(`Duplicate legacy message ID at index ${index}; review before migrating.`);
+      throw new Error(
+        `Duplicate legacy message ID at index ${index}; review before migrating.`,
+      );
     identifiers.add(identifier);
-    if ((await db.doc(`customerSupportMessagesV2/${identifier}`).get()).exists) continue;
-    const media =
-      message.img ||
-      message.file ||
-      message.audio ||
-      message.video ||
-      message.fileUrl ||
-      message.audioUrl;
-    const sourcePath = mediaPath(media);
+    if (existingIds.has(identifier)) continue;
+    const media = [
+      message.filePath,
+      message.img,
+      message.file,
+      message.audio,
+      message.video,
+      message.fileUrl,
+      message.imageUrl,
+      message.audioUrl,
+      message.videoUrl,
+    ].filter((value) => typeof value === "string" && value);
+    const paths = [...new Set(media.map((value) => mediaPath(value, message)))];
+    if (paths.length > 1)
+      throw new Error(
+        `Message ${index} references multiple different attachments; review before migrating.`,
+      );
+    const sourcePath = paths[0] || null;
     let attachment = null;
     let bytes = null;
+    let sourceFile = null;
+    let sourceMetadata = null;
     if (sourcePath) {
       const file = bucket.file(sourcePath);
       const [metadata] = await file.getMetadata();
-      if (Number(metadata.size) > 8 * 1024 * 1024)
-        throw new Error(`Message ${index} attachment exceeds 8 MiB; review before migrating.`);
-      [bytes] = await file.download();
-      const checked = validatedFile(bytes.toString("base64"), metadata.contentType);
+      if (Number(metadata.size) > (reviewedLegacyFiles ? 512 : 8) * 1024 * 1024)
+        throw new Error(
+          `Message ${index} attachment exceeds the migration size limit.`,
+        );
+      [bytes] = await file.download(
+        reviewedLegacyFiles
+          ? {
+              start: 0,
+              end: Math.min(Number(metadata.size) - 1, 65535),
+              validation: false,
+            }
+          : {},
+      );
+      const checked = validateImport(
+        bytes,
+        metadata.contentType,
+        Number(metadata.size),
+      );
+      if (reviewedLegacyFiles) {
+        sourceFile = bucket.file(sourcePath, {
+          generation: metadata.generation,
+        });
+        sourceMetadata = metadata;
+      }
       attachment = {
         id: identifier,
-        name: String(message.fileName || message.name || "Previous attachment").slice(0, 180),
-        size: bytes.length,
+        name: String(
+          message.fileName || message.name || "Previous attachment",
+        ).slice(0, 180),
+        size: Number(metadata.size),
         contentType: checked.contentType,
         category: checked.category,
+        legacy: true,
       };
     }
-    const messageText = String(message.text || "").slice(0, 4000);
+    const messageText = String(message.text || "");
     const links = extractLinks(messageText);
     const senderRole = message.senderId === uid ? "customer" : "admin";
     plan.push({
       identifier,
       bytes,
+      sourceFile,
+      sourceMetadata,
       attachment,
       data: {
         customerId: uid,
@@ -123,8 +221,12 @@ async function main() {
         editedAt: null,
         legacyIndex: index,
         legacySource: source.ref.path,
+        legacyType: message.type || null,
+        legacyMessageId: message.id || message.messageId || null,
         retentionHold: held(message),
-        searchTerms: searchTerms([messageText, attachment?.name || "", ...links].join(" ")),
+        searchTerms: searchTerms(
+          [messageText, attachment?.name || "", ...links].join(" "),
+        ),
       },
     });
   }
@@ -144,23 +246,73 @@ async function main() {
   );
   if (!apply) return;
   const backupDir = path.resolve(option("--backup-dir"));
-  fs.mkdirSync(backupDir, {recursive: true});
+  fs.mkdirSync(backupDir, { recursive: true });
   const backupFile = path.join(backupDir, `${uid}-${Date.now()}.json`);
-  fs.writeFileSync(backupFile, JSON.stringify({sourcePath: source.ref.path, data: raw}, null, 2), {
-    flag: "wx",
-    mode: 0o600,
-  });
+  fs.writeFileSync(
+    backupFile,
+    JSON.stringify({ sourcePath: source.ref.path, data: raw }, null, 2),
+    {
+      flag: "wx",
+      mode: 0o600,
+    },
+  );
+  if (fingerprint((await source.ref.get()).data()?.messages) !== sourceHash)
+    throw new Error(
+      "Source changed during preflight; retry without deleting anything.",
+    );
   for (const item of plan) {
     const ref = db.doc(`customerSupportMessagesV2/${item.identifier}`);
     const storagePath = `customer-support-v2/${uid}/${item.identifier}`;
-    if (item.bytes)
-      await bucket
-        .file(storagePath)
-        .save(item.bytes, {
-          resumable: false,
-          contentType: item.attachment.contentType,
-          metadata: {cacheControl: "private, no-store"},
-        });
+    if (item.bytes) {
+      const contentHash = item.sourceMetadata
+        ? fingerprint([
+            item.sourceFile.name,
+            item.sourceMetadata.generation,
+            item.sourceMetadata.md5Hash,
+            item.sourceMetadata.crc32c,
+            item.sourceMetadata.size,
+          ])
+        : fingerprint(item.bytes.toString("base64"));
+      try {
+        if (item.sourceFile) {
+          await item.sourceFile.copy(bucket.file(storagePath), {
+            cacheControl: "private, no-store",
+            contentType: item.attachment.contentType,
+            metadata: {
+              migrationContentHash: contentHash,
+              firebaseStorageDownloadTokens: null,
+            },
+            preconditionOpts: { ifGenerationMatch: 0 },
+          });
+        } else
+          await bucket.file(storagePath).save(item.bytes, {
+            resumable: false,
+            contentType: item.attachment.contentType,
+            preconditionOpts: { ifGenerationMatch: 0 },
+            metadata: {
+              cacheControl: "private, no-store",
+              metadata: { migrationContentHash: contentHash },
+            },
+          });
+      } catch (error) {
+        if (Number(error.code) !== 412) throw error;
+        const [previous] = await bucket.file(storagePath).getMetadata();
+        if (previous.metadata?.migrationContentHash !== contentHash)
+          throw new Error(
+            "Existing migration attachment does not match; review required.",
+          );
+      }
+      const [copiedMetadata] = await bucket.file(storagePath).getMetadata();
+      if (
+        Number(copiedMetadata.size) !== item.attachment.size ||
+        copiedMetadata.metadata?.firebaseStorageDownloadTokens ||
+        (item.sourceMetadata?.crc32c &&
+          copiedMetadata.crc32c !== item.sourceMetadata.crc32c)
+      )
+        throw new Error(
+          "Attachment copy verification failed; source retained.",
+        );
+    }
     await db.runTransaction(async (tx) => {
       if ((await tx.get(ref)).exists) return;
       tx.create(ref, item.data);
@@ -183,20 +335,29 @@ async function main() {
     .get();
   const existing = await db.doc(`customerSupportV2/${uid}`).get();
   if (!existing.exists)
-    await db
-      .doc(`customerSupportV2/${uid}`)
-      .create({
-        customerId: uid,
-        customerName: profile.displayName || "Customer",
-        createdAt: admin.firestore.Timestamp.now(),
-        updatedAt: latest.docs[0]?.data().createdAt || admin.firestore.Timestamp.now(),
-        lastMessage: "Previous conversation imported",
-        status: "open",
-        adminUnread: 0,
-        customerUnread: 0,
-        retentionHold: held(raw),
-      });
-  else if (held(raw)) await existing.ref.update({retentionHold: true});
+    await db.doc(`customerSupportV2/${uid}`).create({
+      customerId: uid,
+      customerName:
+        profile.displayName || room.userInfo?.displayName || "Customer",
+      createdAt: admin.firestore.Timestamp.now(),
+      updatedAt:
+        latest.docs[0]?.data().createdAt || admin.firestore.Timestamp.now(),
+      lastMessage: "Previous conversation imported",
+      status: "open",
+      adminUnread:
+        room.isRead === false
+          ? Math.max(
+              1,
+              raw.messages.filter(
+                (message) =>
+                  message.senderId === uid && message.isRead === false,
+              ).length,
+            )
+          : 0,
+      customerUnread: 0,
+      retentionHold: held(raw),
+    });
+  else if (held(raw)) await existing.ref.update({ retentionHold: true });
   const result = await db
     .collection("customerSupportMessagesV2")
     .where("legacySource", "==", source.ref.path)
@@ -206,7 +367,13 @@ async function main() {
     throw new Error(
       "Reconciliation failed. Source is unchanged; inspect duplicate legacy message IDs before cutover.",
     );
-  console.log(`Reconciled ${result.data().count} messages. Source retained. Backup: ${backupFile}`);
+  if (fingerprint((await source.ref.get()).data()?.messages) !== sourceHash)
+    throw new Error(
+      "Source changed during migration; copied records retained. Rerun to reconcile new arrivals.",
+    );
+  console.log(
+    `Reconciled ${result.data().count} messages. Source retained. Backup: ${backupFile}`,
+  );
 }
 main()
   .catch((error) => {

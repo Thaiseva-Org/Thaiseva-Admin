@@ -1,0 +1,20 @@
+{
+  "projectId": "gothai-ffea1",
+  "verifiedAt": "2026-10-18T20:40:28.222Z",
+  "sourceThreads": 60,
+  "sourceMessages": 960,
+  "copiedThreads": 60,
+  "copiedMessages": 960,
+  "verifiedAttachments": 59,
+  "messagesEditedAfterImport": 0,
+  "otherLegacyThreadsExcluded": 2,
+  "originalConversationsUnchanged": true,
+  "originalFilesPreserved": true,
+  "privateCopiesContainNoDownloadTokens": true,
+  "copiesHaveNoPublicAcl": true,
+  "foodLegacyThreads": 5,
+  "foodLegacyMessages": 13,
+  "failures": 0,
+  "fullyReconciled": true,
+  "anonymousStorageAccessDenied": true
+}

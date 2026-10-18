@@ -21,13 +21,11 @@ const call = (uid, action, body = {}) =>
 before(async () => {
   for (const uid of ["alice", "bob", "admin", "food-admin", "suspended"]) {
     await admin.auth().createUser({uid});
-    await db
-      .doc(`users/${uid}`)
-      .set({
-        displayName: uid,
-        role: uid === "admin" ? "Admin" : "Customer",
-        isSuspended: uid === "suspended",
-      });
+    await db.doc(`users/${uid}`).set({
+      displayName: uid,
+      role: uid === "admin" ? "Admin" : "Customer",
+      isSuspended: uid === "suspended",
+    });
   }
   await admin.auth().setCustomUserClaims("food-admin", {foodMasterAdmin: true});
   await db
@@ -202,16 +200,14 @@ test("retention holds block mutation and preserve expired evidence; unheld old m
   await db
     .doc("customerSupportMessagesV2/expired")
     .set({customerId: "bob", createdAt: old, deleted: false, text: "expired"});
-  await db
-    .doc("customerSupportMessagesV2/held")
-    .set({
-      customerId: "bob",
-      senderId: "bob",
-      createdAt: old,
-      deleted: false,
-      text: "evidence",
-      retentionHold: true,
-    });
+  await db.doc("customerSupportMessagesV2/held").set({
+    customerId: "bob",
+    senderId: "bob",
+    createdAt: old,
+    deleted: false,
+    text: "evidence",
+    retentionHold: true,
+  });
   await assert.rejects(
     call("admin", "delete", {customerId: "bob", messageId: "held"}),
     (e) => e.code === "failed-precondition",
@@ -283,6 +279,80 @@ test("default-deny rules prevent direct client database access and private stora
   }
 });
 
+test("large historical downloads require an expiring UID-bound Storage grant", async () => {
+  const {initializeApp, deleteApp} = require("../../node_modules/firebase/app");
+  const {
+    getAuth,
+    connectAuthEmulator,
+    signInWithCustomToken,
+  } = require("../../node_modules/firebase/auth");
+  const {
+    getStorage,
+    connectStorageEmulator,
+    ref,
+    getBytes,
+  } = require("../../node_modules/firebase/storage");
+  const storagePath = "customer-support-v2/alice/historical-zip";
+  await admin.storage().bucket().file(storagePath).save("PK\x03\x04fixture");
+  await db.doc("customerSupportMessagesV2/historical-large").set({
+    customerId: "alice",
+    senderId: "alice",
+    deleted: false,
+    attachment: {id: "historical-zip"},
+  });
+  await db.doc("customerSupportAttachmentsV2/historical-zip").set({
+    customerId: "alice",
+    legacy: true,
+    messageId: "historical-large",
+    storagePath,
+    size: 143243058,
+    name: "archive.zip",
+    contentType: "application/zip",
+  });
+  const app = initializeApp(
+    {
+      projectId: "demo-thaiseva-chat",
+      apiKey: "demo-key",
+      storageBucket: "demo-thaiseva-chat.appspot.com",
+    },
+    "legacy-download",
+  );
+  const auth = getAuth(app);
+  connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, {
+    disableWarnings: true,
+  });
+  const storage = getStorage(app);
+  const [host, port] = process.env.FIREBASE_STORAGE_EMULATOR_HOST.split(":");
+  connectStorageEmulator(storage, host, Number(port));
+  const file = ref(storage, storagePath);
+  try {
+    await signInWithCustomToken(auth, await admin.auth().createCustomToken("alice"));
+    await assert.rejects(getBytes(file), (e) => e.code === "storage/unauthorized");
+    await assert.rejects(
+      call("bob", "download", {attachmentId: "historical-zip"}),
+      (e) => e.code === "permission-denied",
+    );
+    const result = await call("alice", "download", {attachmentId: "historical-zip"});
+    assert.equal(result.downloadTransport, "firebase-authenticated");
+    assert.equal(result.storagePath, storagePath);
+    assert.equal(result.downloadUrl, undefined);
+    assert.ok(result.expiresAt > Date.now() + 59000);
+    assert.ok((await getBytes(file)).byteLength);
+    await signInWithCustomToken(auth, await admin.auth().createCustomToken("bob"));
+    await assert.rejects(getBytes(file), (e) => e.code === "storage/unauthorized");
+    await signInWithCustomToken(auth, await admin.auth().createCustomToken("alice"));
+    await db
+      .doc("customerSupportAttachmentsV2/historical-zip")
+      .update({"downloadGrants.alice": admin.firestore.Timestamp.fromMillis(Date.now() - 1)});
+    await assert.rejects(getBytes(file), (e) => e.code === "storage/unauthorized");
+    await call("alice", "download", {attachmentId: "historical-zip"});
+    await call("alice", "delete", {messageId: "historical-large"});
+    await assert.rejects(getBytes(file), (e) => e.code === "storage/unauthorized");
+  } finally {
+    await deleteApp(app);
+  }
+});
+
 test("migration dry-run is read-only and apply preserves messages, private attachments and rerun idempotency", async () => {
   const {spawnSync} = require("node:child_process");
   const fs = require("node:fs");
@@ -307,6 +377,19 @@ test("migration dry-run is read-only and apply preserves messages, private attac
         fileName: "original.pdf",
         date: admin.firestore.Timestamp.now(),
       },
+      {
+        messageId: "three",
+        senderId: uid,
+        text: "long historical text ".repeat(300),
+        date: admin.firestore.Timestamp.now(),
+      },
+      {
+        id: "four",
+        senderId: uid,
+        text: "Historical image field",
+        imageUrl: storagePath,
+        date: admin.firestore.Timestamp.now(),
+      },
     ],
   });
   const env = {...process.env, CHAT_STORAGE_BUCKET: "demo-thaiseva-chat.appspot.com"};
@@ -327,16 +410,88 @@ test("migration dry-run is read-only and apply preserves messages, private attac
   assert.equal(applied.status, 0, applied.stderr);
   assert.equal(
     (await db.collection("customerSupportMessagesV2").where("customerId", "==", uid).get()).size,
-    2,
+    4,
   );
-  assert.equal((await source.get()).data().messages.length, 2);
+  const migrated = await db
+    .collection("customerSupportMessagesV2")
+    .where("customerId", "==", uid)
+    .get();
+  assert.equal(
+    migrated.docs.find((doc) => doc.data().legacyMessageId === "three").data().text,
+    "long historical text ".repeat(300),
+  );
+  assert.ok(migrated.docs.find((doc) => doc.data().legacyMessageId === "four").data().attachment);
+  assert.equal((await source.get()).data().messages.length, 4);
   assert.equal(fs.readdirSync(backup).length, 1);
   const repeat = run(["--apply", "--backup-dir", backup]);
   assert.equal(repeat.status, 0, repeat.stderr);
   assert.equal(
     (await db.collection("customerSupportMessagesV2").where("customerId", "==", uid).get()).size,
-    2,
+    4,
   );
+});
+
+test("reviewed legacy migration copies large archives and strips permanent download tokens", async () => {
+  const {spawnSync} = require("node:child_process");
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const path = require("node:path");
+  const uid = "migration-reviewed";
+  const sourcePath = `uploads/${uid}/historical.zip`;
+  const bytes = Buffer.alloc(8 * 1024 * 1024 + 1);
+  bytes.write("PK\x03\x04");
+  const file = admin.storage().bucket().file(sourcePath);
+  await file.save(bytes, {
+    contentType: "application/zip",
+    metadata: {metadata: {firebaseStorageDownloadTokens: "old-fixture-token"}},
+  });
+  const [before] = await file.getMetadata();
+  await db
+    .doc(`chats/${uid}_CustomerSupport`)
+    .set({
+      messages: [
+        {
+          messageId: "archive",
+          senderId: uid,
+          text: "Historical archive",
+          date: admin.firestore.Timestamp.now(),
+          fileUrl: `https://firebasestorage.googleapis.com/v0/b/old-chat-fixture.appspot.com/o/${encodeURIComponent(sourcePath)}?alt=media&token=old-fixture-token`,
+          fileName: "historical.zip",
+        },
+      ],
+    });
+  const backup = fs.mkdtempSync(path.join(os.tmpdir(), "thaiseva-reviewed-migration-"));
+  const command = [
+    "scripts/migrate-customer-chat.cjs",
+    "--project",
+    "demo-thaiseva-chat",
+    "--uid",
+    uid,
+    "--apply",
+    "--backup-dir",
+    backup,
+    "--reviewed-legacy-files",
+    "--source-bucket-alias",
+    "old-chat-fixture.appspot.com",
+  ];
+  const result = spawnSync(process.execPath, command, {
+    env: {...process.env, CHAT_STORAGE_BUCKET: "demo-thaiseva-chat.appspot.com"},
+    encoding: "utf8",
+    timeout: 60000,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const migrated = (
+    await db.collection("customerSupportMessagesV2").where("customerId", "==", uid).get()
+  ).docs[0].data();
+  assert.equal(migrated.attachment.size, bytes.length);
+  assert.equal(migrated.attachment.legacy, true);
+  const attachment = (
+    await db.doc(`customerSupportAttachmentsV2/${migrated.attachment.id}`).get()
+  ).data();
+  const [copied] = await admin.storage().bucket().file(attachment.storagePath).getMetadata();
+  assert.equal(copied.metadata?.firebaseStorageDownloadTokens || null, null);
+  assert.equal(copied.crc32c, before.crc32c);
+  assert.equal((await file.getMetadata())[0].generation, before.generation);
 });
 
 test("account erasure includes V2 records and private bytes, while held support evidence is preserved", async () => {

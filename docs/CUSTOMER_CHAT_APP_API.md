@@ -69,7 +69,7 @@ All timestamps in responses are Unix milliseconds. `items` are newest first for 
 | `bookings` | `service`, optional `cursor` | `{items,nextCursor}`; 30 candidates/page, own bookings only |
 | `booking` | `booking:{service,id}` | `{booking}`; fresh, minimal verified reference details |
 | `upload` | `name`, `contentType`, `contentBase64` | `{attachment:{id,name,contentType,size,category}}` |
-| `download` | `attachmentId` | `{contentBase64,contentType,name}`; only after attachment is linked to an active message |
+| `download` | `attachmentId` | `{contentBase64,contentType,name}` normally; large imported files return an authenticated Storage descriptor (below); only linked active attachments are available |
 | `shared` | `category`: `media`, `documents` or `links`; optional `limit`, `cursor`, `from`, `to` | `{items,nextCursor}`; each item is its original message |
 | `search` | `query`; optional `limit`, `cursor`, `from`, `to`, `senderRole`, `contentType` | `{items,nextCursor}`; current customer's history |
 | `inbox` | admin only; optional `limit`, `cursor` | `{items,nextCursor}`; newest updated conversations first |
@@ -121,6 +121,8 @@ Allowed: JPEG, PNG, GIF, WebP, PDF, WebM audio/video, Ogg audio, MP3, MP4 audio/
 
 One attachment is supported per message. Unsent uploads expire after 24 hours; reuse the successful upload ID during send retries. Downloads are reauthorized each time; deleting a message blocks new downloads immediately. Cleanup removes pending files hourly, up to 200 candidates/run. Already downloaded bytes cannot be revoked.
 
+Historical imports may include larger files, ZIP archives or plain-text documents. These exceptions do not change the 8 MiB limit or supported formats for new uploads. For a historical attachment larger than 8 MiB, `download` returns `{downloadTransport:"firebase-authenticated",bucket,storagePath,expiresAt,name,contentType,size}`. Use the signed-in user's Firebase Storage SDK with that bucket/path, for example native `writeToFile` or web `getBlob`. A server-issued UID-bound grant expires after one minute; another account cannot reuse it, and deletion blocks access immediately. Call `download` again if the grant expires before the download starts. Do not use `getDownloadURL`, expose a bearer URL or add download tokens. Native clients should stream large archives to a private local file rather than loading them into memory.
+
 This version uses base64 request/response transport. There are no resumable uploads, byte-level progress, generated thumbnails, video streaming or malware-scanner integration. Show an indeterminate “Uploading…” state. Those production enhancements need a storage-upload pipeline rather than pretending the callable supports them.
 
 ## Errors and limits
@@ -139,7 +141,7 @@ Limits: text 4,000 characters; filename 180; search query 100; up to 10 extracte
 
 ## Release checklist
 
-Production project: `gothai-ffea1`. The release record is in `CHAT_RELEASE_2026-10-19.md`. For subsequent releases, functions, indexes and the admin build must be released before a mobile build uses the new endpoint. No direct client reads/writes to the new collections or storage prefix are required; existing default-deny rules protect them. Verify the actual deployed shared rules before cutover.
+Production project: `gothai-ffea1`. The release record is in `CHAT_RELEASE_2026-10-19.md`. For subsequent releases, functions, indexes and the admin build must be released before a mobile build uses the new endpoint. Direct client Firestore access and Storage writes remain denied. Only large historical downloads use authenticated Storage reads with an API-issued, UID-bound one-minute grant. Verify the actual deployed shared rules before cutover.
 
 1. Run `npm run test:customer-chat` and `npm run test:customer-chat:integration` from `functions`; run `npm run build` from the repository root.
 2. Review the new indexes in `firestore.indexes.json` alongside the canonical shared-security indexes. The project uses shared Firebase resources: merge additions into the canonical deployment configuration before release. Wait for indexes to finish building. Do not remove unrelated live indexes.
@@ -162,6 +164,8 @@ Production project: `gothai-ffea1`. The release record is in `CHAT_RELEASE_2026-
 7. Rollback: point the app/admin back to the previous flow. Preserve messages written to V2 and reconcile them before rollback; they are not automatically copied into the old array. Keep backups private and apply an agreed backup retention policy.
 
 Chat cleanup follows the existing two-year message retention policy and preserves legal/retention/dispute holds. Account erasure now includes the V2 conversation, messages, attachment metadata, rate-limit records and private storage prefix, unless a hold requires review.
+
+Bulk migration is available in `functions/scripts/migrate-all-customer-chats.cjs`. It exports originals to an external private backup directory and requires a successful dry-run with an unchanged source manifest before `--apply`. `--reviewed-legacy-files` is an operator-only compatibility mode: it accepts inspected historical upload paths and ZIP/text documents up to 512 MiB, validates headers, performs server-side copies, verifies size/checksum, strips permanent download tokens and preserves full message text. An explicitly reviewed `--source-bucket-alias` resolves old Firebase bucket URLs to already-copied objects in the current bucket. It never fetches arbitrary remote URLs, rewrites legacy messages, deletes original files, or broadens new-upload permissions. `--firebase-tools-root` can use an existing operator CLI login with credentials held only in memory.
 
 ## Remaining production enhancements
 
