@@ -2,6 +2,7 @@ import {useCallback, useEffect, useRef, useState} from "react";
 import {getAuth} from "firebase/auth";
 import {customerChatApi as api, uploadCustomerChatFile} from "../../../../utils/customerChatApi";
 import SupportAttachment from "./SupportAttachment";
+import "./customerSupport.css";
 
 const button =
   "rounded-lg border border-neutral-200 px-3 py-2 text-sm hover:bg-neutral-100 disabled:opacity-50";
@@ -34,6 +35,8 @@ export default function CustomerSupportInbox() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [bookingDetails, setBookingDetails] = useState(null);
+  const [inboxLoading, setInboxLoading] = useState(true);
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const scope = useRef(0);
   const retry = useRef(null);
   const tail = useRef(null);
@@ -53,6 +56,7 @@ export default function CustomerSupportInbox() {
             ]),
       );
       if (next || !inboxCursor) setInboxCursor(result.nextCursor);
+      setInboxLoading(false);
     },
     [inboxCursor],
   );
@@ -64,7 +68,10 @@ export default function CustomerSupportInbox() {
       try {
         if (!document.hidden) await loadInbox();
       } catch (e) {
-        if (alive) report(e);
+        if (alive) {
+          report(e);
+          setInboxLoading(false);
+        }
       }
       if (alive) timer = setTimeout(poll, 10000);
     }
@@ -104,6 +111,7 @@ export default function CustomerSupportInbox() {
   useEffect(() => {
     scope.current += 1;
     setMessages([]);
+    setMessagesLoading(!!uid);
     setCursor(null);
     historyLoaded.current = false;
     let alive = true;
@@ -113,6 +121,8 @@ export default function CustomerSupportInbox() {
         if (!document.hidden && !historyLoaded.current) await loadMessages();
       } catch (e) {
         if (alive) report(e);
+      } finally {
+        if (alive) setMessagesLoading(false);
       }
       if (alive && tab === "messages") timer = setTimeout(poll, 5000);
     }
@@ -122,7 +132,7 @@ export default function CustomerSupportInbox() {
       clearTimeout(timer);
       scope.current += 1;
     };
-  }, [loadMessages, tab]);
+  }, [loadMessages, tab, uid]);
 
   useEffect(() => {
     if (!picker || !uid) return;
@@ -256,10 +266,14 @@ export default function CustomerSupportInbox() {
   );
 
   return (
-    <div className="bg-white rounded-2xl border border-neutral-200 overflow-hidden flex flex-col min-h-[75vh]">
-      <div className="border-b p-4">
-        <h1 className="text-xl font-bold">Customer support</h1>
-        <p className="text-sm text-neutral-500">One admin inbox · private customer conversations</p>
+    <div className="support-inbox bg-white rounded-2xl border border-neutral-200 overflow-hidden flex flex-col">
+      <div className="support-titlebar border-b p-4">
+        <div>
+          <p className="support-eyebrow">THAISEVA • CUSTOMER CARE</p>
+          <h1 className="text-xl font-bold">Conversations</h1>
+          <p className="text-sm text-neutral-500">A little help. A better journey.</p>
+        </div>
+        <span className="support-private">Private support inbox</span>
       </div>
       {error && (
         <div role="alert" className="bg-red-50 text-red-700 p-3 flex justify-between">
@@ -270,11 +284,11 @@ export default function CustomerSupportInbox() {
         </div>
       )}
       <div className="flex flex-col md:flex-row flex-1 min-h-0">
-        <aside className="md:w-80 border-r p-3 space-y-3 md:max-h-[78vh] overflow-auto">
+        <aside className="support-sidebar md:w-80 border-r p-3 space-y-3 overflow-auto">
           <input
             className={field}
             aria-label="Filter loaded conversations"
-            placeholder="Find customer in loaded chats"
+            placeholder="Search loaded conversations…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -288,29 +302,46 @@ export default function CustomerSupportInbox() {
             <option value="open">Open</option>
             <option value="resolved">Resolved</option>
           </select>
-          {!inbox.length && (
+          {inboxLoading && (
+            <p role="status" className="support-empty">
+              Loading conversations…
+            </p>
+          )}
+          {!inboxLoading && !inbox.length && (
             <p className="text-sm text-neutral-500">
               No conversations yet. Customers appear after opening support in the app.
             </p>
+          )}
+          {!inboxLoading && inbox.length > 0 && !visibleInbox.length && (
+            <p className="support-empty">No matching conversations. Try another name or status.</p>
           )}
           {visibleInbox.map((item) => (
             <button
               key={item.id}
               disabled={busy}
               onClick={() => chooseConversation(item)}
-              className={`w-full text-left p-3 rounded-xl border ${uid === item.customerId ? "bg-blue-50 border-blue-300" : "border-neutral-100"}`}
+              aria-pressed={uid === item.customerId}
+              className={`support-conversation w-full text-left p-3 rounded-xl border ${uid === item.customerId ? "bg-blue-50 border-blue-300" : "border-neutral-100"}`}
             >
-              <div className="flex justify-between">
-                <strong>{item.customerName || "Customer"}</strong>
-                {item.adminUnread > 0 && (
-                  <span className="bg-blue-600 text-white rounded-full px-2 text-xs">
-                    {item.adminUnread}
-                  </span>
-                )}
+              <span className="support-avatar" aria-hidden="true">
+                {(item.customerName || "Customer").slice(0, 1).toUpperCase()}
+              </span>
+              <div className="support-conversation-copy">
+                <div className="flex justify-between">
+                  <strong>{item.customerName || "Customer"}</strong>
+                  {item.adminUnread > 0 && (
+                    <span className="bg-blue-600 text-white rounded-full px-2 text-xs">
+                      {item.adminUnread}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm truncate">{item.lastMessage || "New conversation"}</p>
+                <span
+                  className={`support-status ${item.status === "resolved" ? "is-resolved" : ""}`}
+                >
+                  {item.status === "resolved" ? "Resolved" : "Open"}
+                </span>
               </div>
-              <p className="text-xs text-neutral-500 break-all">{item.customerId}</p>
-              <p className="text-sm truncate">{item.lastMessage || "New conversation"}</p>
-              <span className="text-xs text-neutral-500">{item.status}</span>
             </button>
           ))}
           {inboxCursor && (
@@ -321,15 +352,30 @@ export default function CustomerSupportInbox() {
         </aside>
         <main className="flex-1 min-w-0 flex flex-col">
           {!uid ? (
-            <div className="p-12 text-center text-neutral-500">
-              Select a customer conversation to begin.
+            <div className="support-welcome p-12 text-center text-neutral-500">
+              <span className="support-welcome-icon" aria-hidden="true">
+                ↗
+              </span>
+              <h2>Your next conversation starts here</h2>
+              <p>Select a customer to view their messages, share a booking, or lend a hand.</p>
+              <span className="support-welcome-note">
+                Messages, bookings, and shared files — together in one place.
+              </span>
             </div>
           ) : (
             <>
-              <header className="p-4 border-b flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <h2 className="font-bold">{selected.customerName || "Customer"}</h2>
-                  <p className="text-xs text-neutral-500">Customer ↔ Thaiseva Admin</p>
+              <header className="support-chat-header p-4 border-b flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-3">
+                  <span className="support-avatar" aria-hidden="true">
+                    {(selected.customerName || "Customer").slice(0, 1).toUpperCase()}
+                  </span>
+                  <div>
+                    <h2 className="font-bold">{selected.customerName || "Customer"}</h2>
+                    <p className="text-xs text-neutral-500">
+                      Customer support ·{" "}
+                      {activeConversation.status === "resolved" ? "Resolved" : "Open conversation"}
+                    </p>
+                  </div>
                 </div>
                 <button className={button} onClick={changeStatus}>
                   {activeConversation.status === "resolved"
@@ -338,13 +384,14 @@ export default function CustomerSupportInbox() {
                 </button>
               </header>
               <nav
-                className="flex gap-1 p-2 border-b overflow-x-auto"
+                className="support-tabs flex gap-1 p-2 border-b overflow-x-auto"
                 aria-label="Conversation content"
               >
                 {["messages", "media", "documents", "links", "search"].map((value) => (
                   <button
                     key={value}
                     disabled={busy}
+                    aria-current={tab === value ? "page" : undefined}
                     className={`${button} capitalize ${tab === value ? "bg-blue-50 text-blue-700" : ""}`}
                     onClick={() => {
                       setTab(value);
@@ -388,7 +435,7 @@ export default function CustomerSupportInbox() {
                 </form>
               )}
               <div
-                className="p-4 space-y-3 overflow-auto h-[45vh] bg-neutral-50"
+                className="support-timeline p-4 space-y-3 overflow-auto bg-neutral-50"
                 aria-live="polite"
               >
                 {historyLoaded.current && tab === "messages" && (
@@ -407,86 +454,110 @@ export default function CustomerSupportInbox() {
                     Load {tab === "messages" ? "older messages" : "more results"}
                   </button>
                 )}
-                {!ordered.length && (
-                  <p className="text-sm text-neutral-500">
+                {messagesLoading && (
+                  <p role="status" className="support-empty">
+                    Loading conversation…
+                  </p>
+                )}
+                {!messagesLoading && !ordered.length && (
+                  <p className="support-empty text-sm text-neutral-500">
                     {tab === "search" && !searchRun
                       ? "Enter a search to begin."
                       : "No items to show."}
                   </p>
                 )}
-                {ordered.map((message) => (
-                  <article
-                    key={message.id}
-                    id={`support-message-${message.id}`}
-                    className={`p-3 rounded-xl border max-w-[92%] md:max-w-[80%] ${message.senderRole === "admin" ? "ml-auto bg-blue-50 border-blue-100" : "bg-white border-neutral-200"}`}
-                  >
-                    <div className="text-xs text-neutral-500 mb-1">
-                      {message.senderRole === "admin" ? "Thaiseva Admin" : "Customer"} ·{" "}
-                      {new Date(message.createdAt).toLocaleString()}
-                      {message.editedAt ? " · edited" : ""}
-                      {globalSearch && tab === "search" ? ` · ${message.customerId}` : ""}
-                    </div>
-                    {message.replyTo && (
-                      <p className="text-xs text-neutral-500 border-l-2 pl-2 mb-2">
-                        Reply to message {message.replyTo.slice(0, 8)}
-                      </p>
-                    )}
-                    {message.booking && (
-                      <button
-                        className="block w-full text-left p-2 rounded-lg bg-white border mb-2"
-                        onClick={() => showBooking(message)}
-                      >
-                        <strong>Booking #{message.booking.reference}</strong>
-                        <p className="text-sm">
-                          {message.booking.title} · {message.booking.date}
+                {ordered.map((message, index) => (
+                  <div key={message.id}>
+                    {tab === "messages" &&
+                      (index === 0 ||
+                        new Date(ordered[index - 1].createdAt).toDateString() !==
+                          new Date(message.createdAt).toDateString()) && (
+                        <div className="support-day">
+                          <span>
+                            {new Date(message.createdAt).toLocaleDateString(undefined, {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+                      )}
+                    <article
+                      key={message.id}
+                      id={`support-message-${message.id}`}
+                      className={`support-bubble p-3 rounded-xl border max-w-[92%] md:max-w-[80%] ${message.senderRole === "admin" ? "support-bubble-admin ml-auto bg-blue-50 border-blue-100" : "bg-white border-neutral-200"}`}
+                    >
+                      <div className="text-xs text-neutral-500 mb-1">
+                        {message.senderRole === "admin" ? "Thaiseva Admin" : "Customer"} ·{" "}
+                        {new Date(message.createdAt).toLocaleTimeString(undefined, {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {message.editedAt ? " · edited" : ""}
+                        {globalSearch && tab === "search" ? ` · ${message.customerId}` : ""}
+                      </div>
+                      {message.replyTo && (
+                        <p className="text-xs text-neutral-500 border-l-2 pl-2 mb-2">
+                          Reply to message {message.replyTo.slice(0, 8)}
                         </p>
-                        <span className="text-xs text-blue-700">View booking reference</span>
-                      </button>
-                    )}
-                    {message.text && (
-                      <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
-                    )}
-                    {message.attachment && (
-                      <SupportAttachment
-                        customerId={message.customerId}
-                        attachment={message.attachment}
-                        onError={report}
-                      />
-                    )}
-                    {(message.links || []).map((link) => (
-                      <a
-                        key={link}
-                        href={link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block text-sm text-blue-700 underline break-all mt-1"
-                      >
-                        {link}
-                      </a>
-                    ))}
-                    <div className="flex flex-wrap gap-3 text-xs mt-2 text-neutral-500">
-                      <button
-                        disabled={locked || message.customerId !== uid}
-                        onClick={() => {
-                          setReply(message);
-                          setTab("messages");
-                        }}
-                      >
-                        Reply
-                      </button>
-                      {message.senderId === getAuth().currentUser?.uid && (
-                        <button onClick={() => act("edit", message)}>Edit</button>
                       )}
-                      <button onClick={() => act("delete", message)}>Delete</button>
-                      {message.senderRole === "admin" && (
-                        <span>
-                          {activeConversation?.customerReadAt >= message.createdAt
-                            ? "Read"
-                            : "Sent"}
-                        </span>
+                      {message.booking && (
+                        <button
+                          className="block w-full text-left p-2 rounded-lg bg-white border mb-2"
+                          onClick={() => showBooking(message)}
+                        >
+                          <strong>Booking #{message.booking.reference}</strong>
+                          <p className="text-sm">
+                            {message.booking.title} · {message.booking.date}
+                          </p>
+                          <span className="text-xs text-blue-700">View booking reference</span>
+                        </button>
                       )}
-                    </div>
-                  </article>
+                      {message.text && (
+                        <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
+                      )}
+                      {message.attachment && (
+                        <SupportAttachment
+                          customerId={message.customerId}
+                          attachment={message.attachment}
+                          onError={report}
+                        />
+                      )}
+                      {(message.links || []).map((link) => (
+                        <a
+                          key={link}
+                          href={link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-sm text-blue-700 underline break-all mt-1"
+                        >
+                          {link}
+                        </a>
+                      ))}
+                      <div className="flex flex-wrap gap-3 text-xs mt-2 text-neutral-500">
+                        <button
+                          disabled={locked || message.customerId !== uid}
+                          onClick={() => {
+                            setReply(message);
+                            setTab("messages");
+                          }}
+                        >
+                          Reply
+                        </button>
+                        {message.senderId === getAuth().currentUser?.uid && (
+                          <button onClick={() => act("edit", message)}>Edit</button>
+                        )}
+                        <button onClick={() => act("delete", message)}>Delete</button>
+                        {message.senderRole === "admin" && (
+                          <span>
+                            {activeConversation?.customerReadAt >= message.createdAt
+                              ? "Read"
+                              : "Sent"}
+                          </span>
+                        )}
+                      </div>
+                    </article>
+                  </div>
                 ))}
                 <div ref={tail} />
               </div>
@@ -579,7 +650,7 @@ export default function CustomerSupportInbox() {
                   )}
                 </section>
               )}
-              <form onSubmit={send} className="p-3 border-t space-y-2">
+              <form onSubmit={send} className="support-composer p-3 border-t space-y-2">
                 {(booking || file || reply) && (
                   <div className="text-sm flex gap-2 flex-wrap">
                     {booking && (
@@ -613,6 +684,8 @@ export default function CustomerSupportInbox() {
                     type="button"
                     className={button}
                     title="Choose this customer's booking"
+                    aria-label="Choose a booking"
+                    aria-expanded={picker}
                     disabled={locked}
                     onClick={() => setPicker((previous) => !previous)}
                   >
@@ -634,7 +707,7 @@ export default function CustomerSupportInbox() {
                     }}
                   />
                   <button
-                    className={`${button} bg-blue-600 text-white hover:bg-blue-700`}
+                    className={`${button} support-send bg-blue-600 text-white hover:bg-blue-700`}
                     disabled={busy || (!draft.trim() && !file && !booking)}
                   >
                     {busy ? "Sending…" : retry.current ? "Retry" : "Send"}
@@ -657,7 +730,8 @@ export default function CustomerSupportInbox() {
                       }}
                     />
                   </label>
-                  <span>Private attachments · up to 8 MiB · updates every 5 seconds</span>
+                  <span>Files up to 8 MiB</span>
+                  <span className="ml-auto">{draft.length}/4000</span>
                 </div>
                 {notice && (
                   <div className="text-sm text-amber-700">
