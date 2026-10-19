@@ -9,6 +9,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Drawer,
   Grid,
   IconButton,
   TablePagination,
@@ -38,7 +39,7 @@ import { NumbersIcon } from "@icons";
 import { AttachMoneyIcon } from "@icons";
 import { CreditCardIcon } from "@icons";
 import { BedroomParentIcon } from "@icons";
-import { ViewList, CalendarMonth, Search, Circle, CheckCircle, VerifiedUserIcon } from "@icons";
+import { ViewList, CalendarMonth, Search, Circle, CheckCircle, VerifiedUserIcon, ForumIcon } from "@icons";
 import { Select, MenuItem, FormControl, InputLabel } from "@mui/material";
 import PaymentStatusBadge from "../../../../../components/bookings/PaymentStatusBadge";
 import {
@@ -89,6 +90,7 @@ import {
   hasHotelPendingRooms,
 } from "../../../../../utils/bookingStatus";
 import { backfillCreatedAt } from "../../../../../utils/bookingTimestamps";
+import CustomerSupportInbox from "../../../communication/customerSupport/CustomerSupportInbox";
 
 const RoomBookings = () => {
   const { isAdmin, isSubAdmin } = useContext(AuthContext);
@@ -118,6 +120,39 @@ const RoomBookings = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [calendarHotel, setCalendarHotel] = useState("All");
   const [calendarDate, setCalendarDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Customer Chat Drawer State
+  const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
+  const [chatCustomer, setChatCustomer] = useState(null);
+
+  const handleOpenCustomerChat = (row) => {
+    const customerId =
+      row?.userId ||
+      row?.customerId ||
+      row?.guestDetails?.uid ||
+      row?.email ||
+      row?.bookingId;
+    const customerName =
+      row?.name ||
+      row?.fullName ||
+      row?.guestName ||
+      row?.guestDetails?.name ||
+      "Guest";
+
+    setChatCustomer({
+      customerId,
+      customerName,
+      booking: {
+        id: row?.bookingId || row?.id,
+        reference: row?.bookingId || row?.id,
+        title: row?.hotelName || "Hotel Booking",
+        date: row?.checkIn || row?.date || "N/A",
+        service: "hotel",
+        details: row,
+      },
+    });
+    setChatDrawerOpen(true);
+  };
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -1158,6 +1193,14 @@ const RoomBookings = () => {
                                           </button>
                                         )}
 
+                                        <button
+                                          onClick={() => handleOpenCustomerChat(row)}
+                                          className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
+                                          title="Chat with Customer"
+                                        >
+                                          <ForumIcon sx={{ fontSize: 20 }} />
+                                        </button>
+
                                         {(row.status === "Pending" ||
                                           hasHotelPendingRooms(row)) && (
                                           <>
@@ -1530,6 +1573,23 @@ const RoomBookings = () => {
             />
           )}
           <Button
+            variant="contained"
+            onClick={() => {
+              handleOpenCustomerChat(bookingDetails);
+            }}
+            startIcon={<ForumIcon />}
+            sx={{
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 600,
+              bgcolor: "#2563eb",
+              "&:hover": { bgcolor: "#1d4ed8" },
+              px: 2.5,
+            }}
+          >
+            Chat with Customer
+          </Button>
+          <Button
             variant="outlined"
             onClick={() => setOpenBookingDetailsModal(false)}
             sx={{
@@ -1681,6 +1741,33 @@ const RoomBookings = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Customer Chat Slide-out Drawer */}
+      <Drawer
+        anchor="right"
+        open={chatDrawerOpen}
+        onClose={() => setChatDrawerOpen(false)}
+        PaperProps={{
+          sx: {
+            width: { xs: "100%", sm: "520px", md: "640px", lg: "740px" },
+            bgcolor: "#f8fafc",
+            p: 0,
+            boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
+          },
+        }}
+      >
+        {chatDrawerOpen && (
+          <div className="h-full flex flex-col">
+            <CustomerSupportInbox
+              initialCustomerId={chatCustomer?.customerId}
+              initialCustomerName={chatCustomer?.customerName}
+              initialBooking={chatCustomer?.booking}
+              isDrawer={true}
+              onClose={() => setChatDrawerOpen(false)}
+            />
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 };

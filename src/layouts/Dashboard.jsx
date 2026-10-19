@@ -1069,15 +1069,8 @@ function Dashboard(props) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography
-            variant="h6"
-            noWrap
-            component="div"
-            sx={{ fontWeight: "bold" }}
-          >
-            {<div className="font-bold block">{text}</div>}
-          </Typography>
-          <div className="flex">
+          <div className="flex-1" />
+          <div className="flex items-center">
             {(isAdmin || isSubAdmin) && (
               <div className="flex gap-2 items-center">
                 <div
