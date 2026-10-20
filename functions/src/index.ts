@@ -6,6 +6,7 @@ export { createVerifiedAccount } from "./verifiedSignup";
 export {
   registerCustomerDevice, unregisterCustomerDevice,
   pushCustomerNotification, pushBroadcastNotification,
+  pushSupportChatMessage,
 } from "./customerPush";
 export {createSubAdmin, exportCustomerData} from "./privilegedAccounts";
 export {

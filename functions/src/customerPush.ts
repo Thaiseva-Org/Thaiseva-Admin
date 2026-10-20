@@ -154,12 +154,12 @@ export const buildPushMessage = (
 const isStaleTokenError = (error?: {code?: string}): boolean =>
   Boolean(error?.code && STALE_TOKEN_CODES.has(error.code));
 
-// Trigger body: push a new inbox notification to the user's devices.
-export const pushToCustomer = async (
-  uid: string, notificationId: string, note: DocumentData | undefined,
-  deps: PushDeps = defaultDeps(),
+type PushPayload = Omit<MulticastMessage, "tokens">;
+
+// Sends one payload to every registered device of uid; drops dead tokens.
+const sendToCustomer = async (
+  uid: string, payload: PushPayload, deps: PushDeps,
 ): Promise<{sent: number; removed?: number}> => {
-  if (!uid || !note) return {sent: 0};
   const {db, messaging} = deps;
   const snap = await db.collection(DEVICE_TOKENS_COLLECTION)
     .where("uid", "==", uid).get();
@@ -167,7 +167,7 @@ export const pushToCustomer = async (
   if (!docs.length) return {sent: 0};
 
   const message: MulticastMessage = {
-    ...buildPushMessage(notificationId, note),
+    ...payload,
     tokens: docs.map((doc) => doc.get("token")),
   };
   const response = await messaging.sendEachForMulticast(message);
@@ -185,6 +185,88 @@ export const pushToCustomer = async (
     await batch.commit();
   }
   return {sent: response.successCount, removed: stale.length};
+};
+
+// Trigger body: push a new inbox notification to the user's devices.
+export const pushToCustomer = async (
+  uid: string, notificationId: string, note: DocumentData | undefined,
+  deps: PushDeps = defaultDeps(),
+): Promise<{sent: number; removed?: number}> => {
+  if (!uid || !note) return {sent: 0};
+  return sendToCustomer(uid, buildPushMessage(notificationId, note), deps);
+};
+
+// Support chat (customerChat, customerSupportMessagesV2): admin replies are
+// pushed straight to the customer's phones, not saved in the inbox.
+// Must match NotificationService.supportChatType in the customer app.
+export const SUPPORT_CHAT_TYPE = "support_chat";
+// One notification per chat: newer replies replace older ones.
+const SUPPORT_CHAT_TAG = "support-chat";
+// Older messages are backfills (migration, legacy topic sync), not replies.
+const SUPPORT_CHAT_MAX_AGE_MS = 10 * 60 * 1000;
+
+export const supportChatPreview = (message: DocumentData): string => {
+  const body = text(message.text, 1000).trim();
+  if (body) return body;
+  const file = message.attachment;
+  if (file) {
+    return String(file.contentType || "").startsWith("image/") ?
+      "📷 Photo" : `📄 ${text(file.name || "File", 180)}`;
+  }
+  if (message.booking) {
+    return `🔖 ${text(message.booking.title || "Booking", 200)}`;
+  }
+  return "New message";
+};
+
+export const isSupportChatReply = (
+  message: DocumentData | undefined, now = Date.now(),
+): boolean => {
+  if (!message || message.senderRole !== "admin" || message.deleted === true) {
+    return false;
+  }
+  // Topic headings and messages copied from the old chat.
+  if (message.type === "heading" || message.legacyType ||
+      message.legacySource) {
+    return false;
+  }
+  if (typeof message.customerId !== "string" || !message.customerId) {
+    return false;
+  }
+  const createdAt = message.createdAt?.toMillis?.();
+  return typeof createdAt === "number" &&
+    now - createdAt <= SUPPORT_CHAT_MAX_AGE_MS;
+};
+
+export const buildSupportChatPush = (
+  messageId: string, message: DocumentData,
+): PushPayload => ({
+  notification: {title: "Thaiseva Support", body: supportChatPreview(message)},
+  data: {
+    notificationId: messageId,
+    type: SUPPORT_CHAT_TYPE,
+    messageId,
+    bookingId: "",
+    bookingCollection: "",
+  },
+  android: {
+    priority: "high",
+    notification: {channelId: ANDROID_CHANNEL_ID, tag: SUPPORT_CHAT_TAG},
+  },
+  apns: {
+    headers: {"apns-priority": "10", "apns-collapse-id": SUPPORT_CHAT_TAG},
+    payload: {aps: {sound: "default"}},
+  },
+});
+
+// Trigger body: push an admin's chat reply to the customer's devices.
+export const pushSupportChat = async (
+  messageId: string, message: DocumentData | undefined,
+  deps: PushDeps = defaultDeps(), now = Date.now(),
+): Promise<{sent: number; removed?: number}> => {
+  if (!message || !isSupportChatReply(message, now)) return {sent: 0};
+  return sendToCustomer(message.customerId,
+    buildSupportChatPush(messageId, message), deps);
 };
 
 // Trigger body: push an admin broadcast to every customer device.
@@ -220,6 +302,17 @@ export const pushCustomerNotification = onDocumentCreated(
       await pushToCustomer(uid, notificationId, event.data?.data());
     } catch (error) {
       logger.error("[customerPush] pushCustomerNotification failed", error);
+    }
+  },
+);
+
+export const pushSupportChatMessage = onDocumentCreated(
+  {document: "customerSupportMessagesV2/{messageId}", region: "asia-east2"},
+  async (event) => {
+    try {
+      await pushSupportChat(event.params.messageId, event.data?.data());
+    } catch (error) {
+      logger.error("[customerPush] pushSupportChatMessage failed", error);
     }
   },
 );

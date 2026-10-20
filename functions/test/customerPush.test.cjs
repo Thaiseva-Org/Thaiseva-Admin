@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const {
     createRegisterHandler, createUnregisterHandler, pushToCustomer, pushBroadcast,
     buildPushMessage, tokenDocId, CUSTOMER_TOPIC, DEVICE_TOKENS_COLLECTION,
+    pushSupportChat, isSupportChatReply, supportChatPreview, SUPPORT_CHAT_TYPE,
 } = require('../lib/customerPush');
 
 const TOKEN_A = 'a'.repeat(40);
@@ -145,4 +146,56 @@ test('broadcast goes to the topic; inbox parent documents are ignored', async ()
         assert.deepEqual(await pushBroadcast(id, { title: 'x' }, { messaging }), { sent: false });
     }
     assert.equal(messaging.calls.send.length, 1);
+});
+
+const NOW = Date.UTC(2026, 9, 21, 8, 0, 0);
+const at = (ms) => ({ toMillis: () => ms });
+const reply = (extra = {}) => ({
+    customerId: 'u1', senderId: 'admin-uid', senderRole: 'admin', text: 'Your visa slot is confirmed',
+    createdAt: at(NOW - 2000), deleted: false, booking: null, attachment: null, ...extra,
+});
+
+test('admin chat reply is pushed to the customer as one replaceable notification', async () => {
+    const db = fakeDb();
+    const register = createRegisterHandler(() => ({ db, messaging: fakeMessaging() }));
+    await register(request('u1', { token: TOKEN_A }));
+    await register(request('u2', { token: TOKEN_B }));
+    const messaging = fakeMessaging();
+    assert.deepEqual(await pushSupportChat('m1', reply(), { db, messaging }, NOW), { sent: 1, removed: 0 });
+    const [sent] = messaging.calls.multicast;
+    assert.deepEqual(sent.tokens, [TOKEN_A]);
+    assert.deepEqual(sent.notification, { title: 'Thaiseva Support', body: 'Your visa slot is confirmed' });
+    assert.equal(sent.data.type, SUPPORT_CHAT_TYPE);
+    assert.equal(sent.data.messageId, 'm1');
+    assert.ok(Object.values(sent.data).every((v) => typeof v === 'string'));
+    assert.equal(sent.android.notification.channelId, 'high_importance_channel');
+    assert.equal(sent.android.notification.tag, 'support-chat');
+    assert.equal(sent.apns.headers['apns-collapse-id'], 'support-chat');
+});
+
+test('customer messages, headings, migrated, deleted and old messages are not pushed', async () => {
+    const skipped = [
+        reply({ senderRole: 'customer' }),
+        reply({ type: 'heading', category: 'Visa' }),
+        reply({ legacyType: 'heading' }),
+        reply({ legacySource: 'chats/u1_CustomerSupport' }),
+        reply({ deleted: true }),
+        reply({ createdAt: at(NOW - 11 * 60 * 1000) }),
+        reply({ createdAt: undefined }),
+        reply({ customerId: '' }),
+        undefined,
+    ];
+    const messaging = fakeMessaging();
+    for (const message of skipped) {
+        assert.equal(isSupportChatReply(message, NOW), false);
+        assert.deepEqual(await pushSupportChat('m', message, { db: fakeDb(), messaging }, NOW), { sent: 0 });
+    }
+    assert.equal(messaging.calls.multicast.length, 0);
+});
+
+test('chat preview describes attachments and bookings without text', () => {
+    assert.equal(supportChatPreview(reply({ text: '', attachment: { contentType: 'image/jpeg', name: 'a.jpg' } })), '📷 Photo');
+    assert.equal(supportChatPreview(reply({ text: '', attachment: { contentType: 'application/pdf', name: 'visa.pdf' } })), '📄 visa.pdf');
+    assert.equal(supportChatPreview(reply({ text: '  ', booking: { title: 'Hotel Siam' } })), '🔖 Hotel Siam');
+    assert.equal(supportChatPreview(reply({ text: '' })), 'New message');
 });
