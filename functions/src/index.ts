@@ -5,6 +5,11 @@ export {getIdentityDocument} from "./identityMedia";
 export {uploadPrivateChatAttachment, getPrivateChatAttachment} from "./chatMedia";
 export {customerChat, cleanupCustomerChatAttachments} from "./customerChat";
 export { createVerifiedAccount } from "./verifiedSignup";
+export {
+  registerCustomerDevice, unregisterCustomerDevice,
+  pushCustomerNotification, pushBroadcastNotification,
+  pushSupportChatMessage,
+} from "./customerPush";
 export {createSubAdmin, exportCustomerData} from "./privilegedAccounts";
 export {
   sendEmailOtp, resendEmailOtp, verifyEmailOtp,

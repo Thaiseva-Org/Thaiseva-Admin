@@ -116,6 +116,10 @@ export async function deleteAuthAccountKeepData(uid: string, actorUid = "system"
       }
     }
   }
+  // Push tokens are keyed by token hash, so find this user's devices by uid.
+  const devices = await db().collection("customerDeviceTokens")
+    .where("uid", "==", uid).get();
+  await Promise.all(devices.docs.map((device) => device.ref.delete()));
   const directory = db().doc("chatRooms/CustomerSupport");
   await db().runTransaction(async tx => {
     const snapshot = await tx.get(directory);
