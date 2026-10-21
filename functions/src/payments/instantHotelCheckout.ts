@@ -5,7 +5,7 @@ import {listStayNights} from "../utils/hotelAvailability";
 import {hotelStayAmount, requestedExtraBedCount} from "../utils/hotelBedPricing";
 import {createCheckoutSessionCore, expireCheckoutSessionSafe} from "./createCheckoutSessionCore";
 import {HttpError, stringValue} from "./corsAuth";
-import {paidPatch} from "./markBookingPaid";
+import {paidPatch, sessionPresentment} from "./markBookingPaid";
 
 const db = () => admin.firestore();
 const checkoutCollection = "hotelCheckoutSessions";
@@ -206,6 +206,7 @@ export const upsertInstantHotelFromPaidSession = async (
         sessionId: session.id, paymentIntentId,
         amountTotal: session.amount_total, currency: session.currency,
         customerEmail: session.customer_email,
+        presentment: sessionPresentment(session),
       }),
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });

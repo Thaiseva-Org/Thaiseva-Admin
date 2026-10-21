@@ -456,6 +456,8 @@ All hotel stock and booking endpoints strictly validate catalog visibility (`isL
 }
 ```
 
+**Local currency (Stripe Adaptive Pricing).** When Adaptive Pricing is on in the Stripe Dashboard, the hosted Checkout lets the customer pay in their own currency at Stripe's rate (the customer pays Stripe's 2–4% conversion fee). Sessions and PaymentIntents stay in THB, so every amount check is unchanged. If the customer paid in another currency, the response adds `"presentment": { "currency": "USD", "amount": 58.07, "amountMinor": 5807 }` (from Stripe's `presentment_details`; zero-decimal currencies such as JPY have `amount == amountMinor`), and the booking (pay-later, instant hotel and package) gets the same object as `stripePresentment`, written by `verifySession` and `stripeWebhook`. It is `null` / absent for THB payments.
+
 ---
 
 ### 4.3 Stripe Webhook Receiver
