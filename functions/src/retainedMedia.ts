@@ -1,5 +1,6 @@
 import * as admin from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
+import {millis} from "./retentionPolicy";
 
 // Operator-created inventory only. Clients never select a storage path or create grants.
 export const getRetainedPrivateFile = onCall({region: "asia-east2", memory: "256MiB", concurrency: 2, maxInstances: 10}, async request => {
@@ -24,6 +25,14 @@ export const getRetainedPrivateFile = onCall({region: "asia-east2", memory: "256
   if (!(await file.exists())[0]) throw new HttpsError("not-found", "File is unavailable.");
   const [metadata] = await file.getMetadata();
   if (metadata.metadata?.privateRetainedId !== id || metadata.metadata?.privateRetainedDocument !== "true") throw new HttpsError("permission-denied", "File needs a privacy review.");
+  // Lifecycle deletion is asynchronous. Stop previews at the approved deadline
+  // even while the object still exists. Only a native storage hold permits review.
+  if (record.expiresAt !== undefined && record.expiresAt !== null) {
+    const expiresAt = millis(record.expiresAt);
+    if (expiresAt === null || (expiresAt <= Date.now() && metadata.temporaryHold !== true && metadata.eventBasedHold !== true)) {
+      throw new HttpsError("failed-precondition", "The retention period has ended or needs review.");
+    }
+  }
   const contentType = String(metadata.contentType || "");
   if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(contentType) ||
       !Number.isFinite(Number(metadata.size)) || Number(metadata.size) > 8 * 1024 * 1024) {

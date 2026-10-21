@@ -190,6 +190,7 @@ const Blogs = () => {
         }
 
         try {
+            const content = DOMPurify.sanitize(currentBlog.content);
             const metaTitle = currentBlog.metaTitle?.trim() || currentBlog.title;
             const metaDescription =
                 currentBlog.metaDescription?.trim() ||
@@ -201,6 +202,7 @@ const Blogs = () => {
                 const docRef = doc(db, "BlogDB", selectedId);
                 await updateDoc(docRef, {
                     ...currentBlog,
+                    content,
                     metaTitle,
                     metaDescription,
                     readTime,
@@ -211,6 +213,7 @@ const Blogs = () => {
                 const isDraft = currentBlog.status === "Draft";
                 const blogPayload = {
                     ...currentBlog,
+                    content,
                     metaTitle,
                     metaDescription,
                     readTime,
@@ -448,7 +451,7 @@ const Blogs = () => {
                                 </Typography>
                                 <ReactQuill
                                     theme="snow"
-                                    value={currentBlog.content}
+                                    value={DOMPurify.sanitize(currentBlog.content || "")}
                                     onChange={(value) => setCurrentBlog(prev => ({ ...prev, content: value }))}
                                     className="blog-content-editor bg-white rounded-xl border border-gray-200"
                                     modules={{

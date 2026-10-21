@@ -35,3 +35,11 @@ test('a previous outcome date cannot expire a newly cancelled or completed booki
   assert.equal(bookingAction(record,now),'REVIEW');
   assert.equal(bookingAction({...record,cancelledAt:'2026-10-01T00:00:00Z'},now),'KEEP');
 });
+test('accounting-linked bookings require an explicit retention mapping before deletion',()=>{
+ const record={status:'Completed',createdAt:'2010-01-01T00:00:00Z',completedAt:'2010-02-01T00:00:00Z',customerInvoiceId:'invoice'};
+ assert.equal(bookingAction(record,now),'REVIEW');
+ assert.equal(bookingAction({...record,retentionUntil:'ambiguous'},now),'REVIEW');
+ assert.equal(bookingAction({...record,retentionUntil:'2030-01-01T00:00:00Z'},now),'LOCATION');
+ assert.equal(bookingAction({...record,retentionUntil:'2025-01-01T00:00:00Z'},now),'DELETE');
+ assert.equal(bookingAction({...record,retentionUntil:'2025-01-01T00:00:00Z',legalHold:true},now),'KEEP');
+});

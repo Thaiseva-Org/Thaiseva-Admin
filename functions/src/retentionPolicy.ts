@@ -1,5 +1,5 @@
 export type RetentionData = Record<string, any>;
-export const POLICY_VERSION = "2026-10-13";
+export const POLICY_VERSION = "2026-10-21";
 export function millis(value: any): number | null {
   let result: number;
   if (value && typeof value.toMillis === "function") result = value.toMillis();
@@ -29,6 +29,14 @@ export function expiredMessages(messages: any[], now: Date): any[] {
     return timestamp === null || timestamp > cutoff(now, 2);
   });
 }
+export function bookingRetentionReviewReason(data: RetentionData): string {
+  const until = data.retentionUntil ?? data.retainUntil;
+  if (until !== undefined && millis(until) === null) return "INVALID_RETENTION_DEADLINE";
+  const invoice = ["invoiceId", "invoiceNumber", "customerInvoiceId", "taxInvoice", "taxInvoiceNumber", "accountingRecord"]
+    .some(field => data[field] !== undefined && data[field] !== null && data[field] !== false && data[field] !== "");
+  if (invoice && until === undefined) return "ACCOUNTING_RETENTION_MAPPING_REQUIRED";
+  return "MISSING_LIFECYCLE_DATE";
+}
 export function bookingAction(data: RetentionData, now: Date): "DELETE" | "LOCATION" | "KEEP" | "REVIEW" {
   if (held(data)) return "KEEP";
   const status = String(data.bookingStatus ?? data.status ?? "").toLowerCase();
@@ -38,7 +46,12 @@ export function bookingAction(data: RetentionData, now: Date): "DELETE" | "LOCAT
   const finished = ["completed", "done"].includes(status) ? millis(data.completedAt) :
     ["cancelled", "canceled"].includes(status) ? millis(data.cancelledAt ?? data.canceledAt) : millis(data.rejectedAt);
   if (created === null || finished === null) return "REVIEW";
-  if (Math.max(created, finished) <= cutoff(now, 5)) return "DELETE";
+  if (Math.max(created, finished) <= cutoff(now, 5)) {
+    const reason = bookingRetentionReviewReason(data);
+    if (reason !== "MISSING_LIFECYCLE_DATE") return "REVIEW";
+    const until = millis(data.retentionUntil ?? data.retainUntil);
+    if (until === null || until <= now.getTime()) return "DELETE";
+  }
   if (["completed", "done"].includes(status) && finished <= cutoff(now, 0, 90)) return "LOCATION";
   return "KEEP";
 }

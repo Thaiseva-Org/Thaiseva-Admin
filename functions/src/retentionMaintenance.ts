@@ -4,7 +4,7 @@ import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {getAuth} from "firebase-admin/auth";
 import {requireSuperAdmin} from "./privilegedAccounts";
 import {deleteAuthAccountKeepData} from "./accountDeletion";
-import {bookingAction, expiredMessages, held, millis, messageMillis, cutoff, LOCATION_FIELDS, POLICY_VERSION} from "./retentionPolicy";
+import {bookingAction, bookingRetentionReviewReason, expiredMessages, held, millis, messageMillis, cutoff, LOCATION_FIELDS, POLICY_VERSION} from "./retentionPolicy";
 
 const collections = ["hotelBookingData", "travelBookingDetails", "car_bookings", "self_driving_bookings",
   "vanBookings", "bookings", "orders", "foodOrders", "dineInBookings", "foodCustomerSupportChats",
@@ -137,7 +137,7 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
             if (action === "REVIEW") {
               counts.reviewRequired++;
               if (!dryRun) tx.set(db.collection("privacyRetentionReviews").doc(`${collection}_${document.id}`),
-                {recordPath: document.ref.path, reason: "MISSING_LIFECYCLE_DATE", status: "PENDING", updatedAt: FieldValue.serverTimestamp()});
+                {recordPath: document.ref.path, reason: bookingRetentionReviewReason(data), status: "PENDING", updatedAt: FieldValue.serverTimestamp()});
             }
             if (action === "DELETE") {
               // Child records/attachments need explicit cleanup; do not leave orphaned data.
@@ -149,7 +149,10 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
                 if (collection === "orders") tx.delete(db.doc(`partnerOrderViews/${document.id}`));
               }
             }
-            if (action === "LOCATION" && ["car_bookings", "self_driving_bookings", "vanBookings"].includes(collection)) {
+            const completed = millis(data.completedAt);
+            const locationDue = ["completed", "done"].includes(String(data.bookingStatus ?? data.status ?? "").toLowerCase()) &&
+              completed !== null && completed <= cutoff(now, 0, 90);
+            if ((action === "LOCATION" || (action === "REVIEW" && locationDue)) && ["car_bookings", "self_driving_bookings", "vanBookings"].includes(collection)) {
               const update: Record<string, unknown> = {};
               for (const field of LOCATION_FIELDS) if (field in data) update[field] = FieldValue.delete();
               if (Object.keys(update).length) {
