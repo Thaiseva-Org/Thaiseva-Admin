@@ -33,6 +33,12 @@ Food partner legacy message arrays remain available through the API, with new me
 
 Both chat screens use visible-screen polling. Food partner chat covers text messaging and read state; media/search enhancements in the general customer channel are not implicitly added to food chat.
 
+## Category restoration follow-up
+
+Admin hosting and `customerChat` were updated on 19 October to restore centered **Chatting in Visa**-style history entries and the latest category in the conversation header. Category changes append history through the authenticated API; repeated selections do not duplicate it. Legacy category headings also synchronize during normal message polling. This limited compatibility does not synchronize ordinary messages or files.
+
+Validation for this follow-up: 2 frontend category tests and 18 customer-chat emulator integration tests passed, along with backend and frontend builds. Read-only production reconciliation found 275 original headings and 275 migrated headings. Live hosting served the expected bundle and anonymous category calls returned HTTP 401. See [the detailed restoration record](05-security/CHAT_CATEGORY_RESTORATION_2026-10-19.md) and [API contract](CUSTOMER_CHAT_APP_API.md#chat-topic-categories-restored-19-october-2026). These checks do not close the remaining broader privacy findings.
+
 ## Rollback
 
 Restore the preceding hosting release if necessary, but retain the new message records. A rollback to direct-write food builds requires a separately reviewed compatibility decision; do not restore broad writes as a routine rollback. Do not remove indexes or purge V2 data when rolling back UI code.

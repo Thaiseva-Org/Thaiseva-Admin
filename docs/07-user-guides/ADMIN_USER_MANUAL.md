@@ -2,6 +2,14 @@
 **The Ultimate Practical "How-To" Operations Guide Covering Every Action in the Admin Panel**  
 *Version 3.2.0 | Digital Core Enterprise Edition | Updated October 2026*
 
+## Customer support chat categories (19 October 2026)
+
+Open `/dashboard/customer-chat` and select a customer. The header shows the latest topic, such as **Chatting in Visa**. Centered entries in the conversation show earlier topics and subsequent changes, for example Visa followed by Work Permit. Older migrated headings appear in the same format. Loading older history does not replace the current topic in the header.
+
+When the customer's app records a category change, the conversation gains another category entry. Selecting the same category again creates no duplicate. Existing clients' legacy category headings are picked up during normal message refresh; ordinary legacy messages and files do not share this synchronization. The Admin screen displays these categories; it does not add a category picker.
+
+Category entries describe the conversation topic and cannot be edited or deleted as ordinary messages. They do not change staff permissions or retention. A held conversation blocks category changes. See [the restoration record](../05-security/CHAT_CATEGORY_RESTORATION_2026-10-19.md) for behavior and validation.
+
 ---
 
 ## 🎨 Theme, Badges & Quick Action Legend

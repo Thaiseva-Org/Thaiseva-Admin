@@ -1,3 +1,5 @@
+> Current status: [21 October privacy patch and remaining decisions](../../../Thaiseva-Security-Audit/PDPA_PATCH_RELEASE_2026-10-21.md). Earlier pending-review, backup, webhook and private-link statements below are historical; use the current release evidence and company action register.
+
 > Latest follow-up: [deployed identity previews, deletion guards, lifecycle dates and daily backups](PDPA_FOLLOWUP_2026-10-15.md). The earlier no-backup finding is superseded; first backup and restore verification remain open.
 
 > Vault update: [72 functions connected and current configuration verified](VAULT_CONNECTION_2026-10-15.md). The earlier vault IAM blocker is resolved. A pre-existing booking-webhook signing-secret gap remains separate.

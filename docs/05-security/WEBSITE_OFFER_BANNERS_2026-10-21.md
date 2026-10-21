@@ -1,0 +1,15 @@
+# Website offer popup banners
+
+Open **Web Config → Offers → Website Offer Banners**. Select **Add New Banner**, upload a JPG/PNG/WebP photo up to 8 MB, optionally enter title/description/link, then save. Images are shown in full without cropping. Use Move left/right to set order, Visible to hide one banner, Remove to remove it from the slider, and Show banner popup on website to enable/disable the whole popup. Up to 12 banners are supported.
+
+This manager uses a new, separate `settings/websiteOfferBanners` document. The old `settings/todayBestOffer` data, including ThaiFex/FHT, remains untouched. Existing `OfferDB` offer cards and the public Offers page remain separate. No example images are published; the new popup stays hidden until an active photo is saved here.
+
+The public Thaiseva website listens to the new document in real time. It displays the saved photos in a popup after five seconds, once per tab session. Multiple banners have five-second autoplay, arrows, dots and a pause/play control. Manual selection pauses autoplay; reduced-motion users start paused. Escape, the close button, backdrop and Continue browsing dismiss it. Native dialog focus handling and scroll cleanup are preserved. Account, booking and privacy/legal flows are excluded.
+
+Writes are covered by existing Admin-only settings rules. Public reads use the existing settings policy. Uploads use the explicit public marketing folder `site-media/offer-banners`; private-document permissions were not changed. Transactions preserve other settings and concurrent banner changes. Invalid destination protocols are rejected, and cancelled replacement uploads are cleaned up where possible.
+
+Validation: both production builds pass; four focused tests pass for preserving/reordering records, idempotent retries, hidden/invalid banners and safe destinations. In a local Firebase emulator, the actual Admin manager uploaded two synthetic PNGs and saved them into the same source consumed by the actual website popup. Browser checks confirmed loaded images, next navigation/manual pause, successful reordering, visibility changes, close/session behavior and a 478 px popup within a 507 px mobile viewport. Local QA permits the emulator's loopback HTTP images; production retains HTTPS-only images. Synthetic fixtures were confined to the local emulator, not production.
+
+No signed-in production Admin account was used during verification. Production content will appear when an authorized Admin uploads the first real website banner.
+
+Both Hosting releases are deployed and their live JavaScript assets return 200 with the new dedicated banner source. Production `settings/websiteOfferBanners` is initially absent (zero banners), so the website correctly shows no popup until an Admin saves an image. The legacy source still contains ThaiFex and FHT, confirming those records were not migrated. A fresh production browser session loads the home page normally without an empty popup or a premature session-seen marker. Verification summary: `D:/projects/Thaiseva-Firebase-Security/offer-banner-release-verification-2026-10-21.json`.

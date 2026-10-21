@@ -4,6 +4,7 @@ import { getAuth } from "firebase/auth";
 import { customerChatApi as api, uploadCustomerChatFile } from "../../../../utils/customerChatApi";
 import SupportAttachment from "./SupportAttachment";
 import SupportBookingDialog from "./SupportBookingDialog";
+import { messageCategory, currentChatCategory } from "../../../../utils/supportCategory";
 import {
   HotelIcon,
   CloseIcon,
@@ -132,6 +133,19 @@ export default function CustomerSupportInbox({
   const historyLoaded = useRef(false);
   const uid = selected?.customerId;
   const report = (e) => setError(e.message || "Chat request failed. Please retry.");
+
+  useEffect(() => {
+    if (!uid) return;
+    let alive = true;
+    api("open", {customerId: uid}).then(({conversation}) => {
+      if (!alive) return;
+      setInbox(previous => previous.some(item => item.customerId === uid)
+        ? previous.map(item => item.customerId === uid ? conversation : item)
+        : [conversation, ...previous]);
+      setSelected(previous => previous?.customerId === uid ? conversation : previous);
+    }).catch(error => { if (alive) report(error); });
+    return () => { alive = false; };
+  }, [uid]);
 
   // Close message 3-dot menu on outside click
   useEffect(() => {
@@ -714,6 +728,11 @@ export default function CustomerSupportInbox({
                         {activeConversation?.status === "resolved" ? "Resolved" : "Active"}
                       </span>
                     </div>
+                    {currentChatCategory(activeConversation, messages) && (
+                      <p className="text-xs text-primary-700 mt-0.5">
+                        Chatting in <strong>{currentChatCategory(activeConversation, messages)}</strong>
+                      </p>
+                    )}
                     <p className="text-[11px] text-neutral-400 truncate mt-0.5 font-mono">
                       ID: {selected?.customerId}
                     </p>
@@ -924,10 +943,18 @@ export default function CustomerSupportInbox({
 
                 {ordered.map((message, index) => {
                   const previous = ordered[index - 1];
-                  const newDay =
-                    !previous ||
-                    new Date(previous.createdAt).toDateString() !==
-                      new Date(message.createdAt).toDateString();
+                  const newDay = !previous || new Date(previous.createdAt).toDateString() !== new Date(message.createdAt).toDateString();
+                  const category = messageCategory(message);
+                  if (category) return (
+                    <div key={message.id}>
+                      {newDay && <div className="my-4 text-center text-[11px] text-neutral-500">{new Date(message.createdAt).toLocaleDateString(undefined, {day: "numeric", month: "short", year: "numeric"})}</div>}
+                      <div id={`support-message-${message.id}`} className="my-4 text-center">
+                        <span className="inline-block rounded-full border border-primary-200 bg-primary-50 px-4 py-2 text-sm text-primary-700">
+                          Chatting in <strong>{category}</strong>
+                        </span>
+                      </div>
+                    </div>
+                  );
 
                   const isAdmin = message.senderRole === "admin";
                   const isMyMessage =

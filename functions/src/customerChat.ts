@@ -15,7 +15,7 @@ import {
   extractLinks,
   validatedFile,
 } from "./customerChatCore";
-import {held, cutoff} from "./retentionPolicy";
+import {held, cutoff, messageMillis} from "./retentionPolicy";
 
 const db = () => admin.firestore();
 const conversations = () => db().collection("customerSupportV2");
@@ -23,6 +23,71 @@ const messages = () => db().collection("customerSupportMessagesV2");
 const attachments = () => db().collection("customerSupportAttachmentsV2");
 type Actor = {uid: string; administrator: boolean; name: string};
 type Data = Record<string, any>;
+
+async function changeCategory(a: Actor, uid: string, conversation: admin.firestore.DocumentReference, body: Data) {
+  const category = text(body.category ?? body.text, 80);
+  if (!category || /[\u0000-\u001f\u007f]/.test(category)) throw new HttpsError("invalid-argument", "Select a chat category.");
+  const requestId = id(body.requestId, "request ID");
+  const ref = messages().doc(fingerprint([uid, a.uid, "category", requestId]));
+  let changed = false;
+  await db().runTransaction(async tx => {
+    changed = false;
+    const [thread, previous] = await Promise.all([tx.get(conversation), tx.get(ref)]);
+    if (previous.exists) {
+      if (previous.data()?.category !== category) throw new HttpsError("already-exists", "Request ID was used for a different category.");
+      return;
+    }
+    if (!thread.exists) throw new HttpsError("failed-precondition", "Open the conversation first.");
+    if (held(thread.data() || {})) throw new HttpsError("failed-precondition", "This conversation has a retention hold.");
+    if (thread.data()?.currentCategory === category) return;
+    const createdAt = Timestamp.now();
+    tx.create(ref, {customerId: uid, senderId: a.uid, senderRole: a.administrator ? "admin" : "customer",
+      type: "heading", category, text: category, createdAt, deleted: false, editedAt: null,
+      attachment: null, booking: null, replyTo: null, links: [], categories: [], searchTerms: searchTerms(category)});
+    tx.update(conversation, {currentCategory: category, categoryUpdatedAt: createdAt, updatedAt: createdAt,
+      lastMessage: `Chatting in ${category}`, [a.administrator ? "customerUnread" : "adminUnread"]: FieldValue.increment(1)});
+    changed = true;
+  });
+  const message = await ref.get();
+  return {changed, message: message.exists ? serialize(message) : null, conversation: serialize(await conversation.get())};
+}
+
+async function syncLegacyCategories(uid: string) {
+  const conversation = conversations().doc(uid);
+  const [source, thread] = await Promise.all([
+    db().doc(`chats/${uid}_CustomerSupport`).get(), conversation.get(),
+  ]);
+  if (!source.exists || !thread.exists || held(source.data() || {}) || held(thread.data() || {})) return;
+  const version = source.updateTime!.toMillis();
+  if (thread.data()?.legacyCategorySyncedAt?.toMillis?.() === version) return;
+  const raw = source.data()?.messages;
+  if (!Array.isArray(raw)) return;
+  const headings = raw.flatMap((message, index) => {
+    const time = messageMillis(message || {});
+    if (message?.type !== "heading" || message.deleted || typeof message.text !== "string" ||
+        !message.text.trim() || message.text.length > 80 || time === null ||
+        time > version + 60000 || /[\u0000-\u001f\u007f]/.test(message.text)) return [];
+    return [{message, time, ref: messages().doc(fingerprint(["legacy", uid, message.id || message.messageId || index]))}];
+  });
+  if (!headings.length) return;
+  await db().runTransaction(async tx => {
+    const current = await tx.get(conversation);
+    if (!current.exists || held(current.data() || {})) return;
+    const existing = await Promise.all(headings.map(heading => tx.get(heading.ref)));
+    headings.forEach((heading, index) => {
+      if (existing[index].exists) return;
+      tx.create(heading.ref, {customerId: uid, senderId: typeof heading.message.senderId === "string" ? heading.message.senderId : uid,
+        senderRole: heading.message.senderId === uid ? "customer" : "admin", legacyType: "heading",
+        legacySource: source.ref.path, legacyIndex: raw.indexOf(heading.message), legacyMessageId: heading.message.id || heading.message.messageId || null,
+        text: heading.message.text.trim(), createdAt: Timestamp.fromMillis(heading.time), deleted: false, editedAt: null, retentionHold: held(heading.message),
+        attachment: null, booking: null, replyTo: null, links: [], categories: [], searchTerms: searchTerms(heading.message.text)});
+    });
+    const latest = headings.reduce((a, b) => b.time >= a.time ? b : a);
+    const previousTime = current.data()?.categoryUpdatedAt?.toMillis?.() || 0;
+    tx.update(conversation, {legacyCategorySyncedAt: source.updateTime!,
+      ...(latest.time > previousTime ? {currentCategory: latest.message.text.trim(), categoryUpdatedAt: Timestamp.fromMillis(latest.time)} : {})});
+  });
+}
 
 async function actor(request: any): Promise<Actor> {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to use support chat.");
@@ -204,8 +269,15 @@ export const customerChat = onCall(
       if (a.administrator && uid === a.uid)
         throw new HttpsError("invalid-argument", "Select a customer first.");
       const profile = a.administrator ? (await db().doc(`users/${uid}`).get()).data() : null;
+      const existing = await conversation.get();
+      const legacySnapshot = !existing.data()?.currentCategory ? await db().doc(`chats/${uid}_CustomerSupport`).get() : null;
+      const legacy = legacySnapshot?.data();
+      const legacyHeading = Array.isArray(legacy?.messages) ? [...legacy.messages].reverse().find(m =>
+        m?.type === "heading" && !m.deleted && typeof m.text === "string" && m.text.trim() && m.text.length <= 80) : null;
       await db().runTransaction(async (tx) => {
         const current = await tx.get(conversation);
+        if (current.exists && !current.data()?.currentCategory && legacyHeading && !held(current.data() || {}))
+          tx.update(conversation, {currentCategory: legacyHeading.text.trim(), categoryUpdatedAt: Timestamp.fromMillis(messageMillis(legacyHeading) ?? legacySnapshot!.updateTime!.toMillis())});
         if (!current.exists)
           tx.create(conversation, {
             customerId: uid,
@@ -216,9 +288,14 @@ export const customerChat = onCall(
             lastMessage: "",
             customerUnread: 0,
             adminUnread: 0,
+            ...(legacyHeading ? {currentCategory: legacyHeading.text.trim(), categoryUpdatedAt: Timestamp.fromMillis(messageMillis(legacyHeading) ?? legacySnapshot!.updateTime!.toMillis())} : {}),
           });
       });
+      if (body.category !== undefined) return changeCategory(a, uid, conversation, {...body, requestId: body.requestId || randomUUID()});
       return {conversation: serialize(await conversation.get())};
+    }
+    if (action === "category" || action === "setCategory" || (action === "send" && body.type === "heading")) {
+      return changeCategory(a, uid, conversation, body);
     }
     if (action === "inbox") {
       adminOnly(a);
@@ -257,6 +334,7 @@ export const customerChat = onCall(
     }
     if (action === "booking") return {booking: await booking(uid, body.booking, a.administrator)};
     if (action === "messages" || action === "search" || action === "shared") {
+      if (action === "messages") await syncLegacyCategories(uid);
       const global = action === "search" && body.allCustomers === true;
       if (global) adminOnly(a);
       let query: admin.firestore.Query = messages();
@@ -412,6 +490,8 @@ export const customerChat = onCall(
           throw new HttpsError("permission-denied", "Message unavailable.");
         if (held(data) || held(thread.data() || {}))
           throw new HttpsError("failed-precondition", "This conversation has a retention hold.");
+        if (data.type === "heading" || data.legacyType === "heading")
+          throw new HttpsError("failed-precondition", "Category changes remain in the conversation history.");
         if (action === "edit") {
           if (data.senderId !== a.uid || data.deleted)
             throw new HttpsError(

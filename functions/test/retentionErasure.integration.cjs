@@ -93,6 +93,63 @@ test('identity previews enforce ownership, current privilege, suspension, revoca
   const [meta]=await bucket.file(path).getMetadata();assert.equal(meta.metadata.firebaseStorageDownloadTokens,'unchanged-fixture');
 });
 
+test('driver previews require current owner or admin and a server-bound driver file',async()=>{
+  const {getDriverDocument}=require('../lib/driverMedia');
+  for(const uid of ['driver-owner','driver-other','driver-admin','driver-food'])await admin.auth().createUser({uid,customClaims:uid==='driver-food'?{foodRole:'masterAdmin'}:{}});
+  await db.doc('users/driver-admin').set({role:'Admin'});
+  const path='123456789-file';
+  await bucket.file(path).save('synthetic licence',{metadata:{contentType:'image/jpeg',metadata:{privateDriverDocument:'true',privateDriverOwner:'driver-owner'}}});
+  await db.doc('drivers/driver-owner').set({driverInformation:{license:path}});
+  const call=(uid,driverId='driver-owner',authTime=Math.ceil(Date.now()/1000))=>getDriverDocument.run({auth:uid?{uid,token:{auth_time:authTime}}:undefined,data:{driverId,path:'ignored-attacker-input'}});
+  assert.ok((await call('driver-owner')).contentBase64);
+  assert.ok((await call('driver-admin')).contentBase64);
+  for(const uid of ['driver-other','driver-food'])await assert.rejects(call(uid),e=>e.code==='permission-denied');
+  await assert.rejects(call(null),e=>e.code==='unauthenticated');
+  await db.doc('users/driver-admin').set({role:'Customer'});
+  await assert.rejects(call('driver-admin'),e=>e.code==='permission-denied');
+  await db.doc('users/driver-owner').set({isSuspended:true});
+  await assert.rejects(call('driver-owner'),e=>e.code==='permission-denied');
+  await db.doc('users/driver-owner').set({isSuspended:false});
+  await admin.auth().revokeRefreshTokens('driver-owner');
+  await assert.rejects(call('driver-owner','driver-owner',1),e=>e.code==='permission-denied');
+  await db.doc('drivers/driver-other').set({driverInformation:{license:path}});
+  await assert.rejects(call('driver-other','driver-other'),e=>e.code==='permission-denied');
+  await bucket.file(path).setMetadata({contentType:'text/html'});
+  await assert.rejects(call('driver-owner'),e=>e.code==='failed-precondition');
+});
+
+test('driver upload stores protected owner-bound bytes without a download token',async()=>{
+  const {uploadDriverDocument}=require('../lib/driverMedia');
+  const call=(uid,contentType='image/png',contentBase64=Buffer.from([137,80,78,71,13,10,26,10,1]).toString('base64'))=>uploadDriverDocument.run({auth:uid?{uid,token:{auth_time:Math.ceil(Date.now()/1000)}}:undefined,data:{contentType,contentBase64}});
+  await assert.rejects(call(null),e=>e.code==='unauthenticated');
+  await assert.rejects(call('driver-other','image/png',Buffer.from('<html>').toString('base64')),e=>e.code==='invalid-argument');
+  const {path}=await call('driver-other');
+  assert.ok(path.startsWith('users/driver-other/licences/'));
+  const [metadata]=await bucket.file(path).getMetadata();
+  assert.equal(metadata.metadata.privateDriverOwner,'driver-other');
+  assert.equal(metadata.metadata.privateDriverDocument,'true');
+  assert.ok(!metadata.metadata.firebaseStorageDownloadTokens);
+});
+
+test('retained previews require current Admin privilege and an operator-bound file',async()=>{
+  const {getRetainedPrivateFile}=require('../lib/retainedMedia');
+  const fileId='a'.repeat(64),path='T2T_world/legacy-id.jpg';
+  await admin.auth().createUser({uid:'retained-admin'});await db.doc('users/retained-admin').set({role:'Admin'});
+  await bucket.file(path).save('synthetic identity',{metadata:{contentType:'image/jpeg',metadata:{privateRetainedDocument:'true',privateRetainedId:fileId}}});
+  await db.doc(`retainedPrivateFiles/${fileId}`).set({status:'PROTECTED',storagePath:path});
+  const call=uid=>getRetainedPrivateFile.run({auth:uid?{uid,token:{auth_time:Math.ceil(Date.now()/1000)}}:undefined,data:{fileId,path:'attacker-ignored'}});
+  assert.ok((await call('retained-admin')).contentBase64);
+  await assert.rejects(call(null),e=>e.code==='unauthenticated');
+  await assert.rejects(call('driver-other'),e=>e.code==='permission-denied');
+  await db.doc('users/retained-admin').set({role:'Admin',isSuspended:true});
+  await assert.rejects(call('retained-admin'),e=>e.code==='permission-denied');
+  await db.doc('users/retained-admin').set({role:'Customer'});
+  await assert.rejects(call('retained-admin'),e=>e.code==='permission-denied');
+  await db.doc('users/retained-admin').set({role:'Admin'});
+  await bucket.file(path).setMetadata({metadata:{privateRetainedId:'b'.repeat(64)}});
+  await assert.rejects(call('retained-admin'),e=>e.code==='permission-denied');
+});
+
 test('new hotel outcomes record server dates and ignore stale events or duplicate retries',async()=>{
   const {recordLifecycleTransition}=require('../lib/privacyLifecycle');
   const ref=db.doc('hotelBookingData/lifecycle-fixture');

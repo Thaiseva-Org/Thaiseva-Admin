@@ -23,7 +23,7 @@ export async function requireSuperAdmin(uid: string, token: Record<string, unkno
     throw new HttpsError("permission-denied", "This account is inactive. Sign in again.");
   }
   // Sub-admins do not provision administrators or export customer databases.
-  if (token.admin !== true && !["Admin", "admin"].includes(role)) {
+  if (account.customClaims?.admin !== true && !["Admin", "admin"].includes(role)) {
     throw new HttpsError("permission-denied", "Super administrator access required.");
   }
   assertRecentSignIn(token);

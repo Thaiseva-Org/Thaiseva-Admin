@@ -26,6 +26,7 @@ import {
   usersCollection,
 } from "../../../../../firebase/firebase.config";
 import { getFileUrl } from "../../../../../utils/utils";
+import PrivateIdentityDocument from "../../../../../components/PrivateIdentityDocument";
 
 const DriverProfile = ({ partnerDetails }) => {
   const { setRefetch } = useContext(PartnerContext);
@@ -221,11 +222,7 @@ const DriverProfile = ({ partnerDetails }) => {
         </div>
         {/* driving license */}
         <span className="font-bold">Driving License : </span>
-        <img
-          src={partnerDetails?.driverInformation?.license}
-          alt=""
-          className="md:h-[60vh] md:w-3/4 mx-auto"
-        />
+        <PrivateIdentityDocument driverId={user?.uid} label="Driving licence" />
       </div>
 
       <Dialog

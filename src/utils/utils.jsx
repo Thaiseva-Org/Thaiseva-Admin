@@ -1,5 +1,6 @@
 import { Grid } from "@mui/material";
 import { getAuth } from "firebase/auth";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   deleteObject,
   getDownloadURL,
@@ -231,6 +232,19 @@ const getFileUrl = async (files, folder = "catalog") => {
   if (!isValidFile) {
     err = "Allowed file extensions jpg, jpeg, png";
     return { error: true, message: err };
+  }
+
+  if (folder === "driver-licence") {
+    if (file.size > 8 * 1024 * 1024) return {error: true, message: "Licence must be under 8 MB."};
+    const contentBase64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(",")[1]);
+      reader.onerror = () => reject(new Error("Unable to read the licence file."));
+      reader.readAsDataURL(file);
+    });
+    const upload = httpsCallable(getFunctions(undefined, "asia-east2"), "uploadDriverDocument");
+    const {data} = await upload({contentBase64, contentType: fileExt === "png" ? "image/png" : "image/jpeg"});
+    return {error: false, url: data.path};
   }
 
   const fileRef = ref(storage, imageUploadPath(folder));

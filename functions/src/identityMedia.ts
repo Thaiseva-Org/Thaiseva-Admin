@@ -1,5 +1,27 @@
 import * as admin from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
+import {randomUUID} from "node:crypto";
+import {validatedFile} from "./customerChatCore";
+
+export const uploadIdentityDocument = onCall({region: "asia-east2", memory: "256MiB", concurrency: 2, maxInstances: 10}, async request => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to upload a document.");
+  const uid = request.auth.uid;
+  const [account, profile] = await Promise.all([admin.auth().getUser(uid), admin.firestore().doc(`users/${uid}`).get()]);
+  const authTime = Number(request.auth.token.auth_time) * 1000;
+  const validAfter = Date.parse(account.tokensValidAfterTime || "1970-01-01");
+  if (account.disabled || profile.data()?.isSuspended === true || !Number.isFinite(authTime) || authTime <= 0 || !Number.isFinite(validAfter) || authTime < validAfter) {
+    throw new HttpsError("permission-denied", "This account is inactive. Sign in again.");
+  }
+  const folder = request.data?.kind === "passport" ? "passports" : request.data?.kind === "licence" ? "licences" : null;
+  if (!folder) throw new HttpsError("invalid-argument", "Select passport or licence.");
+  const checked = validatedFile(request.data?.contentBase64, request.data?.contentType);
+  if (!["image/jpeg", "image/png", "image/webp", "application/pdf"].includes(checked.contentType)) throw new HttpsError("invalid-argument", "Use a JPG, PNG, WebP or PDF document.");
+  const path = `users/${uid}/${folder}/${randomUUID()}`;
+  await admin.storage().bucket().file(path).save(checked.bytes, {resumable: false, preconditionOpts: {ifGenerationMatch: 0}, metadata: {
+    contentType: checked.contentType, cacheControl: "private, no-store", metadata: {privateIdentityDocument: "true"},
+  }});
+  return {path};
+});
 
 export function identityMediaPath(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 4000) return null;

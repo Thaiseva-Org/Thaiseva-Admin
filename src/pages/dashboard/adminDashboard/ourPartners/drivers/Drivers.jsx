@@ -46,6 +46,7 @@ import { PersonIcon } from "@icons";
 import { v4 as uuid } from "uuid";
 import { Link } from "react-router-dom";
 import SearchBar from "../../../../../components/SearchBar";
+import PrivateIdentityDocument from "../../../../../components/PrivateIdentityDocument";
 
 const Drivers = () => {
   const [page, setPage] = useState(0);
@@ -130,7 +131,7 @@ const Drivers = () => {
     const query = doc(driversCollection, id);
     const data = await getDoc(query);
 
-    setDriverDetails(data.data());
+    setDriverDetails({...data.data(), id: data.id});
   };
 
   // change driver account status
@@ -508,11 +509,7 @@ const Drivers = () => {
           </Grid>
           <div>
             <span className="font-bold"> Driving License: </span>
-            <img
-              src={driverDetails?.driverInformation?.license}
-              alt=""
-              className="w-3/4 h-60 mx-auto"
-            />
+            <PrivateIdentityDocument driverId={driverDetails.id} label="Driving licence" />
           </div>
 
           {/* Permission */}

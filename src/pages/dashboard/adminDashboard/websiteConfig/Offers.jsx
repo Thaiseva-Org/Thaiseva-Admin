@@ -27,6 +27,7 @@ import {
 import { db } from "../../../../firebase/firebase.config";
 import DragDropImageUploader from "../../../../components/websiteConfig/DragDropImageUploader";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
+import OfferBannerManager from "../../../../components/websiteConfig/OfferBannerManager";
 import Swal from "sweetalert2";
 import { DeleteIcon } from "@icons";
 import { EditIcon } from "@icons";
@@ -194,6 +195,7 @@ const Offers = () => {
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
+            <OfferBannerManager />
             <ConfigHeader
                 title="Special Offers"
                 subtitle="Manage website offers. Saved changes appear live on the Offers page."

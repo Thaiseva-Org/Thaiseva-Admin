@@ -1,7 +1,10 @@
 export {recordHotelPrivacyLifecycle} from "./privacyLifecycle";
+export {syncPublicPartnerDirectory, syncPublicSelfDriveConditions} from "./publicPrivacyViews";
 import { initializeApp } from "firebase-admin/app";
 export {getFoodOrderPhoto} from "./orderMedia";
-export {getIdentityDocument} from "./identityMedia";
+export {getIdentityDocument, uploadIdentityDocument} from "./identityMedia";
+export {getDriverDocument, uploadDriverDocument} from "./driverMedia";
+export {getRetainedPrivateFile} from "./retainedMedia";
 export {uploadPrivateChatAttachment, getPrivateChatAttachment} from "./chatMedia";
 export {customerChat, cleanupCustomerChatAttachments} from "./customerChat";
 export { createVerifiedAccount } from "./verifiedSignup";

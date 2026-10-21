@@ -110,7 +110,7 @@ const DriverOnBoarding = () => {
 
         if (createdUser) {
           const profileUpload = await getFileUrl([profileFile], "private");
-          const licenseUpload = await getFileUrl([licenseFile], "private");
+          const licenseUpload = await getFileUrl([licenseFile], "driver-licence");
           if (profileUpload.error || licenseUpload.error) throw new Error(profileUpload.message || licenseUpload.message);
           driverInformation.photoURL = profileUpload.url;
           driverInformation.license = licenseUpload.url;

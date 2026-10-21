@@ -11,3 +11,11 @@ The chat function, Storage rules, and admin hosting were deployed. The Font Awes
 This migration copies a snapshot. Existing mobile clients must switch to the documented chat API for future messages; the old and V2 stores remain independent. App integration instructions and the Dart service example are in [the API guide](CUSTOMER_CHAT_APP_API.md). No mobile UI was added.
 
 Validation passed: function and frontend builds, targeted lint, 4 unit tests, 14 customer chat integration tests, and 21 shared security tests.
+
+## Category restoration follow-up
+
+The restored Admin view recognizes migrated `legacyType: heading` records, displays centered **Chatting in {category}** entries, and shows the latest category beneath the customer name. Read-only reconciliation confirmed 275 original headings and 275 migrated headings. Existing migrated records do not need another migration.
+
+Normal `messages` polling now imports missing category headings from the scoped legacy conversation, preserving original dates and deterministic migration IDs. It leaves the source unchanged, skips held sources/conversations, and preserves individual marker holds. `open` can restore a missing current category. This compatibility applies only to category headings; ordinary messages and attachments still require the mobile API cutover described above. New category transitions use the authenticated API and preserve previous history.
+
+See [API integration](CUSTOMER_CHAT_APP_API.md#chat-topic-categories-restored-19-october-2026) and [restoration evidence](05-security/CHAT_CATEGORY_RESTORATION_2026-10-19.md).

@@ -81,6 +81,27 @@ Search matches normalized **word prefixes**, 2–48 characters per query word. I
 
 ## App integration lifecycle
 
+### Chat topic categories (restored 19 October 2026)
+
+Categories such as Visa or Work Permit describe what the customer is chatting about. They do not change access, routing or retention. They are separate from the `shared` attachment filters (`media`, `documents`, `links`).
+
+After opening the conversation, record a category selection through the callable:
+
+```js
+const result = await chat('category', {
+  category: 'Visa',
+  requestId: crypto.randomUUID(),
+});
+```
+
+Keep the same request ID and payload for retries. `setCategory` is an alias; `send` with `type: 'heading'` and `text: 'Visa'` is also accepted. Admin calls include the target `customerId`. Category names must be nonempty, at most 80 characters, and contain no control characters. `open` also accepts an optional `category` and `requestId`.
+
+The response is `{changed,message,conversation}`. A transition appends a server-authored `type: 'heading'` message with `category`, `text` and `createdAt`, and updates `conversation.currentCategory` and `categoryUpdatedAt`. Selecting the current category adds no marker (`changed: false`, `message: null`). An identical retry returns its existing marker without resetting a newer category; reusing that ID for another category returns `already-exists`. Held conversations reject category changes. Category history cannot be edited or deleted through message actions.
+
+Render both new `type: 'heading'` and migrated `legacyType: 'heading'` records as centered **Chatting in {category}** entries, using `category` or fallback `text`. Ordinary text mentioning a category stays a normal message. Use `conversation.currentCategory` for the latest header even when viewing older pages; the Admin inbox displays it beneath the customer name.
+
+Compatibility: `open` backfills a missing current category from the customer's original headings. Normal `messages` polling imports missing legacy category headings using stable migration IDs and their original dates. Source records remain unchanged, source/conversation holds block the sync, and individual marker holds are preserved. This is limited to category headings; ordinary messages and files are not synchronized between stores. See [restoration and validation](05-security/CHAT_CATEGORY_RESTORATION_2026-10-19.md).
+
 1. On entering Support, call `open`, then `messages`. Render messages in ascending time order.
 2. While this screen is visible, refresh the latest page every five seconds, with only one request in flight. Pause while backgrounded, offline, signed out, or viewing older history. Resume with a fresh latest page; do not start overlapping timers. This version uses polling, not Firestore subscriptions or push notifications.
 3. After displaying the latest page, call `read` with its highest `createdAt`. Refresh `open` periodically to obtain the admin read timestamp. Show **Read** for customer messages with `createdAt <= conversation.adminReadAt`, otherwise **Sent**.

@@ -8,6 +8,8 @@ This documentation set provides the authoritative reference for engineers, archi
 
 Manual QA: [shared 254-case testing guide and results sheets](09-testing/MANUAL_TESTING_GUIDE.md), covering the website and all dashboards.
 
+Customer support chat: [app API integration](CUSTOMER_CHAT_APP_API.md), [production release](CHAT_RELEASE_2026-10-19.md), and [restored category history and validation](05-security/CHAT_CATEGORY_RESTORATION_2026-10-19.md). Category labels show the topic and its changes; they do not grant permissions.
+
 ## 🧭 Documentation Map
 
 ```

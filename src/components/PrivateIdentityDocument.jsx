@@ -3,8 +3,9 @@ import {getFunctions, httpsCallable} from "firebase/functions";
 import {app} from "../firebase/firebase.config";
 
 const preview = httpsCallable(getFunctions(app, "asia-east2"), "getIdentityDocument");
+const driverPreview = httpsCallable(getFunctions(app, "asia-east2"), "getDriverDocument");
 
-export default function PrivateIdentityDocument({path, label}) {
+export default function PrivateIdentityDocument({path, driverId, label}) {
   const [document, setDocument] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -20,12 +21,12 @@ export default function PrivateIdentityDocument({path, label}) {
     const requestState = generation;
     setDocument(null); setError(""); setBusy(false);
     return () => { requestState.current++; clear(); };
-  }, [path]);
+  }, [path, driverId]);
   const open = async () => {
     const request = ++generation.current;
     clear(); setDocument(null); setBusy(true); setError("");
     try {
-      const {data} = await preview({path});
+      const {data} = await (driverId ? driverPreview({driverId}) : preview({path}));
       if (request !== generation.current) return;
       const bytes = Uint8Array.from(atob(data.contentBase64), value => value.charCodeAt(0));
       resource.current = URL.createObjectURL(new Blob([bytes], {type: data.contentType}));

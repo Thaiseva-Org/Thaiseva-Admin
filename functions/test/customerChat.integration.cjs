@@ -40,6 +40,54 @@ after(async () => {
   await admin.app().delete();
 });
 
+test("category changes retain history, deduplicate retries and preserve customer boundaries", async () => {
+  const uid="category-customer";
+  await admin.auth().createUser({uid});await db.doc(`users/${uid}`).set({role:"Customer"});
+  await call(uid,"open");
+  const first=await call(uid,"category",{category:"Visa",requestId:"category-visa"});
+  assert.equal(first.message.type,"heading");assert.equal(first.conversation.currentCategory,"Visa");
+  assert.equal((await call(uid,"category",{category:"Visa",requestId:"category-visa"})).message.id,first.message.id);
+  assert.equal((await call(uid,"category",{category:"Visa",requestId:"category-same"})).message,null);
+  const second=await call(uid,"send",{type:"heading",text:"Work Permit",requestId:"category-work"});
+  assert.equal(second.conversation.currentCategory,"Work Permit");
+  await call(uid,"category",{category:"Visa",requestId:"category-visa"});
+  assert.equal((await db.doc(`customerSupportV2/${uid}`).get()).data().currentCategory,"Work Permit");
+  assert.equal((await db.collection("customerSupportMessagesV2").where("customerId","==",uid).get()).size,2);
+  await assert.rejects(call("bob","category",{customerId:uid,category:"Hotel",requestId:"category-foreign"}),e=>e.code==="permission-denied");
+  await assert.rejects(call(uid,"category",{category:"Hotel",requestId:"category-visa"}),e=>e.code==="already-exists");
+  await assert.rejects(call(uid,"edit",{messageId:first.message.id,text:"Other"}),e=>e.code==="failed-precondition");
+  await assert.rejects(call(uid,"delete",{messageId:second.message.id}),e=>e.code==="failed-precondition");
+  await db.doc(`customerSupportV2/${uid}`).update({retentionHold:true});
+  await assert.rejects(call(uid,"category",{category:"Hotel",requestId:"category-held"}),e=>e.code==="failed-precondition");
+});
+
+test("open restores the latest historical category without overwriting a newer category",async()=>{
+  const uid="category-legacy";await admin.auth().createUser({uid});
+  await db.doc(`chats/${uid}_CustomerSupport`).set({messages:[{type:"heading",text:"Visa"},{type:"text",text:"Normal message"},{type:"heading",text:"Work Permit"}]});
+  assert.equal((await call(uid,"open")).conversation.currentCategory,"Work Permit");
+  await call(uid,"category",{category:"General",requestId:"legacy-change"});
+  assert.equal((await call(uid,"open")).conversation.currentCategory,"General");
+});
+
+test("legacy mobile category changes appear in the new history once and retain their dates",async()=>{
+  const uid="category-mobile";await admin.auth().createUser({uid});
+  const source=db.doc(`chats/${uid}_CustomerSupport`),date=admin.firestore.Timestamp.now();
+  const first={id:"mobile-visa",senderId:uid,type:"heading",text:"Visa",date,legalHold:true};
+  await source.set({messages:[first]});await call(uid,"open");
+  assert.equal((await call(uid,"messages")).items.filter(m=>m.legacyType==="heading").length,1);
+  const second={id:"mobile-work",senderId:uid,type:"heading",text:"Work Permit",date:admin.firestore.Timestamp.now()};
+  await source.update({messages:[first,second]});
+  const result=await call(uid,"messages");assert.equal(result.items.filter(m=>m.legacyType==="heading").length,2);
+  assert.equal(result.items.find(m=>m.text==="Work Permit").createdAt,second.date.toMillis());
+  assert.equal(result.items.find(m=>m.text==="Visa").retentionHold,true);
+  assert.equal((await db.doc(`customerSupportV2/${uid}`).get()).data().currentCategory,"Work Permit");
+  assert.equal((await call(uid,"messages")).items.length,2);
+  assert.equal((await source.get()).data().messages.length,2);
+  await source.update({retentionHold:true,messages:[first,second,{id:"mobile-held",senderId:uid,type:"heading",text:"Hotel",date:admin.firestore.Timestamp.now()}]});
+  assert.equal((await call(uid,"messages")).items.length,2);
+  assert.equal((await db.doc(`customerSupportV2/${uid}`).get()).data().currentCategory,"Work Permit");
+});
+
 test("anonymous, suspended and unrelated accounts cannot access chat or admin inbox", async () => {
   await assert.rejects(
     customerChat.run({data: {action: "open"}}),
