@@ -14,6 +14,8 @@ Scope: the available website, Admin, food portal, shared Firebase rules and depl
 
 Admin backend: 51 tests passed, including retained-file expiry/hold checks and accounting-retention safeguards. Website consent: eight tests passed. Website backend: 46 tests passed. Admin access/banner/support helpers: six tests passed. Food deployment checks: lint, 154 tests, backend syntax checks and production build passed. All three hosting builds and releases succeeded.
 
+The browser sanitizer check preserved formatting while removing scripts, event handlers and executable links. Production lockfile audits across all six frontend/backend packages reported zero high/critical findings; five packages had no findings, and Admin frontend retained the low-severity Quill advisory described above. Development tooling and GitHub's separately updated advisory dashboard are not represented as cleared by this production dependency result.
+
 Production access verification matched live Firestore and Storage rules to canonical source; anonymous private-file/API checks denied access; public partner/catalog projections omitted private fields. The initial runtime recheck found all 131 functions ACTIVE and no nonempty credential-named runtime environment fields. Restricted deployment/readback evidence is held outside Git.
 
 ## Remaining company evidence and boundaries
