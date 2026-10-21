@@ -64,7 +64,7 @@ export default function OfferBannerManager() {
   return <section className="mb-10 rounded-2xl border border-gray-200 bg-white p-5 sm:p-6" aria-labelledby="offer-banner-heading">
     <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
       <div><h2 id="offer-banner-heading" className="text-xl font-bold text-gray-900">Website Offer Banners</h2>
-        <p className="mt-1 max-w-2xl text-sm text-gray-500">Upload photos for the Thaiseva website popup slider. Saved changes appear live. The popup is shown once per browsing session.</p></div>
+        <p className="mt-1 max-w-2xl text-sm text-gray-500">Upload offer banners for the website Offers page and popup slider. Saved changes appear live. The popup is shown once per browsing session.</p></div>
       <Button variant="contained" disabled={loading || busy || items.length >= MAX_OFFER_BANNERS} onClick={() => {setError(''); setEditing(false); setDraft(empty());}}>Add New Banner</Button>
     </div>
     <FormControlLabel control={<Switch checked={enabled} disabled={loading || busy} onChange={(_, checked) => mutate(() => ({popupEnabled: checked}))} />} label="Show banner popup on website" />
