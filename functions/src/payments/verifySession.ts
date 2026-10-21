@@ -13,6 +13,7 @@ import {
 import {
   markExistingBookingPaid,
   resolveCollection,
+  sessionPresentment,
   upsertSightseeingFromPaidSession,
 } from "./markBookingPaid";
 import {upsertInstantHotelFromPaidSession} from "./instantHotelCheckout";
@@ -78,6 +79,7 @@ export const verifySession = onRequest(
       amountTotal: session.amount_total,
       currency: session.currency,
       customerEmail: session.customer_email,
+      presentment: sessionPresentment(session),
     };
 
     const bookingId = stringValue(
@@ -128,6 +130,8 @@ export const verifySession = onRequest(
       amount:
         session.amount_total != null ? session.amount_total / 100 : null,
       currency: session.currency,
+      // Stripe Adaptive Pricing: what the customer paid in their currency.
+      presentment: info.presentment,
       message: "Payment verified.",
     });
   }),

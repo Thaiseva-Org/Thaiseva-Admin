@@ -12,7 +12,65 @@ export type PaidSessionInfo = {
   amountTotal?: number | null;
   currency?: string | null;
   customerEmail?: string | null;
+  presentment?: StripePresentment | null;
 };
+
+/** What the customer paid in their own currency (Stripe Adaptive Pricing). */
+export type StripePresentment = {
+  currency: string;
+  amount: number;
+  amountMinor: number;
+};
+
+// Stripe currencies whose amounts have no minor unit.
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf",
+  "ugx", "vnd", "vuv", "xaf", "xof", "xpf",
+]);
+
+/**
+ * With Adaptive Pricing on, Checkout sessions and PaymentIntents stay in THB
+ * (so amount checks are unchanged) and Stripe reports the customer's own
+ * currency in `presentment_details`.
+ * @param {unknown[]} sources Stripe objects that may carry the details.
+ * @return {StripePresentment | null} Null when the customer paid in THB.
+ */
+export const presentmentFrom = (
+  ...sources: unknown[]
+): StripePresentment | null => {
+  for (const source of sources) {
+    if (!source || typeof source !== "object") continue;
+    const details = (source as {presentment_details?: unknown})
+      .presentment_details as
+      {presentment_amount?: unknown; presentment_currency?: unknown} |
+      null | undefined;
+    const currency = String(details?.presentment_currency || "").toLowerCase();
+    const minor = details?.presentment_amount;
+    if (!/^[a-z]{3}$/.test(currency) || currency === "thb" ||
+        typeof minor !== "number" || !Number.isInteger(minor) || minor <= 0) {
+      continue;
+    }
+    return {
+      currency: currency.toUpperCase(),
+      amount: ZERO_DECIMAL_CURRENCIES.has(currency) ? minor : minor / 100,
+      amountMinor: minor,
+    };
+  }
+  return null;
+};
+
+/**
+ * Presentment of a Checkout session or its expanded PaymentIntent.
+ * @param {object} session Stripe Checkout session.
+ * @return {StripePresentment | null} Null when paid in THB.
+ */
+export const sessionPresentment = (session: {
+  payment_intent?: unknown;
+}): StripePresentment | null =>
+  presentmentFrom(
+    session,
+    typeof session.payment_intent === "object" ? session.payment_intent : null,
+  );
 
 /**
  * Collections that may be paid via Stripe Checkout.
@@ -111,6 +169,7 @@ export const paidPatch = (info: PaidSessionInfo): Record<string, unknown> => ({
       stripeCurrency: info.currency || "thb",
     } :
     {}),
+  ...(info.presentment ? {stripePresentment: info.presentment} : {}),
 });
 
 /**
@@ -339,6 +398,7 @@ export const sightseeingDocFromSession = (
     amountTotal: session.amount_total,
     currency: session.currency,
     customerEmail: session.customer_email,
+    presentment: sessionPresentment(session),
   };
 
   return {
@@ -410,6 +470,7 @@ export const upsertSightseeingFromPaidSession = async (
     amountTotal: session.amount_total,
     currency: session.currency,
     customerEmail: session.customer_email,
+    presentment: sessionPresentment(session),
   };
 
   if (existing.exists) {

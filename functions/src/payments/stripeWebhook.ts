@@ -8,6 +8,7 @@ import {getStripe, getStripeWebhookSecret} from "./stripeClient";
 import {
   markExistingBookingPaid,
   resolveCollection,
+  sessionPresentment,
   upsertSightseeingFromPaidSession,
 } from "./markBookingPaid";
 import {REGION} from "./corsAuth";
@@ -38,6 +39,7 @@ const handleCheckoutCompleted = async (session: Stripe.Checkout.Session) => {
     amountTotal: session.amount_total,
     currency: session.currency,
     customerEmail: session.customer_email,
+    presentment: sessionPresentment(session),
   };
 
   if (meta.checkoutKind === "instantHotel" && meta.holdId) {
