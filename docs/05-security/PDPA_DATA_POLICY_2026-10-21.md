@@ -35,6 +35,8 @@ This assessment supports the stated baseline only. It is not evidence of consent
 
 ## Legacy-file decision procedure
 
+The initial 185-file uncertainty was closed by content inspection and owner-delegated dispositions on 21 October. See [the final release](PDPA_LEGACY_FINAL_DISPOSITION_2026-10-21.md): 52 removed live objects; 132 restricted catalog/design assets with 12-month expiry; one restricted business-planning note with two-year expiry. Native Cloud Storage lifecycle enforcement is configured and verified. These are operational limits, not statutory minimum periods. The review procedure below remains applicable to newly discovered uncertain files; it is not an open action for the completed 185-file batch.
+
 1. Re-scan current Firestore references, including discovered subcollections, against the original 213-object review set.
 2. Treat private references as higher priority than catalog references. A file without a supported public purpose is restricted, not assumed public.
 3. Preserve confirmed public listing/profile media for its supported purpose. Preserve every original object and its checksum during this remediation.

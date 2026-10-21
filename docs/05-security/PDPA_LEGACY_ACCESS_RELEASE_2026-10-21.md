@@ -1,5 +1,7 @@
 # Legacy file access resolution and policy publication
 
+**Follow-up complete:** the remaining 185-file content review is resolved. See [final dispositions and automated expiry](PDPA_LEGACY_FINAL_DISPOSITION_2026-10-21.md). The text below records the earlier containment stage, not the current review backlog.
+
 Completed 21 October 2026 under the owner's instruction to decide legacy-file access and publish a plain-language data policy.
 
 ## Delivered
