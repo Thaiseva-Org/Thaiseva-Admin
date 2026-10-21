@@ -1,6 +1,8 @@
-# ThaiSeva privacy operating procedures - working draft
+# ThaiSeva privacy operating procedures
 
-Prepared 13 October 2026. Controller: THAI SEVA TRAVEL AND SERVICE CO., LTD. Privacy intake: support@thaiseva.com. The active Admin role handles platform review queues. Company privacy contact: ThaiSeva - support@thaiseva.com. ThaiSeva must internally assign mailbox/review staff and a backup; no formal DPO appointment is asserted here.
+Prepared 13 October 2026. Controller: THAI SEVA TRAVEL & SERVICES CO., LTD. Privacy intake: support@thaiseva.com. The active Admin role handles platform review queues. Company privacy contact: ThaiSeva - support@thaiseva.com. ThaiSeva must internally assign mailbox/review staff and a backup; no formal DPO appointment is asserted here.
+
+The operational data-use and retention baseline was adopted under the owner's 21 October instruction. See [the policy and basis assessment](PDPA_DATA_POLICY_2026-10-21.md). Vendor agreements and category-specific tax applicability remain separate evidence.
 
 ## Request handling
 
