@@ -1,5 +1,7 @@
 # ThaiSeva manual testing guide
 
+> Status note, 21 October 2026: this is a manual execution template. Older Deferred or Blocked labels are historical setup notes, not the current deployment result. See the [current technical report](https://github.com/Thaiseva-Org/Thaiseva-Admin/blob/main/docs/05-security/THAISEVA_TECHNICAL_DATA_PROTECTION.md) and record new run results separately.
+
 Prepared 17 October 2026. The shared guide covers the customer website, travel admin, hotel/partner dashboard, Food master admin and restaurant partner dashboard: **254 checks**, including **152 route checks**.
 
 The canonical QA pack is maintained in the Website repository:
@@ -9,13 +11,13 @@ The canonical QA pack is maintained in the Website repository:
 - [Editable results CSV](https://github.com/Thaiseva-Org/Thaiseva-Website/blob/main/docs/14-testing/manual-qa/MANUAL_TEST_RESULTS.csv)
 - [Bug template](https://github.com/Thaiseva-Org/Thaiseva-Website/blob/main/docs/14-testing/manual-qa/BUG_REPORT_TEMPLATE.csv)
 
-Create a separate results sheet for each run. No test is pre-marked Pass. Use the actual role matrix, controlled accounts and synthetic data; record expected/actual results and evidence. Stripe cases have unresolved configuration dependencies. Chat security changes and old-chat cleanup are explicitly Deferred and must not be described as deployed.
+Create a separate results sheet for each run. No test is pre-marked Pass. Use the actual role matrix, controlled accounts and synthetic data; record expected/actual results and evidence. Stripe cases have unresolved configuration dependencies. The 17 October chat-deferred status is historical; use the current technical report for deployed safeguards, and run these manual scenarios independently.
 
 Use this execution guide alongside [test strategy](TEST_STRATEGY.md); older operational documentation is not evidence that a workflow or privacy control passed.
 
 ## Customer-chat category restoration supplement (19 October 2026)
 
-The 17 October pack above predates the chat deployment. Its Deferred chat status is historical; consult [the release record](../CHAT_RELEASE_2026-10-19.md) and [category restoration evidence](../05-security/CHAT_CATEGORY_RESTORATION_2026-10-19.md) for the deployed scope. Broader privacy findings remain separate. The following additional checks are not included in the original 254-case count and are not pre-marked Pass.
+The 17 October pack above predates the chat deployment. Its Deferred chat status is historical; consult [the release record](../07-user-guides/ADMIN_USER_MANUAL.md) and [category restoration evidence](../07-user-guides/ADMIN_USER_MANUAL.md) for the deployed scope. Broader privacy findings remain separate. The following additional checks are not included in the original 254-case count and are not pre-marked Pass.
 
 Use controlled customer/Admin accounts and synthetic conversations. Record actual results and evidence:
 

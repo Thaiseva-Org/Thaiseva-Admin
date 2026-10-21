@@ -8,7 +8,7 @@ Open `/dashboard/customer-chat` and select a customer. The header shows the late
 
 When the customer's app records a category change, the conversation gains another category entry. Selecting the same category again creates no duplicate. Existing clients' legacy category headings are picked up during normal message refresh; ordinary legacy messages and files do not share this synchronization. The Admin screen displays these categories; it does not add a category picker.
 
-Category entries describe the conversation topic and cannot be edited or deleted as ordinary messages. They do not change staff permissions or retention. A held conversation blocks category changes. See [the restoration record](../05-security/CHAT_CATEGORY_RESTORATION_2026-10-19.md) for behavior and validation.
+Category entries describe the conversation topic and cannot be edited or deleted as ordinary messages. They do not change staff permissions or retention. A held conversation blocks category changes. See [the restoration record](ADMIN_USER_MANUAL.md) for behavior and validation.
 
 ---
 

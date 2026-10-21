@@ -1,6 +1,6 @@
 /**
  * Master Schema & Catalog for all Dynamic Website Media Slots
- * Corresponds 1-to-1 with the FIRESTORE_IMAGE_SCHEMA.md and consumer website slot listeners.
+ * See docs/04-data/DATA_SCHEMA_DICTIONARY.md and consumer website slot listeners.
  * Collection: 'image'
  */
 
