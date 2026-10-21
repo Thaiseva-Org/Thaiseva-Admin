@@ -1,5 +1,5 @@
 /**
- * createHotelBooking — STRIPE | THAI_QR (ONSITE rejected)
+ * createHotelBooking - STRIPE | THAI_QR (ONSITE rejected)
  * Reuses inventory create / complete-hold cores.
  */
 import * as admin from "firebase-admin";
@@ -277,7 +277,7 @@ export const createHotelBooking = onRequest(
         return;
       } catch (err) {
         logger.error("[createHotelBooking] Stripe failed", err);
-        // Booking exists — client can retry via createCheckoutSession
+        // Booking exists - client can retry via createCheckoutSession
         res.status(200).json(
           okPendingNoCharge(
             {

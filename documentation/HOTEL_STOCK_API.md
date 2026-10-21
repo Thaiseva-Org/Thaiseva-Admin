@@ -1,4 +1,4 @@
-# Hotel Stock API — Simple Numbers Model
+# Hotel Stock API - Simple Numbers Model
 
 > [!NOTE]
 > **Consolidated Specification:** This simple numbers stock model and the three core APIs (`checkHotelStock`, `lockHotelStock`, `unlockHotelStock`) have been unified into the authoritative **[Cloud Functions API Specification (Section 2: Hotel Stock & Concurrency)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)** and the **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)**.
@@ -20,11 +20,11 @@ free = max(0, total − locked − booked)
 | `total` | Sellable capacity for that night (admin sets) |
 | `locked` | Soft-hold rooms (checkout in progress) |
 | `booked` | Confirmed inventory |
-| `free` | Computed — never the write authority |
+| `free` | Computed - never the write authority |
 
 **Stay nights:** half-open `[checkIn, checkOut)` (checkout day is free).
 
-**Lock policy:** all-or-nothing — every night must have `free >= rooms` or lock fails.
+**Lock policy:** all-or-nothing - every night must have `free >= rooms` or lock fails.
 
 ---
 
@@ -49,7 +49,7 @@ hotelStock/{hotelId}_{packageId}/nights/{YYYY-MM-DD}
 }
 ```
 
-### Locks (ownership only — not capacity)
+### Locks (ownership only - not capacity)
 
 ```
 hotelLocks/{lockId}

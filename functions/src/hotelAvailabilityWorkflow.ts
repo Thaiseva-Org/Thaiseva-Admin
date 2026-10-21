@@ -1,6 +1,6 @@
 import {assertActiveAccount} from "./activeAccount";
 /**
- * Hotel room availability — ADMIN PORTAL ONLY.
+ * Hotel room availability - ADMIN PORTAL ONLY.
  *
  * App / website will use separate callables later (auto-book, public check).
  * These endpoints require Admin or Sub Admin (same auth as transport admin tools).
@@ -408,7 +408,7 @@ export const unlockHotelRoomLock = onCall(
         `<b>Room hold unlocked (admin)</b>\n` +
           `Hold: ${holdId}\n` +
           `Deleted lock doc: ${result.deleted ? "yes" : "no"}\n` +
-          `Nights: ${(result.freedNights || []).join(", ") || "—"}`,
+          `Nights: ${(result.freedNights || []).join(", ") || "-"}`,
       );
       return {
         ok: true,
@@ -440,7 +440,7 @@ export const unlockHotelRoomLock = onCall(
         `<b>Booking rooms unlocked (admin)</b>\n` +
           `Booking: ${bookingId}\n` +
           `Holds deleted: ${(result.holdsDeleted || []).join(", ") || "none"}\n` +
-          `Nights: ${(result.freedNights || []).join(", ") || "—"}`,
+          `Nights: ${(result.freedNights || []).join(", ") || "-"}`,
       );
       return {
         ok: true,
@@ -454,7 +454,7 @@ export const unlockHotelRoomLock = onCall(
       };
     }
 
-    // 3) Direct stay unlock (no booking/hold id — ops repair)
+    // 3) Direct stay unlock (no booking/hold id - ops repair)
     const hotelUid = stringValue(input.hotelUid || input.hotelId);
     const packageId = stringValue(input.packageId || input.roomId);
     const checkIn =

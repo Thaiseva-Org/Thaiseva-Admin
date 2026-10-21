@@ -296,13 +296,13 @@ const Bookings = () => {
 
         successNotification(
           payNow
-            ? "Booking accepted — guest must pay (Unpaid)."
+            ? "Booking accepted - guest must pay (Unpaid)."
             : "Booking approved."
         );
         setData({ managerPhone: "", roomNumbers: [] });
         await CreateNewNotificationToUser(
           payNow
-            ? "Booking accepted — payment required"
+            ? "Booking accepted - payment required"
             : "Room booking approved!",
           `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is approved. ${paymentMessage}`,
           bookingDetails?.userId

@@ -183,7 +183,7 @@ const buildMonthGrid = (year, month, nightsByDate) => {
 
 /**
  * Position a stay bar on the timeline for nights in [rangeStart, rangeEnd].
- * Stay occupies [checkIn, checkOut) — bar ends at last occupied night.
+ * Stay occupies [checkIn, checkOut) - bar ends at last occupied night.
  */
 const stayBarLayout = (booking, nights) => {
   if (!nights?.length) return null;
@@ -191,7 +191,7 @@ const stayBarLayout = (booking, nights) => {
   const rangeEnd = nights[nights.length - 1].date;
   const checkIn = booking.checkIn;
   const checkOut = booking.checkOut;
-  if (!checkIn || !checkOut || checkIn === "—" || checkOut === "—") return null;
+  if (!checkIn || !checkOut || checkIn === "-" || checkOut === "-") return null;
 
   // Last night of stay is day before checkout
   const lastNight = addDays(checkOut, -1);
@@ -222,7 +222,7 @@ const stayBarLayout = (booking, nights) => {
 };
 
 /**
- * Availability only — room types come from Add/Edit Hotel (HotelDB/.../rooms).
+ * Availability only - room types come from Add/Edit Hotel (HotelDB/.../rooms).
  * No room-type create/edit UI here.
  */
 const HotelRoomAvailabilityPage = () => {
@@ -260,7 +260,7 @@ const HotelRoomAvailabilityPage = () => {
 
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [adjustType, setAdjustType] = useState("extra");
-  /** qtyByRoomId: { [roomTypeId]: number } — multi-type extras/blocks in one range */
+  /** qtyByRoomId: { [roomTypeId]: number } - multi-type extras/blocks in one range */
   const [adjustForm, setAdjustForm] = useState({
     startDate: toYmd(new Date()),
     endDate: addDays(toYmd(new Date()), 7),
@@ -429,7 +429,7 @@ const HotelRoomAvailabilityPage = () => {
     const load = async () => {
       setLoading(true);
       try {
-        // Load hotel first — config must not block hotel resolution (permission
+        // Load hotel first - config must not block hotel resolution (permission
         // errors on availability/config previously surfaced as "Hotel not found").
         const snap = await getDoc(doc(hotelsCollection, hotelId));
         if (!snap.exists()) {
@@ -481,7 +481,7 @@ const HotelRoomAvailabilityPage = () => {
     unsubRooms = onSnapshot(
       collection(db, "HotelDB", String(hotelId), "rooms"),
       (result) => {
-        // Always string ids — numeric room ids break Firestore paths
+        // Always string ids - numeric room ids break Firestore paths
         const list = result.docs.map((d) => ({
           id: String(d.id),
           ...d.data(),
@@ -943,7 +943,7 @@ const HotelRoomAvailabilityPage = () => {
               >
                 {roomTypes.length === 0 && (
                   <MenuItem value="" disabled>
-                    No room types — edit hotel
+                    No room types - edit hotel
                   </MenuItem>
                 )}
                 {roomTypes.map((r) => (
@@ -1165,7 +1165,7 @@ const HotelRoomAvailabilityPage = () => {
                               </p>
                             </>
                           ) : (
-                            <p className="mt-2 text-[10px] opacity-60">—</p>
+                            <p className="mt-2 text-[10px] opacity-60">-</p>
                           )}
                         </button>
                       );
@@ -1317,7 +1317,7 @@ const HotelRoomAvailabilityPage = () => {
                 </div>
               </div>
 
-              {/* Stay timeline — range bars with visible overlaps */}
+              {/* Stay timeline - range bars with visible overlaps */}
               <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                   <div>
@@ -1663,7 +1663,7 @@ const HotelRoomAvailabilityPage = () => {
               label={
                 availabilityConfig.autoBookingEnabled !== false
                   ? "Auto booking enabled"
-                  : "Auto booking disabled — bookings stay pending"
+                  : "Auto booking disabled - bookings stay pending"
               }
             />
             <div className="border-t border-neutral-100 pt-4 space-y-3">
@@ -1894,7 +1894,7 @@ const HotelRoomAvailabilityPage = () => {
                             );
                             return rt
                               ? roomLabel(rt)
-                              : adj.packageId || "—";
+                              : adj.packageId || "-";
                           })()}
                         </td>
                         <td className="px-3 py-2">
@@ -1904,7 +1904,7 @@ const HotelRoomAvailabilityPage = () => {
                           {adj.delta}
                         </td>
                         <td className="px-3 py-2 text-neutral-600">
-                          {adj.reason || "—"}
+                          {adj.reason || "-"}
                         </td>
                         <td className="px-3 py-2 text-center">
                           <Button
@@ -1940,7 +1940,7 @@ const HotelRoomAvailabilityPage = () => {
         <DialogContent className="space-y-3 !pt-2">
           <Typography variant="body2" color="text.secondary">
             {adjustType === "extra"
-              ? "Pick a date range, then set how many extra rooms to add for each room type. Example: Type A = 3 and Type B = 2 for the same dates — saved together."
+              ? "Pick a date range, then set how many extra rooms to add for each room type. Example: Type A = 3 and Type B = 2 for the same dates - saved together."
               : "Pick a date range, then set how many rooms to block for each room type (same dates, multiple types)."}
           </Typography>
           <Box className="grid grid-cols-2 gap-3 mt-2">

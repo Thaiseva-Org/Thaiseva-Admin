@@ -22,8 +22,8 @@ const EditBookingDialog = ({ open, booking, busy, error, onClose, onSubmit }) =>
     if (open && booking) setForm({
       customerName: booking.customerName || "",
       customerPhone: booking.customerPhone || "",
-      pickup: booking.pickup === "—" ? "" : booking.pickup,
-      destination: booking.destination === "—" ? "" : booking.destination,
+      pickup: booking.pickup === "-" ? "" : booking.pickup,
+      destination: booking.destination === "-" ? "" : booking.destination,
       travelAt: toLocalInput(booking.travelDateValue),
       notes: booking.notes || "",
     });

@@ -37,13 +37,13 @@ const hotelAddress = (hotel) =>
   hotel?.hotelInformation?.address ||
   hotel?.address ||
   hotel?.hotel?.address ||
-  "—";
+  "-";
 
 const hotelPhone = (hotel) =>
   hotel?.hotelInformation?.phoneNumber ||
   hotel?.phoneNumber ||
   hotel?.hotel?.phoneNumber ||
-  "—";
+  "-";
 
 /** Collect possible hotel identity strings for matching bookings. */
 const hotelIdentitySet = (hotel) => {
@@ -274,7 +274,7 @@ const HotelRoomAvailabilityHub = () => {
         </Button>
       </div>
 
-      {/* Main statistics — Sold today removed; Pending only when count > 0 */}
+      {/* Main statistics - Sold today removed; Pending only when count > 0 */}
       <div
         className={`grid grid-cols-1 sm:grid-cols-2 ${
           mainStats.pending > 0 ? "lg:grid-cols-3" : "lg:grid-cols-2"

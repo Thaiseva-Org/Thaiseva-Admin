@@ -125,7 +125,7 @@ export async function exportAdminStatisticsExcel(allStatistics, selectedView = "
   // Subtitle Banner
   summarySheet.mergeCells("A2:F2");
   const subTitleCell = summarySheet.getCell("A2");
-  subTitleCell.value = `Comprehensive Financial Performance Analysis (${fromLabel} — ${toLabel})`;
+  subTitleCell.value = `Comprehensive Financial Performance Analysis (${fromLabel} - ${toLabel})`;
   subTitleCell.font = { name: "Segoe UI", size: 11, italic: true, color: { argb: "E0F2FE" } };
   subTitleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "1E293B" } };
   subTitleCell.alignment = { vertical: "middle", horizontal: "center" };
@@ -597,7 +597,7 @@ export async function exportAdminStatisticsExcel(allStatistics, selectedView = "
 
   ordersSheet.mergeCells("A1:K1");
   const oTitleCell = ordersSheet.getCell("A1");
-  oTitleCell.value = `ALL INDIVIDUAL BOOKING ORDERS & TRANSACTIONS LOG (${fromLabel} — ${toLabel})`;
+  oTitleCell.value = `ALL INDIVIDUAL BOOKING ORDERS & TRANSACTIONS LOG (${fromLabel} - ${toLabel})`;
   oTitleCell.font = { name: "Segoe UI", size: 14, bold: true, color: { argb: "FFFFFF" } };
   oTitleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0F766E" } };
   oTitleCell.alignment = { vertical: "middle", horizontal: "center" };

@@ -1,4 +1,4 @@
-# Customer support category headings — 19 October 2026
+# Customer support category headings - 19 October 2026
 
 The current support inbox again displays centred `Chatting in Visa` / `Chatting in Work Permit` entries, matching the previous chat renderer. It recognizes both migrated `legacyType: "heading"` records and new `type: "heading"` events. Ordinary text containing a category name remains an ordinary message. The conversation header displays the latest category, independently of which history page is loaded. Other customers' global-search results cannot supply that header label.
 

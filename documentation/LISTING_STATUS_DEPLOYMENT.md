@@ -1,4 +1,4 @@
-# Listing status rollout — 12 October 2026
+# Listing status rollout - 12 October 2026
 
 Deployed successfully to Firebase project `gothai-ffea1`.
 

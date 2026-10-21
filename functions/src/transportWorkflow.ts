@@ -34,7 +34,7 @@ const stringValue = (value: unknown): string =>
 const personValue = (...values: unknown[]): string => {
   for (const value of values) {
     const normalized = stringValue(value);
-    if (normalized && !/^(?:n\/?a|not assigned|[-—])$/i.test(normalized)) {
+    if (normalized && !/^(?:n\/?a|not assigned|[-\u2014])$/i.test(normalized)) {
       return normalized;
     }
   }

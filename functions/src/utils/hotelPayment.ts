@@ -73,7 +73,7 @@ export const isHotelPaymentVerified = (booking: BookingData = {}) => {
       | { status?: string }
       | undefined;
 
-    // Session id alone is not paid — require real paid markers
+    // Session id alone is not paid - require real paid markers
     return (
       booking.isPaymentDone === true ||
       paymentConfirmation?.status === "paid" ||

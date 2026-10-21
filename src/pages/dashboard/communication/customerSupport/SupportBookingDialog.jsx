@@ -27,10 +27,10 @@ import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
 
 const display = (value) => {
-  if (value === undefined || value === null || value === "") return "—";
+  if (value === undefined || value === null || value === "") return "-";
   if (typeof value === "number" && value > 100000000000)
     return new Date(value).toLocaleDateString();
-  if (typeof value === "object") return "—";
+  if (typeof value === "object") return "-";
   return String(value);
 };
 

@@ -16,7 +16,7 @@ export type PaidSessionInfo = {
 
 /**
  * Collections that may be paid via Stripe Checkout.
- * Transport (car/van/self-drive) is intentionally excluded — admin quote only.
+ * Transport (car/van/self-drive) is intentionally excluded - admin quote only.
  */
 export const ALLOWED_BOOKING_COLLECTIONS = new Set([
   "hotelBookingData",
@@ -114,7 +114,7 @@ export const paidPatch = (info: PaidSessionInfo): Record<string, unknown> => ({
 });
 
 /**
- * Status fields after pay — collection-aware so transport stays Pending for admin
+ * Status fields after pay - collection-aware so transport stays Pending for admin
  * accept, hotel keeps Accepted, sightseeing packages auto-accept to Accepted.
  */
 export const statusAfterPaid = (
@@ -224,7 +224,7 @@ export const markExistingBookingPaid = async (
       {
         ...paidPatch(info),
         paymentVerificationNote:
-          "Stripe paid but booking was canceled/rejected — review refund.",
+          "Stripe paid but booking was canceled/rejected - review refund.",
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },
       {merge: true},
@@ -233,7 +233,7 @@ export const markExistingBookingPaid = async (
   }
 
   if (data.isPaymentDone === true) {
-    // Second successful Checkout for same booking — flag for ops/refund review
+    // Second successful Checkout for same booking - flag for ops/refund review
     if (
       data.stripeSessionId &&
       info.sessionId &&
@@ -248,7 +248,7 @@ export const markExistingBookingPaid = async (
           secondaryStripeSessionId: info.sessionId,
           secondaryPaidAt: admin.firestore.FieldValue.serverTimestamp(),
           paymentVerificationNote:
-            "Possible double Stripe payment — review refund in Stripe Dashboard.",
+            "Possible double Stripe payment - review refund in Stripe Dashboard.",
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         {merge: true},
@@ -257,7 +257,7 @@ export const markExistingBookingPaid = async (
     return {ok: true, alreadyPaid: true, path: `${col}/${bookingId}`};
   }
 
-  // Soft amount check (log only — Stripe amount is authoritative for paid state)
+  // Soft amount check (log only - Stripe amount is authoritative for paid state)
   if (info.amountTotal != null) {
     const paidMajor = info.amountTotal / 100;
     const expected = Number(
@@ -423,7 +423,7 @@ export const upsertSightseeingFromPaidSession = async (
         {merge: true},
       );
     } else {
-      // Already paid — still ensure status is Accepted (never leave Pending)
+      // Already paid - still ensure status is Accepted (never leave Pending)
       const st = String(prev.status || "").toUpperCase();
       if (st !== "ACCEPTED" && st !== "CONFIRMED" && st !== "DONE") {
         await ref.set(

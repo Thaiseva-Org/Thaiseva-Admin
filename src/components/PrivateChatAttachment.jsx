@@ -26,7 +26,7 @@ export default function PrivateChatAttachment({ path, audio = false, name = "Dow
     });
     return () => {disposed = true;unsubscribe();clearTimeout(timer);if (url) URL.revokeObjectURL(url);};
   }, [path, attempt]);
-  if (!media) return error ? <button type="button" className="text-sm underline" onClick={() => setAttempt(value => value + 1)}>Attachment unavailable — retry</button> : <span className="text-sm">Loading attachment…</span>;
+  if (!media) return error ? <button type="button" className="text-sm underline" onClick={() => setAttempt(value => value + 1)}>Attachment unavailable - retry</button> : <span className="text-sm">Loading attachment…</span>;
   if (audio || media.type.startsWith("audio/")) return <audio src={media.url} controls className="max-w-xs" />;
   if (media.type.startsWith("image/")) return <img src={media.url} alt="Chat attachment" className="max-w-full rounded-xl" />;
   return <a href={media.url} download={name} className="underline">{name}</a>;

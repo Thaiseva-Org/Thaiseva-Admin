@@ -1,4 +1,4 @@
-# Package booking rollout verification — 11 October 2026
+# Package booking rollout verification - 11 October 2026
 
 Deployment completed to Firebase project `gothai-ffea1`.
 

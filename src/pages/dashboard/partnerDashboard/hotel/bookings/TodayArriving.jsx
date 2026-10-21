@@ -271,16 +271,16 @@ const TodayArriving = () => {
         const payNow = acceptResult?.payNow === true || amountDue > 0;
         successNotification(
           payNow
-            ? "Booking accepted — guest must pay (Unpaid)."
+            ? "Booking accepted - guest must pay (Unpaid)."
             : "Booking approved."
         );
         setData({ managerPhone: "", roomNumbers: [] });
         await CreateNewNotificationToUser(
           payNow
-            ? "Booking accepted — payment required"
+            ? "Booking accepted - payment required"
             : "Room booking approved!",
           payNow
-            ? `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is approved. Amount due: ฿${amountDue || "—"}. Please complete payment from My Bookings.`
+            ? `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is approved. Amount due: ฿${amountDue || "-"}. Please complete payment from My Bookings.`
             : `Hey ${bookingDetails?.name}! your room booking at ${bookingDetails?.hotelName} is approved.`,
           bookingDetails?.userId
         );

@@ -1,4 +1,4 @@
-﻿# Retention and deletion verification — 11 October 2026
+﻿# Retention and deletion verification - 11 October 2026
 
 **Result: current supported deletion flow passes emulator checks; historical retention and deletion do not yet pass.**
 

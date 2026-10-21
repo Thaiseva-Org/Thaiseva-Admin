@@ -1,10 +1,10 @@
 /**
- * Transport booking APIs — two products only:
+ * Transport booking APIs - two products only:
  *  1) createCarBooking   → car_bookings
  *       transportType: car | van | taxi | bike
  *  2) createSelfDriveBooking → self_driving_bookings
  *
- * No separate van booking API — van is a transportType on car booking.
+ * No separate van booking API - van is a transportType on car booking.
  *
  * Product model (no Stripe):
  * 1) User submits trip details → Pending booking (no price charged online)
@@ -66,7 +66,7 @@ const resolveCarTransportType = (
   );
 };
 
-/** Map client payment preference — never Stripe for transport. */
+/** Map client payment preference - never Stripe for transport. */
 const paymentPreference = (
   raw: unknown,
 ): {

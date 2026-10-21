@@ -38,7 +38,7 @@ export const forceHotelBookingPending = onDocumentCreated(
     const bookingId = event.params.bookingId;
     const metadata = await resolveHotelBookingMetadata(bookingData);
 
-    // Auto-book path already accepted + reserved — only notify if needed
+    // Auto-book path already accepted + reserved - only notify if needed
     if (
       bookingData.inventoryReserved === true ||
       bookingData.sourcePath === "auto" ||

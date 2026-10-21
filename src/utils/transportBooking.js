@@ -80,7 +80,10 @@ export const getTransportPayment = (booking = {}) => {
   };
 };
 
-const first = (...values) => values.find((value) => value !== undefined && value !== null && value !== "") || "";
+const first = (...values) => {
+  const value = values.find((item) => item !== undefined && item !== null && item !== "") || "";
+  return typeof value === "string" && /^(?:\u2014|\u00e2\u20ac\u201d)$/.test(value.trim()) ? "-" : value;
+};
 
 export const normalizeTransportBooking = (data = {}, kind, source = "manual") => {
   const status = normalizeTransportStatus(data);
@@ -97,14 +100,14 @@ export const normalizeTransportBooking = (data = {}, kind, source = "manual") =>
   );
   const createdRaw = first(data.createdAt, data.timestamp, data.time, data.orderedAt);
   const customerName = first(data.customerName, data.name, data.username, data.guestName, "Unknown customer");
-  const customerPhone = first(data.customerPhone, data.contact, data.phoneNo, data.guestPhone, data.phone, "—");
+  const customerPhone = first(data.customerPhone, data.contact, data.phoneNo, data.guestPhone, data.phone, "-");
   const pickup = first(
     data.pickup,
     data.pickupLocation,
     data.PickUpLocation,
     data.from,
     data.fromLocation?.primary,
-    "—"
+    "-"
   );
   const destination = first(
     data.destination,
@@ -112,7 +115,7 @@ export const normalizeTransportBooking = (data = {}, kind, source = "manual") =>
     data.dropLocation,
     data.to,
     data.toLocation?.primary,
-    "—"
+    "-"
   );
   return {
     ...data,
@@ -125,11 +128,11 @@ export const normalizeTransportBooking = (data = {}, kind, source = "manual") =>
     customerPhone,
     pickup,
     destination,
-    vehicleType: first(data.vehicleSnapshot?.vehicleType, data.transportType, data.type, data.vanTypeName, data.vanType, "—"),
-    companyName: first(data.companySnapshot?.name, data.companyName, "—"),
-    driverName: first(data.driverSnapshot?.name, data.Driver?.name, data.driverName, "—"),
-    vehicleName: first(data.vehicleSnapshot?.name, data.vehicleDetails?.vehicle, data.vanNumber, "—"),
-    registrationNumber: first(data.vehicleSnapshot?.registrationNumber, data.vehicleDetails?.vehicleNumber, data.vanNumber, "—"),
+    vehicleType: first(data.vehicleSnapshot?.vehicleType, data.transportType, data.type, data.vanTypeName, data.vanType, "-"),
+    companyName: first(data.companySnapshot?.name, data.companyName, "-"),
+    driverName: first(data.driverSnapshot?.name, data.Driver?.name, data.driverName, "-"),
+    vehicleName: first(data.vehicleSnapshot?.name, data.vehicleDetails?.vehicle, data.vanNumber, "-"),
+    registrationNumber: first(data.vehicleSnapshot?.registrationNumber, data.vehicleDetails?.vehicleNumber, data.vanNumber, "-"),
     travelDateValue: toDateValue(travelRaw),
     createdDateValue: toDateValue(createdRaw),
     ...payment,
@@ -174,7 +177,7 @@ export const formatMoney = (value) =>
 
 export const formatTransportDate = (value) => {
   const date = toDateValue(value);
-  return date ? date.toLocaleString() : "—";
+  return date ? date.toLocaleString() : "-";
 };
 
 export const validActionsFor = (status) => {

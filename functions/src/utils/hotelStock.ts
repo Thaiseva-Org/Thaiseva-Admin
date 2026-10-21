@@ -1,7 +1,7 @@
 import {isListingActive} from "./listingStatus";
 import {HttpsError} from "firebase-functions/v2/https";
 /**
- * Simple hotel stock — one source of truth: numbers on night docs.
+ * Simple hotel stock - one source of truth: numbers on night docs.
  *
  * free = max(0, total - locked - booked)
  *

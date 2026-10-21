@@ -112,7 +112,7 @@ export const isOnsiteSightseeingPayment = (booking: BookingData = {}) => {
 export const isStripeSightseeingPayment = (booking: BookingData = {}) => {
   const paymentMethod = upper(getSightseeingPaymentMethod(booking));
 
-  // Intent only — session id alone is NOT proof of payment
+  // Intent only - session id alone is NOT proof of payment
   return (
     paymentMethod.includes("STRIPE") ||
     paymentMethod.includes("CARD") ||
@@ -128,7 +128,7 @@ export const isSightseeingPaymentVerified = (booking: BookingData = {}) => {
   }
 
   if (isStripeSightseeingPayment(booking)) {
-    // Require real paid markers — not just a Checkout session id
+    // Require real paid markers - not just a Checkout session id
     return (
       booking.isPaymentDone === true ||
       booking.paymentConfirmation?.status === "paid" ||

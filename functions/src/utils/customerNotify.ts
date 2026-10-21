@@ -72,7 +72,7 @@ export const notifyCustomer = async (
   try {
     const payload: Record<string, unknown> = {
       title: input.title,
-      // Both keys — mobile/web clients vary
+      // Both keys - mobile/web clients vary
       message: input.message,
       desc: input.message,
       type: input.type,

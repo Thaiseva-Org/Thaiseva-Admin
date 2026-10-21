@@ -1,4 +1,4 @@
-# Production chat migration — 19 October 2026
+# Production chat migration - 19 October 2026
 
 Migrated and independently reconciled 60 customer support conversations, 960 messages, and 59 attachments in `gothai-ffea1`, with zero failures. See [verification results](CHAT_MIGRATION_2026-10-19.json).
 

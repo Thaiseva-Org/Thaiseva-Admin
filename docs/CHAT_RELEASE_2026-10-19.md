@@ -1,4 +1,4 @@
-# Thaiseva chat release — 19 October 2026
+# Thaiseva chat release - 19 October 2026
 
 Project: `gothai-ffea1`.
 

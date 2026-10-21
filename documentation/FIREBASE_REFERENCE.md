@@ -1,4 +1,4 @@
-# Firebase Reference — Thaiseva Admin Portal
+# Firebase Reference - Thaiseva Admin Portal
 
 > [!NOTE]
 > **Consolidated Specification:** This Firebase configuration and reference have been unified into the authoritative **[DevOps & Deployment Runbook](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/06-devops/DEPLOYMENT_RUNBOOK.md)**, **[Security & RBAC Architecture](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/05-security/SECURITY_AND_RBAC.md)**, and **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)**.
@@ -31,7 +31,7 @@ VITE_appId=1:46959975552:web:5e9c3d90c5ecb4a3dc9a65
 VITE_measurementId=G-CG6LQ6F68G
 ```
 
-Secrets (`VITE_SECRET_KEY`, `VITE_IV_KEY`, API tokens) stay in `.env` only — **do not commit** to docs or git.
+Secrets (`VITE_SECRET_KEY`, `VITE_IV_KEY`, API tokens) stay in `.env` only - **do not commit** to docs or git.
 
 ### Admin access (Firestore `isAdmin()`)
 
@@ -114,20 +114,20 @@ Full live rules: **`firestore.rules`** at repo root.
 
 ### Rule sections summary
 
-1. **Helpers** — `isAuthenticated()`, `isAdmin()`, `isOwner()`, `ownsIncoming()`
-2. **Public read** — BlogDB, HotelDB, packages, partners, `Thaiseva_terms`, `food_items`, etc.
-3. **Settings** — `settings/{docId}` public read, admin write
-4. **Users** — `users/{userId}` and `Users/{userId}`
-5. **Notifications** — admin + per-user subpaths
-6. **Food app** — `orders`, `cart`, `reviews`, `feedbackandratings`
-7. **T2T** — `T2T_world/{docId}/{subPath=**}`
-8. **Bookings** — `hotelBookingData`, `travelBookingDetails`, `car_bookings`, `self_driving_bookings`
-9. **Partner data** — hotels, restaurants, drivers, packages, requirements
-10. **Admin-only** — agents, shops, invoices, statistics, vanCompanies, etc.
-11. **MasterEarnings** — admin read/create/update; partner read/create/update on own path; **no delete**
-12. **Chat** — `chatRooms`, `chats`, `messages`, `calls`
-13. **Other** — `bookings`, `dineInBookings`, `self_drive_conditions_and_documents`, `agents`, `RestAdmin`
-14. **Default deny** — everything else blocked
+1. **Helpers** - `isAuthenticated()`, `isAdmin()`, `isOwner()`, `ownsIncoming()`
+2. **Public read** - BlogDB, HotelDB, packages, partners, `Thaiseva_terms`, `food_items`, etc.
+3. **Settings** - `settings/{docId}` public read, admin write
+4. **Users** - `users/{userId}` and `Users/{userId}`
+5. **Notifications** - admin + per-user subpaths
+6. **Food app** - `orders`, `cart`, `reviews`, `feedbackandratings`
+7. **T2T** - `T2T_world/{docId}/{subPath=**}`
+8. **Bookings** - `hotelBookingData`, `travelBookingDetails`, `car_bookings`, `self_driving_bookings`
+9. **Partner data** - hotels, restaurants, drivers, packages, requirements
+10. **Admin-only** - agents, shops, invoices, statistics, vanCompanies, etc.
+11. **MasterEarnings** - admin read/create/update; partner read/create/update on own path; **no delete**
+12. **Chat** - `chatRooms`, `chats`, `messages`, `calls`
+13. **Other** - `bookings`, `dineInBookings`, `self_drive_conditions_and_documents`, `agents`, `RestAdmin`
+14. **Default deny** - everything else blocked
 
 ### MasterEarnings rules (important for admin statistics)
 
@@ -194,8 +194,8 @@ Transport APIs: **`createCarBooking`** (`transportType`: car \| van \| taxi \| b
 
 ## Change log (permissions)
 
-- **2026-08-12** — Transport simplified to 2 APIs only: `createCarBooking` (transportType car|van|taxi|bike) + `createSelfDriveBooking`. Removed van booking product/API/admin page. Single client doc: `THAISEVA_BOOKING_API.md`.
-- **2026-08-05** — Hotel inventory unlock (`unlockHotelRoomLock`), partial-accept `amountDue` pay path, guest capacity, safer `userRole()` rules, admin callables for availability writes. See `HOTEL_AVAILABILITY_*` docs + `THAISEVA_BOOKING_API.md`.
-- **2026-08-02** — Hotel Room Availability: admin UI + rules for `HotelDB/{hotelId}/availability`, `hotelRoomInventory`, `hotelInventoryAuditLogs`; hub stats. Website: `checkHotelAvailability` public HTTPS + CORS; soft hold + create callables. See `documentation/HOTEL_AVAILABILITY_API.md` and `documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`.
-- **2026-06-22** — Merged app-wide rules (orders, cart, T2T, chat, etc.) with admin portal rules; added `MasterEarnings` read/create/update; deployed to `gothai-ffea1`.
-- **2026-06-22** — Statistics switched to aggregate from booking collections with `MasterEarnings` fallback.
+- **2026-08-12** - Transport simplified to 2 APIs only: `createCarBooking` (transportType car|van|taxi|bike) + `createSelfDriveBooking`. Removed van booking product/API/admin page. Single client doc: `THAISEVA_BOOKING_API.md`.
+- **2026-08-05** - Hotel inventory unlock (`unlockHotelRoomLock`), partial-accept `amountDue` pay path, guest capacity, safer `userRole()` rules, admin callables for availability writes. See `HOTEL_AVAILABILITY_*` docs + `THAISEVA_BOOKING_API.md`.
+- **2026-08-02** - Hotel Room Availability: admin UI + rules for `HotelDB/{hotelId}/availability`, `hotelRoomInventory`, `hotelInventoryAuditLogs`; hub stats. Website: `checkHotelAvailability` public HTTPS + CORS; soft hold + create callables. See `documentation/HOTEL_AVAILABILITY_API.md` and `documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`.
+- **2026-06-22** - Merged app-wide rules (orders, cart, T2T, chat, etc.) with admin portal rules; added `MasterEarnings` read/create/update; deployed to `gothai-ffea1`.
+- **2026-06-22** - Statistics switched to aggregate from booking collections with `MasterEarnings` fallback.

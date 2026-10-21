@@ -20,7 +20,7 @@ import {
 const Detail = ({ label, value }) => (
   <div className="min-w-0">
     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{label}</p>
-    <p className="text-sm text-neutral-900 break-words mt-0.5">{value || "—"}</p>
+    <p className="text-sm text-neutral-900 break-words mt-0.5">{value || "-"}</p>
   </div>
 );
 
@@ -69,7 +69,7 @@ const BookingDetailsDialog = ({ open, booking, busy, error, onClose, onVerifyDoc
             <section>
               <h3 className="font-bold text-primary-700 mb-3">Assignment</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Detail label="Company / provider" value={booking.companyName !== "—" ? booking.companyName : booking.providerSnapshot?.name} />
+                <Detail label="Company / provider" value={booking.companyName !== "-" ? booking.companyName : booking.providerSnapshot?.name} />
                 <Detail label="Driver" value={booking.driverName} />
                 <Detail label="Vehicle" value={booking.vehicleName} />
                 <Detail label="Registration" value={booking.registrationNumber} />

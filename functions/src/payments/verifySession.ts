@@ -51,7 +51,7 @@ export const verifySession = onRequest(
         );
       }
     } else if (!sessionUser) {
-      // No identity on session — refuse to prevent session enumeration
+      // No identity on session - refuse to prevent session enumeration
       throw new HttpError(
         403,
         "Cannot verify session ownership.",

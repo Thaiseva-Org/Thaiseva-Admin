@@ -25,8 +25,8 @@ const CUSTOM_ID = "__custom__";
 const NOT_ASSIGNED_ID = "__na__";
 
 const personValue = (...values) => values.find((value) => {
-  const normalized = String(value || "").trim();
-  return normalized && !/^(?:n\/?a|not assigned|[-—])$/i.test(normalized);
+  const normalized = String(value || "").replace(/\u00e2\u20ac\u201d/g, "-").trim();
+  return normalized && !/^(?:n\/?a|not assigned|[-\u2014])$/i.test(normalized);
 }) || "";
 
 const toLocalInput = (value) => {
@@ -89,7 +89,7 @@ const AssignmentDialog = ({ open, booking, kind, edit = false, busy, error, onCl
       registrationNumber: booking?.vehicleSnapshot?.registrationNumber || booking?.vehicleDetails?.vehicleNumber || "",
       handoverName: personValue(booking?.handoverSnapshot?.name, booking?.dropDetails?.name, booking?.customerName),
       handoverPhone: personValue(booking?.handoverSnapshot?.phone, booking?.dropDetails?.phone, booking?.customerPhone),
-      pickupLocation: booking?.PickUpLocation || booking?.pickupLocation || (booking?.pickup === "â€”" ? "" : booking?.pickup) || "",
+      pickupLocation: personValue(booking?.PickUpLocation, booking?.pickupLocation, booking?.pickup),
       customCompanyName: booking?.companyId ? "" : booking?.companySnapshot?.name || "",
       customCompanyPhone: booking?.companyId ? "" : booking?.companySnapshot?.phone || "",
       customDriverName: booking?.driverId ? "" : booking?.driverSnapshot?.name || booking?.Driver?.name || "",

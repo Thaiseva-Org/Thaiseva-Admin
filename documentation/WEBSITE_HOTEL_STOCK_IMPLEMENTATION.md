@@ -1,4 +1,4 @@
-# Website Implementation — Hotel Stock (Check / Lock / Unlock)
+# Website Implementation - Hotel Stock (Check / Lock / Unlock)
 
 > [!NOTE]
 > **Consolidated Specification:** This website implementation guide has been unified into the authoritative **[Cloud Functions API Specification (Section 2: Hotel Stock & Concurrency)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)** and **[System Architecture](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/02-architecture/SYSTEM_ARCHITECTURE.md)**.
@@ -25,7 +25,7 @@ Do **not** write `hotelStock` or `hotelLocks` from the browser. Only Cloud Funct
 
 ## 2. Endpoints
 
-### Check (public — use `fetch`, NOT callable)
+### Check (public - use `fetch`, NOT callable)
 
 ```
 POST https://asia-east2-gothai-ffea1.cloudfunctions.net/checkHotelStock
@@ -67,7 +67,7 @@ const functions = getFunctions(app, "asia-east2"); // MUST be asia-east2
 | Field | Format / rule |
 |-------|----------------|
 | `checkIn`, `checkOut` | `YYYY-MM-DD` (Asia/Bangkok calendar day) |
-| Stay nights | `[checkIn, checkOut)` — checkout day is free |
+| Stay nights | `[checkIn, checkOut)` - checkout day is free |
 | `hotelId` | `HotelDB` document id |
 | `packageId` | Room type id under `HotelDB/{hotelId}/rooms/{packageId}` |
 | `rooms` | Integer ≥ 1 |
@@ -103,7 +103,7 @@ function requireAuth() {
 }
 
 /**
- * 1) CHECK — no auth, no side effects
+ * 1) CHECK - no auth, no side effects
  */
 export async function checkHotelStock({
   hotelId,
@@ -133,7 +133,7 @@ export async function checkHotelStock({
 }
 
 /**
- * 2) LOCK hold — soft lock while guest fills form (default 10 min)
+ * 2) LOCK hold - soft lock while guest fills form (default 10 min)
  * Returns lockId (also as holdId for old UI)
  */
 export async function lockRoomsHold(payload) {
@@ -157,7 +157,7 @@ export async function lockRoomsHold(payload) {
 }
 
 /**
- * 3a) COMPLETE — convert hold → booked + create Accepted booking
+ * 3a) COMPLETE - convert hold → booked + create Accepted booking
  */
 export async function completeBookingFromHold({
   lockId,
@@ -187,7 +187,7 @@ export async function completeBookingFromHold({
 }
 
 /**
- * 3b) UNLOCK — user left / changed dates / cancelled checkout
+ * 3b) UNLOCK - user left / changed dates / cancelled checkout
  */
 export async function unlockRooms(lockIdOrHoldId) {
   if (!lockIdOrHoldId) return { ok: true, alreadyDone: true };
@@ -200,7 +200,7 @@ export async function unlockRooms(lockIdOrHoldId) {
 }
 
 /**
- * Direct create (no soft hold) — locks book inside if free, else pending
+ * Direct create (no soft hold) - locks book inside if free, else pending
  */
 export async function createHotelBookingDirect(payload) {
   requireAuth();
@@ -299,7 +299,7 @@ export function HotelCheckout({ hotelId, packageId, checkIn, checkOut, rooms }) 
       const id = lockIdRef.current;
       if (!id) return;
       // keepalive best-effort: callables need auth; prefer beacon to your proxy
-      // or fire unlock and hope — better: releaseHold on pagehide with sendBeacon
+      // or fire unlock and hope - better: releaseHold on pagehide with sendBeacon
       // to a small HTTPS endpoint if you add one. For callables:
       unlockRooms(id).catch(() => {});
     };
@@ -448,9 +448,9 @@ Optional: `roomName` instead of `packageId` (server resolves by name).
 
 | kind | UI |
 |------|-----|
-| `full_instant` | Green — can lock all requested |
-| `none_instant` | Not enough free — pending only / change dates |
-| `manual_only` | Auto-book off — request only |
+| `full_instant` | Green - can lock all requested |
+| `none_instant` | Not enough free - pending only / change dates |
+| `manual_only` | Auto-book off - request only |
 | `window` | Outside bookable window |
 
 **UI rules**
@@ -461,7 +461,7 @@ Optional: `roomName` instead of `packageId` (server resolves by name).
 
 ---
 
-### 6.2 lockHotelStock — hold
+### 6.2 lockHotelStock - hold
 
 **Request (callable data)**
 
@@ -500,7 +500,7 @@ Optional: `roomName` instead of `packageId` (server resolves by name).
 | code | meaning |
 |------|---------|
 | `unauthenticated` | User not signed in |
-| `resource-exhausted` | `INSUFFICIENT_STOCK` — not enough free |
+| `resource-exhausted` | `INSUFFICIENT_STOCK` - not enough free |
 | `failed-precondition` | Window / auto-book off / other |
 | `invalid-argument` | Missing fields |
 
@@ -550,7 +550,7 @@ Then open payment with `bookingId` (your existing Stripe / THAI_QR flow).
 
 **Expired hold**
 
-- Error `deadline-exceeded` — rooms unlocked; run **check** + **lock** again.
+- Error `deadline-exceeded` - rooms unlocked; run **check** + **lock** again.
 
 ---
 
@@ -615,12 +615,12 @@ Use when you skip soft hold (single-page book).
 
 | Old | New |
 |-----|-----|
-| `checkHotelAvailability` fetch | `checkHotelStock` (or keep old URL — alias) |
+| `checkHotelAvailability` fetch | `checkHotelStock` (or keep old URL - alias) |
 | `startHotelBookingHold` | `lockHotelStock` `{ action: "hold" }` |
 | `completeHotelBookingHold` | same name (stock convert + booking) |
 | `releaseHotelBookingHold(holdId)` | `unlockHotelStock({ lockId })` |
 | `holdId` | `lockId` (both returned) |
-| `roomsInstant` / partial | **gone** — all-or-nothing; either full lock or pending |
+| `roomsInstant` / partial | **gone** - all-or-nothing; either full lock or pending |
 | Write inventory from client | **never** |
 
 If you already call old function names, after deploy they hit the **same stock**. Prefer new names for clarity.
@@ -677,7 +677,7 @@ After `complete` or direct create with `payNow: true`:
 2. Call your existing payment APIs:
    - `createCheckoutSession` (Stripe), or
    - THAI_QR flow on `hotelBookingData`
-3. Do **not** lock stock again for payment — already booked on stock
+3. Do **not** lock stock again for payment - already booked on stock
 
 If user abandons **before** complete: only unlock the hold.  
 If user abandons **after** booking created: cancel booking (admin/status) unlocks via trigger.

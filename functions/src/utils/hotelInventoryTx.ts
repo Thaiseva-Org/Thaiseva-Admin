@@ -522,7 +522,7 @@ export const loadUnreservedAcceptedRoomsByDate = async (
     if (pid) {
       if (pid !== packageId) continue;
     } else {
-      // Skip legacy rows without packageId — unsafe to attribute to a room type
+      // Skip legacy rows without packageId - unsafe to attribute to a room type
       continue;
     }
 
@@ -836,7 +836,7 @@ export const evaluateStayCapacity = async (
     1,
     Math.floor(Number(params.roomsRequested) || 1),
   );
-  // Evaluate as if 1 room — we only need night breakdown + flags
+  // Evaluate as if 1 room - we only need night breakdown + flags
   const base = await evaluateAvailability(db, {
     hotelUid: params.hotelUid,
     packageId: params.packageId,
@@ -1633,7 +1633,7 @@ export const unlockBookingStayLock = async (
         .get();
       for (const d of q.docs) holdIds.add(d.id);
     } catch {
-      /* index may be missing — holdId field path is enough */
+      /* index may be missing - holdId field path is enough */
     }
     try {
       const q2 = await db

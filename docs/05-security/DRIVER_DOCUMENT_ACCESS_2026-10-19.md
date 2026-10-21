@@ -1,4 +1,4 @@
-# Driver licence access — 19 October 2026
+# Driver licence access - 19 October 2026
 
 **Deployed and verified.** All four current driver licence objects are marked private and owner-bound, their permanent tokens are revoked, and their driver records now store object paths. Direct Firebase, old-token and anonymous GCS requests are denied; all four historical previous-project source links also returned 403. All four files were preserved. Both deployed callables return HTTP 401 / UNAUTHENTICATED without login, and the live Admin HTML references the newly built bundle. Authorized role/owner scenarios were verified with isolated emulators, not real customer credentials.
 

@@ -118,7 +118,7 @@ export const autoAcceptSightseeingBookings = onDocumentCreated(
           "paid";
 
       // Paid Stripe (or any already-verified payment): always accept.
-      // Never rewrite status back to "Pending" — that hid bookings from Paid tab.
+      // Never rewrite status back to "Pending" - that hid bookings from Paid tab.
       if (paymentAlreadyDone || (capacity.weeklyOk && capacity.dailyOk)) {
         const overCapacity = paymentAlreadyDone && !(capacity.weeklyOk && capacity.dailyOk);
         logger.info(
@@ -227,7 +227,7 @@ export const onSightseeingBookingStatusChange = onDocumentUpdated(
     ) {
       // Still notify customer (they need app/web update); skip only extra Telegram noise
       logger.info(
-        `[Sightseeing] Auto-accepted ${bookingId} — customer notify only.`,
+        `[Sightseeing] Auto-accepted ${bookingId} - customer notify only.`,
       );
       await notifyCustomer({
         userId: uid,

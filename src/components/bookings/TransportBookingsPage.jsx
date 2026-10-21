@@ -49,7 +49,7 @@ const withinRange = (date, from, to) => {
   const value = date.toISOString().slice(0, 10);
   return (!from || value >= from) && (!to || value <= to);
 };
-const unique = (values) => [...new Set(values.filter((value) => value && value !== "—"))].sort();
+const unique = (values) => [...new Set(values.filter((value) => value && value !== "-"))].sort();
 
 const TransportBookingsPage = ({ kind, title, subtitle, icon, headerAction }) => {
   const [bookings, setBookings] = useState([]);
@@ -202,7 +202,7 @@ const TransportBookingsPage = ({ kind, title, subtitle, icon, headerAction }) =>
         onReset={() => setFilters(defaultFilters)}
         counts={counts}
         companies={unique(bookings.map((booking) => booking.companyName))}
-        providers={unique(bookings.map((booking) => booking.driverName !== "—" ? booking.driverName : booking.providerSnapshot?.name))}
+        providers={unique(bookings.map((booking) => booking.driverName !== "-" ? booking.driverName : booking.providerSnapshot?.name))}
         vehicleTypes={unique(bookings.map((booking) => booking.vehicleType))}
       />
 

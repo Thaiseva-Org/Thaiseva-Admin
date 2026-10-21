@@ -323,12 +323,12 @@ const TravelBookings = () => {
       specialNotes: getBookingSpecialNotes(booking),
       pickupRequest: getBookingPickupRequest(booking),
       paymentVerificationStatus:
-        booking?.paymentVerificationStatus || "—",
+        booking?.paymentVerificationStatus || "-",
       paymentVerificationNote: booking?.paymentVerificationNote || "",
       customerQrPaymentConfirmed: booking?.customerQrPaymentConfirmed === true,
       bookingStatus:
-        booking?.bookingStatus || booking?.status || "—",
-      source: booking?.source || "—",
+        booking?.bookingStatus || booking?.status || "-",
+      source: booking?.source || "-",
       autoAccepted: booking?.autoAccepted === true,
       isBookingConfirmed: booking?.isBookingConfirmed === true,
       isPaymentDone: booking?.isPaymentDone === true,
@@ -989,7 +989,7 @@ const TravelBookings = () => {
         icon="🎫"
       />
 
-      {/* Statistics Cards — click jumps to the matching tab */}
+      {/* Statistics Cards - click jumps to the matching tab */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div
           onClick={() => setTabValue(1)}
@@ -1072,7 +1072,7 @@ const TravelBookings = () => {
           <div className="mb-4 rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-800">
             No manual-review items.{" "}
             <strong>{bookingStats.onsite}</strong> Thai QR / onsite booking
-            {bookingStats.onsite === 1 ? "" : "s"} waiting for payment verify — open
+            {bookingStats.onsite === 1 ? "" : "s"} waiting for payment verify - open
             the <strong>Thai QR / Onsite</strong> tab
             <button
               type="button"
@@ -1821,17 +1821,17 @@ const TravelBookings = () => {
             const b = bookingDetails.rawData || bookingDetails;
             const formatTs = (value) => {
               const d = toDate(value);
-              return d ? getDateAndTime(d) : "—";
+              return d ? getDateAndTime(d) : "-";
             };
             const formatDateOnly = (value) => {
               const d = toDate(value);
-              return d ? getDate(d) : "—";
+              return d ? getDate(d) : "-";
             };
             const pickUpRaw = b?.pickUpTime || bookingDetails?.pickUpTime;
             const pickUpDate = toDate(pickUpRaw);
             // Only show a clock time when the source has a real time component
             const pickUpTimeLabel = (() => {
-              if (!pickUpRaw || !pickUpDate) return "—";
+              if (!pickUpRaw || !pickUpDate) return "-";
               if (typeof pickUpRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(pickUpRaw.trim())) {
                 return formatDateOnly(pickUpRaw); // date-only string
               }
@@ -1859,10 +1859,10 @@ const TravelBookings = () => {
             <BookingTimeline booking={bookingDetails} />
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
-                Status: {b?.status || bookingDetails?.status || "—"}
+                Status: {b?.status || bookingDetails?.status || "-"}
               </span>
               <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
-                Booking: {b?.bookingStatus || bookingDetails?.bookingStatus || "—"}
+                Booking: {b?.bookingStatus || bookingDetails?.bookingStatus || "-"}
               </span>
               {bookingDetails?.rawData?.bookingFlow && (
                 <div className="mb-3 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">
@@ -2056,14 +2056,14 @@ const TravelBookings = () => {
                   bookingDetails?.paymentMethodLabel ||
                     formatSightseeingPaymentMethodLabel(b) ||
                     bookingDetails?.paymentMethod ||
-                    "—",
+                    "-",
                   <CreditCardIcon fontSize="small" />,
                   false,
                   "text-emerald-600 bg-emerald-50"
                 )}
                 {renderDetailItem(
                   "Mode of Payment",
-                  b?.modeOfPayment || bookingDetails?.modeOfPayment || "—",
+                  b?.modeOfPayment || bookingDetails?.modeOfPayment || "-",
                   <PaymentsIcon fontSize="small" />,
                   false,
                   "text-emerald-600 bg-emerald-50"
@@ -2088,7 +2088,7 @@ const TravelBookings = () => {
                   "Verification Status",
                   b?.paymentVerificationStatus ||
                     bookingDetails?.paymentVerificationStatus ||
-                    "—",
+                    "-",
                   <VerifiedUserIcon fontSize="small" />,
                   false,
                   "text-emerald-600 bg-emerald-50"
@@ -2136,7 +2136,7 @@ const TravelBookings = () => {
               <Grid container spacing={1}>
                 {renderDetailItem(
                   "Source",
-                  b?.source || bookingDetails?.source || "—",
+                  b?.source || bookingDetails?.source || "-",
                   <MdInfo fontSize="small" />,
                   false,
                   "text-orange-600 bg-orange-50"
@@ -2158,14 +2158,14 @@ const TravelBookings = () => {
                   )}
                 {renderDetailItem(
                   "User ID",
-                  b?.userId || b?.uId || b?.authUid || "—",
+                  b?.userId || b?.uId || b?.authUid || "-",
                   <PersonIcon fontSize="small" />,
                   true,
                   "text-orange-600 bg-orange-50"
                 )}
                 {renderDetailItem(
                   "Package ID",
-                  b?.packageId || bookingDetails?.packageId || "—",
+                  b?.packageId || bookingDetails?.packageId || "-",
                   <TourIcon fontSize="small" />,
                   true,
                   "text-orange-600 bg-orange-50"

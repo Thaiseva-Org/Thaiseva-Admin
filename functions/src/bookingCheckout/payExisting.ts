@@ -69,7 +69,7 @@ export const isBookingApprovedForPayment = (
     sourcePath.includes("partial") ||
     (roomsInstant > 0 && roomsPending > 0);
 
-  // Explicit pure pending — not payable
+  // Explicit pure pending - not payable
   const purePending =
     st === "PENDING" ||
     st === "PENDING_REVIEW" ||
@@ -125,7 +125,7 @@ const ownsBookingForPayment = (
     return ids.includes(uid);
   }
 
-  // No owner uid on doc — email match only
+  // No owner uid on doc - email match only
   if (email) {
     const emails = [
       data.guestEmail,
@@ -243,7 +243,7 @@ export const createCheckoutSession = onRequest(
     }
 
     // Hotel: only accept payment when accepted / awaiting payment
-    // (including partially confirmed instant portion — not pure pending)
+    // (including partially confirmed instant portion - not pure pending)
     if (collection === "hotelBookingData") {
       if (!isBookingApprovedForPayment(data)) {
         throw new HttpError(
@@ -282,7 +282,7 @@ export const createCheckoutSession = onRequest(
       }
     }
 
-    // Hotel: never trust client-mutated amount if amountTHB missing — use stored only
+    // Hotel: never trust client-mutated amount if amountTHB missing - use stored only
     // (hotel create is Functions-only; amount already server-set)
 
     if (amount < 20) {

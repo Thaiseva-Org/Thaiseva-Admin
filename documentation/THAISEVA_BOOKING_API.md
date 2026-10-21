@@ -1,4 +1,4 @@
-# Thaiseva Booking API — Single Integration Guide
+# Thaiseva Booking API - Single Integration Guide
 
 > Updated 11 October 2026: [Package booking flows and API contract](PACKAGE_BOOKING_FLOWS.md) supersedes earlier package payment-first behavior. Tomorrow/day 2 require confirmation; instant booking starts day 3 within the daily limit. Request payment opens only after admin confirmation.
 
@@ -47,8 +47,8 @@ The **server** creates bookings, calculates prices (hotel & tours), creates Stri
 | **Car booking** (car / van / taxi / bike) / **Self-drive** | **Admin** (later) | **No Stripe** |
 
 **Transport has 2 APIs only:**
-1. **`createCarBooking`** — all rides go to `car_bookings`; `transportType` is `car` | `van` | `taxi` | `bike`
-2. **`createSelfDriveBooking`** — self-drive rentals
+1. **`createCarBooking`** - all rides go to `car_bookings`; `transportType` is `car` | `van` | `taxi` | `bike`
+2. **`createSelfDriveBooking`** - self-drive rentals
 
 There is **no separate van booking API**. Van is a `transportType` on car booking.
 
@@ -121,14 +121,14 @@ Default for hotel/package if omitted: **`STRIPE`**.
 | `checkHotelAvailability` | Public pre-check: free rooms / messages |
 | `createHotelBooking` | Create hotel booking + optional `stripeUrl` |
 | `createSightseeingBooking` | Package booking (Stripe / QR / onsite) |
-| `createCarBooking` | Car booking — `transportType`: car / van / taxi / bike (no Stripe) |
+| `createCarBooking` | Car booking - `transportType`: car / van / taxi / bike (no Stripe) |
 | `createSelfDriveBooking` | Self-drive request (no Stripe) |
 | `getTransportBooking` | Get transport status + admin amount |
 | `createCheckoutSession` | Stripe pay for a live hotel hold or an existing accepted hotel/package booking |
 | `verifySession` | After Stripe success redirect |
 | `stripeWebhook` | Stripe → server (do not call from app) |
 
-### Hotel holds (Firebase Callable — optional)
+### Hotel holds (Firebase Callable - optional)
 
 | Function | Purpose |
 |----------|---------|
@@ -292,7 +292,7 @@ Clients must **not** write this collection directly.
 | `pickUpTime` | No | Defaults to arrival date |
 | `pickUpLocation`, `specialRequests` | No | Hotel pickup point and special notes |
 | `paymentMethod` | No | STRIPE / THAI_QR / ONSITE (default STRIPE) |
-| `customerQrPaymentConfirmed` | QR | boolean — user declared transfer done |
+| `customerQrPaymentConfirmed` | QR | boolean - user declared transfer done |
 | `successUrl`, `cancelUrl` | Website Stripe | Checkout return URLs |
 | `paymentIntentId` | App Stripe | After PaymentSheet succeeds (`pi_...`) |
 | `source` | No | `"WEB"` (default) or `"APP"` |
@@ -521,7 +521,7 @@ POST /createCarBooking
 
 \* `name`/`contact`/`drop` match the mobile app; web may still send `customerName` / `customerPhone` / `destination`.
 
-**Example — same shape as mobile**
+**Example - same shape as mobile**
 
 ```json
 {
@@ -538,7 +538,7 @@ POST /createCarBooking
 }
 ```
 
-**Example — van (same API, different transportType)**
+**Example - van (same API, different transportType)**
 
 ```json
 {
@@ -752,7 +752,7 @@ notifications/users/{userId}/{notificationId}
 | Field | Description |
 |-------|-------------|
 | `title` | Short title |
-| `message` / `desc` | Body (both set — use either) |
+| `message` / `desc` | Body (both set - use either) |
 | `type` | `hotel-booking` \| `sightseeing-booking` \| `transport-booking` |
 | `bookingId` | Related booking |
 | `bookingCollection` | e.g. `car_bookings` |
@@ -917,7 +917,7 @@ const data = await bookingApi(
 );
 
 if (data.success && data.isPaymentDone) {
-  // data.bookingId — already paid & written to travelBookingDetails
+  // data.bookingId - already paid & written to travelBookingDetails
   showPaidConfirmed(data.bookingId);
 }
 ```
@@ -936,7 +936,7 @@ if (sessionId) {
 ### Transport
 
 ```js
-// Car booking — transportType: "car" | "van" | "taxi" | "bike"
+// Car booking - transportType: "car" | "van" | "taxi" | "bike"
 const created = await bookingApi(
   "createCarBooking",
   {

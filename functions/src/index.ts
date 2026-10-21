@@ -113,7 +113,7 @@ exports.unlockHotelRoomLock = unlockHotelRoomLock;
 // Website/app booking create APIs (HTTPS + CORS)
 exports.createHotelBooking = createHotelBooking;
 exports.createSightseeingBooking = createSightseeingBooking;
-// Transport: 2 products only — car booking (car|van|taxi|bike) + self-drive
+// Transport: 2 products only - car booking (car|van|taxi|bike) + self-drive
 exports.createCarBooking = createCarBooking;
 exports.createSelfDriveBooking = createSelfDriveBooking;
 // Legacy alias → createCarBooking with transportType taxi

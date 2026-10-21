@@ -1,4 +1,4 @@
-# Hotel Availability — Cloud Functions API
+# Hotel Availability - Cloud Functions API
 
 > [!NOTE]
 > **Consolidated Specification:** This Cloud Functions availability API reference has been unified into the authoritative **[Cloud Functions API Specification (Section 2: Hotel Stock & Concurrency)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)**. Refer to that document for active request/response payloads and error handling.
@@ -71,7 +71,7 @@ atomically transfers rooms from `held` to `booked` without changing `reserved`.
 
 ## Client setup
 
-### Check (public HTTPS — use `fetch`)
+### Check (public HTTPS - use `fetch`)
 
 ```js
 const CHECK_URL =
@@ -110,7 +110,7 @@ Helpers in this repo:
 
 | File | Role |
 |------|------|
-| `src/services/HotelAvailability.js` | Admin UI — Firestore reads + write callables |
+| `src/services/HotelAvailability.js` | Admin UI - Firestore reads + write callables |
 | `src/services/HotelBookingHold.js` | Callable hold start / complete / release |
 | `src/services/HotelBookingAccept.js` | Callable accept (admin or hotel owner) |
 
@@ -299,7 +299,7 @@ Default hold: **10 minutes** (client may pass `holdMinutes` in range **5–60**)
 | `roomsPendingIntent` | Remainder that will become Pending on complete |
 | `reused` | Existing non-expired hold for same stay was extended |
 
-If auto-book is off or no free rooms: `locked: false`, `roomsHeld: 0` — guest can still **complete** a pending-only request.
+If auto-book is off or no free rooms: `locked: false`, `roomsHeld: 0` - guest can still **complete** a pending-only request.
 
 ---
 
@@ -322,7 +322,7 @@ If auto-book is off or no free rooms: `locked: false`, `roomsHeld: 0` — guest 
 | `extraBed` | boolean | No |
 | `paymentMethod` / `paymentMethodIntent` | string | No (`STRIPE` / QR / `OFFLINE`) |
 | `nationality`, `specialRequests`, `estimatedArrivalTime`, `bedPreference`, `needsAirportPickup` | | Optional |
-| `rooms` | number | No — can **reduce** vs hold, not increase |
+| `rooms` | number | No - can **reduce** vs hold, not increase |
 
 ### Response (success)
 
@@ -387,7 +387,7 @@ Call on **page leave / unmount / cancel**. Scheduler is only a safety net.
 ## 5. `createHotelBookingWithAvailability`
 
 **Audience:** Website / app  
-**Type:** Callable (`httpsCallable`) — **not** raw `fetch`  
+**Type:** Callable (`httpsCallable`) - **not** raw `fetch`  
 **Auth:** Required  
 **Side effects:** Creates booking(s); reserves on auto path **without** prior hold
 
@@ -529,7 +529,7 @@ Fails if not enough rooms for the accept slice.
 
 ## 11. `expireHotelBookingHolds`
 
-**Type:** Cloud Scheduler — `every 5 minutes`  
+**Type:** Cloud Scheduler - `every 5 minutes`  
 **Timezone:** `Asia/Bangkok`  
 **Auth:** Service identity (not client-callable)
 
@@ -557,8 +557,8 @@ Full unlock of locked rooms for a stay (`[checkIn, checkOut)` nights). Use when 
 
 | Mode | Fields |
 |------|--------|
-| Hold | `holdId` — free nights + **delete entire hold lock doc** |
-| Booking | `bookingId` — free stay nights; optionally delete related holds |
+| Hold | `holdId` - free nights + **delete entire hold lock doc** |
+| Booking | `bookingId` - free stay nights; optionally delete related holds |
 | Manual stay | `hotelUid` + `packageId` + `checkIn` + `checkOut` + optional `rooms` |
 
 ### Options
@@ -704,16 +704,16 @@ const stay = {
   rooms: 2,
 };
 
-// 1) Public check — fetch only (CORS)
+// 1) Public check - fetch only (CORS)
 const checkRes = await fetch(CHECK_URL, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(stay),
 });
 const avail = await checkRes.json();
-// avail.messaging — show UI
+// avail.messaging - show UI
 
-// 2) Soft lock — callable (user signed in)
+// 2) Soft lock - callable (user signed in)
 const { data: hold } = await start({ ...stay, userId: auth.uid });
 try {
   const { data: booking } = await complete({
@@ -761,7 +761,7 @@ If the browser still reports CORS errors on **check**:
 
 ### Callables (hold / create / admin)
 
-Use Firebase `httpsCallable` (SDK handles CORS). Functions are deployed with **`invoker: "public"`** so Cloud Run allows OPTIONS; **do not** treat that as open data access — Auth + admin/owner checks still apply.
+Use Firebase `httpsCallable` (SDK handles CORS). Functions are deployed with **`invoker: "public"`** so Cloud Run allows OPTIONS; **do not** treat that as open data access - Auth + admin/owner checks still apply.
 
 ---
 

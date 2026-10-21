@@ -458,7 +458,7 @@ export const isSightseeingAccepted = (booking = {}) =>
 export const isSightseeingCanceled = (booking = {}) =>
   normalizeSightseeingStatus(booking) === "Canceled";
 
-/** Manual review queue: unpaid Stripe/card only — not Thai QR, onsite, or already paid. */
+/** Manual review queue: unpaid Stripe/card only - not Thai QR, onsite, or already paid. */
 export const isSightseeingPendingReview = (booking = {}) =>
   isSightseeingPending(booking) &&
   (booking.bookingFlow === "REQUEST" || (!isOnsiteSightseeingPayment(booking) &&
@@ -602,7 +602,7 @@ export const formatSightseeingPaymentMethodLabel = (booking = {}) => {
   if (isStripeSightseeingPayment(booking)) return "Card (Stripe)";
   if (isOnsiteSightseeingPayment(booking)) return "Onsite / Cash";
   const method = getSightseeingPaymentMethod(booking);
-  return method || "—";
+  return method || "-";
 };
 
 export const normalizeVanStatus = (booking = {}) => {

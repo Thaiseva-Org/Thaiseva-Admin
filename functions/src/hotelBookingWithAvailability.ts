@@ -2,12 +2,12 @@ import {assertActiveAccount} from "./activeAccount";
 /**
  * Public (website/app) + admin hotel booking paths with inventory.
  *
- * Pre-check: checkHotelAvailability — dates + rooms → how many instant vs pending
+ * Pre-check: checkHotelAvailability - dates + rooms → how many instant vs pending
  * Soft lock (checkout):
- *   1) startHotelBookingHold — lock free rooms while guest fills form / pays
- *   2) completeHotelBookingHold — booking done → keep rooms booked + create booking
- *   3) releaseHotelBookingHold — left without booking → unlock
- *   + expireHotelBookingHolds — auto-unlock expired holds (TTL)
+ *   1) startHotelBookingHold - lock free rooms while guest fills form / pays
+ *   2) completeHotelBookingHold - booking done → keep rooms booked + create booking
+ *   3) releaseHotelBookingHold - left without booking → unlock
+ *   + expireHotelBookingHolds - auto-unlock expired holds (TTL)
  * Create (direct, no hold):
  *   - all free + auto ON → reserve + Accepted → payNow
  *   - partial free → Accepted for free rooms + Pending for rest
@@ -406,7 +406,7 @@ const buildAvailabilityMessage = (cap: {
     return {
       kind: "full_instant" as const,
       title: `${req} room${req > 1 ? "s" : ""} available`,
-      message: `Good news — ${req} room${req > 1 ? "s are" : " is"} free for your dates and can be confirmed instantly. Complete guest details and pay to lock ${req > 1 ? "them" : "it"} in.`,
+      message: `Good news - ${req} room${req > 1 ? "s are" : " is"} free for your dates and can be confirmed instantly. Complete guest details and pay to lock ${req > 1 ? "them" : "it"} in.`,
       roomsInstant: req,
       roomsPending: 0,
       canProceed: true,
@@ -429,7 +429,7 @@ const buildAvailabilityMessage = (cap: {
     kind: "none_instant" as const,
     title: "No rooms free for instant booking",
     message:
-      "No rooms are free for instant confirmation on these dates. You can still submit your details — we will confirm with the hotel and come back to you.",
+      "No rooms are free for instant confirmation on these dates. You can still submit your details - we will confirm with the hotel and come back to you.",
     roomsInstant: 0,
     roomsPending: req,
     canProceed: true,
@@ -456,7 +456,7 @@ const amountForRooms = (
  * Public pre-check (no auth): dates + room count → instant vs pending messaging.
  *
  * HTTPS (onRequest) so website can use plain fetch/POST with CORS.
- * Do NOT use httpsCallable for this endpoint — use fetch to the function URL.
+ * Do NOT use httpsCallable for this endpoint - use fetch to the function URL.
  *
  * POST/GET body or query: hotelId, packageId|roomId|roomName, checkIn, checkOut, rooms
  */
@@ -727,7 +727,7 @@ export async function runCreateHotelBookingWithAvailability(
       };
 
       // Prefer exact stay match (includes checkOut). Only treat as duplicate when
-      // checkout matches — legacy ids may belong to a different length of stay.
+      // checkout matches - legacy ids may belong to a different length of stay.
       const existingFull = await loadFirstExisting([fullIds.primary]);
       const existingAuto = await loadFirstExisting([autoIds.primary]);
       const existingPend = await loadFirstExisting([pendIds.primary]);
@@ -1156,7 +1156,7 @@ export const acceptHotelBookingWithAvailability = onCall(
       );
     }
 
-    // Soft capacity check for messaging only — admin confirm may add extra capacity
+    // Soft capacity check for messaging only - admin confirm may add extra capacity
     const availability = await evaluateAvailability(db(), {
       hotelUid,
       packageId,
@@ -1292,7 +1292,7 @@ export const acceptHotelBookingWithAvailability = onCall(
       }
     }
 
-    // Note: amountPaid may be stored as 0 — do not use ?? (0 is valid for ?? and blocks stripe fields)
+    // Note: amountPaid may be stored as 0 - do not use ?? (0 is valid for ?? and blocks stripe fields)
     const alreadyPaidOnThisDoc =
       booking.isPaymentDone === true ||
       booking.isPaymentClear === true ||
@@ -1377,8 +1377,8 @@ export const acceptHotelBookingWithAvailability = onCall(
           String(booking.paymentVerificationStatus || "VERIFIED"),
         paymentVerificationNote: requiresPayment ?
           needsTopUp ?
-            "Additional rooms accepted — complete remaining payment." :
-            "Booking accepted — payment required to confirm stay." :
+            "Additional rooms accepted - complete remaining payment." :
+            "Booking accepted - payment required to confirm stay." :
           booking.paymentVerificationNote || "Paid.",
         // Do not carry a stale open Checkout from the pending phase
         ...(requiresPayment ?
@@ -1482,7 +1482,7 @@ const unlockHoldIfNeeded = async (
     });
     if (!result.ok) {
       logger.error(
-        `[HotelHold] unlockHoldIfNeeded release failed hold=${holdId} — leaving status as HOLD for retry`,
+        `[HotelHold] unlockHoldIfNeeded release failed hold=${holdId} - leaving status as HOLD for retry`,
       );
       return {ok: false};
     }
@@ -1599,7 +1599,7 @@ export const startHotelBookingHold = onCall(callableOpts, async (request) => {
           messaging: prev.messaging || null,
         };
       }
-      // Expired or leftover — unlock then recreate
+      // Expired or leftover - unlock then recreate
       if (prev.status === "HOLD" || prev.inventoryReserved === true) {
         await unlockHoldIfNeeded(holdId, prev, "EXPIRED");
       }
@@ -2039,7 +2039,7 @@ export async function runCompleteHotelBookingHold(
     let payNow = false;
     let path: "auto" | "pending" | "partial" = "pending";
 
-    // Instant portion: ledger already reserved under holdId — transfer to booking
+    // Instant portion: ledger already reserved under holdId - transfer to booking
     if (roomsInstant > 0) {
       const useId = roomsPending > 0 ? autoId : fullId;
       const acceptedBookingData = {
@@ -2081,7 +2081,7 @@ export async function runCompleteHotelBookingHold(
       payNow = true;
       path = roomsPending > 0 ? "partial" : "auto";
     } else if (hold.inventoryReserved === true && hold.inventoryReleased !== true) {
-      // Nothing instant to book but hold still locked — free it
+      // Nothing instant to book but hold still locked - free it
       await releaseHoldRoomsInTransaction(db(), {
         hotelUid,
         packageId,

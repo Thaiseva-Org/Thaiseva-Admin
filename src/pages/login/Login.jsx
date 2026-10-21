@@ -261,7 +261,7 @@ const Login = () => {
               Thailand Operations & Service Verticals
             </h1>
             <p className="text-blue-100/75 text-xs xl:text-[13px] leading-relaxed mt-1 max-w-xl">
-              Centralized administrative dispatch across all customer-facing services — connecting global travelers, luxury accommodations, transport fleets, and regional merchants.
+              Centralized administrative dispatch across all customer-facing services - connecting global travelers, luxury accommodations, transport fleets, and regional merchants.
             </p>
           </div>
 

@@ -471,7 +471,7 @@ const AddHotelForm = ({ initialData: _propInitialData, isEdit: _propIsEdit, onCl
         const inventoryQty = Math.max(1, Math.floor(Number(newRoom.totalRooms) || 5));
 
         const finalRoom = {
-            // Always string id — numeric ids break Firestore paths / queries
+            // Always string id - numeric ids break Firestore paths / queries
             id: editingRoomId
                 ? String(editingRoomId)
                 : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),

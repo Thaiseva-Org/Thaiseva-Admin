@@ -624,7 +624,7 @@ export const acceptHotelBookingWithAvailability = onCall(
       );
     }
 
-    // If already has hold lock, convert it (no expand — rooms already locked)
+    // If already has hold lock, convert it (no expand - rooms already locked)
     const [hotel, pkg] = await Promise.all([
       loadHotel(db(), hotelId),
       loadPackage(db(), packageId, hotelId),
@@ -910,7 +910,7 @@ export const releaseHotelInventory = onCall(callableOpts, async (request) => {
   };
 });
 
-/** Admin force unlock — same as unlockHotelStock force. */
+/** Admin force unlock - same as unlockHotelStock force. */
 export const unlockHotelRoomLock = onCall(callableOpts, async (request) => {
   await assertAdmin(request.auth as Auth | undefined);
   const input = (request.data || {}) as Data;

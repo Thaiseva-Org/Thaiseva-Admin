@@ -22,9 +22,9 @@ flowchart TD
 
 | Severity Level | Definition | Response SLA | Resolution SLA | Escalation Target |
 |---|---|:---:|:---:|---|
-| **P0 — Critical** | Complete portal downtime, Stripe payment webhook failures, or checkout API returning 500 errors across all categories. | **15 minutes** | **2 hours** | Technical Lead & Lead Architect |
-| **P1 — High** | Hotel room stock holds failing to expire (false "Sold Out" state), partner portal login failure, or Zoho OTP delivery failure. | **1 hour** | **4 hours** | Senior Backend Engineer / SRE |
-| **P2 — Medium** | Client-side PDF invoice generation failing for specific partners, Chart.js statistics not loading, non-blocking UI bugs. | **4 hours** | **24 hours** | Frontend Lead / Operations |
+| **P0 - Critical** | Complete portal downtime, Stripe payment webhook failures, or checkout API returning 500 errors across all categories. | **15 minutes** | **2 hours** | Technical Lead & Lead Architect |
+| **P1 - High** | Hotel room stock holds failing to expire (false "Sold Out" state), partner portal login failure, or Zoho OTP delivery failure. | **1 hour** | **4 hours** | Senior Backend Engineer / SRE |
+| **P2 - Medium** | Client-side PDF invoice generation failing for specific partners, Chart.js statistics not loading, non-blocking UI bugs. | **4 hours** | **24 hours** | Frontend Lead / Operations |
 
 ---
 

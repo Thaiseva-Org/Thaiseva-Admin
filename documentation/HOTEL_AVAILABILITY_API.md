@@ -1,9 +1,9 @@
-# Hotel Room Availability — Admin Portal
+# Hotel Room Availability - Admin Portal
 
 > [!NOTE]
 > **Consolidated Specification:** This availability guide has been unified into the authoritative **[Cloud Functions API Specification (Section 2: Hotel Stock & Concurrency)](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/03-api/API_SPECIFICATION.md)** and the **[Firestore Data Architecture & Schema Dictionary](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/04-data/DATA_SCHEMA_DICTIONARY.md)**.
 
-> **New model (recommended):** number-based stock with 3 APIs — see  
+> **New model (recommended):** number-based stock with 3 APIs - see  
 > [`HOTEL_STOCK_API.md`](./HOTEL_STOCK_API.md)  
 > (`free = total − locked − booked`, check / lock / unlock)
 
@@ -19,9 +19,9 @@ Admin staff manage **room inventory by night** so:
 - Default stock is **5 rooms per type** when not set (editable)
 - Temporary extras and blocks work for date ranges
 
-**Room types are created only in Add/Edit Hotel** — not recreated on the availability page.
+**Room types are created only in Add/Edit Hotel** - not recreated on the availability page.
 
-**Admin UI** — **reads** via Firestore; **writes** (extra / block / qty / release / unlock) go through **admin Cloud Functions** so the night ledger stays aligned with website booking.  
+**Admin UI** - **reads** via Firestore; **writes** (extra / block / qty / release / unlock) go through **admin Cloud Functions** so the night ledger stays aligned with website booking.  
 **Website / app** APIs: [`HOTEL_AVAILABILITY_FUNCTIONS_API.md`](./HOTEL_AVAILABILITY_FUNCTIONS_API.md)  
 (`check` = HTTPS `fetch`; hold/create/accept = callables).
 
@@ -121,7 +121,7 @@ Checkout day is free for a new check-in.
 
 Room types from Add/Edit Hotel. Inventory fields:
 
-- `totalRooms` / `quantity` — sellable count for this type  
+- `totalRooms` / `quantity` - sellable count for this type  
 - `roomName` / `packageName`  
 - String document IDs preferred (numeric ids break some Firestore paths)
 
@@ -168,9 +168,9 @@ Match hotel via `hotelUid` / `hotelId`, room via `packageId` / `roomId`.
 
 ### Optional (server / future)
 
-- `hotelRoomInventory/{hotelUid}_{packageId}/nights/{YYYY-MM-DD}` — classified night ledger
-- `hotelInventoryAllocations/{allocationId}` — idempotent allocation ownership
-- `hotelInventoryAuditLogs` — audit trail  
+- `hotelRoomInventory/{hotelUid}_{packageId}/nights/{YYYY-MM-DD}` - classified night ledger
+- `hotelInventoryAllocations/{allocationId}` - idempotent allocation ownership
+- `hotelInventoryAuditLogs` - audit trail  
 
 Admin UI currently **computes remaining live** (does not require the ledger).
 
@@ -273,7 +273,7 @@ const booking = await completeHotelBookingHold({
   guestPhone,
 });
 
-// Abandon — pagehide / unmount
+// Abandon - pagehide / unmount
 await releaseHotelBookingHold(hold.holdId);
 ```
 
@@ -300,9 +300,9 @@ firebase deploy --only firestore:rules
 
 Added collections:
 
-- `hotelRoomInventory` (+ `nights`) — Admin write  
-- `HotelDB/{hotelId}/availability` — Admin CRUD  
-- `hotelInventoryAuditLogs` — Admin read/create  
+- `hotelRoomInventory` (+ `nights`) - Admin write  
+- `HotelDB/{hotelId}/availability` - Admin CRUD  
+- `hotelInventoryAuditLogs` - Admin read/create  
 
 `HotelDB`, `HotelDB/.../rooms`, and `HotelDB/.../availability` allow Admin write.
 
@@ -324,8 +324,8 @@ Also listed in `firestore.indexes.json`.
 
 ## App / website (implemented)
 
-1. **`checkHotelAvailability`** — public HTTPS `fetch` (messaging only)  
-2. **Soft hold** — `start` → `complete` / `release` (callables)  
+1. **`checkHotelAvailability`** - public HTTPS `fetch` (messaging only)  
+2. **Soft hold** - `start` → `complete` / `release` (callables)  
 3. **Or** `createHotelBookingWithAvailability` without hold  
 4. Instant free rooms → Accepted + reserve; partial free → instant Accepted + remainder Pending  
 5. Guest counts enforced when room `maxAdults` / `maxChildren` set (`GUEST_CAPACITY`)  
@@ -346,9 +346,9 @@ node scripts/repairNightReserved.js --apply
 
 ## Related docs
 
-- **`documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`** — full Cloud Functions API  
-- **`documentation/THAISEVA_BOOKING_API.md`** — customer booking APIs (hotel / package / transport)  
-- `FIRESTORE_DATA_REFERENCE.md` — collection shapes  
-- `COLLECTION_SCHEMA_REFERENCE.md` — schema overview  
-- `documentation/FIREBASE_REFERENCE.md` — routes and collections  
+- **`documentation/HOTEL_AVAILABILITY_FUNCTIONS_API.md`** - full Cloud Functions API  
+- **`documentation/THAISEVA_BOOKING_API.md`** - customer booking APIs (hotel / package / transport)  
+- `FIRESTORE_DATA_REFERENCE.md` - collection shapes  
+- `COLLECTION_SCHEMA_REFERENCE.md` - schema overview  
+- `documentation/FIREBASE_REFERENCE.md` - routes and collections  
 

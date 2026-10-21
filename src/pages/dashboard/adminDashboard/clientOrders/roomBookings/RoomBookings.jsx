@@ -362,7 +362,7 @@ const RoomBookings = () => {
 
     setLoading(true);
     for (const booking of targets) {
-      // Status-only cancel — nothing auto-happens on user request; admin marks unavailable
+      // Status-only cancel - nothing auto-happens on user request; admin marks unavailable
       await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), {
         status: "Canceled",
         bookingStatus: "CANCELED",
@@ -396,7 +396,7 @@ const RoomBookings = () => {
 
         CreateNewNotificationToUser(
           payNow
-            ? "Booking accepted — payment required"
+            ? "Booking accepted - payment required"
             : hasHotelPendingRooms(booking)
               ? "Pending rooms accepted!"
               : "Room booking approved!",
@@ -731,8 +731,8 @@ const RoomBookings = () => {
     if (ok) {
       successNotification(
         pending > 0
-          ? `Pending room(s) confirmed — inventory updated for stay dates.`
-          : "Booking accepted — rooms confirmed available."
+          ? `Pending room(s) confirmed - inventory updated for stay dates.`
+          : "Booking accepted - rooms confirmed available."
       );
     }
   };
@@ -740,7 +740,7 @@ const RoomBookings = () => {
   const handleCancelBooking = async (booking) => {
     if (!confirm("Mark rooms as not available and decline this request?")) return;
 
-    // Admin-only: mark not available. No special reject CF — status cancel only.
+    // Admin-only: mark not available. No special reject CF - status cancel only.
     // Inventory unlock (if any) is handled by booking status trigger.
     await updateDoc(doc(roomBookingCollection, booking.bookingId || booking.id), {
       status: "Canceled",
@@ -753,7 +753,7 @@ const RoomBookings = () => {
           booking.userId
         );
       }
-      deleteNotification("Booking declined — rooms not available.");
+      deleteNotification("Booking declined - rooms not available.");
     });
   };
 
@@ -775,7 +775,7 @@ const RoomBookings = () => {
     }
   };
 
-  // delete canceled booking — free inventory first so rooms do not stay locked
+  // delete canceled booking - free inventory first so rooms do not stay locked
   const handleDelete = (id) => {
     askingForDelete().then(async (result) => {
       if (result.isConfirmed) {

@@ -1,4 +1,4 @@
-# Private links and booking webhook — 19 October 2026
+# Private links and booking webhook - 19 October 2026
 
 ## Retained private files
 

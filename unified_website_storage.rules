@@ -49,7 +49,7 @@ service firebase.storage {
       allow write: if isAuthenticated() && (isAdmin() || isRestaurantAdmin());
     }
 
-    // 3. All other paths — public read, authenticated write
+    // 3. All other paths - public read, authenticated write
     //    Covers: blog images, hotel images, service images, chat media,
     //    user profile photos, partner documents, etc.
     match /{allPaths=**} {

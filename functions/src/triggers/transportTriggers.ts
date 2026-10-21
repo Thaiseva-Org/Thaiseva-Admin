@@ -182,7 +182,7 @@ const updateHandler = (type: string) => async (event: {
     );
   }
 
-  // Admin set / changed price (main product path — no Stripe)
+  // Admin set / changed price (main product path - no Stripe)
   const amountBecameQuoted =
     nextAmount > 0 &&
     (prevAmount !== nextAmount ||
@@ -206,7 +206,7 @@ const updateHandler = (type: string) => async (event: {
       bookingId,
     );
   } else if (amountBecameQuoted && previousStatus !== nextStatus) {
-    // Status change already notified — still send dedicated price notice if amount newly set
+    // Status change already notified - still send dedicated price notice if amount newly set
     if (prevAmount <= 0 && nextAmount > 0) {
       await safeNotify(
         `${event.id}_amount_${nextAmount}`,

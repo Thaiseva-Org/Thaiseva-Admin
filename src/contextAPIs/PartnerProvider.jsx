@@ -224,7 +224,7 @@ const PartnerProvider = ({ children }) => {
       hotelsCollection,
       (result) => {
         if (result) {
-          // Always attach Firestore doc id — many HotelDB docs omit top-level uid
+          // Always attach Firestore doc id - many HotelDB docs omit top-level uid
           const list = result.docs.map((docSnap) => {
             const data = docSnap.data() || {};
             const resolvedUid =
@@ -490,7 +490,7 @@ const PartnerProvider = ({ children }) => {
             id: snap.id,
           };
         });
-        // Sort client-side (latest first) — supports Timestamp, Date, ISO strings
+        // Sort client-side (latest first) - supports Timestamp, Date, ISO strings
         list.sort((a, b) => getBookingTimeMs(b) - getBookingTimeMs(a));
         setTravelBookings(list);
         setLoadingData(false);

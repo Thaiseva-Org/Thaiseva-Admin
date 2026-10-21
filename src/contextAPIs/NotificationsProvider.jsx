@@ -142,7 +142,7 @@ export const NotificationsProvider = ({ children }) => {
       }
     });
 
-    // 3. Car Bookings — car | van | taxi | bike (all in car_bookings)
+    // 3. Car Bookings - car | van | taxi | bike (all in car_bookings)
     carBookings?.forEach(b => {
       const status = b.status || 'Pending';
       const tType = String(b.transportType || 'car');

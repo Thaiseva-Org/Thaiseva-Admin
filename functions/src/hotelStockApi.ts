@@ -1,6 +1,6 @@
 import {assertActiveAccount} from "./activeAccount";
 /**
- * Simple hotel stock APIs — check / lock / unlock (+ expire + admin manage).
+ * Simple hotel stock APIs - check / lock / unlock (+ expire + admin manage).
  *
  * All share the same number-based data:
  *   free = total - locked - booked
@@ -140,7 +140,7 @@ const parseStay = async (input: Data) => {
 };
 
 // ---------------------------------------------------------------------------
-// 1) CHECK — public HTTPS
+// 1) CHECK - public HTTPS
 // ---------------------------------------------------------------------------
 
 export const checkHotelStock = onRequest(
@@ -228,7 +228,7 @@ export const checkHotelStock = onRequest(
 );
 
 // ---------------------------------------------------------------------------
-// 2) LOCK — callable
+// 2) LOCK - callable
 // ---------------------------------------------------------------------------
 
 export const lockHotelStock = onCall(callableOpts, async (request) => {
@@ -322,7 +322,7 @@ export const lockHotelStock = onCall(callableOpts, async (request) => {
 });
 
 // ---------------------------------------------------------------------------
-// 3) UNLOCK — callable
+// 3) UNLOCK - callable
 // ---------------------------------------------------------------------------
 
 export const unlockHotelStock = onCall(callableOpts, async (request) => {
@@ -576,7 +576,7 @@ export const startHotelBookingHold = onCall(callableOpts, async (request) => {
       "hotelId, packageId, checkIn, checkOut are required.",
     );
   }
-  // Old path allowed pending when no stock — new model is all-or-nothing
+  // Old path allowed pending when no stock - new model is all-or-nothing
   const result = await lockStock(db(), {
     action: "hold",
     kind: "hold",

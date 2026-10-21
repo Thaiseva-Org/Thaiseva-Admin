@@ -1,5 +1,5 @@
 /**
- * Stripe webhook — verify signature, mark bookings paid / create package bookings.
+ * Stripe webhook - verify signature, mark bookings paid / create package bookings.
  */
 import * as logger from "firebase-functions/logger";
 import {onRequest} from "firebase-functions/v2/https";

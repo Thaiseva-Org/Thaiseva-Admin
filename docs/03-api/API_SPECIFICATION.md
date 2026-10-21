@@ -202,7 +202,7 @@ All hotel stock and booking endpoints strictly validate catalog visibility (`isL
 }
 ```
 
-**Success Response (200 OK) — Stripe:**
+**Success Response (200 OK) - Stripe:**
 ```json
 {
   "status": "success",
@@ -215,7 +215,7 @@ All hotel stock and booking endpoints strictly validate catalog visibility (`isL
 }
 ```
 
-**Success Response (200 OK) — Thai QR:**
+**Success Response (200 OK) - Thai QR:**
 ```json
 {
   "status": "success",
@@ -265,7 +265,7 @@ All hotel stock and booking endpoints strictly validate catalog visibility (`isL
 ```
 *Note: Also accepts aliases `travelDate`, `date` for arrivalDate, and `paymentIntentId` for mobile PaymentSheet.*
 
-**Success Response (200 OK) — Instant Booking (Day 3+ Within Capacity):**
+**Success Response (200 OK) - Instant Booking (Day 3+ Within Capacity):**
 ```json
 {
   "success": true,
@@ -286,7 +286,7 @@ All hotel stock and booking endpoints strictly validate catalog visibility (`isL
 }
 ```
 
-**Success Response (200 OK) — Request Booking (Tomorrow, Day 2, or Capacity Reached):**
+**Success Response (200 OK) - Request Booking (Tomorrow, Day 2, or Capacity Reached):**
 ```json
 {
   "success": true,

@@ -238,7 +238,7 @@ const TransportManagement = () => {
    * @param {string} id - Company document ID.
    * @returns {string} Company display name or placeholder.
    */
-  const companyName = (id) => companies.find((company) => company.id === id)?.companyName || "—";
+  const companyName = (id) => companies.find((company) => company.id === id)?.companyName || "-";
 
   /**
    * Looks up a vehicle name by its document ID.
@@ -319,7 +319,7 @@ const TransportManagement = () => {
             <table className="w-full min-w-[760px]">
               <thead className="bg-gradient-to-r from-primary-500 to-primary-600 text-white"><tr>{displayFields({}).map(([label]) => <th key={label} className="px-4 py-3 text-left text-xs uppercase">{label}</th>)}<th className="px-4 py-3 text-left text-xs uppercase">Status</th><th className="px-4 py-3 text-left text-xs uppercase">Actions</th></tr></thead>
               <tbody className="divide-y">
-                {filtered.map((record) => <tr key={record.id} className="hover:bg-primary-50/50">{displayFields(record).map(([label, value]) => <td key={label} className="px-4 py-3 text-sm">{value || "—"}</td>)}<td className="px-4 py-3"><Chip size="small" color={record.active !== false ? "success" : "default"} label={record.active !== false ? "Active" : "Inactive"} /></td><td className="px-4 py-3 whitespace-nowrap"><Tooltip title="View"><IconButton size="small" onClick={() => setViewing(record)}><VisibilityOutlined fontSize="small" /></IconButton></Tooltip><Tooltip title="Edit"><IconButton size="small" onClick={() => openForm(record)}><EditOutlined fontSize="small" /></IconButton></Tooltip>{record.active !== false && <Tooltip title="Deactivate"><IconButton disabled={busy} color="warning" size="small" onClick={() => archive(record)}><ArchiveOutlined fontSize="small" /></IconButton></Tooltip>}<Tooltip title="Delete permanently"><IconButton disabled={busy} color="error" size="small" onClick={() => remove(record)}><DeleteIcon fontSize="small" /></IconButton></Tooltip></td></tr>)}
+                {filtered.map((record) => <tr key={record.id} className="hover:bg-primary-50/50">{displayFields(record).map(([label, value]) => <td key={label} className="px-4 py-3 text-sm">{value || "-"}</td>)}<td className="px-4 py-3"><Chip size="small" color={record.active !== false ? "success" : "default"} label={record.active !== false ? "Active" : "Inactive"} /></td><td className="px-4 py-3 whitespace-nowrap"><Tooltip title="View"><IconButton size="small" onClick={() => setViewing(record)}><VisibilityOutlined fontSize="small" /></IconButton></Tooltip><Tooltip title="Edit"><IconButton size="small" onClick={() => openForm(record)}><EditOutlined fontSize="small" /></IconButton></Tooltip>{record.active !== false && <Tooltip title="Deactivate"><IconButton disabled={busy} color="warning" size="small" onClick={() => archive(record)}><ArchiveOutlined fontSize="small" /></IconButton></Tooltip>}<Tooltip title="Delete permanently"><IconButton disabled={busy} color="error" size="small" onClick={() => remove(record)}><DeleteIcon fontSize="small" /></IconButton></Tooltip></td></tr>)}
                 {!filtered.length && <tr><td colSpan={8} className="text-center py-14 text-neutral-500">No matching {plural[type].toLowerCase()} found.</td></tr>}
               </tbody>
             </table>
@@ -327,7 +327,7 @@ const TransportManagement = () => {
       </>
 
       <ResourceFormDialog open={formOpen} type={type} record={selected} companies={companies.filter((company) => company.active !== false)} vehicles={vehicles} busy={busy} error={error} onClose={() => setFormOpen(false)} onSave={save} />
-      <Dialog open={Boolean(viewing)} onClose={() => setViewing(null)} maxWidth="md" fullWidth><DialogTitle>Details</DialogTitle><DialogContent dividers><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{viewFields(viewing).map(([label, value, isUrl]) => <div key={label}><p className="text-xs uppercase text-neutral-500">{label}</p>{isUrl && value ? <a className="font-medium text-primary-600 underline break-all" href={value} target="_blank" rel="noreferrer">Open document</a> : <p className="font-medium break-words">{typeof value === "boolean" ? (value ? "Yes" : "No") : value || "—"}</p>}</div>)}</div></DialogContent><DialogActions><Button onClick={() => setViewing(null)}>Close</Button></DialogActions></Dialog>
+      <Dialog open={Boolean(viewing)} onClose={() => setViewing(null)} maxWidth="md" fullWidth><DialogTitle>Details</DialogTitle><DialogContent dividers><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{viewFields(viewing).map(([label, value, isUrl]) => <div key={label}><p className="text-xs uppercase text-neutral-500">{label}</p>{isUrl && value ? <a className="font-medium text-primary-600 underline break-all" href={value} target="_blank" rel="noreferrer">Open document</a> : <p className="font-medium break-words">{typeof value === "boolean" ? (value ? "Yes" : "No") : value || "-"}</p>}</div>)}</div></DialogContent><DialogActions><Button onClick={() => setViewing(null)}>Close</Button></DialogActions></Dialog>
     </div>
   );
 };

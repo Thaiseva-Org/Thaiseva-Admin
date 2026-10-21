@@ -1,5 +1,5 @@
 /**
- * @file Admin portal hotel availability — simple stock numbers.
+ * @file Admin portal hotel availability - simple stock numbers.
  * free = total - locked - booked
  * Reads: hotelStock nights (Firestore).
  * Writes: Cloud Functions (manageHotelAvailability / unlock).
@@ -529,8 +529,8 @@ const summarizeBooking = (b) => ({
   guest: guestNameOf(b),
   phone: b.guestPhone || b.phone || b.guestDetails?.phone || b.guestDetails?.phoneNumber || "",
   rooms: roomsFromBooking(b),
-  checkIn: toYmd(b.checkInDate || b.checkIn) || "—",
-  checkOut: toYmd(b.checkOutDate || b.checkOut) || "—",
+  checkIn: toYmd(b.checkInDate || b.checkIn) || "-",
+  checkOut: toYmd(b.checkOutDate || b.checkOut) || "-",
   status: b.bookingStatus || b.status || "Accepted",
   roomName: b.roomName || b.packageName || "",
 });
@@ -681,8 +681,8 @@ export const getHotelAvailabilityCalendar = async ({
           id: lock.id,
           rooms: Number(lock.rooms) || 0,
           userId: lock.userId || "",
-          checkIn: toYmd(lock.checkIn) || "—",
-          checkOut: toYmd(lock.checkOut) || "—",
+          checkIn: toYmd(lock.checkIn) || "-",
+          checkOut: toYmd(lock.checkOut) || "-",
           holdUntil: lock.expiresAt?.toDate
             ? lock.expiresAt.toDate().toISOString()
             : lock.expiresAt || null,
@@ -849,7 +849,7 @@ export const manageHotelAvailability = async (payload) => {
   const action = payload?.action;
   const hotelUid = asId(payload?.hotelUid || payload?.hotelId).trim();
 
-  // Server path (preferred) — keeps inventory in sync for website/app booking
+  // Server path (preferred) - keeps inventory in sync for website/app booking
   try {
     const result = await manageAvailabilityCallable({
       ...payload,
@@ -924,7 +924,7 @@ export const blockRooms = async (payload) =>
 
 /** 
  * End a legacy availability adjustment.
- * @deprecated Adjustments removed — use setTotalRange / addExtra / block on stock totals.
+ * @deprecated Adjustments removed - use setTotalRange / addExtra / block on stock totals.
  * @returns {Promise<{ ok: boolean, deprecated: boolean, message: string }>} 
  */
 export const endAvailabilityAdjustment = async () => ({
@@ -934,7 +934,7 @@ export const endAvailabilityAdjustment = async () => ({
 });
 
 /**
- * Admin ops — free night-ledger rooms for a booking (not just flags).
+ * Admin ops - free night-ledger rooms for a booking (not just flags).
  * Prefer Cloud Function; never clear inventoryReserved without ledger decrement.
  * 
  * @param {string} bookingId - The ID of the booking to release.
