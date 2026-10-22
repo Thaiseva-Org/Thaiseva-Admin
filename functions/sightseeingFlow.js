@@ -4,6 +4,15 @@ const DAY_MS = 86400000;
 const PREPARATION_MESSAGE = "We need at least 2 full days to prepare your package. For tomorrow or the day after tomorrow, our team will check availability and confirm your request first. Payment is collected only after confirmation.";
 const CAPACITY_MESSAGE = "The daily instant-booking limit has been reached for this date. Our team will check availability and confirm your request first. Payment is collected only after confirmation.";
 
+// Instant card bookings wait here, under the ID of the booking they become,
+// until Stripe reports the payment, so an unpaid checkout never reaches
+// travelBookingDetails. A live hold takes a slot like a booking. Created by the
+// website's createSightseeingBooking; Admin turns paid holds into bookings.
+const CHECKOUT_HOLDS = "sightseeingCheckoutHolds";
+// Stripe metadata.checkoutKind of a hold's Checkout (metadata.holdId = its ID).
+const HOLD_CHECKOUT_KIND = "packageHold";
+const HOLD_MS = 35 * 60000;
+
 function thaiDate(now = new Date()) {
     return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
 }
@@ -90,6 +99,41 @@ async function reserveBooking(db, admin, ref, data) {
     });
 }
 
+function liveHold(data, now = new Date()) {
+    const expiry = data?.instantReservationExpiresAt?.toDate?.();
+    return Boolean(expiry) && expiry > now && data.holdStatus !== "RELEASED";
+}
+
+// Status of a booking paid from a hold. A hold outlives its Checkout and is
+// released only after the Checkout is expired, so a payment always fell inside
+// it: confirmed. Paid although released (a race): the admin must review it.
+function paidHoldStatus(hold) {
+    if (hold.holdStatus !== "RELEASED") return { status: "Accepted", bookingStatus: "CONFIRMED", isBookingConfirmed: true, autoAccepted: true };
+    return { status: "Payment received - review required", bookingStatus: "PAYMENT_REVIEW_REQUIRED", isBookingConfirmed: false, autoAccepted: false, bookingFlow: "REQUEST", bookingFlowReason: "RESERVATION_EXPIRED" };
+}
+
+// Writes a paid checkout hold as its booking (same ID) and deletes the hold.
+// `paidFields(hold)` adds the payment and status fields (see paidHoldStatus).
+// Result: "created", "exists" (already a booking; mark that paid instead) or
+// "missing".
+async function bookPaidHold(db, admin, holdId, paidFields) {
+    const bookingRef = db.collection("travelBookingDetails").doc(holdId);
+    const holdRef = db.collection(CHECKOUT_HOLDS).doc(holdId);
+    return db.runTransaction(async tx => {
+        const booking = await tx.get(bookingRef);
+        const hold = await tx.get(holdRef);
+        if (booking.exists) return { result: "exists", data: booking.data() };
+        if (!hold.exists) return { result: "missing" };
+        // eslint-disable-next-line no-unused-vars
+        const { holdStatus, holdReleasedAt, expireAt, ...held } = hold.data();
+        const now = admin.firestore.FieldValue.serverTimestamp();
+        const data = { ...held, checkoutStartedAt: held.createdAt || null, orderedAt: now, createdAt: now, ...paidFields(hold.data()) };
+        tx.create(bookingRef, data);
+        tx.delete(holdRef);
+        return { result: "created", data };
+    });
+}
+
 function approvedForPayment(data, now = new Date()) {
     if (/CANCEL|REJECT|DENIED|EXPIRED/.test(`${data.status || ""} ${data.bookingStatus || ""}`.toUpperCase())) return false;
     if (data.isBookingConfirmed !== true && !/^(ACCEPTED|CONFIRMED|AWAITING_PAYMENT)$/.test(String(data.status || "").toUpperCase())) return false;
@@ -97,4 +141,4 @@ function approvedForPayment(data, now = new Date()) {
     return true;
 }
 
-module.exports = { thaiDate, dateDecision, countsTowardDailyLimit, availability, checkAvailability, reserveBooking, approvedForPayment, PREPARATION_MESSAGE, CAPACITY_MESSAGE };
+module.exports = { thaiDate, dateDecision, countsTowardDailyLimit, availability, checkAvailability, reserveBooking, approvedForPayment, PREPARATION_MESSAGE, CAPACITY_MESSAGE, liveHold, paidHoldStatus, bookPaidHold, CHECKOUT_HOLDS, HOLD_CHECKOUT_KIND, HOLD_MS };

@@ -6,6 +6,7 @@
     "lint": "eslint --ext .js,.ts .",
     "build": "tsc",
     "test": "npm run build && node --test test/otp.test.cjs test/verifiedSignup.test.cjs test/retention.test.cjs test/privacy.test.cjs test/orderMedia.test.cjs test/identityMedia.test.cjs test/privacyPatch.test.cjs test/customerPush.test.cjs test/stripePresentment.test.cjs",
+    "test:package-hold:integration": "npm run build && firebase emulators:exec --config ../firebase.otp-test.json --project demo-thaiseva-package-hold --only firestore \"node --test test/packageHold.integration.cjs\"",
     "test:otp:integration": "npm run build && firebase emulators:exec --config ../firebase.otp-test.json --project demo-thaiseva-otp --only firestore,auth \"node --test test/otp.integration.cjs\"",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",

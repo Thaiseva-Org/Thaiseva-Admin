@@ -54,7 +54,7 @@ Unlike static booking systems, Thaiseva enforces a **dual-flow lifecycle** gover
 3. **Daily Booking Capacity Limit:** Controlled by `settings/sightseeingConfig.globalDailyLimit` (default `20`). If full on day 3+, booking degrades smoothly to `REQUEST` flow instead of failing.
 4. **Server-Side Pricing Authority:** Clients **never** dictate price. Prices are calculated server-side from `sightseeingPackagesDetails` using adult, child, and extra-passenger formulas with early-bird discounts.
 5. **Atomic Firestore Serialized Locks:** Concurrent instant reservations for the same tour date are serialized via `_sightseeingBookingDays/{YYYY-MM-DD}` transaction locks.
-6. **Stripe 35-Minute Reservation Expiry:** Instant Stripe reservations expire after 35 minutes if unpaid, releasing daily capacity for other travelers.
+6. **Stripe 35-Minute Reservation Expiry:** Instant Stripe reservations are checkout holds (`sightseeingCheckoutHolds`), not bookings: `travelBookingDetails` gets the booking only once Stripe reports the payment. Unpaid holds expire after 35 minutes, or at once through `releaseSightseeingCheckoutHold` when the guest leaves Stripe, releasing daily capacity for other travelers.
 
 ---
 
@@ -219,7 +219,7 @@ Authorization: Bearer <FIREBASE_ID_TOKEN>
 ### 4.2 Responses by Booking Flow
 
 #### Scenario A: Day 3+ Within Capacity & Payment Method = STRIPE (Website Checkout)
-The server recognizes that instant booking is permitted, locks the capacity for 35 minutes, creates a Stripe Checkout Session, and returns the hosted Stripe URL.
+The server recognizes that instant booking is permitted, locks the capacity for 35 minutes in a checkout hold (no booking yet), creates a Stripe Checkout Session, and returns the hosted Stripe URL. The booking (same `bookingId`) is written when `verifySession` or the Stripe webhook confirms the payment. If the guest leaves Stripe unpaid, call `POST releaseSightseeingCheckoutHold` with `{ bookingId }`: it expires the Checkout and frees the slot (`released: true`), or returns `paid: true` if the Checkout was already paid (then call `verifySession`).
 
 ```json
 {

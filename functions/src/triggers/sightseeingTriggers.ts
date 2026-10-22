@@ -49,6 +49,29 @@ export const autoAcceptSightseeingBookings = onDocumentCreated(
 
     logger.info(`[Sightseeing] New booking: ${bookingId}`, {bookingId});
 
+    // A card checkout's booking is created already paid (from its hold), so
+    // onSightseeingBookingStatusChange never sees the payment: tell the
+    // customer here (same event key, so it is sent once).
+    if (
+      bookingData.isPaymentDone === true &&
+      String(bookingData.paymentMethod || "").toUpperCase() === "STRIPE"
+    ) {
+      const amt = moneyText(bookingData);
+      await notifyCustomer({
+        userId: resolveCustomerUid(bookingData),
+        title: "Tour payment confirmed",
+        message:
+          "Your sightseeing payment was confirmed" +
+          (amt ? ` (${amt})` : "") +
+          ". Open My Bookings for details.",
+        type: "sightseeing-booking",
+        bookingId,
+        bookingCollection: "travelBookingDetails",
+        eventKey: `sight_${bookingId}_paid`,
+        data: {status: bookingData.status, isPaymentDone: true},
+      });
+    }
+
     // Versioned bookings were routed atomically by the booking API. Never
     // auto-accept a preparation/capacity request after its creation.
     if (bookingData.bookingFlowVersion === 1) return;
