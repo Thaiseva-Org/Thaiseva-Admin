@@ -6,6 +6,8 @@ import {onRequest} from "firebase-functions/v2/https";
 import type Stripe from "stripe";
 import {getStripe, getStripeWebhookSecret} from "./stripeClient";
 import {
+  PACKAGE_HOLD_CHECKOUT,
+  bookPaidPackageHold,
   markExistingBookingPaid,
   resolveCollection,
   sessionPresentment,
@@ -45,6 +47,16 @@ const handleCheckoutCompleted = async (session: Stripe.Checkout.Session) => {
   if (meta.checkoutKind === "instantHotel" && meta.holdId) {
     const id = await upsertInstantHotelFromPaidSession(session);
     return {skipped: false as const, path: `hotelBookingData/${id}`, ok: true};
+  }
+
+  // Instant package checkout: the booking is written only now, from its hold.
+  if (meta.checkoutKind === PACKAGE_HOLD_CHECKOUT && meta.holdId) {
+    const id = await bookPaidPackageHold(session, info);
+    return {
+      skipped: false as const,
+      path: `travelBookingDetails/${id}`,
+      ok: true,
+    };
   }
 
   // Existing booking (hotel / transport / package pay-later)

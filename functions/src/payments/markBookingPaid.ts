@@ -508,3 +508,53 @@ export const upsertSightseeingFromPaidSession = async (
   logger.info(`[markPaid] created travelBookingDetails/${docId} (Stripe auto-Accepted)`);
   return docId;
 };
+
+/**
+ * Stripe metadata.checkoutKind of an instant package Checkout, whose slot is
+ * only held in sightseeingCheckoutHolds/{metadata.holdId} until it is paid
+ * (sightseeingFlow.HOLD_CHECKOUT_KIND).
+ */
+export const PACKAGE_HOLD_CHECKOUT = "packageHold";
+
+/**
+ * Now that Stripe says an instant package Checkout is paid, write its booking
+ * from the hold under the same ID (or mark it paid if it already exists).
+ * @param {object} session Paid Stripe Checkout session.
+ * @param {PaidSessionInfo} info Payment details of the session.
+ * @return {Promise<string>} The booking ID.
+ */
+export const bookPaidPackageHold = async (
+  session: Parameters<typeof upsertSightseeingFromPaidSession>[0],
+  info: PaidSessionInfo,
+): Promise<string> => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const flow = require("../../sightseeingFlow");
+  const holdId = String(session.metadata?.holdId || "");
+  const paidMajor = info.amountTotal != null ? info.amountTotal / 100 : null;
+  const {result} = await flow.bookPaidHold(
+    db(),
+    admin,
+    holdId,
+    (hold: Record<string, unknown>) => ({
+      ...paidPatch(info),
+      ...flow.paidHoldStatus(hold),
+      payNow: false,
+      amountDue: 0,
+      ...(paidMajor != null ? {amountPaid: paidMajor} : {}),
+      acceptedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }),
+  );
+  if (result === "created") {
+    logger.info(`[markPaid] booked travelBookingDetails/${holdId} from hold`);
+    return holdId;
+  }
+  if (result === "exists") {
+    await markExistingBookingPaid("travelBookingDetails", holdId, info);
+    return holdId;
+  }
+  // Hold already gone (TTL): still record the payment from the session.
+  logger.error(
+    `[markPaid] paid hold ${holdId} missing; booking from ${session.id}`,
+  );
+  return upsertSightseeingFromPaidSession(session);
+};

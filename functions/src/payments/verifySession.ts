@@ -11,6 +11,8 @@ import {
   normalizeEmail,
 } from "./corsAuth";
 import {
+  PACKAGE_HOLD_CHECKOUT,
+  bookPaidPackageHold,
   markExistingBookingPaid,
   resolveCollection,
   sessionPresentment,
@@ -98,6 +100,10 @@ export const verifySession = onRequest(
       bookingDocId = await upsertInstantHotelFromPaidSession(session);
       bookingCollection = "hotelBookingData";
       path = `hotelBookingData/${bookingDocId}`;
+    } else if (meta.checkoutKind === PACKAGE_HOLD_CHECKOUT && meta.holdId) {
+      bookingDocId = await bookPaidPackageHold(session, info);
+      bookingCollection = "travelBookingDetails";
+      path = `travelBookingDetails/${bookingDocId}`;
     } else if (bookingId && collection) {
       const result = await markExistingBookingPaid(collection, bookingId, info);
       if (!result.ok && result.reason === "not_found") {
