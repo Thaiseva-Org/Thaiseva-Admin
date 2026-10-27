@@ -61,12 +61,6 @@ const ClockSvg = ({ className = "w-6 h-6" }) => (
   </svg>
 );
 
-const WarningSvg = ({ className = "w-6 h-6" }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-  </svg>
-);
-
 const CheckCircleSvg = ({ className = "w-6 h-6" }) => (
   <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -134,7 +128,7 @@ const DeletionRequests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all"); // 'all', 'pending', 'erasure', 'completed', 'cancelled'
+  const [activeTab, setActiveTab] = useState("all"); // 'all', 'pending', 'deleted', 'cancelled'
   const [selectedRequest, setSelectedRequest] = useState(null); // For Details Modal
 
   const fetchRequests = async () => {
@@ -358,18 +352,15 @@ const DeletionRequests = () => {
   // Summary Metrics
   const stats = useMemo(() => {
     let pending = 0;
-    let erasurePending = 0;
-    let completed = 0;
+    let deleted = 0;
     let cancelled = 0;
 
     requests.forEach((req) => {
       const status = getNormalizedStatus(req.status);
       if (status === "Pending") {
         pending++;
-      } else if (status === "Erasure Pending") {
-        erasurePending++;
-      } else if (status === "Completed") {
-        completed++;
+      } else if (status === "Erasure Pending" || status === "Completed") {
+        deleted++;
       } else if (status === "Cancelled") {
         cancelled++;
       }
@@ -378,8 +369,7 @@ const DeletionRequests = () => {
     return {
       total: requests.length,
       pending,
-      erasurePending,
-      completed,
+      deleted,
       cancelled,
     };
   }, [requests]);
@@ -391,8 +381,7 @@ const DeletionRequests = () => {
 
       // Tab filter
       if (activeTab === "pending" && status !== "Pending") return false;
-      if (activeTab === "erasure" && status !== "Erasure Pending") return false;
-      if (activeTab === "completed" && status !== "Completed") return false;
+      if (activeTab === "deleted" && status !== "Erasure Pending" && status !== "Completed") return false;
       if (activeTab === "cancelled" && status !== "Cancelled") return false;
 
       // Search query filter
@@ -452,7 +441,7 @@ const DeletionRequests = () => {
       </div>
 
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div
           onClick={() => setActiveTab("all")}
           className={`bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl p-5 text-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
@@ -488,32 +477,15 @@ const DeletionRequests = () => {
         </div>
 
         <div
-          onClick={() => setActiveTab("erasure")}
-          className={`bg-gradient-to-br from-danger-500 to-danger-600 rounded-xl p-5 text-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
-            activeTab === "erasure" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-danger-100 text-xs font-semibold uppercase tracking-wider mb-1">Erasure Pending</p>
-              <p className="text-2xl font-bold">{stats.erasurePending}</p>
-            </div>
-            <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white">
-              <WarningSvg className="w-6 h-6" />
-            </div>
-          </div>
-        </div>
-
-        <div
-          onClick={() => setActiveTab("completed")}
+          onClick={() => setActiveTab("deleted")}
           className={`bg-gradient-to-br from-success-500 to-success-600 rounded-xl p-5 text-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
-            activeTab === "completed" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
+            activeTab === "deleted" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
           }`}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-success-100 text-xs font-semibold uppercase tracking-wider mb-1">Completed</p>
-              <p className="text-2xl font-bold">{stats.completed}</p>
+              <p className="text-success-100 text-xs font-semibold uppercase tracking-wider mb-1">Deleted</p>
+              <p className="text-2xl font-bold">{stats.deleted}</p>
             </div>
             <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white">
               <CheckCircleSvg className="w-6 h-6" />
@@ -581,20 +553,12 @@ const DeletionRequests = () => {
               Pending ({stats.pending})
             </button>
             <button
-              onClick={() => setActiveTab("erasure")}
+              onClick={() => setActiveTab("deleted")}
               className={`px-3 py-1.5 rounded-md transition-colors ${
-                activeTab === "erasure" ? "bg-white text-red-600 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                activeTab === "deleted" ? "bg-white text-emerald-700 shadow-sm" : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              Erasure Pending ({stats.erasurePending})
-            </button>
-            <button
-              onClick={() => setActiveTab("completed")}
-              className={`px-3 py-1.5 rounded-md transition-colors ${
-                activeTab === "completed" ? "bg-white text-emerald-700 shadow-sm" : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              Completed ({stats.completed})
+              Deleted ({stats.deleted})
             </button>
             <button
               onClick={() => setActiveTab("cancelled")}
@@ -629,12 +593,13 @@ const DeletionRequests = () => {
                   const isCompleted = normalizedStatus === "Completed";
                   const isCancelled = normalizedStatus === "Cancelled";
                   const isErasurePending = normalizedStatus === "Erasure Pending";
+                  const isDeleted = isCompleted || isErasurePending;
 
                   return (
                     <tr
                       key={req.id}
                       className={`hover:bg-gray-50/80 transition-colors ${
-                        isErasurePending ? "bg-amber-50/40" : i % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                        req.processingError ? "bg-amber-50/40" : i % 2 === 0 ? "bg-white" : "bg-gray-50/30"
                       }`}
                     >
                       {/* User Info */}
@@ -698,7 +663,7 @@ const DeletionRequests = () => {
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
-                            isCompleted
+                            isDeleted
                               ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                               : isCancelled
                               ? "bg-gray-100 text-gray-700 border border-gray-200"
@@ -707,10 +672,10 @@ const DeletionRequests = () => {
                         >
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${
-                              isCompleted ? "bg-emerald-500" : isCancelled ? "bg-gray-400" : "bg-amber-500"
+                              isDeleted ? "bg-emerald-500" : isCancelled ? "bg-gray-400" : "bg-amber-500"
                             }`}
                           ></span>
-                          {normalizedStatus}
+                          {isDeleted ? "Deleted" : normalizedStatus}
                         </span>
                       </td>
 
@@ -725,23 +690,30 @@ const DeletionRequests = () => {
                             <EyeSvg className="w-4 h-4" />
                           </button>
 
-                          {(isPending || isErasurePending) && (
+                          {isPending && (
                             <>
                               <button
                                 onClick={() => handleAcceptDeletion(req)}
                                 className="inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer"
                               >
-                                <UserXMarkSvg className="w-3.5 h-3.5" /> {req.loginDeletedAt ? "Retry Cleanup" : "Start Cleanup"}
+                                <UserXMarkSvg className="w-3.5 h-3.5" /> Start Cleanup
                               </button>
-                              {isPending && <button
+                              <button
                                 onClick={() => handleCancelAutoDeletion(req.id)}
                                 className="inline-flex items-center gap-1 bg-gray-600 hover:bg-gray-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer"
                               >
                                 <BanSvg className="w-3.5 h-3.5" /> Cancel
-                              </button>}
+                              </button>
                             </>
                           )}
-
+                          {isErasurePending && req.processingError && (
+                            <button
+                              onClick={() => handleAcceptDeletion(req)}
+                              className="inline-flex items-center gap-1 bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer"
+                            >
+                              <RotateSvg className="w-3.5 h-3.5" /> Retry
+                            </button>
+                          )}
                           {(isCompleted || isCancelled) && <button
                             onClick={() => handleDeleteRecord(req)}
                             title="Delete Record"
@@ -811,7 +783,30 @@ const DeletionRequests = () => {
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-1">
                   <span className="text-xs font-semibold text-gray-500 uppercase">Status</span>
-                  <p className="font-semibold text-indigo-700">{getNormalizedStatus(selectedRequest.status)}</p>
+                  <div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                        ["Completed", "Erasure Pending"].includes(getNormalizedStatus(selectedRequest.status))
+                          ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                          : getNormalizedStatus(selectedRequest.status) === "Cancelled"
+                          ? "bg-gray-100 text-gray-700 border border-gray-200"
+                          : "bg-amber-100 text-amber-800 border border-amber-200"
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          ["Completed", "Erasure Pending"].includes(getNormalizedStatus(selectedRequest.status))
+                            ? "bg-emerald-500"
+                            : getNormalizedStatus(selectedRequest.status) === "Cancelled"
+                            ? "bg-gray-400"
+                            : "bg-amber-500"
+                        }`}
+                      ></span>
+                      {["Completed", "Erasure Pending"].includes(getNormalizedStatus(selectedRequest.status))
+                        ? "Deleted"
+                        : getNormalizedStatus(selectedRequest.status)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -851,21 +846,29 @@ const DeletionRequests = () => {
               </button>}
 
               <div className="flex items-center gap-2">
-                {["Pending", "Erasure Pending"].includes(getNormalizedStatus(selectedRequest.status)) && (
+                {getNormalizedStatus(selectedRequest.status) === "Pending" && (
                   <>
                     <button
                       onClick={() => handleAcceptDeletion(selectedRequest)}
                       className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                     >
-                      {selectedRequest.loginDeletedAt ? "Retry Cleanup" : "Start Cleanup"}
+                      Start Cleanup
                     </button>
-                    {getNormalizedStatus(selectedRequest.status) === "Pending" && <button
+                    <button
                       onClick={() => handleCancelAutoDeletion(selectedRequest.id)}
                       className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Cancel Request
-                    </button>}
+                    </button>
                   </>
+                )}
+                {getNormalizedStatus(selectedRequest.status) === "Erasure Pending" && selectedRequest.processingError && (
+                  <button
+                    onClick={() => handleAcceptDeletion(selectedRequest)}
+                    className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Retry Cleanup
+                  </button>
                 )}
                 <button
                   onClick={() => setSelectedRequest(null)}
