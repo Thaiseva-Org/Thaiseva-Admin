@@ -1,3 +1,4 @@
+import {assertAccountNotErasing, finishAccountUpload} from "./accountRestrictions";
 import * as admin from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {randomUUID} from "node:crypto";
@@ -6,6 +7,7 @@ import {validatedFile} from "./customerChatCore";
 export const uploadIdentityDocument = onCall({region: "asia-east2", memory: "256MiB", concurrency: 2, maxInstances: 10}, async request => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to upload a document.");
   const uid = request.auth.uid;
+  await assertAccountNotErasing(uid);
   const [account, profile] = await Promise.all([admin.auth().getUser(uid), admin.firestore().doc(`users/${uid}`).get()]);
   const authTime = Number(request.auth.token.auth_time) * 1000;
   const validAfter = Date.parse(account.tokensValidAfterTime || "1970-01-01");
@@ -20,6 +22,7 @@ export const uploadIdentityDocument = onCall({region: "asia-east2", memory: "256
   await admin.storage().bucket().file(path).save(checked.bytes, {resumable: false, preconditionOpts: {ifGenerationMatch: 0}, metadata: {
     contentType: checked.contentType, cacheControl: "private, no-store", metadata: {privateIdentityDocument: "true"},
   }});
+  await finishAccountUpload(uid, path);
   return {path};
 });
 
@@ -48,6 +51,7 @@ export const getIdentityDocument = onCall({region: "asia-east2", memory: "256MiB
   const path = identityMediaPath(request.data?.path);
   if (!path) throw new HttpsError("invalid-argument", "A supported identity-document path is required.");
   const uid = request.auth.uid;
+  await assertAccountNotErasing(uid);
   const account = await admin.auth().getUser(uid);
   const profile = (await admin.firestore().doc(`users/${uid}`).get()).data() || {};
   const authTime = Number(request.auth.token.auth_time) * 1000;

@@ -1,9 +1,8 @@
 import {getFirestore, FieldValue, FieldPath} from "firebase-admin/firestore";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
-import {getAuth} from "firebase-admin/auth";
 import {requireSuperAdmin} from "./privilegedAccounts";
-import {deleteAuthAccountKeepData} from "./accountDeletion";
+import {processDeletionRequest} from "./accountDeletion";
 import {bookingAction, bookingRetentionReviewReason, expiredMessages, held, millis, messageMillis, cutoff, LOCATION_FIELDS, POLICY_VERSION} from "./retentionPolicy";
 
 const collections = ["hotelBookingData", "travelBookingDetails", "car_bookings", "self_driving_bookings",
@@ -36,53 +35,20 @@ export async function maintainRetention(dryRun: boolean): Promise<Record<string,
             if (!dryRun) tx.update(document.ref, Object.fromEntries(fields.map(field => [field, FieldValue.delete()])));
           });
           const data = document.data();
-          const requested = millis(data.createdAt);
-          if (["Pending", "Completed"].includes(data.status) && (typeof data.uid !== "string" || !data.uid)) {
+          if (["Pending", "Completed", "Erasure Pending"].includes(data.status) &&
+              (typeof data.uid !== "string" || !data.uid || data.uid.includes("/"))) {
             counts.reviewRequired++;
             if (!dryRun) await db.collection("privacyRetentionReviews").doc(`DeletionRequests_${document.id}`).set({
               recordPath: document.ref.path, reason: "LEGACY_REQUEST_IDENTITY_REVIEW", status: "PENDING", updatedAt: FieldValue.serverTimestamp(),
             });
             continue;
           }
-          if (!["Pending", "Erasure Pending"].includes(data.status) || held(data)) continue;
-          const existingJob = await db.collection("privacyErasureJobs").doc(data.uid || "invalid").get();
-          if (existingJob.data()?.profileErased === true) continue;
-          if (requested === null || typeof data.uid !== "string" || !data.uid || data.uid.includes("/")) {
-            counts.reviewRequired++; continue;
-          }
-          if (requested > cutoff(now, 0, 30)) continue;
-          const profile = await db.collection("users").doc(data.uid).get();
-          const legacyProfile = await db.collection("Users").doc(data.uid).get();
-          if (held(profile.data() || {}) || held(legacyProfile.data() || {})) {
-            counts.reviewRequired++;
-            if (!dryRun) await db.collection("privacyRetentionReviews").doc(`DeletionRequests_${document.id}`).set({
-              recordPath: document.ref.path, reason: "RETENTION_HOLD", status: "PENDING", updatedAt: FieldValue.serverTimestamp(),
-            });
-            continue;
-          }
-          const user = await getAuth().getUser(data.uid).catch(error => {
-            if (error.code === "auth/user-not-found") return null;
-            throw error;
-          });
-          const claims = user?.customClaims || {};
-          if (claims.admin || claims.foodMasterAdmin || (claims.foodRole && claims.foodRole !== "customer") ||
-            ["Admin", "admin", "Sub Admin", "Partner", "restaurantOwner", "hotelOwner", "rider", "driver"].includes(profile.data()?.role)) {
-            counts.reviewRequired++; continue;
-          }
-          // Staff may cancel during the product's request delay. Lock before erasure.
-          if (!dryRun) {
-            const locked = await db.runTransaction(async tx => {
-              const fresh = await tx.get(document.ref);
-              if (!["Pending", "Erasure Pending"].includes(fresh.data()?.status) || held(fresh.data() || {})) return false;
-              tx.update(document.ref, {status: "Erasure Pending", processedBy: "retentionScheduler",
-                processingAt: FieldValue.serverTimestamp()});
-              return true;
-            });
-            if (!locked) continue;
-            await deleteAuthAccountKeepData(data.uid, "retentionScheduler");
-            await document.ref.update({loginDeletedAt: FieldValue.serverTimestamp()});
-          }
-          counts.accountsErased++; continue;
+          if (!["Pending", "Erasure Pending"].includes(data.status)) continue;
+          // New requests run immediately; this daily pass recovers missed events/failures.
+          const result = await processDeletionRequest(document.id, "retentionScheduler", dryRun);
+          if (result === "review-required") counts.reviewRequired++;
+          if (result === "processed" || result === "eligible") counts.accountsErased++;
+          continue;
         }
         if (chatCollection(collection) && !held(document.data())) {
           const childState = db.collection("privacyRetentionState").doc(`messages_${collection}_${document.id}`);

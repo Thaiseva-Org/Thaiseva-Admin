@@ -1,7 +1,8 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function authenticated() { return request.auth != null; }
+    function authenticated() { return request.auth != null &&
+      !firestore.exists(/databases/(default)/documents/privacyAccountRestrictions/$(request.auth.uid)); }
     // Reviewed legacy objects stay private even under an older public media path.
     // Existing-object checks also prevent owners from removing the quarantine tag.
     function legacyAccessAllowed() {
@@ -39,7 +40,8 @@ service firebase.storage {
 
     // Mobile app profile images are public; only the named owner can change them.
     match /profile_pics/{fileName} {
-      allow read: if legacyAccessAllowed() && (true);
+      allow read: if legacyAccessAllowed() &&
+        (!firestore.exists(/databases/(default)/documents/privacyRestrictedProfilePhotos/$(fileName)) || isAdmin());
       allow create, update: if legacyAccessAllowed() && (authenticated() && fileName == request.auth.uid + '.jpg' &&
         request.resource.size <= 15 * 1024 * 1024 &&
         request.resource.contentType == 'image/jpeg');

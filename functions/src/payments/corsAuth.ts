@@ -1,3 +1,4 @@
+import {assertAccountNotErasing} from "../accountRestrictions";
 /**
  * Shared CORS + Firebase Bearer auth for public booking HTTPS endpoints.
  */
@@ -183,6 +184,7 @@ export const requireAuth = async (req: {
   }
   try {
     const decoded = await admin.auth().verifyIdToken(token, true);
+    await assertAccountNotErasing(decoded.uid);
     const profile = await admin.firestore().doc(`users/${decoded.uid}`).get();
     if (profile.data()?.isSuspended === true) throw new Error("Account suspended");
     return {

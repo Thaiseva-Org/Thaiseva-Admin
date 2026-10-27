@@ -110,10 +110,10 @@ Stripe guarantees at-least-once webhook delivery, meaning webhooks can be retrie
 
 | Test ID | Test Scenario | Steps | Expected Outcome | Severity |
 |---|---|---|---|:---:|
-| `TC-PDPA-01` | 30-Day Grace Period Filter | Request submitted with `createdAt` = today $\rightarrow$ check `DeletionRequests.jsx`. | Displays in `Pending Requests` with `29` or `30` days remaining. | Medium |
-| `TC-PDPA-02` | Overdue Requests Filter | Seed request with `createdAt` 35 days ago. | Request automatically appears in the `Due / Action Required` tab with negative days remaining. | High |
+| `TC-PDPA-01` | Immediate cleanup | Submit a new WEB or MOBILE customer request today. | Login, direct profile, supported operational records and unheld scoped uploads removed; request counted in Erasure Pending; retained records await review. | Critical |
+| `TC-PDPA-02` | Retry and duplicate delivery | Deliver an event twice, submit duplicate requests, and simulate temporary failure or expired processing lease. | One cleanup at a time; retries recover partial work; no completed-global-erasure claim. | Critical |
 | `TC-PDPA-03` | Approve Deletion Execution | Head Admin clicks **Approve Account Deletion**. | Invokes `deleteUserFunction`; user cannot sign in with Firebase Auth; direct Firestore profiles removed; request `Erasure Pending`, remaining records queued for review. | Critical |
-| `TC-PDPA-04` | Cancel Deletion Request | Admin clicks **Cancel Request** within grace period. | Request marked `Cancelled`; user can sign in normally; no data destroyed. | High |
+| `TC-PDPA-04` | Cancellation and protections | Cancel before cleanup locks the request; submit held/staff/partner requests; try deleting an in-flight request. | Cancelled/held/protected accounts survive; active request deletion is denied. Cancellation is unavailable after cleanup starts. | High |
 
 ---
 
@@ -127,3 +127,5 @@ Prior to approving any release for production deployment, the QA Lead must certi
 - [ ] **Mobile Responsiveness:** Sidebar collapsing and data table horizontal scrolling verified on mobile viewports ($\le 768$px).
 - [ ] **PDF Rendering:** Dynamic invoices generate without page clipping, font corruption, or commission calculation errors.
 - [ ] **No Console Errors:** Zero unhandled JavaScript exceptions in browser developer console.
+
+Automated account-cleanup coverage: `npm --prefix functions run test:retention:integration` runs real Auth, Firestore and Storage emulators, including `automaticDeletion.integration.cjs` via the retention suite. These tests reject missing emulator configuration and use only synthetic customers.

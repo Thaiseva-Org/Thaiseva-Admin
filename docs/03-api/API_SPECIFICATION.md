@@ -520,7 +520,9 @@ Creates a Firebase Auth user with `emailVerified: true`. Transactional proof cla
 Invoked via the Firebase Client SDK: `httpsCallable(functions, "functionName")`.
 
 ### 6.1 Delete User Identity (PDPA Right to Erasure)
-**Callable Name:** `deleteUserFunction`  
+**Automatic processing:** Creating a pending `DeletionRequests/{requestId}` document starts `autoProcessDeletionRequest` immediately. Existing authenticated web/mobile submissions use this collection. Legal/retention holds and staff/partner accounts go to review. Cleanup failures retry; daily retention maintenance recovers missed work without a 30-day delay.
+
+**Callable Name:** `deleteUserFunction` (manual cleanup/retry)
 **Auth:** Active Admin (claim or approved role), recent authentication, matching pending customer request; self-deletion and staff/partner targets are rejected.
 **Payload:**
 ```json

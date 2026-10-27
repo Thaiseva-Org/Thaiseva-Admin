@@ -1,3 +1,4 @@
+import {assertAccountNotErasing} from "./accountRestrictions";
 import * as admin from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 import {millis} from "./retentionPolicy";
@@ -6,6 +7,7 @@ import {millis} from "./retentionPolicy";
 export const getRetainedPrivateFile = onCall({region: "asia-east2", memory: "256MiB", concurrency: 2, maxInstances: 10}, async request => {
   request.rawRequest?.res?.setHeader("Cache-Control", "no-store");
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to open this file.");
+  await assertAccountNotErasing(request.auth.uid);
   const [account, profile] = await Promise.all([
     admin.auth().getUser(request.auth.uid),
     admin.firestore().doc(`users/${request.auth.uid}`).get(),

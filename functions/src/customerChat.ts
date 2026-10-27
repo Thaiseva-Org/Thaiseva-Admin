@@ -1,3 +1,4 @@
+import {assertAccountNotErasing, assertTransactionNotErasing, finishAccountUpload} from "./accountRestrictions";
 import * as admin from "firebase-admin";
 import {FieldPath, FieldValue, Filter, Timestamp} from "firebase-admin/firestore";
 import {HttpsError, onCall} from "firebase-functions/v2/https";
@@ -31,6 +32,7 @@ async function changeCategory(a: Actor, uid: string, conversation: admin.firesto
   const ref = messages().doc(fingerprint([uid, a.uid, "category", requestId]));
   let changed = false;
   await db().runTransaction(async tx => {
+    await assertTransactionNotErasing(tx, uid);
     changed = false;
     const [thread, previous] = await Promise.all([tx.get(conversation), tx.get(ref)]);
     if (previous.exists) {
@@ -71,6 +73,7 @@ async function syncLegacyCategories(uid: string) {
   });
   if (!headings.length) return;
   await db().runTransaction(async tx => {
+    await assertTransactionNotErasing(tx, uid);
     const current = await tx.get(conversation);
     if (!current.exists || held(current.data() || {})) return;
     const existing = await Promise.all(headings.map(heading => tx.get(heading.ref)));
@@ -92,6 +95,7 @@ async function syncLegacyCategories(uid: string) {
 async function actor(request: any): Promise<Actor> {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to use support chat.");
   const uid = id(request.auth.uid, "user ID");
+  await assertAccountNotErasing(uid);
   const [account, profile] = await Promise.all([
     admin.auth().getUser(uid),
     db().doc(`users/${uid}`).get(),
@@ -126,6 +130,7 @@ function adminOnly(a: Actor) {
 async function rateLimit(a: Actor, upload = false) {
   const ref = db().doc(`customerSupportRateLimits/${a.uid}_${upload ? "upload" : "request"}`);
   await db().runTransaction(async (tx) => {
+    await assertTransactionNotErasing(tx, a.uid);
     const snap = await tx.get(ref);
     const previous = snap.data() || {};
     const now = Date.now();
@@ -263,6 +268,7 @@ export const customerChat = onCall(
     const action = text(body.action, 40);
     await rateLimit(a, action === "upload");
     const uid = customerId(a, body.customerId);
+    if (["open", "send", "upload", "category", "setCategory"].includes(action)) await assertAccountNotErasing(uid);
     const conversation = conversations().doc(uid);
 
     if (action === "open") {
@@ -275,6 +281,7 @@ export const customerChat = onCall(
       const legacyHeading = Array.isArray(legacy?.messages) ? [...legacy.messages].reverse().find(m =>
         m?.type === "heading" && !m.deleted && typeof m.text === "string" && m.text.trim() && m.text.length <= 80) : null;
       await db().runTransaction(async (tx) => {
+        await assertTransactionNotErasing(tx, uid);
         const current = await tx.get(conversation);
         if (current.exists && !current.data()?.currentCategory && legacyHeading && !held(current.data() || {}))
           tx.update(conversation, {currentCategory: legacyHeading.text.trim(), categoryUpdatedAt: Timestamp.fromMillis(messageMillis(legacyHeading) ?? legacySnapshot!.updateTime!.toMillis())});
@@ -397,6 +404,7 @@ export const customerChat = onCall(
       const digest = fingerprint([messageText, body.booking || null, attachmentId, replyId]);
       const links = extractLinks(messageText);
       await db().runTransaction(async (tx) => {
+        await assertTransactionNotErasing(tx, uid);
         const [previous, thread, attachment, reply] = await Promise.all([
           tx.get(ref),
           tx.get(conversation),
@@ -484,6 +492,7 @@ export const customerChat = onCall(
       const ref = messages().doc(id(body.messageId));
       let fileId: string | null = null;
       await db().runTransaction(async (tx) => {
+        await assertTransactionNotErasing(tx, uid);
         const [snap, thread] = await Promise.all([tx.get(ref), tx.get(conversation)]);
         const data = snap.data();
         if (!data || data.customerId !== uid || (!a.administrator && data.senderId !== a.uid))
@@ -559,6 +568,7 @@ export const customerChat = onCall(
             "A valid visible-message timestamp is required.",
           );
         await db().runTransaction(async (tx) => {
+        await assertTransactionNotErasing(tx, uid);
           const snap = await tx.get(conversation);
           if (!snap.exists) throw new HttpsError("not-found", "Conversation unavailable.");
           const field = a.administrator ? "adminReadAt" : "customerReadAt";
@@ -590,10 +600,11 @@ export const customerChat = onCall(
           contentType: file.contentType,
           metadata: {cacheControl: "private, no-store"},
         });
+      let created = false;
       try {
-        await attachments()
-          .doc(attachmentId)
-          .create({
+        await db().runTransaction(async tx => {
+          await assertTransactionNotErasing(tx, uid);
+          tx.create(attachments().doc(attachmentId), {
             customerId: uid,
             uploaderId: a.uid,
             name,
@@ -605,7 +616,11 @@ export const customerChat = onCall(
             expiresAt: Timestamp.fromMillis(Date.now() + 86400000),
             messageId: null,
           });
+        });
+        created = true;
+        await finishAccountUpload(uid, storagePath);
       } catch (error) {
+        if (created) await attachments().doc(attachmentId).delete();
         await admin.storage().bucket().file(storagePath).delete({ignoreNotFound: true});
         throw error;
       }

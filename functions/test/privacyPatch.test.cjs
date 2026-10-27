@@ -27,7 +27,7 @@ function retainedHarness(record, metadata = {}) {
  const module={exports:{}};let downloads=0;
  class HttpsError extends Error {constructor(code,message){super(message);this.code=code;}}
  const id='a'.repeat(64);
- const requireMock=name=>name==='firebase-functions/v2/https'?{HttpsError,onCall:(_options,handler)=>handler}:name==='./retentionPolicy'?require('../lib/retentionPolicy'):{
+ const requireMock=name=>name==='firebase-functions/v2/https'?{HttpsError,onCall:(_options,handler)=>handler}:name==='./retentionPolicy'?require('../lib/retentionPolicy'):name==='./accountRestrictions'?{assertAccountNotErasing:async()=>{}}:{
   firestore:()=>({doc:path=>({get:async()=>({data:()=>path.startsWith('users/')?{role:'Admin'}:record})})}),
   auth:()=>({getUser:async()=>({disabled:false,tokensValidAfterTime:'1970-01-01',customClaims:{admin:true}})}),
   storage:()=>({bucket:()=>({file:()=>({exists:async()=>[true],getMetadata:async()=>[{contentType:'image/png',size:'3',metadata:{privateRetainedId:id,privateRetainedDocument:'true'},...metadata}],download:async()=>{downloads++;return [Buffer.from('png')];}})})})

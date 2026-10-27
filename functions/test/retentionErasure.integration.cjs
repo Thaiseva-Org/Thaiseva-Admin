@@ -163,4 +163,7 @@ test('new hotel outcomes record server dates and ignore stale events or duplicat
   assert.equal((await ref.get()).data().completedAt.toMillis(),commit.toMillis());
 });
 
+require('./automaticDeletion.integration.cjs');
+require('./erasurePrivacy.integration.cjs');
+
 after(async()=>{await app.delete();});

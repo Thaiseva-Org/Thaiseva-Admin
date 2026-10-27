@@ -1,3 +1,5 @@
+import {assertAccountNotErasing} from "./accountRestrictions";
+import {getAuth} from "firebase-admin/auth";
 /**
  * Customer app push (Thaiseva app, com.app.thaiseva / com.thaiseva.ios).
  *
@@ -40,12 +42,18 @@ const STALE_TOKEN_CODES = new Set([
 
 type PushDeps = {
   db: Firestore;
+  authorize?: (request: CallableRequest) => Promise<void>;
   messaging: Pick<Messaging, "sendEachForMulticast" | "send" |
     "subscribeToTopic" | "unsubscribeFromTopic">;
 };
 
 const defaultDeps = (): PushDeps =>
-  ({db: getFirestore(), messaging: getMessaging()});
+  ({db: getFirestore(), messaging: getMessaging(), authorize: async request => {
+    const uid = request.auth!.uid;
+    await assertAccountNotErasing(uid);
+    const account = await getAuth().getUser(uid);
+    if (account.disabled) throw new HttpsError("permission-denied", "This account is inactive.");
+  }});
 
 export const cleanToken = (value: unknown): string => {
   const token = String(value || "").trim();
@@ -77,16 +85,37 @@ export const createRegisterHandler = (deps: () => PushDeps = defaultDeps) =>
   async (request: CallableRequest) => {
     const uid = requireUid(request);
     const token = cleanToken(request.data?.token);
-    const {db, messaging} = deps();
-    await db.collection(DEVICE_TOKENS_COLLECTION).doc(tokenDocId(token)).set({
+    const {db, messaging, authorize} = deps();
+    if (authorize) await authorize(request);
+    const reference = db.collection(DEVICE_TOKENS_COLLECTION).doc(tokenDocId(token));
+    const data = {
       uid,
       token,
       platform: cleanPlatform(request.data?.platform),
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    };
+    if (authorize) {
+      await db.runTransaction(async tx => {
+        if ((await tx.get(db.doc(`privacyAccountRestrictions/${uid}`))).exists) {
+          throw new HttpsError("permission-denied", "Account erasure is in progress.");
+        }
+        tx.set(reference, data);
+      });
+    } else await reference.set(data);
     // Broadcasts reach every signed-in device through the topic.
     await messaging.subscribeToTopic([token], CUSTOMER_TOPIC).catch((error) =>
       logger.warn("[customerPush] topic subscribe failed", error));
+    if (authorize) {
+      try { await authorize(request); }
+      catch (error) {
+        // If erasure overlapped subscription, remove the late subscription too.
+        await messaging.unsubscribeFromTopic([token], CUSTOMER_TOPIC);
+        await db.runTransaction(async tx => {
+          if ((await tx.get(reference)).get("uid") === uid) tx.delete(reference);
+        });
+        throw error;
+      }
+    }
 
     // Keep only the newest devices per user (reinstalls leave dead tokens).
     const snap = await db.collection(DEVICE_TOKENS_COLLECTION)

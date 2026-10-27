@@ -24,6 +24,7 @@ service cloud.firestore {
 
     function isAuthenticated() {
       return request.auth != null &&
+        !exists(/databases/$(database)/documents/privacyAccountRestrictions/$(request.auth.uid)) &&
         (!exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isSuspended', false) != true);
     }
@@ -370,13 +371,15 @@ service cloud.firestore {
       allow create: if isAuthenticated() &&
         request.resource.data.uid == request.auth.uid &&
         request.resource.data.email == request.auth.token.email &&
-        !('password' in request.resource.data);
+        request.resource.data.status == 'Pending' &&
+        !request.resource.data.keys().hasAny(['password', 'confirmPassword', 'currentPassword',
+          'processedBy', 'processingAt', 'loginDeletedAt', 'processingError', 'completedAt']);
       allow read: if isAdmin();
       // Clients can cancel a pending request; erasure results are server-owned.
       allow update: if isAdmin() && resource.data.status == 'Pending' &&
         request.resource.data.status == 'Cancelled' &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancelledAt']);
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() && resource.data.status in ['Completed', 'Cancelled'];
     }
 
     // ============================================================
@@ -943,6 +946,10 @@ service cloud.firestore {
     match /privacyErasureJobs/{jobId} {
       allow read: if isAdmin();
       allow write: if false;
+      match /records/{recordId} {
+        allow read: if isSuperAdmin();
+        allow write: if false;
+      }
     }
 
     match /{document=**} {

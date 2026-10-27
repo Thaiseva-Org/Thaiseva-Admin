@@ -32,6 +32,7 @@ import {
   onSelfDriveBookingStatusChange,
 } from "./triggers/transportTriggers";
 import { deleteUserFunction } from "./accountDeletion";
+export {autoProcessDeletionRequest} from "./accountDeletion";
 import {
   initializeLegacyTransportBooking,
   manageTransportBooking,

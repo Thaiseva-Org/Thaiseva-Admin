@@ -3,7 +3,7 @@
     "rules": "firestore.rules"
   },
   "storage": {
-    "rules": "functions/test/retention-storage.rules"
+    "rules": "storage.rules"
   },
   "emulators": {
     "singleProjectMode": true,

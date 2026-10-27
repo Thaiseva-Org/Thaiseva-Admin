@@ -1,3 +1,4 @@
+import {assertAccountNotErasing} from "./accountRestrictions";
 import * as admin from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 
@@ -27,6 +28,7 @@ export function canReadOrderMedia(uid: string, claims: Record<string, any>, role
 export const getFoodOrderPhoto = onCall({region: "asia-east2", memory: "256MiB", maxInstances: 10}, async request => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to view this photo.");
   const uid = request.auth.uid;
+  await assertAccountNotErasing(uid);
   const user = await admin.auth().getUser(uid);
   const profile = (await admin.firestore().doc(`users/${uid}`).get()).data() || {};
   const issuedAt = Number(request.auth.token.auth_time) * 1000;

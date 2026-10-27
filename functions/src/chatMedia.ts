@@ -1,3 +1,4 @@
+import {assertAccountNotErasing, finishAccountUpload} from "./accountRestrictions";
 import * as admin from "firebase-admin";
 import {randomUUID} from "node:crypto";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
@@ -29,12 +30,15 @@ async function authorize(request: any, collection: unknown, id: unknown) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to access chat attachments.");
   if (typeof collection !== "string" || !collections.includes(collection) || typeof id !== "string" || !/^[A-Za-z0-9_-]{1,200}$/.test(id)) throw new HttpsError("invalid-argument", "Select a supported chat.");
   const uid = request.auth.uid;
+  await assertAccountNotErasing(uid);
   const [user, profile, chat] = await Promise.all([admin.auth().getUser(uid), admin.firestore().doc(`users/${uid}`).get(), admin.firestore().doc(`${collection}/${id}`).get()]);
   const authTime = Number(request.auth.token.auth_time) * 1000;
   const validAfter = Date.parse(user.tokensValidAfterTime || "1970-01-01");
   if (user.disabled || profile.data()?.isSuspended === true || !Number.isFinite(authTime) || !Number.isFinite(validAfter) || authTime < validAfter || !chat.exists ||
     !canAccessChat(uid, user.customClaims || {}, profile.data()?.role || "", collection, id, chat.data() || {})) throw new HttpsError("permission-denied", "This chat attachment is unavailable.");
-  return {uid, collection, id};
+  const customerUid = collection === "foodCustomerSupportChats" ? id :
+    collection === "chats" && id.endsWith("_CustomerSupport") ? id.slice(0, -"_CustomerSupport".length) : null;
+  return {uid, collection, id, customerUid};
 }
 
 export const uploadPrivateChatAttachment = onCall({region: "asia-east2", memory: "256MiB", concurrency: 2, maxInstances: 10}, async request => {
@@ -44,8 +48,11 @@ export const uploadPrivateChatAttachment = onCall({region: "asia-east2", memory:
   if (!types.has(contentType) || typeof encoded !== "string" || !encoded.length || encoded.length > Math.ceil(maxBytes / 3) * 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded)) throw new HttpsError("invalid-argument", "Use a supported file up to 8 MiB.");
   const bytes = Buffer.from(encoded, "base64");
   if (!bytes.length || bytes.length > maxBytes) throw new HttpsError("invalid-argument", "Use a file up to 8 MiB.");
+  if (access.customerUid) await assertAccountNotErasing(access.customerUid);
   const path = `private-chat/${access.collection}/${access.id}/${access.uid}/${randomUUID()}`;
   await admin.storage().bucket().file(path).save(bytes, {resumable: false, contentType, metadata: {cacheControl: "private, no-store", metadata: {}}});
+  await finishAccountUpload(access.uid, path);
+  if (access.customerUid && access.customerUid !== access.uid) await finishAccountUpload(access.customerUid, path);
   return {path, contentType};
 });
 

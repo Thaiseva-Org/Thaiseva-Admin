@@ -9,6 +9,7 @@ import PageHeading from "../../../../components/PageHeading";
 import LoadingContent from "../../../../components/LoadingContent";
 import { format } from "timeago.js";
 import Swal from "sweetalert2";
+import AccountErasureDetails from "../../../../components/AccountErasureDetails";
 import useRecentAuthAction from "../../../../hooks/useRecentAuthAction";
 
 /**
@@ -30,25 +31,9 @@ const parseFirestoreDate = (dateVal) => {
 };
 
 /**
- * Calculates days remaining in 30-day auto-deletion grace period under Thailand PDPA.
- * @param {any} createdAt - Date when deletion was requested
- * @returns {number|null} Days remaining (positive = active grace period, <= 0 = overdue/due now)
- */
-const calculateDaysRemaining = (createdAt) => {
-  const requestDate = parseFirestoreDate(createdAt);
-  if (!requestDate) return null;
-  
-  const deleteAfterDays = 30;
-  const now = new Date();
-  const diffTime = now.getTime() - requestDate.getTime();
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-  return deleteAfterDays - diffDays;
-};
-
-/**
  * Normalizes request status string across legacy and modern variants.
  * @param {string} statusStr - Raw status from Firestore
- * @returns {'Pending' | 'Completed' | 'Cancelled'} Normalized status enum
+ * @returns {'Pending' | 'Erasure Pending' | 'Completed' | 'Cancelled'} Normalized status enum
  */
 const getNormalizedStatus = (statusStr) => {
   if (!statusStr) return "Pending";
@@ -143,29 +128,13 @@ const UserGearSvg = ({ className = "w-5 h-5" }) => (
   </svg>
 );
 
-/**
- * DeletionRequests Administrative Dashboard Component
- * 
- * Manages user account deletion requests in statutory compliance with the
- * Thailand Personal Data Protection Act B.E. 2562 (Section 33 - Right to Erasure)
- * and Google Play / Apple App Store account deletion policies.
- * 
- * Architectural Characteristics:
- * - 30-Day Grace Period: Tracks remaining days before permanent deletion is required.
- * - Multi-Tab Categorization: All, Pending, Due Now (<= 0 days left), Completed, and Cancelled.
- * - Cloud Function Integration: Calls `deleteUserFunction` (via deleteUserFromAuth) to
- *   destroy the Firebase Auth login profile while retaining financial order ledgers.
- * - Real-Time Audit Trail: Updates Firestore DeletionRequests with completion timestamps.
- * 
- * @component
- * @returns {JSX.Element}
- */
+/** Tracks automatic customer cleanup and the remaining retained-record review. */
 const DeletionRequests = () => {
   const recentAuth = useRecentAuthAction();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("all"); // 'all', 'pending', 'due', 'completed', 'cancelled'
+  const [activeTab, setActiveTab] = useState("all"); // 'all', 'pending', 'erasure', 'completed', 'cancelled'
   const [selectedRequest, setSelectedRequest] = useState(null); // For Details Modal
 
   const fetchRequests = async () => {
@@ -200,7 +169,7 @@ const DeletionRequests = () => {
   /**
    * Prompts admin confirmation and executes permanent account deletion.
    * Invokes the backend Cloud Function `deleteUserFunction` to delete the Firebase Auth user,
-   * then marks the deletion request as 'Completed' with audit timestamps.
+   * then leaves the request as 'Erasure Pending' for retained-record review.
    * 
    * @async
    * @param {Object} request - Deletion request document
@@ -235,19 +204,17 @@ const DeletionRequests = () => {
 
       setLoading(true);
 
-      // Call cloud function to delete user from Firebase Auth if uid is present
-      if (request.uid) {
-        await recentAuth.run(() => deleteUserFromAuth({
-          uid: request.uid,
-          requestId: request.id,
-        }));
-      }
+      // The server validates identity and owns cleanup results.
+      await recentAuth.run(() => deleteUserFromAuth({
+        uid: request.uid,
+        requestId: request.id,
+      }));
 
       // The server owns erasure status and records unfinished review work.
 
       Swal.fire(
         "Erasure started",
-        "Login, profile and private user uploads were removed. Retained business records still require review before erasure is complete.",
+        "Account cleanup ran. Uploads covered by a retention hold may be preserved. Retained business records still require review before erasure is complete.",
         "success"
       );
       if (selectedRequest?.id === request.id) {
@@ -318,7 +285,7 @@ const DeletionRequests = () => {
    * @param {Object} request - Deletion request object
    */
   const handleDeleteRecord = async (request) => {
-    if (!request?.id) return;
+    if (!request?.id || !["Completed", "Cancelled"].includes(getNormalizedStatus(request.status))) return;
 
     try {
       const result = await Swal.fire({
@@ -391,7 +358,7 @@ const DeletionRequests = () => {
   // Summary Metrics
   const stats = useMemo(() => {
     let pending = 0;
-    let dueForDeletion = 0;
+    let erasurePending = 0;
     let completed = 0;
     let cancelled = 0;
 
@@ -399,11 +366,8 @@ const DeletionRequests = () => {
       const status = getNormalizedStatus(req.status);
       if (status === "Pending") {
         pending++;
-        const reqDate = req.createdAt || req.requestedAt;
-        const daysLeft = calculateDaysRemaining(reqDate);
-        if (daysLeft !== null && daysLeft <= 0) {
-          dueForDeletion++;
-        }
+      } else if (status === "Erasure Pending") {
+        erasurePending++;
       } else if (status === "Completed") {
         completed++;
       } else if (status === "Cancelled") {
@@ -414,7 +378,7 @@ const DeletionRequests = () => {
     return {
       total: requests.length,
       pending,
-      dueForDeletion,
+      erasurePending,
       completed,
       cancelled,
     };
@@ -424,12 +388,10 @@ const DeletionRequests = () => {
   const filteredRequests = useMemo(() => {
     return requests.filter((req) => {
       const status = getNormalizedStatus(req.status);
-      const reqDate = req.createdAt || req.requestedAt;
-      const daysLeft = calculateDaysRemaining(reqDate);
 
       // Tab filter
       if (activeTab === "pending" && status !== "Pending") return false;
-      if (activeTab === "due" && (status !== "Pending" || daysLeft === null || daysLeft > 0)) return false;
+      if (activeTab === "erasure" && status !== "Erasure Pending") return false;
       if (activeTab === "completed" && status !== "Completed") return false;
       if (activeTab === "cancelled" && status !== "Cancelled") return false;
 
@@ -464,7 +426,7 @@ const DeletionRequests = () => {
         <div>
           <PageHeading text="Account Auto-Deletion Requests" />
           <p className="text-sm text-gray-500 mt-1">
-            Manage user account deletion requests submitted via web and mobile apps in compliance with Store policies.
+            New web and mobile requests start account cleanup automatically, without a 30-day wait. Retained business records and held data still require review.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start md:self-auto">
@@ -526,15 +488,15 @@ const DeletionRequests = () => {
         </div>
 
         <div
-          onClick={() => setActiveTab("due")}
+          onClick={() => setActiveTab("erasure")}
           className={`bg-gradient-to-br from-danger-500 to-danger-600 rounded-xl p-5 text-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-[1.02] active:scale-95 ${
-            activeTab === "due" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
+            activeTab === "erasure" ? "ring-4 ring-white/60 shadow-2xl scale-[1.02]" : ""
           }`}
         >
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-danger-100 text-xs font-semibold uppercase tracking-wider mb-1">Due Now (30d+)</p>
-              <p className="text-2xl font-bold">{stats.dueForDeletion}</p>
+              <p className="text-danger-100 text-xs font-semibold uppercase tracking-wider mb-1">Erasure Pending</p>
+              <p className="text-2xl font-bold">{stats.erasurePending}</p>
             </div>
             <div className="bg-white/20 p-2.5 rounded-lg flex items-center justify-center text-white">
               <WarningSvg className="w-6 h-6" />
@@ -619,12 +581,12 @@ const DeletionRequests = () => {
               Pending ({stats.pending})
             </button>
             <button
-              onClick={() => setActiveTab("due")}
+              onClick={() => setActiveTab("erasure")}
               className={`px-3 py-1.5 rounded-md transition-colors ${
-                activeTab === "due" ? "bg-white text-red-600 shadow-sm" : "text-gray-600 hover:text-gray-900"
+                activeTab === "erasure" ? "bg-white text-red-600 shadow-sm" : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              Due Now ({stats.dueForDeletion})
+              Erasure Pending ({stats.erasurePending})
             </button>
             <button
               onClick={() => setActiveTab("completed")}
@@ -653,7 +615,7 @@ const DeletionRequests = () => {
                 <th className="py-3 px-4">User Details</th>
                 <th className="py-3 px-4">Reason</th>
                 <th className="py-3 px-4">Requested At</th>
-                <th className="py-3 px-4">Countdown / Grace</th>
+                <th className="py-3 px-4">Cleanup / Review</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-center">Actions</th>
               </tr>
@@ -662,18 +624,17 @@ const DeletionRequests = () => {
               {filteredRequests.length > 0 ? (
                 filteredRequests.map((req, i) => {
                   const reqDate = parseFirestoreDate(req.createdAt || req.requestedAt);
-                  const daysRemaining = calculateDaysRemaining(req.createdAt || req.requestedAt);
                   const normalizedStatus = getNormalizedStatus(req.status);
                   const isPending = normalizedStatus === "Pending";
                   const isCompleted = normalizedStatus === "Completed";
                   const isCancelled = normalizedStatus === "Cancelled";
-                  const isDueNow = isPending && daysRemaining !== null && daysRemaining <= 0;
+                  const isErasurePending = normalizedStatus === "Erasure Pending";
 
                   return (
                     <tr
                       key={req.id}
                       className={`hover:bg-gray-50/80 transition-colors ${
-                        isDueNow ? "bg-red-50/40" : i % 2 === 0 ? "bg-white" : "bg-gray-50/30"
+                        isErasurePending ? "bg-amber-50/40" : i % 2 === 0 ? "bg-white" : "bg-gray-50/30"
                       }`}
                     >
                       {/* User Info */}
@@ -723,33 +684,14 @@ const DeletionRequests = () => {
                         )}
                       </td>
 
-                      {/* Days Left / Countdown */}
-                      <td className="py-3 px-4 whitespace-nowrap">
-                        {isPending ? (
-                          daysRemaining !== null ? (
-                            daysRemaining <= 0 ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-300 animate-pulse">
-                                <WarningSvg className="w-3.5 h-3.5" /> Due Now ({Math.abs(daysRemaining)}d overdue)
-                              </span>
-                            ) : daysRemaining <= 7 ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
-                                <ClockSvg className="w-3.5 h-3.5" /> {daysRemaining} Days Left
-                              </span>
-                            ) : daysRemaining <= 15 ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700 border border-orange-200">
-                                <ClockSvg className="w-3.5 h-3.5" /> {daysRemaining} Days Left
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">
-                                <ClockSvg className="w-3.5 h-3.5" /> {daysRemaining} Days Left
-                              </span>
-                            )
-                          ) : (
-                            <span className="text-gray-400">N/A</span>
-                          )
-                        ) : (
-                          <span className="text-gray-400 text-xs font-mono">-</span>
-                        )}
+                      <td className="py-3 px-4 max-w-[250px]">
+                        <p className="text-xs text-gray-600">
+                          {req.processingError || (isErasurePending
+                            ? req.loginDeletedAt
+                              ? "Login removed; open details for cleanup evidence and retained data."
+                              : "Cleanup is processing or awaiting review/retry."
+                            : isPending ? "Queued for automatic cleanup; holds and staff accounts need review." : "-")}
+                        </p>
                       </td>
 
                       {/* Status */}
@@ -783,30 +725,30 @@ const DeletionRequests = () => {
                             <EyeSvg className="w-4 h-4" />
                           </button>
 
-                          {isPending && (
+                          {(isPending || isErasurePending) && (
                             <>
                               <button
                                 onClick={() => handleAcceptDeletion(req)}
                                 className="inline-flex items-center gap-1 bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer"
                               >
-                                <UserXMarkSvg className="w-3.5 h-3.5" /> Accept
+                                <UserXMarkSvg className="w-3.5 h-3.5" /> {req.loginDeletedAt ? "Retry Cleanup" : "Start Cleanup"}
                               </button>
-                              <button
+                              {isPending && <button
                                 onClick={() => handleCancelAutoDeletion(req.id)}
                                 className="inline-flex items-center gap-1 bg-gray-600 hover:bg-gray-700 text-white px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors shadow-sm cursor-pointer"
                               >
                                 <BanSvg className="w-3.5 h-3.5" /> Cancel
-                              </button>
+                              </button>}
                             </>
                           )}
 
-                          <button
+                          {(isCompleted || isCancelled) && <button
                             onClick={() => handleDeleteRecord(req)}
                             title="Delete Record"
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                           >
                             <TrashSvg className="w-4 h-4" />
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>
@@ -889,6 +831,7 @@ const DeletionRequests = () => {
                 <p className="text-gray-800 text-sm whitespace-pre-wrap">{selectedRequest.reason || "No reason specified"}</p>
               </div>
 
+              <AccountErasureDetails uid={selectedRequest.uid} />
               <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-1">
                 <span className="text-xs font-semibold text-gray-500 uppercase">Date Submitted</span>
                 <p className="text-gray-800">
@@ -899,29 +842,29 @@ const DeletionRequests = () => {
 
             {/* Modal Footer */}
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between gap-2">
-              <button
+              {["Completed", "Cancelled"].includes(getNormalizedStatus(selectedRequest.status)) && <button
                 onClick={() => handleDeleteRecord(selectedRequest)}
                 className="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer inline-flex items-center gap-1.5"
               >
                 <TrashSvg className="w-3.5 h-3.5" />
                 Delete Record
-              </button>
+              </button>}
 
               <div className="flex items-center gap-2">
-                {getNormalizedStatus(selectedRequest.status) === "Pending" && (
+                {["Pending", "Erasure Pending"].includes(getNormalizedStatus(selectedRequest.status)) && (
                   <>
                     <button
                       onClick={() => handleAcceptDeletion(selectedRequest)}
                       className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                     >
-                      Accept Deletion
+                      {selectedRequest.loginDeletedAt ? "Retry Cleanup" : "Start Cleanup"}
                     </button>
-                    <button
+                    {getNormalizedStatus(selectedRequest.status) === "Pending" && <button
                       onClick={() => handleCancelAutoDeletion(selectedRequest.id)}
                       className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                     >
                       Cancel Request
-                    </button>
+                    </button>}
                   </>
                 )}
                 <button

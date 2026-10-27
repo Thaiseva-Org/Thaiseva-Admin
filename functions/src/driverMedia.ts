@@ -1,3 +1,4 @@
+import {assertAccountNotErasing, finishAccountUpload} from "./accountRestrictions";
 import * as admin from "firebase-admin";
 import {onCall, HttpsError} from "firebase-functions/v2/https";
 
@@ -20,6 +21,7 @@ export function driverDocumentPath(value: unknown): string | null {
 
 async function checkedCaller(request: {auth?: {uid: string; token: Record<string, unknown>}}) {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in to open this document.");
+  await assertAccountNotErasing(request.auth.uid);
   const account = await admin.auth().getUser(request.auth.uid);
   const profile = (await admin.firestore().doc(`users/${account.uid}`).get()).data() || {};
   const authTime = Number(request.auth.token.auth_time) * 1000;
@@ -73,5 +75,6 @@ export const uploadDriverDocument = onCall({region: "asia-east2", memory: "256Mi
   await admin.storage().bucket().file(path).save(bytes, {resumable: false, metadata: {
     contentType, cacheControl: "private, no-store", metadata: {privateDriverDocument: "true", privateDriverOwner: caller.uid},
   }});
+  await finishAccountUpload(caller.uid, path);
   return {path};
 });

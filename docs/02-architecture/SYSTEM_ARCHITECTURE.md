@@ -218,8 +218,9 @@ Implemented in `functions/src/hotelStockApi.ts` and `functions/src/hotelBookingS
 - **Atomic Transition:** Atomically updates `isPaymentDone: true`, sets `status: 'Accepted'`, converts stock holds into confirmed bookings, and generates customer confirmation emails.
 
 ### 3.5 Account Deletion Compliance Service (`functions/src/accountDeletion.ts`)
-- Implements `deleteUserFunction` callable function.
-- Strictly restricted to authenticated users with `admin === true` custom claims.
+- `autoProcessDeletionRequest` starts cleanup when a pending `DeletionRequests/{id}` document is created, for web and mobile clients. There is no 30-day delay.
+- `deleteUserFunction` provides an Admin-only manual retry with current privilege, recent sign-in and matching customer request checks.
+- The trigger, callable and daily recovery share request/profile hold checks, staff/partner protections and a per-UID processing lease. Duplicate events are safe; temporary failures are retried.
 - Destroys the login profile in Firebase Authentication via `admin.auth().deleteUser(uid)`.
 - Removes direct profiles and supported operational records, marks the request `Erasure Pending` and creates a `PENDING_RECORD_REVIEW` erasure job.
 
