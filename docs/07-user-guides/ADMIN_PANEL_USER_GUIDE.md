@@ -89,7 +89,7 @@
   - [12.5 How to Write and Publish a Blog Article (Rich Text & SEO)](#125-how-to-write-and-publish-a-blog-article-rich-text--seo)
   - [12.6 How to Add and Manage Frequently Asked Questions (FAQs)](#126-how-to-add-and-manage-frequently-asked-questions-faqs)
   - [12.7 How to Add and Order Customer Testimonials](#127-how-to-add-and-order-customer-testimonials)
-  - [12.8 How to Review and Archive Inbound Contact Messages](#128-how-to-review-and-archive-inbound-contact-messages)
+  - [12.8 How to Review, Export and Delete Inbound Contact Messages](#128-how-to-review-export-and-delete-inbound-contact-messages)
 - [13. Daily Administrative Workflows (Standard Operating Procedures)](#13-daily-administrative-workflows-standard-operating-procedures)
   - [13.1 Morning Operational Shift Routine](#131-morning-operational-shift-routine)
   - [13.2 Midday Booking Triage & Vendor Dispatch](#132-midday-booking-triage--vendor-dispatch)
@@ -1066,16 +1066,42 @@ At the beginning of each shift, administrators should:
 
 ---
 
-<a id="128-how-to-review-and-archive-inbound-contact-messages"></a>
-### 12.8 How to Review and Archive Inbound Contact Messages
+<a id="128-how-to-review-export-and-delete-inbound-contact-messages"></a>
+### 12.8 How to Review, Export and Delete Inbound Contact Messages
 **Navigation:** `Admin Panel → Contact Us` (`/dashboard/website-config/contact-us`)
 
+#### A. Reviewing an Inbound Inquiry
 1. Click **Contact Us** in the left sidebar.
 2. In the **New** tab, locate an unread message and click **View** (eye icon).
-3. Read the message body and copy the customer's email address to reply via your support email client.
-4. Click **Archive Message** to move the inquiry to the Archived folder.
+3. Read the message body, sender information, and copy the customer's email address to respond via your support email client.
+4. Click **Archive Message** to move the inquiry to the Archived folder once handled.
 
-**Expected Result:** The inquiry is marked handled and archived from the active inbox.
+#### B. Exporting Messages to CSV Backup
+1. In the top toolbar of the Contact Us page, filter the messages using the tabs (**All**, **New**, or **Archived**) or search bar.
+2. Click the **Export CSV** button.
+3. The system compiles all matching messages with full sender details, IP address, subject, message text, and timestamp into a `.csv` file.
+4. The CSV backup file downloads immediately to your computer.
+
+#### C. Removing / Deleting All Messages with Automatic Backup
+1. Navigate to **Contact Us**.
+2. Select the tab of messages you wish to clear (**All**, **New**, or **Archived**).
+3. In the top toolbar, click the red **Export & Delete All** button.
+4. A SweetAlert2 confirmation dialog displays: *"Export & Delete Message(s)? A CSV backup file will download to your computer, and these messages will then be permanently deleted from the database."*
+5. Click **Yes, Export & Delete All**.
+6. The system first triggers the automatic CSV backup download to preserve records, then executes a secure batch deletion across Firestore.
+7. The table updates immediately, clearing the deleted messages.
+
+**Expected Result:** A complete CSV backup is saved to your computer, and the messages are permanently removed from the system.  
+**Note:** The automated export ensures that no inquiries or audit trails are lost during database cleanups.
+
+#### D. Deleting an Individual Message
+1. Locate the specific message row in the table.
+2. Click the red **Delete** (trash icon) button.
+3. Alternatively, click **View Message** and select **Delete Message** inside the details dialog.
+4. Confirm the prompt: *"This message will be permanently deleted from the database."*
+5. Click **Yes, delete**.
+
+**Expected Result:** The single message is permanently removed from the database.
 
 ---
 
@@ -1237,4 +1263,7 @@ flowchart TD
 | **Publish Travel Blog Post** | `Admin Panel → Blogs` | Click Add New Blog, write article in rich editor, set Published, click Save |
 | **Add Website FAQ** | `Admin Panel → FAQs` | Click Add New FAQ, enter question & answer, choose category, click Save |
 | **Archive Inbound Inquiry** | `Admin Panel → Contact Us` | Click eye icon to read message, respond via email, click Archive Message |
+| **Export Contact Messages CSV** | `Admin Panel → Contact Us` | Filter by tab, click Export CSV button to download backup |
+| **Export & Delete All Contact Messages** | `Admin Panel → Contact Us` | Filter by tab, click Export & Delete All, confirm export & batch purge |
+| **Delete Single Contact Message** | `Admin Panel → Contact Us` | Click red trash icon on message row or click Delete Message in modal |
 | **Secure Logout** | `Top Header Bar` | Click red Log Out button |

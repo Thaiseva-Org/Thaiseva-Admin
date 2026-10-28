@@ -32,20 +32,13 @@ import {
   orderBy,
   query,
   updateDoc,
+  deleteDoc,
+  writeBatch,
 } from "firebase/firestore";
 import Swal from "sweetalert2";
 import { db } from "../../../../firebase/firebase.config";
 import ConfigHeader from "../../../../components/websiteConfig/ConfigHeader";
-import { SearchIcon } from "@icons";
-import { ArchiveIcon } from "@icons";
-import { ContentCopyIcon } from "@icons";
-import { VisibilityIcon } from "@icons";
-import { CloseIcon } from "@icons";
-import { ScheduleIcon } from "@icons";
-import { MailOutlineIcon } from "@icons";
-import { PersonOutlineIcon } from "@icons";
-import { PhoneIphoneIcon } from "@icons";
-import { PublicIcon } from "@icons";
+import { SearchIcon, ArchiveIcon, ContentCopyIcon, VisibilityIcon, CloseIcon, ScheduleIcon, MailOutlineIcon, PersonOutlineIcon, PhoneIphoneIcon, PublicIcon, DeleteIcon, DownloadIcon } from "@icons";
 
 const ContactUs = () => {
   const [loading, setLoading] = useState(true);
@@ -131,6 +124,127 @@ const ContactUs = () => {
     return new Date(ts).toLocaleString();
   };
 
+  const exportToCsv = (messageList, filename = "contact_messages.csv") => {
+    if (!messageList || messageList.length === 0) return;
+    const headers = [
+      "ID",
+      "Status",
+      "Full Name",
+      "Email",
+      "Phone Number",
+      "IP Address",
+      "Subject",
+      "Message",
+      "Source",
+      "Received At"
+    ];
+    const rows = messageList.map((m) => [
+      `"${(m.id || "").replace(/"/g, '""')}"`,
+      `"${(m.status || "New").replace(/"/g, '""')}"`,
+      `"${(m.fullName || "").replace(/"/g, '""')}"`,
+      `"${(m.email || "").replace(/"/g, '""')}"`,
+      `"${(m.mobileNumber || "").replace(/"/g, '""')}"`,
+      `"${(m.ipAddress || "").replace(/"/g, '""')}"`,
+      `"${(m.subject || "").replace(/"/g, '""')}"`,
+      `"${(m.message || "").replace(/"/g, '""')}"`,
+      `"${(m?.metadata?.source || m.source || "Website").replace(/"/g, '""')}"`,
+      `"${formatDate(m.createdAt).replace(/"/g, '""')}"`
+    ]);
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDeleteSingle = async (id) => {
+    const result = await Swal.fire({
+      title: "Delete message?",
+      text: "This message will be permanently deleted from the database.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, delete",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await deleteDoc(doc(db, "ContactMessages", id));
+        setMessages((prev) => prev.filter((m) => m.id !== id));
+        if (selectedMessage?.id === id) {
+          handleCloseModal();
+        }
+        Swal.fire({
+          icon: "success",
+          title: "Deleted",
+          text: "Message has been deleted.",
+          timer: 1200,
+          showConfirmButton: false,
+        });
+      } catch (error) {
+        Swal.fire("Error", "Could not delete this message: " + error.message, "error");
+      }
+    }
+  };
+
+  const handleExportAndDeleteAll = async () => {
+    const targets = filtered;
+    if (!targets || targets.length === 0) {
+      Swal.fire("No Messages", "There are no messages to export or delete.", "info");
+      return;
+    }
+
+    const tabLabel = tabValue === 1 ? "New" : tabValue === 2 ? "Archived" : "All";
+    const result = await Swal.fire({
+      title: `Export & Delete ${targets.length} ${tabLabel} Message(s)?`,
+      text: "A CSV backup file will download to your computer, and these messages will then be permanently deleted from the database.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, Export & Delete All",
+      cancelButtonText: "Cancel",
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // 1. Export CSV backup
+        const dateStr = new Date().toISOString().slice(0, 10);
+        exportToCsv(targets, `contact_messages_${tabLabel.toLowerCase()}_backup_${dateStr}.csv`);
+
+        // 2. Batch delete in chunks of 400
+        const chunkSize = 400;
+        for (let i = 0; i < targets.length; i += chunkSize) {
+          const chunk = targets.slice(i, i + chunkSize);
+          const batch = writeBatch(db);
+          chunk.forEach((item) => {
+            batch.delete(doc(db, "ContactMessages", item.id));
+          });
+          await batch.commit();
+        }
+
+        const deletedIds = new Set(targets.map((t) => t.id));
+        setMessages((prev) => prev.filter((m) => !deletedIds.has(m.id)));
+        handleCloseModal();
+
+        Swal.fire({
+          icon: "success",
+          title: "Backup Exported & Deleted",
+          text: `Successfully exported CSV backup and permanently deleted ${targets.length} message(s).`,
+        });
+      } catch (error) {
+        Swal.fire("Error", "Failed to delete messages: " + error.message, "error");
+      }
+    }
+  };
+
   const handleOpenModal = (message) => {
     setSelectedMessage(message);
     setIsModalOpen(true);
@@ -149,7 +263,7 @@ const ContactUs = () => {
         showAdd={false}
       />
 
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4 mb-6">
         <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Tabs
             value={tabValue}
@@ -162,20 +276,51 @@ const ContactUs = () => {
             <Tab label="Archived" />
           </Tabs>
         </Box>
-        <TextField
-          placeholder="Search by name, email, IP..."
-          size="small"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon className="text-gray-400" />
-              </InputAdornment>
-            ),
-            sx: { borderRadius: "20px", backgroundColor: "white", minWidth: 320 },
-          }}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <TextField
+            placeholder="Search by name, email, IP..."
+            size="small"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon className="text-gray-400" />
+                </InputAdornment>
+              ),
+              sx: { borderRadius: "20px", backgroundColor: "white", minWidth: 260 },
+            }}
+          />
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<DownloadIcon />}
+            disabled={filtered.length === 0}
+            onClick={() => exportToCsv(filtered, `contact_messages_${new Date().toISOString().slice(0, 10)}.csv`)}
+            sx={{
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 600,
+            }}
+          >
+            Export CSV
+          </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            size="small"
+            startIcon={<DeleteIcon />}
+            disabled={filtered.length === 0}
+            onClick={handleExportAndDeleteAll}
+            sx={{
+              borderRadius: "10px",
+              textTransform: "none",
+              fontWeight: 600,
+            }}
+          >
+            Export & Delete All
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -281,7 +426,7 @@ const ContactUs = () => {
                   <TableCell>{item?.metadata?.source || item.source || "-"}</TableCell>
                   <TableCell>{formatDate(item.createdAt)}</TableCell>
                   <TableCell align="center">
-                    <div className="flex items-center justify-center gap-2">
+                    <div className="flex items-center justify-center gap-1">
                       <Tooltip title="View Message">
                         <IconButton
                           size="small"
@@ -302,6 +447,15 @@ const ContactUs = () => {
                             <ArchiveIcon fontSize="small" />
                           </IconButton>
                         </span>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteSingle(item.id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
                       </Tooltip>
                     </div>
                   </TableCell>
@@ -445,6 +599,14 @@ const ContactUs = () => {
         <DialogActions sx={{ p: 2, gap: 1 }}>
           <Button onClick={handleCloseModal} color="inherit">
             Close
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<DeleteIcon />}
+            color="error"
+            onClick={() => handleDeleteSingle(selectedMessage.id)}
+          >
+            Delete Message
           </Button>
           {selectedMessage?.status !== "Archived" && (
             <Button
