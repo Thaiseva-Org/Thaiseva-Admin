@@ -14,7 +14,7 @@ Current privacy evidence: [Technical Data Protection Report](05-security/THAISEV
 | Architecture and design | [Architecture](02-architecture/SYSTEM_ARCHITECTURE.md), [design system](01-design-system/DESIGN_SYSTEM_AND_THEME.md) |
 | Website banners | [Banner configuration](05-security/WEBSITE_OFFER_BANNERS_2026-10-21.md) |
 | Release and operations | [Deployment](06-devops/DEPLOYMENT_RUNBOOK.md), [operations](08-operations/OPERATIONS_RUNBOOK.md) |
-| User workflows | [Admin manual](07-user-guides/ADMIN_USER_MANUAL.md) |
+| User workflows | [Admin user guide](07-user-guides/ADMIN_PANEL_USER_GUIDE.md), [Action manual](07-user-guides/ADMIN_USER_MANUAL.md) |
 | Validation | [Test strategy](09-testing/TEST_STRATEGY.md), [manual checks](09-testing/MANUAL_TESTING_GUIDE.md) |
 
 Historical release notes and duplicate specifications were archived outside the application. Engineering guides describe interfaces and procedures; use the dated technical report and source/tests for verified production claims. Do not treat old examples as proof of current settings.

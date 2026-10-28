@@ -5,6 +5,7 @@ React/Vite operations portal for travel bookings, hotel/partner workflows, suppo
 ## Current documentation
 
 - [Technical Data Protection Report](docs/05-security/THAISEVA_TECHNICAL_DATA_PROTECTION.md): plain-language data use, recipients, processing locations, safeguards and evidence for company/regulatory review.
+- [Admin Panel User Guide](docs/07-user-guides/ADMIN_PANEL_USER_GUIDE.md): step-by-step operational manual for administrators across all modules, bookings, fleet, and website settings.
 - [Documentation index](docs/README.md): API, setup, operating and testing references.
 - [Data policy](docs/05-security/PDPA_DATA_POLICY_2026-10-21.md) and [privacy operating procedures](docs/05-security/PDPA_OPERATING_PROCEDURES.md).
 - [Technical verification](docs/05-security/PDPA_TECHNICAL_CLOSEOUT_2026-10-21.md): completed checks and remaining company evidence.
