@@ -12,7 +12,6 @@
 - [1. Introduction](#1-introduction)
   - [1.1 Purpose of this User Guide](#11-purpose-of-this-user-guide)
   - [1.2 System Overview](#12-system-overview)
-  - [1.3 Administrator Roles & Permission Levels](#13-administrator-roles--permission-levels)
 - [2. Getting Started & Navigation](#2-getting-started--navigation)
   - [2.1 How to Access the Admin Panel](#21-how-to-access-the-admin-panel)
   - [2.2 How to Log In](#22-how-to-log-in)
@@ -124,13 +123,6 @@ The Thaiseva Admin Portal is a cloud-based operational hub serving five core bus
 - **Self-Drive Rentals:** Car and SUV rentals with digital driving license and passport verification.
 - **Local Assistance & Concierge:** 24/7 omnichannel customer chat with direct booking attachment tools.
 - **Website CMS:** Marketing banners, offer sliders, blogs, FAQs, testimonials, and dynamic statistics counters.
-
-<a id="13-administrator-roles--permission-levels"></a>
-### 1.3 Administrator Roles & Permission Levels
-- **Head Admin:** Complete system governance. Exclusive access to create, modify, and revoke Administrator and Sub-Admin accounts (`/dashboard/sub-admins`).
-- **Administrator (Admin):** Full operational control over all booking queues, fleet management, financial analytics, website content, push notifications, and customer communications.
-- **Sub-Admin:** Daily operations staff access to review bookings, assign drivers/operators, update room availability, and assist travelers via chat.
-- **Partner (Hotels / Drivers / Local Partners):** Restricted interface scoped strictly to their own listings, room inventory, and incoming assignments.
 
 ---
 
