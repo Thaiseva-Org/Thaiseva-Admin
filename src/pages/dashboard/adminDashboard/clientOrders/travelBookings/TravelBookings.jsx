@@ -533,6 +533,7 @@ const TravelBookings = () => {
     if (confirm("Do you want to reject this booking?")) {
       await updateDoc(doc(travelBookingCollection, id), {
         status: "Canceled",
+        bookingStatus: "Canceled",
       }).then(async () => {
         alert("Booking rejected!.");
         setBookingDetails({
@@ -1591,7 +1592,10 @@ const TravelBookings = () => {
                                       </button>
                                     )}
 
-                                    {isSightseeingPending(row.rawData) && (
+                                    {(isSightseeingPending(row.rawData) ||
+                                      needsSightseeingPaymentVerification(
+                                        row.rawData
+                                      )) && (
                                       <button
                                         onClick={() =>
                                           handleDelete(
@@ -2248,33 +2252,37 @@ const TravelBookings = () => {
                   "&:hover": { bgcolor: "#059669" },
                 }}
               >
-                Confirm & Open Payment
+                Confirm
               </Button>
             )}
 
-          {isRealTime && isSightseeingPending(bookingDetails.rawData || bookingDetails) && (
-            <Button
-              variant="contained"
-              onClick={() => {
-                if (confirm("Cancel this booking?")) {
-                  handleDelete(
-                    bookingDetails.bookingId || bookingDetails.id,
-                    bookingDetails.rawData || bookingDetails
-                  );
-                  setOpenBookingDetailsModal(false);
-                }
-              }}
-              sx={{
-                borderRadius: "10px",
-                textTransform: "none",
-                fontWeight: 600,
-                bgcolor: "#ef4444",
-                "&:hover": { bgcolor: "#dc2626" },
-              }}
-            >
-              Cancel
-            </Button>
-          )}
+          {isRealTime &&
+            (isSightseeingPending(bookingDetails.rawData || bookingDetails) ||
+              needsSightseeingPaymentVerification(
+                bookingDetails.rawData || bookingDetails
+              )) && (
+              <Button
+                variant="contained"
+                onClick={() => {
+                  if (confirm("Cancel this booking?")) {
+                    handleDelete(
+                      bookingDetails.bookingId || bookingDetails.id,
+                      bookingDetails.rawData || bookingDetails
+                    );
+                    setOpenBookingDetailsModal(false);
+                  }
+                }}
+                sx={{
+                  borderRadius: "10px",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  bgcolor: "#ef4444",
+                  "&:hover": { bgcolor: "#dc2626" },
+                }}
+              >
+                Cancel
+              </Button>
+            )}
 
           {(isAdmin || isSubAdmin) &&
             needsSightseeingPaymentVerification(
