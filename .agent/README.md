@@ -213,20 +213,13 @@ Shows:
 - Taxi Bookings
 - Self Drive Bookings
 
-### 4. Local Assistance
-- Customer Chat
-- Local Services
-- Local Requirements
-- Partner Chat
-- Local Partners (with submenu: Verified, Pending, Denied)
+### 4. Customer Support
+- Customer Chat (with active topic tracking: Hotels, Visa, Sightseeing, etc.)
 
-### 5. Prime Locations
-- Shops (shopping malls)
-- Clubs (nightlife)
-
-### 6. Restaurant Related
-- Restaurants (partner management)
-- Restaurant Chat (support)
+### 5. Attractions & Places Hub
+- Category Management (waterparks, nightlife, temples, shopping, etc.)
+- Multi-place assignment within categories
+- Filtering by city & category
 
 ---
 

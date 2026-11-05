@@ -3,7 +3,7 @@
 > [!NOTE]
 > **Consolidated Specification:** This email OTP architecture and security policy have been unified into **[Third-Party Integrations Guide (Section 3: Zoho ZeptoMail)](../docs/03-api/THIRD_PARTY_INTEGRATIONS.md)**, **[Security & RBAC Architecture](../docs/05-security/SECURITY_AND_RBAC.md)**, and **[Firestore Data Architecture & Schema Dictionary](../docs/04-data/DATA_SCHEMA_DICTIONARY.md)**.
 
-This document describes the deployed email OTP service. For step-by-step usage, see [How to use the OTP API](EMAIL_OTP_API.md).
+This document describes the deployed email OTP service. For step-by-step usage, see [How to use the OTP API](../03-api/EMAIL_OTP_API.md).
 
 The service sends, resends and verifies email codes. `verifyEmailOtp` creates no account, changes no Firebase Auth user and assigns no role. The optional `createVerifiedAccount` callable consumes its proof to create an email-verified Firebase Auth account; the consuming application handles login and roles. An existing account is not required.
 
@@ -147,11 +147,11 @@ Review delivery failures in Cloud Logging and Zoho's delivery dashboard. Do not 
 | File | Responsibility |
 | --- | --- |
 | [emailOtp.ts](../functions/src/emailOtp.ts) | Callable endpoints, App Check, rate limiting and Firestore transactions |
-| [verifiedSignup.ts](../functions/src/verifiedSignup.ts) | Verified account creation, transactional proof claims and retry protection |
-| [core.ts](../functions/src/otp/core.ts) | OTP generation, hashes, expiry, resend and retry policies |
-| [zoho.ts](../functions/src/otp/zoho.ts) | Provider validation, HTML/plain-text template and Zoho delivery |
-| [firestore.rules](../firestore.rules) | Denies client access to OTP collections |
-| [firestore.indexes.json](../firestore.indexes.json) | TTL field policies |
-| [mobile_email_otp.dart](mobile_email_otp.dart) | Example wrapper for the separate Flutter app |
+| [verifiedSignup.ts](../../functions/src/verifiedSignup.ts) | Verified account creation, transactional proof claims and retry protection |
+| [core.ts](../../functions/src/otp/core.ts) | OTP generation, hashes, expiry, resend and retry policies |
+| [zoho.ts](../../functions/src/otp/zoho.ts) | Provider validation, HTML/plain-text template and Zoho delivery |
+| [firestore.rules](../../firestore.rules) | Denies client access to OTP collections |
+| [firestore.indexes.json](../../firestore.indexes.json) | TTL field policies |
+| [mobile_email_otp.dart](../examples/mobile_email_otp.dart) | Example wrapper for the separate Flutter app |
 
-See [the usage guide](EMAIL_OTP_API.md) for examples, errors, UI behavior and the separate backend proof contract.
+See [the usage guide](../03-api/EMAIL_OTP_API.md) for examples, errors, UI behavior and the separate backend proof contract.

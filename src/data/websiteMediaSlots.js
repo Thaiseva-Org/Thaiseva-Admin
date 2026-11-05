@@ -129,9 +129,23 @@ export const WEBSITE_MEDIA_SLOTS = [
     recommendedSize: "1920 × 900 px",
     aliases: ["about-bg"],
   },
+  {
+    id: "event-management-hero",
+    title: "Event Management Hero Visual",
+    category: "hero_banners",
+    page: "Event Management Page",
+    pageUrl: "/services/event-management",
+    location: "Main Luxury Hero Section - Feature Card",
+    mediaType: "image",
+    defaultUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85",
+    description: "Featured visual image displayed in the hero section on the Event Management page.",
+    aspectRatio: "16:11",
+    recommendedSize: "1200 × 825 px",
+    aliases: ["event-hero", "events-hero"],
+  },
 
   // ==========================================
-  // B. SERVICES PAGE CARDS (Ordered 1 to 5)
+  // B. SERVICES PAGE CARDS (Ordered 1 to 6)
   // ==========================================
   {
     id: "local-services",
@@ -202,6 +216,20 @@ export const WEBSITE_MEDIA_SLOTS = [
     aspectRatio: "6:5",
     recommendedSize: "1200 × 1000 px",
     aliases: ["tours", "packages"],
+  },
+  {
+    id: "event-management",
+    title: "Event Management (Card 06)",
+    category: "services",
+    page: "Services Page",
+    pageUrl: "/services",
+    location: "Service Card 06 - Event Management & Destination Weddings",
+    mediaType: "image",
+    defaultUrl: "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=1200&q=85",
+    description: "Visual image for Card 6 representing destination Indian weddings, corporate seminars, and international gala events in Thailand.",
+    aspectRatio: "6:5",
+    recommendedSize: "1200 × 1000 px",
+    aliases: ["events", "wedding", "weddings", "event-management-service", "mice"],
   },
 
   // ==========================================

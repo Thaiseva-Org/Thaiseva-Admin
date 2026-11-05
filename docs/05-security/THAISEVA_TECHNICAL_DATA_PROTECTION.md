@@ -954,7 +954,7 @@ Do not replace that with "PDPA approved", "no breaches", "all data stays in Thai
 | Retention decisions | [retentionPolicy.ts](../../functions/src/retentionPolicy.ts) |
 | Maintenance/scheduler | [retentionMaintenance.ts](../../functions/src/retentionMaintenance.ts) |
 | Account erasure | [accountDeletion.ts](../../functions/src/accountDeletion.ts) |
-| OTP | [Core](../../functions/src/otp/core.ts), [API contract](../../documentation/EMAIL_OTP_API.md) |
+| OTP | [Core](../../functions/src/otp/core.ts), [API contract](../03-api/EMAIL_OTP_API.md) |
 | Food current-account checks | [Auth source](https://github.com/Thaiseva-Org/thaiseva-food-portal/blob/main/functions/src/lib/auth.js) |
 | Food minimized view | [Partner-order source](https://github.com/Thaiseva-Org/thaiseva-food-portal/blob/main/functions/src/lib/partnerOrderViews.js) |
 | Website consent | [Parser](https://github.com/Thaiseva-Org/Thaiseva-Website/blob/main/src/lib/cookie-consent.js), [collection integration](https://github.com/Thaiseva-Org/Thaiseva-Website/blob/main/src/components/firebase.js) |

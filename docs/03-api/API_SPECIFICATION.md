@@ -1,6 +1,6 @@
 # Thaiseva Cloud Functions API Specification
 
-> Updated 11 October 2026: [Package booking flows and API contract](../../documentation/PACKAGE_BOOKING_FLOWS.md) supersedes earlier package payment-first behavior. Tomorrow/day 2 require confirmation; instant booking starts day 3 within the daily limit. Request payment opens only after admin confirmation.
+> Updated 11 October 2026: [Package booking flows and API contract](PACKAGE_BOOKING_INTEGRATION_GUIDE.md) supersedes earlier package payment-first behavior. Tomorrow/day 2 require confirmation; instant booking starts day 3 within the daily limit. Request payment opens only after admin confirmation.
 
 **Service Region:** `asia-east2` (Hong Kong)  
 **Base URL:** `https://asia-east2-<PROJECT_ID>.cloudfunctions.net/<FunctionName>`  
@@ -511,7 +511,7 @@ Verification consumes the code and creates a ten-minute proof; it does not creat
 ```
 **Success Response:** `{ "created": true }`
 
-Creates a Firebase Auth user with `emailVerified: true`. Transactional proof claims bind retries to the same UID until proof expiry. Existing accounts from another signup return `already-exists`; expired or mismatched proofs return `unauthenticated`. The client signs in with its password after creation. The callable allows browser CORS preflight and runs in `asia-east2` in project `gothai-ffea1`. See [the OTP API guide](../../documentation/EMAIL_OTP_API.md) for SDK examples.
+Creates a Firebase Auth user with `emailVerified: true`. Transactional proof claims bind retries to the same UID until proof expiry. Existing accounts from another signup return `already-exists`; expired or mismatched proofs return `unauthenticated`. The client signs in with its password after creation. The callable allows browser CORS preflight and runs in `asia-east2` in project `gothai-ffea1`. See [the OTP API guide](EMAIL_OTP_API.md) for SDK examples.
 
 ---
 

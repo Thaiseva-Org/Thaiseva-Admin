@@ -1,7 +1,7 @@
 # Admin Dashboard Quick Reference Guide
 
 > [!NOTE]
-> **Consolidated Specification:** This quick reference guide has been unified into the authoritative **[Admin & Partner Operations User Manual](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md)** and the **[`/docs` Hub](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/README.md)**.
+> **Consolidated Specification:** This quick reference guide has been unified into the authoritative **[Admin Panel User Guide](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_PANEL_USER_GUIDE.md)** and the **[`/docs` Hub](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/README.md)**.
 
 ## 🚀 Quick Navigation Map
 
@@ -103,11 +103,9 @@ Real-time Message Display
 - `agents` - Agent accounts
 - `partners` - Service partners
 
-### Partners
+### Partners & Catalog
 - `hotels` - Hotel partners
-- `restaurants` - Restaurant partners
-- `shops` - Shopping malls
-- `clubs` - Nightlife venues
+- `attractions` - Attractions, categories & places hub
 
 ### Services
 - `localServices` - Local assistance services

@@ -113,7 +113,7 @@ Integrated across the administrative portal and partner dashboard for interactiv
 
 ## 3. Transactional Email & OTP Authentication (Zoho ZeptoMail)
 
-Thaiseva uses **Zoho CPaaS** (`cpaas.zoho.com/v1.1/email`) for customer signup email verification. See [the OTP API contract](../../documentation/EMAIL_OTP_API.md).
+Thaiseva uses **Zoho CPaaS** (`cpaas.zoho.com/v1.1/email`) for customer signup email verification. See [the OTP API contract](EMAIL_OTP_API.md).
 
 ### 3.1 Security Policy & Abuse Mitigations
 

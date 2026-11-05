@@ -1,7 +1,7 @@
 # Thaiseva Admin Dashboard - Development Overview
 
 > [!NOTE]
-> **Consolidated Specification:** This dashboard overview and component reference have been unified into the authoritative **[System Architecture Document](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/02-architecture/SYSTEM_ARCHITECTURE.md)** and the **[Admin & Partner Operations User Manual](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_USER_MANUAL.md)**.
+> **Consolidated Specification:** This dashboard overview and component reference have been unified into the authoritative **[System Architecture Document](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/02-architecture/SYSTEM_ARCHITECTURE.md)** and the **[Admin Panel User Guide](file:///d:/projects/Thaiseva-Admin-Portal-Web-App/docs/07-user-guides/ADMIN_PANEL_USER_GUIDE.md)**.
 
 ## Table of Contents
 1. [Project Architecture](#project-architecture)
@@ -121,17 +121,6 @@ Located in: `src/utils/RouteLinks.jsx` → `localAssislinks`
 | Label | Route | Component | Icon | Purpose |
 |-------|-------|-----------|------|---------|
 | Customer Chat | `/dashboard/customer-chat` | `CustomerChat` | ForumIcon | Customer support chat |
-| Local Services | `/dashboard/local-services` | `LocalServices` | ManageAccountsIcon | Local service management |
-| Local Requirements | `/dashboard/local-requirements` | `LocalRequirements` | TaskAltIcon | Customer requirements |
-| Partner Chat | `/dashboard/partner-chat` | `LocalPartnerSupport` | Diversity1Icon | Local partner support |
-
-**Expandable Section**: Local Partners
-- Route: `/dashboard/local-partners` → `LocalPartners`
-- Icon: HandshakeIcon
-- **Sub-items** (filtered by status):
-  - Verified Partners
-  - Pending Requests (shows `totalRequest` badge)
-  - Denied Partners
 
 **Badge Indicators**:
 - Customer Chat: Shows `chatCount`
@@ -141,8 +130,7 @@ Located in: `src/utils/RouteLinks.jsx` → `primelocationslinks`
 
 | Label | Route | Component | Icon | Purpose |
 |-------|-------|-----------|------|---------|
-| Shops | `/dashboard/shopping-malls` | `ShoppingMalls` | Shop | Shopping mall management |
-| Clubs | `/dashboard/clubs` | `Clubs` | NightlifeIcon | Nightlife/club management |
+| Attractions & Places | `/dashboard/attractions` | `AttractionsPlaces` | TravelExploreIcon | Attractions, category management & places hub |
 
 ### 6. **Restaurant Related Section**
 Located in: `src/utils/RouteLinks.jsx` → `restaurantlinks`
@@ -238,10 +226,7 @@ Located in: `src/utils/RouteLinks.jsx` → `restaurantlinks`
 
 2. **Partners & Services**
    - `hotels` - Hotel partners
-   - `restaurants` - Restaurant partners
-   - `shops` - Shopping malls/stores
-   - `clubs` - Nightlife venues
-   - `localServices` - Local assistance services
+   - `attractions` - Tourist attractions, entertainment categories & places
    - `sightseeingPackages` - Travel packages
    - `sightseeingPackagesDetails` - Package details
    - `hotelPackages` - Hotel room packages
@@ -407,11 +392,9 @@ Located in: `src/services/`
 
 ### 4. **LocalRelated.js**
 **Functions**:
-- `fetchLocalServices()` - Get local services
-- `fetchLocalPartners(status)` - Get partners by verification status
-- `updatePartnerStatus()` - Approve/deny partners
-- `fetchShops()` - Get shopping malls
-- `fetchClubs()` - Get nightlife venues
+- `fetchAttractions()` - Get attractions and categories
+- `saveCategory()` - Create or update attraction category
+- `saveAttraction()` - Save attraction place details
 
 ### 5. **Earning.js**
 **Functions**:
@@ -578,15 +561,10 @@ Required variables:
 | | `/dashboard/travel-bookings` | TravelBookings | AdminRoute |
 | | `/dashboard/car-bookings` | CarBookings | AdminRoute |
 | | `/dashboard/self-drive-bookings` | SelfDriveBookings | AdminRoute |
-| **Local** | | | |
+| **Support** | | | |
 | | `/dashboard/customer-chat` | CustomerChat | AdminRoute |
-| | `/dashboard/local-services` | LocalServices | AdminRoute |
-| | `/dashboard/local-requirements` | LocalRequirements | AdminRoute |
-| | `/dashboard/partner-chat` | LocalPartnerSupport | AdminRoute |
-| | `/dashboard/local-partners` | LocalPartners | AdminRoute |
-| **Prime Locations** | | | |
-| | `/dashboard/shopping-malls` | ShoppingMalls | AdminRoute |
-| | `/dashboard/clubs` | Clubs | AdminRoute |
+| **Attractions** | | | |
+| | `/dashboard/attractions` | AttractionsPlaces | AdminRoute |
 | **Restaurant** | | | |
 | | `/dashboard/restaurants` | Restaurants | AdminRoute |
 | | `/dashboard/restaurant-chat` | RestaurantChat | AdminRoute |

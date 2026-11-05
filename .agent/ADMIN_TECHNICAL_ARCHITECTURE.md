@@ -88,20 +88,11 @@ createBrowserRouter([
 │   ├── /dashboard/car-bookings → CarBookings.jsx
 │   └── /dashboard/self-drive-bookings → SelfDriveBookings.jsx
 │
-├── LOCAL ASSISTANCE SECTION (AdminRoute Guard)
-│   ├── /dashboard/customer-chat → CustomerChat.jsx
-│   ├── /dashboard/local-services → LocalServices.jsx
-│   ├── /dashboard/local-requirements → LocalRequirements.jsx
-│   ├── /dashboard/partner-chat → LocalPartnerSupport.jsx
-│   └── /dashboard/local-partners → LocalPartners.jsx
+├── CUSTOMER SUPPORT SECTION (AdminRoute Guard)
+│   └── /dashboard/customer-chat → CustomerChat.jsx
 │
-├── PRIME LOCATIONS SECTION (AdminRoute Guard)
-│   ├── /dashboard/shopping-malls → ShoppingMalls.jsx
-│   └── /dashboard/clubs → Clubs.jsx
-│
-└── RESTAURANT SECTION (AdminRoute Guard)
-    ├── /dashboard/restaurants → Restaurants.jsx
-    └── /dashboard/restaurant-chat → RestaurantChat.jsx
+└── ATTRACTIONS & PLACES SECTION (AdminRoute Guard)
+    └── /dashboard/attractions → AttractionsPlaces.jsx (ManageCategoriesModal, AddAttractionModal)
 ```
 
 ### 1.3 Route Guard Implementation
@@ -149,7 +140,7 @@ function AdminRoute({ children }) {
 | `/dashboard/admin-statistics` | `AdminStatistics.jsx` | AdminRoute | StatisticsProvider | Revenue, bookings analytics |
 | `/dashboard/room-bookings` | `RoomBookings.jsx` | AdminRoute | PartnerProvider.roomBookings | Hotel reservation management |
 | `/dashboard/hotels` | `Hotels.jsx` | AdminRoute | PartnerProvider.hotels | Hotel partner CRUD |
-| `/dashboard/local-partners` | `LocalPartners.jsx` | AdminRoute | PartnerProvider.localPartners | Partner verification workflow |
+| `/dashboard/attractions` | `AttractionsPlaces.jsx` | AdminRoute | PartnerProvider.attractions | Categories & places hub |
 | `/dashboard/customer-chat` | `CustomerChat.jsx` | AdminRoute | AdminChatProvider | Real-time customer support |
 | `/dashboard/notifications` | `NewNotficationsScreen.jsx` | AdminRoute | NotificationsProvider | Push notification management |
 
@@ -238,28 +229,13 @@ const drawer = (
         </Link>
       ))}
       
-      {/* Section: Local Assistance with Expandable Submenu */}
-      <Link to="/dashboard/local-partners">
+      {/* Section: Attractions & Places */}
+      <Link to="/dashboard/attractions">
         <ListItem>
-          <HandshakeIcon />
-          <span>Local Partners</span>
-          {location.pathname === "/dashboard/local-partners" ? <ExpandLess /> : <ExpandMore />}
+          <TravelExploreIcon />
+          <span>Attractions & Places</span>
         </ListItem>
       </Link>
-      
-      <Collapse in={location.pathname === "/dashboard/local-partners"}>
-        <List disablePadding>
-          {partnerStatus.map(item => (
-            <ListItem onClick={() => handleChangeQueryText(item.queryText)}>
-              {item.icon}
-              <ListItemText primary={item.label} />
-              {item.queryText === "Pending" && (
-                <Badge badgeContent={totalRequest} />
-              )}
-            </ListItem>
-          ))}
-        </List>
-      </Collapse>
       
       {/* ... other sections */}
     </List>
@@ -362,10 +338,10 @@ Hotels.jsx (Page Component)
 | Component | Used In | Purpose |
 |-----------|---------|---------|
 | `PageHeading` | All pages | Consistent page titles |
-| `SearchBar` | Hotels, Restaurants, LocalPartners, Users | Filter lists |
-| `ShopsCard` | Hotels, Restaurants, Shops, Clubs | Display partner cards |
+| `SearchBar` | Hotels, Attractions, Users | Filter lists |
+| `ShopsCard` | Hotels, Attractions | Display catalog cards |
 | `ActionButtons` | Multiple pages | Add/Edit/Delete actions |
-| `AddShopForm` | Hotels, Restaurants, Shops | Partner onboarding |
+| `AddShopForm` | Hotels | Partner onboarding |
 | `Loading` | All pages | Loading state |
 | `ViewDetailsIcon` | All list pages | View full details |
 | `UpdateButton` | All list pages | Edit functionality |

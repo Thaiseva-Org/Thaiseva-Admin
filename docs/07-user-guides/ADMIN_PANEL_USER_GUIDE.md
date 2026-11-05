@@ -1,6 +1,6 @@
 # 🌴 Thaiseva Admin Portal: Complete Administrator User Guide
 
-**Document Version:** 3.1.0  
+**Document Version:** 3.3.0 (Unified Master Edition)  
 **Target Audience:** Platform Administrators, Sub-Administrators, Operational Managers, Product Trainers  
 **Application Production URL:** [https://gothai-admin.web.app](https://gothai-admin.web.app)  
 **Classification:** Official Operational Manual  
@@ -12,6 +12,7 @@
 - [1. Introduction](#1-introduction)
   - [1.1 Purpose of this User Guide](#11-purpose-of-this-user-guide)
   - [1.2 System Overview](#12-system-overview)
+  - [1.3 Theme, Badges & Quick Action Legend](#13-theme-badges--quick-action-legend)
 - [2. Getting Started & Navigation](#2-getting-started--navigation)
   - [2.1 How to Access the Admin Panel](#21-how-to-access-the-admin-panel)
   - [2.2 How to Log In](#22-how-to-log-in)
@@ -46,16 +47,23 @@
   - [6.5 How to Add Room Categories to a Hotel](#65-how-to-add-room-categories-to-a-hotel)
   - [6.6 How to Edit Room Pricing, Capacity & Extra Bed Surcharges](#66-how-to-edit-room-pricing-capacity--extra-bed-surcharges)
   - [6.7 How to Manage Daily Room Availability & Block Dates](#67-how-to-manage-daily-room-availability--block-dates)
-  - [6.8 How to Approve and Confirm a Pending Room Booking](#68-how-to-approve-and-confirm-a-pending-room-booking)
-  - [6.9 How to Decline/Cancel a Room Booking and Restore Inventory](#69-how-to-declinecancel-a-room-booking-and-restore-inventory)
-  - [6.10 How to Verify a Thai PromptPay QR or Stripe Payment](#610-how-to-verify-a-thai-promptpay-qr-or-stripe-payment)
+  - [6.8 How Room Availability Works (Math Formula & Color Legend)](#68-how-room-availability-works-math-formula--color-legend)
+  - [6.9 How Room Availability Updates (Auto Holds vs. Manual Overrides)](#69-how-room-availability-updates-auto-holds-vs-manual-overrides)
+  - [6.10 How to Add Extra Room Stock for Holidays & Peak Dates](#610-how-to-add-extra-room-stock-for-holidays--peak-dates)
+  - [6.11 How to Release Stuck / Orphaned 10-Minute Checkout Holds](#611-how-to-release-stuck--orphaned-10-minute-checkout-holds)
+  - [6.12 How to Approve and Confirm a Pending Room Booking](#612-how-to-approve-and-confirm-a-pending-room-booking)
+  - [6.13 How to Decline/Cancel a Room Booking and Restore Inventory](#613-how-to-declinecancel-a-room-booking-and-restore-inventory)
+  - [6.14 How to Verify a Thai PromptPay QR or Stripe Payment](#614-how-to-verify-a-thai-promptpay-qr-or-stripe-payment)
+  - [6.15 How to Switch Between List View & Calendar (Gantt) View](#615-how-to-switch-between-list-view--calendar-gantt-view)
+  - [6.16 How to Use Bulk Actions and Safely Delete Canceled Bookings](#616-how-to-use-bulk-actions-and-safely-delete-canceled-bookings)
 - [7. Tours & Excursions Management](#7-tours--excursions-management)
   - [7.1 How to Add a New Sightseeing Tour Package](#71-how-to-add-a-new-sightseeing-tour-package)
   - [7.2 How to Edit Sightseeing Details & Daily Participant Limits](#72-how-to-edit-sightseeing-details--daily-participant-limits)
   - [7.3 How to Configure Global Daily Tour Capacity Limits](#73-how-to-configure-global-daily-tour-capacity-limits)
-  - [7.4 How to Review and Confirm Pending Tour Bookings](#74-how-to-review-and-confirm-pending-tour-bookings)
-  - [7.5 How to Assign a Local Tour Operator to a Booking](#75-how-to-assign-a-local-tour-operator-to-a-booking)
-  - [7.6 How to Manage Onsite Cash Payment Bookings](#76-how-to-manage-onsite-cash-payment-bookings)
+  - [7.4 The 2-Day Preparation Rule & Daily Capacity Work](#74-the-2-day-preparation-rule--daily-capacity-work)
+  - [7.5 How to Review and Confirm Pending Tour Bookings](#75-how-to-review-and-confirm-pending-tour-bookings)
+  - [7.6 How to Assign a Local Tour Operator to a Booking](#76-how-to-assign-a-local-tour-operator-to-a-booking)
+  - [7.7 How to Manage Onsite Cash Payment Bookings](#77-how-to-manage-onsite-cash-payment-bookings)
 - [8. Transport Fleet & Ride Bookings](#8-transport-fleet--ride-bookings)
   - [8.1 How to Register a Transport Partner Company](#81-how-to-register-a-transport-partner-company)
   - [8.2 How to Register a Certified Driver](#82-how-to-register-a-certified-driver)
@@ -71,40 +79,38 @@
   - [9.3 How to Attach and Inspect Customer Bookings Inside Live Chat](#93-how-to-attach-and-inspect-customer-bookings-inside-live-chat)
   - [9.4 How to Manage Hotel Support Chat](#94-how-to-manage-hotel-support-chat)
   - [9.5 How to Manage Local Partner Support Chat](#95-how-to-manage-local-partner-support-chat)
-- [10. Local Partners & Service Requirements](#10-local-partners--service-requirements)
-  - [10.1 How to Review and Verify Local Partner Applications (KYC)](#101-how-to-review-and-verify-local-partner-applications-kyc)
-  - [10.2 How to Add a Local Partner Directly](#102-how-to-add-a-local-partner-directly)
-  - [10.3 How to Review and Manage Local Service Requirements](#103-how-to-review-and-manage-local-service-requirements)
-- [11. Attractions & Local Hotspots](#11-attractions--local-hotspots)
-  - [11.1 How to Add a New Attraction, Shopping Mall or Beach Club](#111-how-to-add-a-new-attraction-shopping-mall-or-beach-club)
-  - [11.2 How to Filter Attractions by Category and City](#112-how-to-filter-attractions-by-category-and-city)
-  - [11.3 How to Create and Manage Attraction Categories](#113-how-to-create-and-manage-attraction-categories)
-  - [11.4 How to Edit or Remove an Attraction](#114-how-to-edit-or-remove-an-attraction)
-- [12. Website Configuration & Marketing](#12-website-configuration--marketing)
-  - [12.1 How to Broadcast a Push Notification Announcement](#121-how-to-broadcast-a-push-notification-announcement)
-  - [12.2 How to Add and Reorder Homepage Offer Banners (Popup Slider)](#122-how-to-add-and-reorder-homepage-offer-banners-popup-slider)
-  - [12.3 How to Update Marketing Statistics Counters (About Us Page)](#123-how-to-update-marketing-statistics-counters-about-us-page)
-  - [12.4 How to Replace Website Imagery and Media Asset Slots](#124-how-to-replace-website-imagery-and-media-asset-slots)
-  - [12.5 How to Write and Publish a Blog Article (Rich Text & SEO)](#125-how-to-write-and-publish-a-blog-article-rich-text--seo)
-  - [12.6 How to Add and Manage Frequently Asked Questions (FAQs)](#126-how-to-add-and-manage-frequently-asked-questions-faqs)
-  - [12.7 How to Add and Order Customer Testimonials](#127-how-to-add-and-order-customer-testimonials)
-  - [12.8 How to Review, Export and Delete Inbound Contact Messages](#128-how-to-review-export-and-delete-inbound-contact-messages)
-- [13. Daily Administrative Workflows (Standard Operating Procedures)](#13-daily-administrative-workflows-standard-operating-procedures)
-  - [13.1 Morning Operational Shift Routine](#131-morning-operational-shift-routine)
-  - [13.2 Midday Booking Triage & Vendor Dispatch](#132-midday-booking-triage--vendor-dispatch)
-  - [13.3 Evening Closeout & Financial Reconciliation](#133-evening-closeout--financial-reconciliation)
-- [14. Troubleshooting & Common Errors](#14-troubleshooting--common-errors)
-  - [14.1 Login & Authentication Issues](#141-login--authentication-issues)
-  - [14.2 Booking Confirmation & Inventory Holds](#142-booking-confirmation--inventory-holds)
-  - [14.3 Payment Verification & Merchant Reconciliation](#143-payment-verification--merchant-reconciliation)
-  - [14.4 Media Upload & Aspect Ratio Adjustments](#144-media-upload--aspect-ratio-adjustments)
-  - [14.5 Chat Delivery & Real-Time Connectivity](#145-chat-delivery--real-time-connectivity)
-- [15. Security, Compliance & Important Guidelines](#15-security-compliance--important-guidelines)
-  - [15.1 Personal Data Protection Act (PDPA) Compliance](#151-personal-data-protection-act-pdpa-compliance)
-  - [15.2 Financial Safeguards & Audit Logs](#152-financial-safeguards--audit-logs)
-  - [15.3 Account Security & Session Management](#153-account-security--session-management)
-- [16. Frequently Asked Questions (FAQs)](#16-frequently-asked-questions-faqs)
-- [17. Quick Reference Master Table](#17-quick-reference-master-table)
+  - [9.6 Customer Support Chat Categories & Live Topic Tracking](#96-customer-support-chat-categories--live-topic-tracking)
+- [10. Attractions, Categories & Places Hub](#10-attractions-categories--places-hub)
+  - [10.1 How to Filter Attractions by Category and City](#101-how-to-filter-attractions-by-category-and-city)
+  - [10.2 How to Create and Manage Attraction Categories](#102-how-to-create-and-manage-attraction-categories)
+  - [10.3 How to Add Multiple Places into a Category](#103-how-to-add-multiple-places-into-a-category)
+  - [10.4 How to Edit or Remove an Attraction](#104-how-to-edit-or-remove-an-attraction)
+- [11. Website Configuration & Marketing](#11-website-configuration--marketing)
+  - [11.1 How to Broadcast a Push Notification Announcement](#111-how-to-broadcast-a-push-notification-announcement)
+  - [11.2 How to Add and Reorder Homepage Offer Banners (Popup Slider)](#112-how-to-add-and-reorder-homepage-offer-banners-popup-slider)
+  - [11.3 How to Update Marketing Statistics Counters (About Us Page)](#113-how-to-update-marketing-statistics-counters-about-us-page)
+  - [11.4 How to Replace Website Imagery and Media Asset Slots](#114-how-to-replace-website-imagery-and-media-asset-slots)
+  - [11.5 How to Write and Publish a Blog Article (Rich Text & SEO)](#115-how-to-write-and-publish-a-blog-article-rich-text--seo)
+  - [11.6 How to Add and Manage Frequently Asked Questions (FAQs)](#116-how-to-add-and-manage-frequently-asked-questions-faqs)
+  - [11.7 How to Add and Order Customer Testimonials](#117-how-to-add-and-order-customer-testimonials)
+  - [11.8 How to Review, Export and Delete Inbound Contact Messages](#118-how-to-review-export-and-delete-inbound-contact-messages)
+- [12. Daily Administrative Workflows (Standard Operating Procedures)](#12-daily-administrative-workflows-standard-operating-procedures)
+  - [12.1 Morning Operational Shift Routine](#121-morning-operational-shift-routine)
+  - [12.2 Midday Booking Triage & Vendor Dispatch](#122-midday-booking-triage--vendor-dispatch)
+  - [12.3 Evening Closeout & Financial Reconciliation](#123-evening-closeout--financial-reconciliation)
+- [13. Troubleshooting & Common Errors](#13-troubleshooting--common-errors)
+  - [13.1 Login & Authentication Issues](#131-login--authentication-issues)
+  - [13.2 Booking Confirmation & Inventory Holds](#132-booking-confirmation--inventory-holds)
+  - [13.3 Payment Verification & Merchant Reconciliation](#133-payment-verification--merchant-reconciliation)
+  - [13.4 Media Upload & Aspect Ratio Adjustments](#134-media-upload--aspect-ratio-adjustments)
+  - [13.5 Chat Delivery & Real-Time Connectivity](#135-chat-delivery--real-time-connectivity)
+- [14. Security, Compliance & Important Guidelines](#14-security-compliance--important-guidelines)
+  - [14.1 Personal Data Protection Act (PDPA) Compliance](#141-personal-data-protection-act-pdpa-compliance)
+  - [14.2 Financial Safeguards & Audit Logs](#142-financial-safeguards--audit-logs)
+  - [14.3 Account Security & Session Management](#143-account-security--session-management)
+- [15. Frequently Asked Questions (FAQs)](#15-frequently-asked-questions-faqs)
+- [16. Quick Reference Master Table](#16-quick-reference-master-table)
+- [17. Operational Hotline & Emergency Contacts](#17-operational-hotline--emergency-contacts)
 
 ---
 
@@ -123,6 +129,26 @@ The Thaiseva Admin Portal is a cloud-based operational hub serving five core bus
 - **Self-Drive Rentals:** Car and SUV rentals with digital driving license and passport verification.
 - **Local Assistance & Concierge:** 24/7 omnichannel customer chat with direct booking attachment tools.
 - **Website CMS:** Marketing banners, offer sliders, blogs, FAQs, testimonials, and dynamic statistics counters.
+
+<a id="13-theme-badges--quick-action-legend"></a>
+### 1.3 Theme, Badges & Quick Action Legend
+
+Every action in this guide is designed for instant understanding with zero guesswork:
+
+| Badge / Icon | Meaning | Example |
+| :--- | :--- | :--- |
+| **`[STEP 1]`** | **Trigger Action** | Click a specific button, tab, or menu item |
+| **`[STEP 2]`** | **Data Entry & Selection** | Type in fields, upload photos, or toggle switches |
+| **`[STEP 3]`** | **Verification & Save** | Review the popup confirmation and click Save/Confirm |
+| 🟢 **Green** | **Active / Confirmed / Paid** | Everything is live, settled, or verified |
+| 🟡 **Yellow** | **Pending / Action Needed** | Requires review or action by staff/admin |
+| 🔴 **Red** | **Declined / Canceled / Blocked** | Rejected, out of stock, or archived |
+| 🔵 **Blue** | **In Progress / Unverified** | Bank slip uploaded or dispatch in transit |
+| 🧭 **What is on Screen?** | **Visual Breakdown** | Exact buttons, tables, toggles, and inputs |
+| 💡 **Quick Tip** | **Staff Pro-Tip** | Time-saving shortcuts and best practices |
+| ⚠️ **Warning** | **Caution Alert** | How to prevent errors and inventory loss |
+
+---
 
 ---
 
@@ -520,59 +546,147 @@ At the beginning of each shift, administrators should:
 ### 6.7 How to Manage Daily Room Availability & Block Dates
 **Navigation:** `Admin Panel → Room Availability` (`/dashboard/hotel-room-availability`)
 
-1. Click **Room Availability** in the left sidebar.
-2. Locate the hotel property using the search bar.
-3. Click **View Availability Calendar**.
-4. Navigate to your target month.
-5. Review the daily remaining room counts shown for each date.
-6. To manually block rooms for private events or maintenance, select the target date and reduce the available room count to `0` (or the desired number).
-7. Click **Update Availability**.
+1. **`[STEP 1]`**: Click **Room Availability** in the left sidebar.
+2. **`[STEP 2]`**: Select your hotel property from the dropdown and navigate to the target month.
+3. **`[STEP 3]`**: Click the target date cell on the calendar (or drag across multiple dates).
+4. **`[STEP 4]`**: In the popup dialog, choose **"Block Out Rooms"**.
+5. **`[STEP 5]`**: Enter how many rooms to block (or check *"Block Entire Category"*), add a quick reason note (e.g., *"Offline front desk booking"* or *"Maintenance"*), and click **"Confirm Override"**.
 
-**Expected Result:** The calendar updates, preventing customer bookings on the blocked dates.
+**Expected Result:** The calendar cells turn gray with a padlock icon. Storefront checkouts for those dates are disabled immediately.
 
 ---
 
-<a id="68-how-to-approve-and-confirm-a-pending-room-booking"></a>
-### 6.8 How to Approve and Confirm a Pending Room Booking
+<a id="68-how-room-availability-works-math-formula--color-legend"></a>
+### 6.8 How Room Availability Works (Math Formula & Color Legend)
+**Navigation:** `Admin Panel → Room Availability` (`/dashboard/hotel-room-availability`)
+
+Understand how the platform calculates whether rooms can be booked instantly:
+
+#### 🧮 The Simple Math Formula
+
+$$\text{Remaining Rooms} = \text{Base Inventory} + \text{Extra Added} - \text{Blocked} - \text{Confirmed Bookings} - \text{Active Holds}$$
+
+#### Real-Life Example for Saturday Night:
+- **Base Inventory**: 10 Superior Rooms.
+- **Extra Added**: 0.
+- **Blocked**: 1 room (plumbing leak).
+- **Confirmed Bookings**: 4 guests already checked in/booked.
+- **Active 10-Minute Hold**: 1 guest currently entering their credit card number on the website.
+
+$$\text{Remaining Rooms} = 10 + 0 - 1 - 4 - 1 = \mathbf{4\text{ Rooms Available}}$$
+
+#### 🎨 Color Codes on the Availability Grid:
+- 🟢 **Green (3+ rooms)**: Healthy inventory. Customers book and pay instantly.
+- 🟡 **Yellow (1 to 2 rooms)**: Low stock warning badge shown on consumer site.
+- 🔴 **Red (0 rooms)**: **Sold Out**. Customers cannot pay instantly; they can only send a booking inquiry.
+- ⚪ **Gray Striped**: Dates closed or blocked by staff.
+
+---
+
+<a id="69-how-room-availability-updates-auto-holds-vs-manual-overrides"></a>
+### 6.9 How Room Availability Updates (Auto Holds vs. Manual Overrides)
+
+#### A. What the System Does Automatically:
+1. When a traveler enters checkout, the system places a **10-minute soft hold** on the room (remaining count drops by 1).
+2. If the traveler pays via Stripe or completes confirmation, the hold turns into a permanent booking.
+3. If the traveler closes their tab or the 10-minute timer runs out, the room **automatically returns to the available inventory pool (+1)**.
+
+#### B. What Staff Controls Manually:
+1. Staff can click dates on the calendar to take rooms offline.
+2. Staff can add extra inventory for holiday periods.
+3. Staff can clear stuck holds with one click using the release button.
+
+---
+
+<a id="610-how-to-add-extra-room-stock-for-holidays--peak-dates"></a>
+### 6.10 How to Add Extra Room Stock for Holidays & Peak Dates
+**Navigation:** `Admin Panel → Room Availability` (`/dashboard/hotel-room-availability`)
+
+Increase daily room allocation when a hotel grants additional inventory during peak travel seasons:
+1. **`[STEP 1]`**: Go to **Room Availability** (`/dashboard/hotel-room-availability`) $\rightarrow$ Select hotel.
+2. **`[STEP 2]`**: Click the target holiday dates on the calendar.
+3. **`[STEP 3]`**: In the popup dialog, select **"Add Extra Rooms"**.
+4. **`[STEP 4]`**: Enter `+5` (or desired amount) $\rightarrow$ Click **"Confirm"**.
+
+**Expected Result:** The available room count increments immediately for public checkout.
+
+---
+
+<a id="611-how-to-release-stuck--orphaned-10-minute-checkout-holds"></a>
+### 6.11 How to Release Stuck / Orphaned 10-Minute Checkout Holds
+**Navigation:** `Admin Panel → Room Availability` (`/dashboard/hotel-room-availability`)
+
+Free up rooms when a customer's browser crashes or network drops during card entry, leaving an expired hold:
+1. **`[STEP 1]`**: In **Room Availability**, look at the top action header.
+2. **`[STEP 2]`**: Click the button: **"Release Orphaned Holds"**.
+3. **`[STEP 3]`**: Review the identified expired hold IDs in the modal $\rightarrow$ Click **"Release All Expired Holds"**.
+
+**Expected Result:** The holds delete, and the rooms return to the available pool instantly.
+
+---
+
+<a id="612-how-to-approve-and-confirm-a-pending-room-booking"></a>
+### 6.12 How to Approve and Confirm a Pending Room Booking
 **Navigation:** `Admin Panel → Room Bookings` (`/dashboard/room-bookings`)
 
-1. Click **Room Bookings** in the left sidebar.
-2. On the **Pending Requests** tab, locate the reservation row.
-3. Click **View Details** (eye icon).
-4. Review the guest's name, room type, check-in and check-out dates, and payment status:
+1. **`[STEP 1]`**: Click **Room Bookings** in the left sidebar.
+2. **`[STEP 2]`**: On the **Pending Requests** tab, locate the reservation row.
+3. **`[STEP 3]`**: Click **View Details** (eye icon).
+4. **`[STEP 4]`**: Review the guest's name, room type, check-in and check-out dates, and payment status:
    - Ensure the payment badge indicates **Paid** (or verify the Thai QR / credit card receipt).
-5. Click the green **Accept Booking** (checkmark icon) button.
+5. **`[STEP 5]`**: Click the green **Accept Booking** (checkmark icon) button.
 6. The system executes atomic confirmation, locks the room inventory dates, updates status to **Confirmed**, and transmits a digital voucher to the guest.
 
 **Expected Result:** The reservation moves to **Confirmed Bookings** and inventory is locked.
 
 ---
 
-<a id="69-how-to-declinecancel-a-room-booking-and-restore-inventory"></a>
-### 6.9 How to Decline/Cancel a Room Booking and Restore Inventory
-**Navigation:** `Admin Panel → Room Bookings`
+<a id="613-how-to-declinecancel-a-room-booking-and-restore-inventory"></a>
+### 6.13 How to Decline/Cancel a Room Booking and Restore Inventory
+**Navigation:** `Admin Panel → Room Bookings` (`/dashboard/room-bookings`)
 
-1. Navigate to **Room Bookings**.
-2. Locate the reservation on the **Pending Requests** or **Confirmed Bookings** tab.
-3. Click the red **Cancel / Reject** (cross icon) button.
-4. When prompted with the confirmation modal, confirm the cancellation reason.
-5. Click **Confirm Cancellation**.
+1. **`[STEP 1]`**: Navigate to **Room Bookings**.
+2. **`[STEP 2]`**: Locate the reservation on the **Pending Requests** or **Confirmed Bookings** tab.
+3. **`[STEP 3]`**: Click the red **Cancel / Reject** (cross icon) button.
+4. **`[STEP 4]`**: When prompted with the confirmation modal, confirm the cancellation reason.
+5. **`[STEP 5]`**: Click **Confirm Cancellation**.
 
 **Expected Result:** The booking status updates to **Canceled**, and the reserved room dates are automatically returned to available inventory.
 
 ---
 
-<a id="610-how-to-verify-a-thai-promptpay-qr-or-stripe-payment"></a>
-### 6.10 How to Verify a Thai PromptPay QR or Stripe Payment
+<a id="614-how-to-verify-a-thai-promptpay-qr-or-stripe-payment"></a>
+### 6.14 How to Verify a Thai PromptPay QR or Stripe Payment
 **Navigation:** `Admin Panel → Room Bookings` (or `Sightseeing Bookings`)
 
-1. Locate the booking displaying a blue or unverified payment badge.
-2. Click the **Verify Payment** (shield icon) button.
-3. Review the uploaded transaction receipt, reference number, and payment timestamp.
-4. Cross-check the transaction reference with your merchant bank statement.
-5. Click **Confirm Payment Verified**.
+1. **`[STEP 1]`**: Locate the booking displaying a blue or unverified payment badge.
+2. **`[STEP 2]`**: Click the **Verify Payment** (shield icon) button.
+3. **`[STEP 3]`**: Review the uploaded transaction receipt, reference number, and payment timestamp.
+4. **`[STEP 4]`**: Cross-check the transaction reference with your merchant bank statement.
+5. **`[STEP 5]`**: Click **Confirm Payment Verified**.
 
 **Expected Result:** The payment status updates to **Paid (Verified)** with a green badge.
+
+---
+
+<a id="615-how-to-switch-between-list-view--calendar-gantt-view"></a>
+### 6.15 How to Switch Between List View & Calendar (Gantt) View
+**Navigation:** `Admin Panel → Room Bookings` (`/dashboard/room-bookings`)
+
+1. **`[STEP 1]`**: In the top right corner of the Room Bookings table, click the **Calendar View** icon.
+2. **`[STEP 2]`**: The interface transforms into an interactive Gantt timeline displaying occupied rooms by floor/number.
+3. **`[STEP 3]`**: Click any booking bar on the calendar to open the quick-edit drawer.
+4. **`[STEP 4]`**: Click the **Table View** icon to switch back to the standard paginated list.
+
+---
+
+<a id="616-how-to-use-bulk-actions-and-safely-delete-canceled-bookings"></a>
+### 6.16 How to Use Bulk Actions and Safely Delete Canceled Bookings
+**Navigation:** `Admin Panel → Room Bookings` (`/dashboard/room-bookings`)
+
+1. **`[STEP 1]`**: Select multiple bookings using the checkboxes on the left side of the table rows.
+2. **`[STEP 2]`**: Use the floating bulk actions toolbar to **Export Selected to Excel**, **Mark as Reviewed**, or **Delete**.
+3. ⚠️ **Safety Check on Deletions**: Never delete an active or confirmed booking directly without canceling first. Canceling restores room availability; hard-deleting a confirmed booking bypasses the restoration trigger and leaves inventory locked. Always transition status to **Canceled** before deleting archival records.
 
 ---
 
@@ -614,41 +728,70 @@ At the beginning of each shift, administrators should:
 ### 7.3 How to Configure Global Daily Tour Capacity Limits
 **Navigation:** `Admin Panel → Sightseeing Packages → Settings (Gear Icon)`
 
-1. Navigate to **Sightseeing Packages**.
-2. Click the **Settings** (gear icon) button in the upper toolbar.
-3. The `SightseeingSettingsModal` dialog opens.
-4. In the **Global Daily Capacity Limit** field, enter the default platform-wide booking threshold.
-5. Click **Save Configuration**.
+1. **`[STEP 1]`**: Navigate to **Sightseeing Packages** in the left sidebar.
+2. **`[STEP 2]`**: Click the **Settings** (gear icon) button in the upper toolbar.
+3. **`[STEP 3]`**: The `SightseeingSettingsModal` dialog opens.
+4. **`[STEP 4]`**: In the **Global Daily Capacity Limit** field, enter the default platform-wide booking threshold (default is `20`; entering `0` disables instant bookings entirely).
+5. **`[STEP 5]`**: Click **Save Configuration**.
 
-**Expected Result:** The default participant threshold applies to all tours lacking custom limits.
+**Expected Result:** The threshold applies platform-wide to serialize tour capacity on Thai calendar dates.
 
 ---
 
-<a id="74-how-to-review-and-confirm-pending-tour-bookings"></a>
-### 7.4 How to Review and Confirm Pending Tour Bookings
+<a id="74-the-2-day-preparation-rule--daily-capacity-work"></a>
+### 7.4 The 2-Day Preparation Rule & Daily Capacity Work
+
+Thaiseva enforces automated capacity routing to protect tour operators from last-minute overbooking:
+
+| Selected Tour Date | Flow | Payment Rules |
+| :--- | :--- | :--- |
+| **Tomorrow or Day 2** (+1 to +2 days) | **`REQUEST` Flow** | Payment is locked until staff manually confirms slot availability. |
+| **Day 3 Onward** (Within daily capacity) | **`INSTANT` Flow** | Customer checks out immediately via Stripe card hold or Thai PromptPay QR. |
+| **Day 3 Onward** (Daily capacity full) | **`REQUEST` Flow** | Smoothly degrades to staff confirmation request instead of failing. |
+
+#### Key Rules:
+- **Thailand Midnight Boundary:** Tour dates evaluate strictly in Thai local time (`Asia/Bangkok` / UTC+7). Past dates are blocked with `INVALID_DATE`.
+- **Why 2 Days?** Speedboat excursions and national park permits require 48 hours advance manifest filing. For near-term dates, staff must confirm operator seats before taking money.
+- **Admin Action:** When staff accepts a pending request using **Confirm & Open Payment**, status moves to `AWAITING_PAYMENT`, `isBookingConfirmed: true`. The customer receives a notification to pay via their **My Bookings** dashboard.
+
+---
+
+<a id="75-how-to-review-and-confirm-pending-tour-bookings"></a>
+### 7.5 How to Review and Confirm Pending Tour Bookings
 **Navigation:** `Admin Panel → Sightseeing Bookings` (`/dashboard/travel-bookings`)
 
-1. Click **Sightseeing Bookings** in the left sidebar.
-2. Select the **Pending Review** tab.
-3. Locate the booking row and click **View Details**.
-4. Verify the tour date, passenger count (adults and children), and hotel pickup address.
-5. Verify payment status (ensure Thai QR or card payment is confirmed).
-6. Proceed to assign a tour operator (see 7.5) and click **Confirm Booking**.
+1. **`[STEP 1]`**: Click **Sightseeing Bookings** in the left sidebar.
+2. **`[STEP 2]`**: The admin queue starts on the **Pending** tab. (Tabs: *Pending*, *Thai QR / Onsite*, *Paid & Accepted*, *Declined*, *Next 7 Days*).
+3. **`[STEP 3]`**: Locate the booking row and click **View Details** (eye icon).
+4. **`[STEP 4]`**: Verify tour date, passenger count (adults and children), and hotel pickup address.
+5. **`[STEP 5]`**: If booking flow is `REQUEST`, contact the supplier operator. Once confirmed, click **Confirm & Open Payment**.
+6. If the guest chose Thai QR or cash onsite, follow verification procedures in 6.14 and 7.7.
 
-**Expected Result:** The booking status updates to **Confirmed** and a voucher is issued to the guest.
+**Expected Result:** The booking status updates to **Confirmed** or **Awaiting Payment**, and a push alert is dispatched to the traveler.
 
 ---
 
-<a id="75-how-to-assign-a-local-tour-operator-to-a-booking"></a>
-### 7.5 How to Assign a Local Tour Operator to a Booking
+<a id="76-how-to-assign-a-local-tour-operator-to-a-booking"></a>
+### 7.6 How to Assign a Local Tour Operator to a Booking
 **Navigation:** `Admin Panel → Sightseeing Bookings`
 
-1. While reviewing a pending tour booking, locate the **Provider Assignment** section.
-2. In the **Provider Name** field, enter the contracted tour company (e.g., "Phuket Marine Tour Co.").
-3. In the **Provider Phone** field, enter the operational dispatch phone number.
-4. Click **Confirm & Assign Operator**.
+1. **`[STEP 1]`**: While reviewing a confirmed tour booking, locate the **Provider Assignment** section.
+2. **`[STEP 2]`**: In the **Provider Name** field, enter the contracted tour company (e.g., *"Phuket Marine Tour Co."*).
+3. **`[STEP 3]`**: In the **Provider Phone** field, enter the operational dispatch phone number.
+4. **`[STEP 4]`**: Click **Confirm & Assign Operator**.
 
-**Expected Result:** The tour booking is confirmed with the local operator's contact details attached.
+**Expected Result:** The tour booking is confirmed with the local operator's contact details attached to the customer voucher.
+
+---
+
+<a id="77-how-to-manage-onsite-cash-payment-bookings"></a>
+### 7.7 How to Manage Onsite Cash Payment Bookings
+**Navigation:** `Admin Panel → Sightseeing Bookings → Thai QR / Onsite Tab`
+
+1. **`[STEP 1]`**: Filter by the **Thai QR / Onsite** tab.
+2. **`[STEP 2]`**: For bookings marked `ONSITE_CASH`, the traveler will pay the tour driver at morning pickup.
+3. **`[STEP 3]`**: On the morning of departure, contact the assigned operator to confirm cash collection.
+4. **`[STEP 4]`**: Click **Mark Payment Collected** to reconcile the booking into platform revenue reports.
 
 ---
 
@@ -843,106 +986,77 @@ At the beginning of each shift, administrators should:
 
 ---
 
-# 10. Local Partners & Service Requirements
+<a id="96-customer-support-chat-categories--live-topic-tracking"></a>
+### 9.6 Customer Support Chat Categories & Live Topic Tracking
+**Navigation:** `Admin Panel → Customer Chat` (`/dashboard/customer-chat`)
 
-<a id="101-how-to-review-and-verify-local-partner-applications-kyc"></a>
-### 10.1 How to Review and Verify Local Partner Applications (KYC)
-**Navigation:** `Admin Panel → Local Partners` (`/dashboard/local-partners`)
-
-1. Click **Local Partners** in the left sidebar.
-2. Select the **Pending Requests** tab.
-3. Click the **View Details** (eye icon) button on a partner application row.
-4. Review the applicant's business profile, service category, uploaded national ID card, business license, and bank passbook.
-5. To approve the partner, change the status dropdown to **Verified** and click **Save**.
-6. If documentation is invalid or incomplete, select **Denied** and provide a reason.
-
-**Expected Result:** Verified partners gain access to receive local service assignments.
+Open `/dashboard/customer-chat` and select a customer conversation. The customer support interface displays real-time category context:
+- **Header Topic Banner:** The top conversation header displays the customer's currently active support topic, such as **Chatting in Visa**, **Chatting in Hotel**, or **Chatting in Work Permit**. Loading older chat history preserves the active header topic.
+- **Timeline Transition Entries:** Centered timeline chips inside the chat log show earlier topics and subsequent topic switches (e.g., *Started in Visa* $\rightarrow$ *Switched to Work Permit*).
+- **Asynchronous Sync:** When the traveler switches topics on their mobile app, a category event is appended to the thread. Selecting the same topic again creates no duplicate.
+- **Data Protection & Immutability:** Category events record audit lineage and cannot be edited or deleted as ordinary text messages. Held conversations freeze topic changes under legal retention policies.
 
 ---
 
-<a id="102-how-to-add-a-local-partner-directly"></a>
-### 10.2 How to Add a Local Partner Directly
-**Navigation:** `Admin Panel → Local Partners → Add Partner`
+# 10. Attractions, Categories & Places Hub
 
-1. Navigate to **Local Partners**.
-2. Click the **Add Partner** button.
-3. Enter the partner's **Full Name**, **Business Name**, **Phone Number**, **Email Address**, and **Service Category**.
-4. Set status to **Verified** and click **Save Partner**.
-
-**Expected Result:** The partner profile is registered in the system immediately.
-
----
-
-<a id="103-how-to-review-and-manage-local-service-requirements"></a>
-### 10.3 How to Review and Manage Local Service Requirements
-**Navigation:** `Admin Panel → Local Requirements` (`/dashboard/local-requirements`)
-
-1. Click **Local Requirements** in the left sidebar.
-2. Review special on-demand service requests submitted by travelers (translation, private escort, medical coordination, legal inquiries).
-3. Click **View Details** to read the traveler's requested schedule.
-4. Assign an authorized local partner and update the requirement status to **In Progress** or **Completed**.
-
----
-
-# 11. Attractions & Local Hotspots
-
-<a id="111-how-to-add-a-new-attraction-shopping-mall-or-beach-club"></a>
-### 11.1 How to Add a New Attraction, Shopping Mall or Beach Club
-**Navigation:** `Admin Panel → Attractions & Places → Add Attraction` (`/dashboard/attractions`)
+<a id="101-how-to-filter-attractions-by-category-and-city"></a>
+### 10.1 How to Filter Attractions by Category and City
+**Navigation:** `Admin Panel → Attractions & Places` (`/dashboard/attractions`)
 
 1. Click **Attractions & Places** in the left sidebar.
-2. Click the **Add Attraction** button.
-3. In the modal dialog, fill in:
-   - **Title / Name:** Official venue name (e.g., "Iconsiam Shopping Complex").
-   - **Category:** Select from the category dropdown (Shopping Malls, Clubs & Nightlife, Cultural & Temples, Nature & Beaches).
-   - **City:** Select destination city (Bangkok, Phuket, Pattaya, etc.).
-   - **Full Address & Map Link:** Enter physical address and Google Maps pin link.
-   - **Operating Hours:** Enter opening/closing schedule (e.g., "10:00 AM - 10:00 PM Daily").
-   - **Entry Fee / Pricing:** Enter ticket pricing or write "Free Admission".
-   - **Description & Highlights:** Key features and visitor tips.
-   - **Photos:** Upload high-resolution images.
-   - **Status Toggle:** Set to **Active**.
-4. Click **Save Attraction**.
-
-**Expected Result:** The attraction appears immediately in the directory and publishes to customer explore guides.
+2. Click any category tab pill (**Temples**, **Beaches**, **Nightlife**, etc.) to filter attractions belonging to that category.
+3. In the **City** dropdown, select a specific destination (e.g., *"Bangkok"*, *"Phuket"*, *"Pattaya"*) to isolate local listings.
 
 ---
 
-<a id="112-how-to-filter-attractions-by-category-and-city"></a>
-### 11.2 How to Filter Attractions by Category and City
-**Navigation:** `Admin Panel → Attractions & Places`
-
-1. Navigate to **Attractions & Places**.
-2. Click any category tab (**Shopping Malls**, **Clubs & Nightlife**, etc.) to filter by category.
-3. In the **City** dropdown, select a specific city (e.g., "Phuket") to isolate local attractions.
-
----
-
-<a id="113-how-to-create-and-manage-attraction-categories"></a>
-### 11.3 How to Create and Manage Attraction Categories
+<a id="102-how-to-create-and-manage-attraction-categories"></a>
+### 10.2 How to Create and Manage Attraction Categories
 **Navigation:** `Admin Panel → Attractions & Places → Manage Categories`
 
-1. Navigate to **Attractions & Places**.
-2. Click the **Manage Categories** button.
-3. To add a new category, enter the category name (e.g., "Floating Markets") and click **Add Category**.
-4. To rename or remove an existing category, use the edit and delete icons next to the category item.
+1. Navigate to **Attractions & Places** (`/dashboard/attractions`).
+2. Click the **Manage Categories** button in the upper toolbar.
+3. In the `ManageCategoriesModal` dialog, click **+ Add Category**.
+4. Enter the **Category Name** (e.g., *"Waterparks & Theme Parks"*), select an icon, and save.
+5. The new category tab is created immediately and is ready to store multiple places.
 
 ---
 
-<a id="114-how-to-edit-or-remove-an-attraction"></a>
-### 11.4 How to Edit or Remove an Attraction
+<a id="103-how-to-add-multiple-places-into-a-category"></a>
+### 10.3 How to Add Multiple Places into a Category
+**Navigation:** `Admin Panel → Attractions & Places → Add Attraction`
+
+1. On **Attractions & Places** (`/dashboard/attractions`), click **+ Add Attraction**.
+2. In the modal dialog:
+   - **Category:** Select the target category from the dropdown.
+   - **Title / Name:** Official venue or attraction name (e.g., *"Siam Amazing Park"*).
+   - **City:** Select destination city (Bangkok, Phuket, Pattaya, etc.).
+   - **Full Address & Map Link:** Enter physical address and Google Maps pin link.
+   - **Operating Hours:** Enter opening/closing schedule (e.g., *"10:00 AM - 06:00 PM Daily"*).
+   - **Entry Fee / Pricing:** Enter ticket pricing or write *"Free Admission"*.
+   - **Description & Highlights:** Key features and visitor tips.
+   - **Photos:** Upload high-resolution images.
+3. Click **Save Attraction**.
+4. Repeat this procedure to add multiple attraction venues under the same category tab.
+
+**Expected Result:** The places save and render under that category tab on both the admin grid and the consumer website explore guide.
+
+---
+
+<a id="104-how-to-edit-or-remove-an-attraction"></a>
+### 10.4 How to Edit or Remove an Attraction
 **Navigation:** `Admin Panel → Attractions & Places`
 
-1. Locate the attraction card.
-2. Click **Edit** to modify description, operating hours, or photos.
-3. Click **Delete** (trash icon) to remove the attraction from the guide.
+1. Locate the target attraction card.
+2. Click **Edit** (pencil icon) to modify details, operating hours, ticket fees, or photos.
+3. Click **Delete** (trash icon) to permanently remove the place from the directory.
 
 ---
 
-# 12. Website Configuration & Marketing
+# 11. Website Configuration & Marketing
 
-<a id="121-how-to-broadcast-a-push-notification-announcement"></a>
-### 12.1 How to Broadcast a Push Notification Announcement
+<a id="111-how-to-broadcast-a-push-notification-announcement"></a>
+### 11.1 How to Broadcast a Push Notification Announcement
 **Navigation:** `Admin Panel → Manage Notifications` (`/dashboard/notifications`)
 
 1. Click **Manage Notifications** in the left sidebar.
@@ -958,8 +1072,8 @@ At the beginning of each shift, administrators should:
 
 ---
 
-<a id="122-how-to-add-and-reorder-homepage-offer-banners-popup-slider"></a>
-### 12.2 How to Add and Reorder Homepage Offer Banners (Popup Slider)
+<a id="112-how-to-add-and-reorder-homepage-offer-banners-popup-slider"></a>
+### 11.2 How to Add and Reorder Homepage Offer Banners (Popup Slider)
 **Navigation:** `Admin Panel → Offers` (`/dashboard/website-config/offers`)
 
 1. Click **Offers** in the left sidebar.
@@ -976,8 +1090,8 @@ At the beginning of each shift, administrators should:
 
 ---
 
-<a id="123-how-to-update-marketing-statistics-counters-about-us-page"></a>
-### 12.3 How to Update Marketing Statistics Counters (About Us Page)
+<a id="113-how-to-update-marketing-statistics-counters-about-us-page"></a>
+### 11.3 How to Update Marketing Statistics Counters (About Us Page)
 **Navigation:** `Admin Panel → Site Statistics` (`/dashboard/website-config/site-statistics`)
 
 1. Click **Site Statistics** in the left sidebar.
@@ -993,8 +1107,8 @@ At the beginning of each shift, administrators should:
 
 ---
 
-<a id="124-how-to-replace-website-imagery-and-media-asset-slots"></a>
-### 12.4 How to Replace Website Imagery and Media Asset Slots
+<a id="114-how-to-replace-website-imagery-and-media-asset-slots"></a>
+### 11.4 How to Replace Website Imagery and Media Asset Slots
 **Navigation:** `Admin Panel → Images & Media` (`/dashboard/website-config/media`)
 
 1. Click **Images & Media** in the left sidebar.
@@ -1006,8 +1120,8 @@ At the beginning of each shift, administrators should:
 
 ---
 
-<a id="125-how-to-write-and-publish-a-blog-article-rich-text--seo"></a>
-### 12.5 How to Write and Publish a Blog Article (Rich Text & SEO)
+<a id="115-how-to-write-and-publish-a-blog-article-rich-text--seo"></a>
+### 11.5 How to Write and Publish a Blog Article (Rich Text & SEO)
 **Navigation:** `Admin Panel → Blogs → Add New Blog` (`/dashboard/website-config/blogs`)
 
 1. Click **Blogs** in the left sidebar.
@@ -1026,8 +1140,8 @@ At the beginning of each shift, administrators should:
 
 ---
 
-<a id="126-how-to-add-and-manage-frequently-asked-questions-faqs"></a>
-### 12.6 How to Add and Manage Frequently Asked Questions (FAQs)
+<a id="116-how-to-add-and-manage-frequently-asked-questions-faqs"></a>
+### 11.6 How to Add and Manage Frequently Asked Questions (FAQs)
 **Navigation:** `Admin Panel → FAQs → Add New FAQ` (`/dashboard/website-config/faqs`)
 
 1. Click **FAQs** in the left sidebar.
@@ -1041,8 +1155,8 @@ At the beginning of each shift, administrators should:
 
 ---
 
-<a id="127-how-to-add-and-order-customer-testimonials"></a>
-### 12.7 How to Add and Order Customer Testimonials
+<a id="117-how-to-add-and-order-customer-testimonials"></a>
+### 11.7 How to Add and Order Customer Testimonials
 **Navigation:** `Admin Panel → Testimonials → Add New Testimonial` (`/dashboard/website-config/testimonials`)
 
 1. Click **Testimonials** in the left sidebar.
@@ -1058,8 +1172,8 @@ At the beginning of each shift, administrators should:
 
 ---
 
-<a id="128-how-to-review-export-and-delete-inbound-contact-messages"></a>
-### 12.8 How to Review, Export and Delete Inbound Contact Messages
+<a id="118-how-to-review-export-and-delete-inbound-contact-messages"></a>
+### 11.8 How to Review, Export and Delete Inbound Contact Messages
 **Navigation:** `Admin Panel → Contact Us` (`/dashboard/website-config/contact-us`)
 
 #### A. Reviewing an Inbound Inquiry
@@ -1097,10 +1211,10 @@ At the beginning of each shift, administrators should:
 
 ---
 
-# 13. Daily Administrative Workflows (Standard Operating Procedures)
+# 12. Daily Administrative Workflows (Standard Operating Procedures)
 
-<a id="131-morning-operational-shift-routine"></a>
-### 13.1 Morning Operational Shift Routine
+<a id="121-morning-operational-shift-routine"></a>
+### 12.1 Morning Operational Shift Routine
 ```mermaid
 flowchart TD
     A["08:00 AM: Sign In & Alert Check"] --> B["08:15 AM: Room Bookings Triage"]
@@ -1123,92 +1237,92 @@ flowchart TD
    - Log into `/dashboard`.
    - Click the notification bell to inspect overnight booking alerts.
 2. **08:15 AM — Hotel Room Triage:**
-   - Open `Room Bookings → Pending Requests`.
+   - Open `Room Bookings → Pending Requests` (`/dashboard/room-bookings`).
    - Verify payment states and accept pending reservations to lock hotel room inventory.
 3. **08:45 AM — Transport & Tour Operator Dispatch:**
-   - Open `Sightseeing Bookings → Pending Review` and assign tour operators to upcoming excursions.
-   - Open `Van Bookings` and `Car Bookings` for today's airport pickups; confirm driver assignments and vehicle license plates.
+   - Open `Sightseeing Bookings → Pending Review` (`/dashboard/travel-bookings`) and assign tour operators to upcoming excursions.
+   - Open `Van Bookings` (`/dashboard/van-bookings`) and `Car Bookings` (`/dashboard/car-bookings`) for today's airport pickups; confirm driver assignments and vehicle license plates.
 4. **09:30 AM — Customer Support Handover:**
-   - Open `Customer Chat` and answer open traveler threads.
+   - Open `Customer Chat` (`/dashboard/customer-chat`) and answer open traveler threads.
 
 ---
 
-<a id="132-midday-booking-triage--vendor-dispatch"></a>
-### 13.2 Midday Booking Triage & Vendor Dispatch
+<a id="122-midday-booking-triage--vendor-dispatch"></a>
+### 12.2 Midday Booking Triage & Vendor Dispatch
 1. Monitor incoming booking queues continuously.
 2. Coordinate with transport drivers via phone or WhatsApp for any flight arrival delays.
-3. Check `Room Availability` to monitor high-demand hotel dates.
+3. Check `Room Availability` (`/dashboard/hotel-room-availability`) to monitor high-demand hotel dates.
 
 ---
 
-<a id="133-evening-closeout--financial-reconciliation"></a>
-### 13.3 Evening Closeout & Financial Reconciliation
+<a id="123-evening-closeout--financial-reconciliation"></a>
+### 12.3 Evening Closeout & Financial Reconciliation
 1. Open `Statistics` (`/dashboard/admin-statistics`).
 2. Verify daily gross revenue against merchant payment gateway statements.
 3. Open `Records` (`/dashboard/bookings-record`), select today's date, and mark completed bookings as payment clear.
-4. Review `Deletion Requests` to ensure no customer privacy requests remain unresolved past policy thresholds.
+4. Review `Deletion Requests` (`/dashboard/deletion-requests`) to ensure no customer privacy requests remain unresolved past policy thresholds.
 5. Click **Log Out** in the top header to end your administrative session safely.
 
 ---
 
-# 14. Troubleshooting & Common Errors
+# 13. Troubleshooting & Common Errors
 
-<a id="141-login--authentication-issues"></a>
-### 14.1 Login & Authentication Issues
+<a id="131-login--authentication-issues"></a>
+### 13.1 Login & Authentication Issues
 - **Error:** *"This account does not have active administrator access"* on login.
 - **Cause:** Account role is not set to Admin or account was suspended.
 - **Resolution:** Double check email spelling. Contact Head Admin to verify account role in the database.
 - **Escalation:** Escalate to Head Admin or technical support if role was verified but login fails.
 
-<a id="142-booking-confirmation--inventory-holds"></a>
-### 14.2 Booking Confirmation & Inventory Holds
+<a id="132-booking-confirmation--inventory-holds"></a>
+### 13.2 Booking Confirmation & Inventory Holds
 - **Error:** Room booking cannot be accepted (error notice).
 - **Cause:** Target room category has 0 available rooms on requested dates.
-- **Resolution:** Open `Room Availability` for that hotel. Check if inventory is sold out. Coordinate with hotel front desk to verify if extra rooms can be released.
+- **Resolution:** Open `Room Availability` (`/dashboard/hotel-room-availability`) for that hotel. Check if inventory is sold out. Coordinate with hotel front desk to verify if extra rooms can be released.
 - **Escalation:** If inventory displays available but acceptance fails, notify technical support.
 
-<a id="143-payment-verification--merchant-reconciliation"></a>
-### 14.3 Payment Verification & Merchant Reconciliation
+<a id="133-payment-verification--merchant-reconciliation"></a>
+### 13.3 Payment Verification & Merchant Reconciliation
 - **Error:** Payment slip uploaded by customer is unclear or unreadable.
 - **Cause:** Low-resolution image or corrupted screenshot from traveler mobile banking.
 - **Resolution:** Open `Customer Chat`, select traveler thread, and request a clear re-upload of the bank transfer slip.
 
-<a id="144-media-upload--aspect-ratio-adjustments"></a>
-### 14.4 Media Upload & Aspect Ratio Adjustments
+<a id="134-media-upload--aspect-ratio-adjustments"></a>
+### 13.4 Media Upload & Aspect Ratio Adjustments
 - **Error:** Image upload fails in Offers or Media Slots.
 - **Cause:** File size exceeds 8 MB or format is unsupported.
 - **Resolution:** Ensure file is a valid JPG, PNG, or WebP. Compress image below 8 MB. Ensure image file is not corrupted.
 
-<a id="145-chat-delivery--real-time-connectivity"></a>
-### 14.5 Chat Delivery & Real-Time Connectivity
+<a id="135-chat-delivery--real-time-connectivity"></a>
+### 13.5 Chat Delivery & Real-Time Connectivity
 - **Error:** Customer chat messages fail to send or update.
 - **Cause:** Temporary network interruption or listener timeout.
 - **Resolution:** Check your internet connection. Hard-refresh browser (`Ctrl+F5` or `Cmd+Shift+R`). Re-select the customer thread.
 
 ---
 
-# 15. Security, Compliance & Important Guidelines
+# 14. Security, Compliance & Important Guidelines
 
-<a id="151-personal-data-protection-act-pdpa-compliance"></a>
-### 15.1 Personal Data Protection Act (PDPA) Compliance
+<a id="141-personal-data-protection-act-pdpa-compliance"></a>
+### 14.1 Personal Data Protection Act (PDPA) Compliance
 - All customer phone numbers, passport scans, driver's licenses, and chat attachments are protected under Thai PDPA regulations.
 - Never export customer records to unencrypted personal USB drives or transmit PII over personal messaging apps.
 - Customer account deletion requests must be completed within 30 days of receipt via `/dashboard/deletion-requests`.
 
-<a id="152-financial-safeguards--audit-logs"></a>
-### 15.2 Financial Safeguards & Audit Logs
+<a id="142-financial-safeguards--audit-logs"></a>
+### 14.2 Financial Safeguards & Audit Logs
 - Always verify high-value Thai PromptPay QR bank transfer slips against your merchant banking terminal prior to confirming bookings.
 - Double-check commission percentage numbers before saving hotel contracts. Commission adjustments alter payout totals immediately.
 
-<a id="153-account-security--session-management"></a>
-### 15.3 Account Security & Session Management
+<a id="143-account-security--session-management"></a>
+### 14.3 Account Security & Session Management
 - Use a unique, strong password containing at least 12 characters.
 - Never share administrative credentials between team members. Each operator must have their own designated Admin or Sub-Admin account.
 - Always click **Log Out** when stepping away from your workstation.
 
 ---
 
-# 16. Frequently Asked Questions (FAQs)
+# 15. Frequently Asked Questions (FAQs)
 
 **Q1: How do I know when a new customer reservation arrives?**  
 *A:* The notification bell in the top header displays a live red counter badge. In addition, the navigation sidebar displays numeric badges next to Room Bookings, Sightseeing Bookings, and Customer Chat.
@@ -1220,42 +1334,56 @@ flowchart TD
 *A:* Rejecting a booking automatically returns the held room inventory to the hotel calendar. If the customer wishes to re-book, they must submit a new reservation.
 
 **Q4: How do I assign a private van company to an airport pickup?**  
-*A:* Navigate to `Van Bookings`, locate the booking, click `Assign Resource`, and select the contracted transport company, driver, and vehicle from the dropdown menus.
+*A:* Navigate to `Van Bookings` (`/dashboard/van-bookings`), locate the booking, click `Assign Resource`, and select the contracted transport company, driver, and vehicle from the dropdown menus.
 
 **Q5: How do offer popup banners work on the website?**  
 *A:* When the "Show banner popup on website" switch is ON in `/dashboard/website-config/offers`, visitors will see the active offer banners in a popup carousel once per browsing session.
 
 ---
 
-# 17. Quick Reference Master Table
+# 16. Quick Reference Master Table
 
 | Task | Navigation Path | Action Required |
 |---|---|---|
-| **Change Your Password** | `Admin Panel → Account Settings` | Enter current password, type new 12-char password, click Change Password |
-| **Broadcast Push Notification** | `Admin Panel → Manage Notifications` | Enter title & message, crop photo, set optional expiry, click Send |
-| **View Revenue & Analytics** | `Admin Panel → Statistics` | Select Daily/Monthly, set date range, review KPIs and charts |
-| **Export Financial Excel** | `Admin Panel → Statistics` | Set reporting dates, click Export to Excel button |
-| **Generate Customer PDF Voucher** | `Admin Panel → Records` | Select category, click eye icon on booking row, click Download PDF |
-| **Export Customer Directory** | `Admin Panel → Users Data` | Click Export to CSV button in top right corner |
-| **Process Account Erasure** | `Admin Panel → Deletion Requests` | Select Pending tab, click Review Details, click Process Erasure |
-| **Add New Administrator** | `Admin Panel → Administrators` *(Head Admin)* | Click Add Administrator, fill name/email/role, click Create |
-| **Onboard a New Hotel** | `Admin Panel → Hotels` | Click Add New Hotel, complete property profile & photos, click Save |
-| **Add Room Type to Hotel** | `Admin Panel → Hotels → Manage Rooms` | Click Add Room Package, input rack rate, capacity & photos, click Save |
-| **Check Hotel Room Capacity** | `Admin Panel → Room Availability` | Search hotel, click View Availability Calendar |
-| **Accept Pending Room Booking** | `Admin Panel → Room Bookings` | On Pending tab, click eye icon, verify payment, click Accept Booking |
-| **Create Sightseeing Tour** | `Admin Panel → Sightseeing Packages` | Click Add Sightseeing Package, complete itinerary & limits, click Save |
-| **Assign Tour Operator** | `Admin Panel → Sightseeing Bookings` | On Pending tab, view details, enter Provider Name & Phone, click Confirm |
-| **Add Driver to Fleet** | `Admin Panel → Taxi & Van Management` | Select Drivers tab, click Add Driver, fill details & license, click Save |
-| **Dispatch Van Transfer** | `Admin Panel → Van Bookings` | Select booking on Pending tab, click Assign Resource, choose driver/vehicle |
-| **Chat with Traveler** | `Admin Panel → Customer Chat` | Select traveler thread, type message or attach booking voucher, click send |
-| **Add New Attraction / Hotspot** | `Admin Panel → Attractions & Places` | Click Add Attraction, enter title/city/hours/fee/photos, click Save |
-| **Update Homepage Offer Banner** | `Admin Panel → Offers` | Click Add New Banner, drop image, set optional link, click Save banner |
-| **Update About Us Counters** | `Admin Panel → Site Statistics` | Adjust numbers for travelers/hotels/tours, click Save Site Statistics |
-| **Replace Website Hero Image** | `Admin Panel → Images & Media` | Select Hero Banners tab, locate slot, click Upload Image, crop & save |
-| **Publish Travel Blog Post** | `Admin Panel → Blogs` | Click Add New Blog, write article in rich editor, set Published, click Save |
-| **Add Website FAQ** | `Admin Panel → FAQs` | Click Add New FAQ, enter question & answer, choose category, click Save |
-| **Archive Inbound Inquiry** | `Admin Panel → Contact Us` | Click eye icon to read message, respond via email, click Archive Message |
-| **Export Contact Messages CSV** | `Admin Panel → Contact Us` | Filter by tab, click Export CSV button to download backup |
-| **Export & Delete All Contact Messages** | `Admin Panel → Contact Us` | Filter by tab, click Export & Delete All, confirm export & batch purge |
-| **Delete Single Contact Message** | `Admin Panel → Contact Us` | Click red trash icon on message row or click Delete Message in modal |
+| **Change Your Password** | `Admin Panel → Account Settings` (`/dashboard/settings`) | Enter current password, type new 12-char password, click Change Password |
+| **Broadcast Push Notification** | `Admin Panel → Manage Notifications` (`/dashboard/notifications`) | Enter title & message, crop photo, set optional expiry, click Send |
+| **View Revenue & Analytics** | `Admin Panel → Statistics` (`/dashboard/admin-statistics`) | Select Daily/Monthly, set date range, review KPIs and charts |
+| **Export Financial Excel** | `Admin Panel → Statistics` (`/dashboard/admin-statistics`) | Set reporting dates, click Export to Excel button |
+| **Preview / Download PDF Voucher** | `Admin Panel → Records` (`/dashboard/bookings-record`) | Locate row, click Preview Invoice (eye icon) or Download Invoice |
+| **Export Cross-Vertical Records** | `Admin Panel → Records` (`/dashboard/bookings-record`) | Click Export to Excel button in top action header |
+| **Export Customer Directory** | `Admin Panel → Users Data` (`/dashboard/user-data`) | Click Export to CSV button in top right corner |
+| **Process Account Erasure** | `Admin Panel → Deletion Requests` (`/dashboard/deletion-requests`) | Select Pending tab, click Review Details, click Process Erasure |
+| **Add New Administrator** | `Admin Panel → Sub-Admins` (`/dashboard/sub-admins`) *(Head Admin)* | Click Add Administrator, fill name/email/role, click Create |
+| **Onboard a New Hotel** | `Admin Panel → Hotels` (`/dashboard/hotels`) | Click Add New Hotel, complete property profile & photos, click Save |
+| **Add Room Type to Hotel** | `Admin Panel → Hotels → Manage Rooms` (`/dashboard/hotels/:id/rooms`) | Click Add Room Package, input rack rate, capacity & photos, click Save |
+| **Check Hotel Room Capacity** | `Admin Panel → Room Availability` (`/dashboard/hotel-room-availability`) | Search hotel, click View Availability Calendar |
+| **Accept Pending Room Booking** | `Admin Panel → Room Bookings` (`/dashboard/room-bookings`) | On Pending tab, click eye icon, verify payment, click Accept Booking |
+| **Create Sightseeing Tour** | `Admin Panel → Sightseeing Packages` (`/dashboard/travel-services`) | Click Add Sightseeing Package, complete itinerary & limits, click Save |
+| **Assign Tour Operator** | `Admin Panel → Sightseeing Bookings` (`/dashboard/travel-bookings`) | On Pending tab, view details, enter Provider Name & Phone, click Confirm |
+| **Register Transport Asset/Driver** | `Admin Panel → Taxi & Van Management` (`/dashboard/vans`) | Select Vehicles or Drivers tab, click Add, fill details, click Save |
+| **Dispatch Van Transfer** | `Admin Panel → Van Bookings` (`/dashboard/van-bookings`) | Select booking on Pending tab, click Assign Resource, choose driver/vehicle |
+| **Chat with Traveler** | `Admin Panel → Customer Chat` (`/dashboard/customer-chat`) | Select traveler thread, type message or attach booking voucher, click send |
+| **Manage Attraction Categories** | `Admin Panel → Attractions & Places` (`/dashboard/attractions`) | Click Manage Categories button, add category name and icon |
+| **Add Attraction Place to Category** | `Admin Panel → Attractions & Places` (`/dashboard/attractions`) | Click Add Attraction, select category, enter details/fee/photos, click Save |
+| **Update Homepage Offer Banner** | `Admin Panel → Offers` (`/dashboard/website-config/offers`) | Click Add New Banner, drop image, set optional link, click Save banner |
+| **Update About Us Counters** | `Admin Panel → Site Statistics` (`/dashboard/website-config/site-statistics`) | Adjust numbers for travelers/hotels/tours, click Save Site Statistics |
+| **Replace Website Hero Image** | `Admin Panel → Images & Media` (`/dashboard/website-config/media`) | Select Hero Banners tab, locate slot, click Upload Image, crop & save |
+| **Publish Travel Blog Post** | `Admin Panel → Blogs` (`/dashboard/website-config/blogs`) | Click Add New Blog, write article in rich editor, set Published, click Save |
+| **Add Website FAQ** | `Admin Panel → FAQs` (`/dashboard/website-config/faqs`) | Click Add New FAQ, enter question & answer, choose category, click Save |
+| **Archive Inbound Inquiry** | `Admin Panel → Contact Us` (`/dashboard/website-config/contact-us`) | Click eye icon to read message, respond via email, click Archive Message |
+| **Export Contact Messages CSV** | `Admin Panel → Contact Us` (`/dashboard/website-config/contact-us`) | Filter by tab, click Export CSV button to download backup |
+| **Export & Delete All Contact Messages** | `Admin Panel → Contact Us` (`/dashboard/website-config/contact-us`) | Filter by tab, click Export & Delete All, confirm export & batch purge |
+| **Delete Single Contact Message** | `Admin Panel → Contact Us` (`/dashboard/website-config/contact-us`) | Click red trash icon on message row or click Delete Message in modal |
 | **Secure Logout** | `Top Header Bar` | Click red Log Out button |
+
+---
+
+<a id="17-operational-hotline--emergency-contacts"></a>
+# 17. Operational Hotline & Emergency Contacts
+
+| Department | Contact Method | Availability |
+| :--- | :--- | :--- |
+| **Engineering On-Call** | Slack `#admin-alerts` / Hotline: `+66 (0) 2-XXX-XXXX` | 24/7 Severity 1 Production Incidents Only |
+| **Payment & Merchant Ops** | Email: `billing@thaiseva.com` | Mon–Fri, 09:00–18:00 ICT |
+| **Customer Support Escalations** | Live Chat / Tel: `+66 (0) 2-YYY-YYYY` | Daily 07:00–23:00 ICT |
+| **Data Protection Officer (PDPA)** | Email: `privacy@thaiseva.com` | Standard Business Hours |

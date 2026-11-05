@@ -3,7 +3,7 @@
 Base URL: **https://asia-east2-gothai-ffea1.cloudfunctions.net/**
 Firebase project: **gothai-ffea1**. Region: **asia-east2**.
 
-Use this guide to add OTP verification to your separate application. For deployment, secrets, storage and security policy, see [System configuration and operations](EMAIL_OTP_SETUP.md).
+Use this guide to add OTP verification to your separate application. For deployment, secrets, storage and security policy, see [System configuration and operations](../06-devops/EMAIL_OTP_SETUP.md).
 
 OTP sending, resending and verification work independently of account creation. For Firebase email/password signup, `createVerifiedAccount` consumes a verified email proof and creates an email-verified account. Your application handles login and roles. Any valid email can request an OTP; no existing Firebase account is required. Zoho keys belong only on the API server.
 
