@@ -42,6 +42,7 @@ import { BedroomParentIcon } from "@icons";
 import { ViewList, CalendarMonth, Search, Circle, CheckCircle, VerifiedUserIcon, ForumIcon } from "@icons";
 import { Select, MenuItem, FormControl, InputLabel } from "@mui/material";
 import PaymentStatusBadge from "../../../../../components/bookings/PaymentStatusBadge";
+import BookingQueueTabLabel from "../../../../../components/bookings/BookingQueueTabLabel";
 import {
   VerifyPaymentIconButton,
   VerifyPaymentModalButton,
@@ -542,14 +543,15 @@ const RoomBookings = () => {
 
     return {
       total: visibleBookings.length,
-      pending: visibleBookings.filter((booking) => booking.status === "Pending").length,
+      pending: visibleBookings.filter((booking) => filterByTab(booking, 0)).length,
       waitingForPayment: visibleBookings.filter((booking) =>
-        isHotelWaitingForPayment(booking)
+        filterByTab(booking, 1)
       ).length,
       accepted: visibleBookings.filter((booking) =>
-        isHotelRevenueEligible(booking)
+        filterByTab(booking, 2)
       ).length,
-      declined: visibleBookings.filter((booking) => booking.status === "Canceled").length,
+      declined: visibleBookings.filter((booking) => filterByTab(booking, 3)).length,
+      next7: visibleBookings.filter((booking) => filterByTab(booking, 4)).length,
     };
   }, [sourceBookings, searchQuery]);
 
@@ -1025,12 +1027,68 @@ const RoomBookings = () => {
       </div>
 
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="booking status tabs">
-          <Tab label="Pending" />
-          <Tab label="Waiting for Payment" />
-          <Tab label="Paid & Accepted" />
-          <Tab label="Declined" />
-          <Tab label="Next 7 Days" />
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          aria-label="booking status tabs"
+          variant="scrollable"
+          scrollButtons="auto"
+        >
+          <Tab
+            value={0}
+            label={
+              <BookingQueueTabLabel
+                label="Pending"
+                count={bookingStats.pending}
+                icon={<PersonIcon fontSize="small" />}
+                showBadge={true}
+              />
+            }
+          />
+          <Tab
+            value={1}
+            label={
+              <BookingQueueTabLabel
+                label="Waiting for Payment"
+                count={bookingStats.waitingForPayment}
+                icon={<PaymentsIcon fontSize="small" />}
+                showBadge={true}
+              />
+            }
+          />
+          <Tab
+            value={2}
+            label={
+              <BookingQueueTabLabel
+                label="Paid & Accepted"
+                count={bookingStats.accepted}
+                icon={<CheckCircle fontSize="small" />}
+                showBadge={false}
+              />
+            }
+          />
+          <Tab
+            value={3}
+            label={
+              <BookingQueueTabLabel
+                label="Declined"
+                count={bookingStats.declined}
+                icon={<CloseIcon fontSize="small" />}
+                showBadge={false}
+              />
+            }
+          />
+          <Tab
+            value={4}
+            label={
+              <BookingQueueTabLabel
+                label="Next 7 Days"
+                count={bookingStats.next7}
+                icon={<CalendarMonthIcon fontSize="small" />}
+                showBadge={false}
+              />
+            }
+          />
         </Tabs>
       </Box>
 

@@ -385,21 +385,11 @@ const TravelBookings = () => {
     const visibleBookings = rows(sourceBookings) || [];
     return {
       total: visibleBookings.length,
-      pending: visibleBookings.filter((row) =>
-        isSightseeingPendingReview(row.rawData)
-      ).length,
-      onsite: visibleBookings.filter((row) =>
-        isSightseeingOnsiteQueue(row.rawData)
-      ).length,
-      paidAccepted: visibleBookings.filter((row) =>
-        isSightseeingRevenueEligible(row.rawData)
-      ).length,
-      declined: visibleBookings.filter((row) =>
-        isSightseeingCanceled(row.rawData)
-      ).length,
-      next7: visibleBookings.filter((row) =>
-        isNext7DaysBooking(row.rawData)
-      ).length,
+      pending: visibleBookings.filter((row) => filterByTab(row, 1)).length,
+      onsite: visibleBookings.filter((row) => filterByTab(row, 2)).length,
+      paidAccepted: visibleBookings.filter((row) => filterByTab(row, 3)).length,
+      declined: visibleBookings.filter((row) => filterByTab(row, 4)).length,
+      next7: visibleBookings.filter((row) => filterByTab(row, 5)).length,
     };
   }, [sourceBookings, searchQuery]);
 
@@ -1383,11 +1373,11 @@ const TravelBookings = () => {
           variant="scrollable"
           scrollButtons="auto"
         >
-          <Tab value={1} label={<BookingQueueTabLabel label="Pending" count={bookingStats.pending} icon={<PersonIcon fontSize="small" />} />} />
-          <Tab value={2} label={<BookingQueueTabLabel label="Thai QR / Onsite" count={bookingStats.onsite} icon={<PaymentsIcon fontSize="small" />} />} />
-          <Tab value={3} label={<BookingQueueTabLabel label="Paid & Accepted" count={bookingStats.paidAccepted} icon={<CheckCircle fontSize="small" />} />} />
-          <Tab value={4} label={<BookingQueueTabLabel label="Declined" count={bookingStats.declined} icon={<CloseIcon fontSize="small" />} />} />
-          <Tab value={5} label={<BookingQueueTabLabel label="Next 7 Days" count={bookingStats.next7} icon={<CalendarMonthIcon fontSize="small" />} />} />
+          <Tab value={1} label={<BookingQueueTabLabel label="Pending" count={bookingStats.pending} icon={<PersonIcon fontSize="small" />} showBadge={true} />} />
+          <Tab value={2} label={<BookingQueueTabLabel label="Thai QR / Onsite" count={bookingStats.onsite} icon={<PaymentsIcon fontSize="small" />} showBadge={true} />} />
+          <Tab value={3} label={<BookingQueueTabLabel label="Paid & Accepted" count={bookingStats.paidAccepted} icon={<CheckCircle fontSize="small" />} showBadge={false} />} />
+          <Tab value={4} label={<BookingQueueTabLabel label="Declined" count={bookingStats.declined} icon={<CloseIcon fontSize="small" />} showBadge={false} />} />
+          <Tab value={5} label={<BookingQueueTabLabel label="Next 7 Days" count={bookingStats.next7} icon={<CalendarMonthIcon fontSize="small" />} showBadge={false} />} />
         </Tabs>
       </Box>
 
