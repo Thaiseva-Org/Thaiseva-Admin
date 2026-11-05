@@ -175,6 +175,19 @@ const roomBaseQty = (room) => {
 };
 
 /**
+ * Add days to a YYYY-MM-DD string.
+ * @param {string} ymd 
+ * @param {number} n 
+ * @returns {string|null}
+ */
+const addDays = (ymd, n) => {
+  if (!ymd) return null;
+  const d = new Date(`${ymd}T12:00:00+07:00`);
+  d.setDate(d.getDate() + n);
+  return toYmd(d);
+};
+
+/**
  * Check if a booking is considered accepted.
  * 
  * @param {object} b - The booking object.
@@ -182,8 +195,29 @@ const roomBaseQty = (room) => {
  */
 const isAcceptedBooking = (b) => {
   const s = String(b.bookingStatus || b.status || "").toUpperCase();
-  if (["ACCEPTED", "CONFIRMED"].includes(s)) return true;
-  return b.isBookingConfirmed === true;
+  if (
+    [
+      "ACCEPTED",
+      "CONFIRMED",
+      "APPROVED",
+      "PARTIALLY_ACCEPTED",
+      "PARTIALLY ACCEPTED",
+      "PARTIALLY_CONFIRMED",
+      "PARTIALLY CONFIRMED",
+      "VERIFIED",
+    ].includes(s) ||
+    s.includes("ACCEPT") ||
+    s.includes("CONFIRM") ||
+    s.includes("APPROV")
+  ) {
+    return true;
+  }
+  return (
+    b.isBookingConfirmed === true ||
+    b.inventoryReserved === true ||
+    b.isPaymentDone === true ||
+    String(b.paymentVerificationStatus || "").toUpperCase() === "VERIFIED"
+  );
 };
 
 /**
@@ -204,7 +238,9 @@ const isCanceledBooking = (b) => {
  * @returns {number} The number of rooms booked (defaults to 1).
  */
 const roomsFromBooking = (b) => {
-  const n = Number(b.rooms ?? b.noOfRooms ?? b.roomCount ?? 1);
+  const n = Number(
+    b.acceptedRooms ?? b.roomsInstant ?? b.rooms ?? b.noOfRooms ?? b.roomCount ?? 1
+  );
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1;
 };
 
@@ -218,8 +254,12 @@ const roomsFromBooking = (b) => {
  */
 const bookingCoversDate = (booking, dateYmd) => {
   const checkIn = toYmd(booking.checkInDate || booking.checkIn);
-  const checkOut = toYmd(booking.checkOutDate || booking.checkOut);
-  if (!checkIn || !checkOut) return false;
+  let checkOut = toYmd(booking.checkOutDate || booking.checkOut);
+  if (!checkIn) return false;
+  // If checkOut missing or same as checkIn, default to next day (1 night stay)
+  if (!checkOut || checkOut <= checkIn) {
+    checkOut = addDays(checkIn, 1);
+  }
   return dateYmd >= checkIn && dateYmd < checkOut;
 };
 
@@ -317,9 +357,19 @@ const loadRoom = async (hotelUid, packageId) => {
   const hid = asId(hotelUid);
   const rid = asId(packageId);
   if (!hid || !rid) return null;
-  const snap = await getDoc(doc(db, "HotelDB", hid, "rooms", rid));
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() };
+  try {
+    const snap = await getDoc(doc(db, "HotelDB", hid, "rooms", rid));
+    if (snap.exists()) return { id: snap.id, ...snap.data() };
+  } catch {
+    /* fall through */
+  }
+  try {
+    const snapPkg = await getDoc(doc(db, "hotelPackageDetails", rid));
+    if (snapPkg.exists()) return { id: snapPkg.id, ...snapPkg.data() };
+  } catch {
+    /* fall through */
+  }
+  return null;
 };
 
 /**
@@ -384,8 +434,14 @@ const loadAdjustments = async (hotelUid, packageId) => {
  */
 const matchesRoomType = (b, packageId, roomNameHint) => {
   const rid = asId(packageId);
-  if (!rid) return true;
-  const bid = asId(b.packageId || b.roomId || b.roomTypeId);
+  if (!rid || rid === "all" || rid === "default") return true;
+  const bid = asId(
+    b.packageId ||
+      b.roomId ||
+      b.roomTypeId ||
+      b.packageDetails?.id ||
+      b.roomDetails?.id
+  );
   if (bid && bid === rid) return true;
   // Fallback: match room name when packageId missing on old bookings
   if (roomNameHint) {
@@ -395,7 +451,8 @@ const matchesRoomType = (b, packageId, roomNameHint) => {
       return true;
     }
   }
-  // If booking has no package id at all, include for hotel-level list only when no rid
+  // If booking has no package/room id at all, retain it so it is not dropped
+  if (!bid) return true;
   return false;
 };
 
@@ -437,9 +494,9 @@ const loadAcceptedBookings = async (hotelUid, packageId, roomNameHint = "") => {
 
   const chunks = [];
 
-  // Query by packageId when present (fast path)
-  try {
-    if (rid) {
+  // Query by packageId when present (check both hotelUid and hotelId)
+  if (rid) {
+    try {
       const q = query(
         roomBookingCollection,
         where("hotelUid", "==", hid),
@@ -447,25 +504,39 @@ const loadAcceptedBookings = async (hotelUid, packageId, roomNameHint = "") => {
       );
       const snap = await getDocs(q);
       chunks.push(filterList(snap.docs));
+    } catch {
+      /* fall through */
     }
-  } catch {
-    /* fall through */
-  }
 
-  // Always also scan hotel-level so roomId-only / legacy bookings are not missed
-  // when the packageId query returned a partial set.
-  try {
-    const q = query(roomBookingCollection, where("hotelUid", "==", hid));
-    const snap = await getDocs(q);
-    chunks.push(filterList(snap.docs));
-  } catch {
     try {
-      const q = query(roomBookingCollection, where("hotelId", "==", hid));
+      const q = query(
+        roomBookingCollection,
+        where("hotelId", "==", hid),
+        where("packageId", "==", rid)
+      );
       const snap = await getDocs(q);
       chunks.push(filterList(snap.docs));
-    } catch (e2) {
-      console.warn("[HotelAvailability] bookings query failed", e2);
+    } catch {
+      /* fall through */
     }
+  }
+
+  // Always also scan hotel-level by hotelUid AND hotelId so roomId-only / legacy bookings
+  // are never missed regardless of which field was populated.
+  try {
+    const q1 = query(roomBookingCollection, where("hotelUid", "==", hid));
+    const snap1 = await getDocs(q1);
+    chunks.push(filterList(snap1.docs));
+  } catch (e1) {
+    console.warn("[HotelAvailability] hotelUid bookings query failed", e1);
+  }
+
+  try {
+    const q2 = query(roomBookingCollection, where("hotelId", "==", hid));
+    const snap2 = await getDocs(q2);
+    chunks.push(filterList(snap2.docs));
+  } catch (e2) {
+    console.warn("[HotelAvailability] hotelId bookings query failed", e2);
   }
 
   return mergeById(chunks);
@@ -647,7 +718,10 @@ export const getHotelAvailabilityCalendar = async ({
   const hotelData = hotelSnap.exists() ? hotelSnap.data() : {};
   const availabilityConfig = await loadAvailabilityConfig(hid, hotelData);
   const room = await loadRoom(hid, rid);
-  const base = roomBaseQty(room);
+  const base =
+    roomBaseQty(room) ||
+    availabilityConfig.defaultRoomInventory ||
+    DEFAULT_ROOM_INVENTORY;
 
   const roomNameHint =
     room?.roomName || room?.packageName || room?.name || "";
@@ -690,8 +764,13 @@ export const getHotelAvailabilityCalendar = async ({
 
       const total = stock.total;
       const locked = stock.locked;
-      const booked = stock.booked;
-      const free = stock.free;
+      const bookedFromStays = dayBookings.reduce(
+        (sum, b) => sum + (Number(b.rooms) || 0),
+        0
+      );
+      // Reflect whichever is higher: hotelStock document or confirmed bookings in hotelBookingData
+      const booked = Math.max(stock.booked || 0, bookedFromStays);
+      const free = freeOf(total, locked, booked);
       return {
         date,
         total,
@@ -707,7 +786,7 @@ export const getHotelAvailabilityCalendar = async ({
         free,
         bookings: dayBookings,
         holds: dayHolds,
-        source: stock.exists ? "hotelStock" : "default",
+        source: stock.exists ? "hotelStock" : "bookings",
       };
     })
   );

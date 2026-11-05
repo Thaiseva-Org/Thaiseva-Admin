@@ -41,11 +41,15 @@ import {
   doc,
   getDoc,
   onSnapshot,
+  query,
+  where,
 } from "firebase/firestore";
 import {
   db,
   hotelsCollection,
 } from "../../../../../firebase/firebase.config";
+import { PartnerContext } from "../../../../../contextAPIs/PartnerProvider";
+import { useContext } from "react";
 import PageHeading from "../../../../../components/PageHeading";
 import LoadingContent from "../../../../../components/LoadingContent";
 import {
@@ -228,6 +232,7 @@ const stayBarLayout = (booking, nights) => {
 const HotelRoomAvailabilityPage = () => {
   const { hotelId } = useParams();
   const navigate = useNavigate();
+  const { roomBookings } = useContext(PartnerContext) || {};
 
   const backToList = () => navigate("/dashboard/hotel-room-availability");
 
@@ -422,6 +427,42 @@ const HotelRoomAvailabilityPage = () => {
     return base;
   }, [monthMeta.year]);
 
+  // Detect any bookings for this hotel that are in other months (e.g. December 2026)
+  const upcomingOtherMonthStays = useMemo(() => {
+    if (!hotelId || !roomBookings?.length) return [];
+    const hid = String(hotelId);
+    const targetHName = String(hotelName || "").toLowerCase().trim();
+
+    return (roomBookings || [])
+      .filter((b) => {
+        const bHid = String(
+          b.hotelUid || b.hotelId || b.hotel?.hotelUid || b.hotel?.uid || ""
+        );
+        const bName = String(b.hotelName || "").toLowerCase().trim();
+        const matchesHotel =
+          bHid === hid || (targetHName && bName && targetHName === bName);
+        if (!matchesHotel) return false;
+
+        const checkIn = toYmd(b.checkInDate || b.checkIn);
+        if (!checkIn) return false;
+        // Outside the loaded calendar range
+        return checkIn < startDate || checkIn > endDate;
+      })
+      .map((b) => {
+        const checkIn = toYmd(b.checkInDate || b.checkIn);
+        const dateObj = new Date(`${checkIn}T12:00:00`);
+        return {
+          id: b.id || b.bookingId,
+          guest: b.fullName || b.guestName || b.name || "Guest",
+          rooms: b.rooms || b.noOfRooms || 1,
+          checkIn,
+          year: dateObj.getFullYear(),
+          month: dateObj.getMonth(),
+          monthLabel: MONTH_OPTIONS[dateObj.getMonth()]?.label || "",
+        };
+      });
+  }, [hotelId, roomBookings, hotelName, startDate, endDate]);
+
   useEffect(() => {
     if (!hotelId) return;
     let unsubRooms = () => {};
@@ -477,29 +518,110 @@ const HotelRoomAvailabilityPage = () => {
 
     load();
 
-    // Room types from Add Hotel flow only
+    // Room types: check both subcollection (HotelDB/{id}/rooms) AND root hotelPackageDetails
+    let nestedRooms = [];
+    let legacyRooms = [];
+
+    const publishRooms = () => {
+      const map = new Map();
+      legacyRooms.forEach((r) => map.set(String(r.id), r));
+      nestedRooms.forEach((r) => {
+        const id = String(r.id);
+        map.set(id, { ...(map.get(id) || {}), ...r, id });
+      });
+      let list = Array.from(map.values());
+      if (list.length === 0) {
+        // Fallback room type so calendar is never blocked if rooms weren't created in subcollection
+        list = [
+          {
+            id: "all_rooms",
+            roomName: "All Hotel Rooms",
+            packageName: "All Hotel Rooms",
+            totalRooms: 5,
+          },
+        ];
+      }
+      setRoomTypes(list);
+      setRoomId((prev) => {
+        const prevStr = prev != null && prev !== "" ? String(prev) : "";
+        if (prevStr && list.some((r) => r.id === prevStr)) return prevStr;
+        return list[0]?.id || "";
+      });
+    };
+
     unsubRooms = onSnapshot(
       collection(db, "HotelDB", String(hotelId), "rooms"),
       (result) => {
-        // Always string ids - numeric room ids break Firestore paths
-        const list = result.docs.map((d) => ({
+        nestedRooms = result.docs.map((d) => ({
           id: String(d.id),
           ...d.data(),
         }));
-        setRoomTypes(list);
-        setRoomId((prev) => {
-          const prevStr = prev != null && prev !== "" ? String(prev) : "";
-          if (prevStr && list.some((r) => r.id === prevStr)) return prevStr;
-          return list[0]?.id || "";
-        });
+        publishRooms();
       },
       (err) => {
         console.error(err);
-        setRoomTypes([]);
       }
     );
 
-    return () => unsubRooms();
+    let unsubLegacy1 = () => {};
+    let unsubLegacy2 = () => {};
+    try {
+      unsubLegacy1 = onSnapshot(
+        query(
+          collection(db, "hotelPackageDetails"),
+          where("hotelUid", "==", String(hotelId))
+        ),
+        (result) => {
+          const docs = result.docs.map((d) => ({
+            id: String(d.id),
+            ...d.data(),
+            _source: "uid",
+          }));
+          legacyRooms = [
+            ...legacyRooms.filter((r) => r._source !== "uid"),
+            ...docs,
+          ];
+          publishRooms();
+        },
+        (err) => {
+          console.warn("[RoomAvailability] legacy hotelUid query failed", err);
+        }
+      );
+    } catch {
+      /* fall through */
+    }
+
+    try {
+      unsubLegacy2 = onSnapshot(
+        query(
+          collection(db, "hotelPackageDetails"),
+          where("hotelId", "==", String(hotelId))
+        ),
+        (result) => {
+          const docs = result.docs.map((d) => ({
+            id: String(d.id),
+            ...d.data(),
+            _source: "id",
+          }));
+          legacyRooms = [
+            ...legacyRooms.filter((r) => r._source !== "id"),
+            ...docs,
+          ];
+          publishRooms();
+        },
+        (err) => {
+          console.warn("[RoomAvailability] legacy hotelId query failed", err);
+        }
+      );
+    } catch {
+      /* fall through */
+    }
+
+    return () => {
+      unsubRooms();
+      unsubLegacy1();
+      unsubLegacy2();
+    };
   }, [hotelId]);
 
   // Settings tab: keep type picker in sync with room list / calendar selection
@@ -1026,6 +1148,40 @@ const HotelRoomAvailabilityPage = () => {
             </div>
           ) : (
             <>
+              {upcomingOtherMonthStays.length > 0 && (
+                <div className="rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-50 via-white to-primary-50 p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">📅</span>
+                    <div>
+                      <p className="text-sm font-bold text-primary-900">
+                        Bookings found outside current month ({upcomingOtherMonthStays.length} stay{upcomingOtherMonthStays.length > 1 ? "s" : ""})
+                      </p>
+                      <p className="text-xs text-primary-700">
+                        Latest: <span className="font-semibold">{upcomingOtherMonthStays[0].guest}</span> · {upcomingOtherMonthStays[0].rooms} room(s) starting {upcomingOtherMonthStays[0].checkIn}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {[...new Map(upcomingOtherMonthStays.map((s) => [`${s.year}-${s.month}`, s])).values()].map((stay) => (
+                      <Button
+                        key={`${stay.year}-${stay.month}`}
+                        size="small"
+                        variant="contained"
+                        onClick={() => goToYearMonth(stay.year, stay.month)}
+                        sx={{
+                          ...btnPrimarySx,
+                          fontSize: "0.75rem",
+                          py: 0.6,
+                          px: 2,
+                        }}
+                      >
+                        View {stay.monthLabel} {stay.year} →
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Month navigator + heat calendar + day detail */}
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
                 <div className="xl:col-span-3 rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
