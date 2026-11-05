@@ -98,6 +98,9 @@ Run these two commands in your terminal before starting browser testing:
 | **TOUR-05** | `/dashboard/travel-bookings` | On a `REQUEST` booking, click **View Details** $\rightarrow$ Click **Confirm & Open Payment** | Status transitions to `AWAITING_PAYMENT`, `isBookingConfirmed: true`. Traveler gets an alert in their app to proceed with payment. |
 | **TOUR-06** | `/dashboard/travel-bookings` | In the booking details drawer, enter **Provider Name** (*"Phuket Marine Co"*) and **Provider Phone** $\rightarrow$ Click **Confirm & Assign Operator** | Local operator details bind to the booking and appear on the customer's PDF voucher. |
 | **TOUR-07** | `/dashboard/travel-bookings` | Click **Thai QR / Onsite** tab $\rightarrow$ For cash-on-pickup tours, click **Mark Payment Collected** | Updates financial records to mark cash collected by tour guide. |
+| **TOUR-08** | `/dashboard/travel-bookings` | Select multiple pending booking checkboxes $\rightarrow$ Click **Approve Selected** or **Decline Selected** in the top action bar | Selected reservations transition in bulk; success notification toast appears. |
+| **TOUR-09** | `/dashboard/travel-bookings` | Click the **Calendar View** icon next to the search bar | Screen toggles from list table to interactive monthly timeline showing sightseeing excursions by date. |
+| **TOUR-10** | `/dashboard/travel-bookings` | Click the purple **📊 Daily Capacity** button in the date filter bar $\rightarrow$ Review upcoming daily breakdown $\rightarrow$ Update **Daily Limit** input number | Shows per-date capacity progress bars (*Open*, *Busy*, *Preparation review*, *Request only*); updates global daily capacity limit upon saving. |
 
 ---
 

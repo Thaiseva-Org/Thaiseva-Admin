@@ -64,6 +64,7 @@
   - [7.5 How to Review and Confirm Pending Tour Bookings](#75-how-to-review-and-confirm-pending-tour-bookings)
   - [7.6 How to Assign a Local Tour Operator to a Booking](#76-how-to-assign-a-local-tour-operator-to-a-booking)
   - [7.7 How to Manage Onsite Cash Payment Bookings](#77-how-to-manage-onsite-cash-payment-bookings)
+  - [7.8 How to Use Bulk Approval & Calendar View for Sightseeing Bookings](#78-how-to-use-bulk-approval--calendar-view-for-sightseeing-bookings)
 - [8. Transport Fleet & Ride Bookings](#8-transport-fleet--ride-bookings)
   - [8.1 How to Register a Transport Partner Company](#81-how-to-register-a-transport-partner-company)
   - [8.2 How to Register a Certified Driver](#82-how-to-register-a-certified-driver)
@@ -795,17 +796,22 @@ Thaiseva enforces automated capacity routing to protect tour operators from last
 
 ---
 
-<a id="76-how-to-manage-onsite-cash-payment-bookings"></a>
-### 7.6 How to Manage Onsite Cash Payment Bookings
-**Navigation:** `Admin Panel → Sightseeing Bookings → Onsite Payment Queue`
+<a id="78-how-to-use-bulk-approval--calendar-view-for-sightseeing-bookings"></a>
+### 7.8 How to Use Bulk Approval & Calendar View for Sightseeing Bookings
+**Navigation:** `Admin Panel → Sightseeing Bookings` (`/dashboard/travel-bookings`)
 
-1. Navigate to **Sightseeing Bookings**.
-2. Select the **Onsite Payment Queue** tab.
-3. These bookings represent approved tours where travelers will pay cash upon arrival at the pier.
-4. Once the operator confirms cash collection on the morning of the tour, click the **Verify Payment** button.
-5. Select **Mark Cash Collected Onsite**.
-
-**Expected Result:** The booking transitions from the onsite queue to **Confirmed & Paid**.
+1. **Bulk Selection & Approval:**
+   - On the **Pending** queue tab (`tabValue = 1`), check the checkboxes next to multiple bookings.
+   - The blue floating selection toolbar appears displaying the total selected count.
+   - Click **Approve Selected** to confirm all selected bookings simultaneously, or **Decline Selected** to reject them in bulk.
+2. **Switching to Calendar View:**
+   - In the top action bar next to the search input, click the **Calendar View** icon (`CalendarMonth`).
+   - The view toggles to an interactive monthly calendar displaying all scheduled excursions color-coded by date.
+   - Click the **List View** icon (`ViewList`) to return to the standard booking queue table.
+3. **Daily Capacity Quick Access:**
+   - Click the purple **📊 Daily Capacity** button in the date filter header.
+   - An interactive modal opens showing future daily breakdown (total bookings, confirmed, pending, capacity percentage bar, and automated status: *Open*, *Busy*, *Preparation review*, or *Request only*).
+   - Edit the **Daily Limit** number directly in the header and click away to save.
 
 ---
 
