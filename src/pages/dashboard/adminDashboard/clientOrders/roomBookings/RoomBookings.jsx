@@ -1193,14 +1193,6 @@ const RoomBookings = () => {
                                           </button>
                                         )}
 
-                                        <button
-                                          onClick={() => handleOpenCustomerChat(row)}
-                                          className="p-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg transition-colors"
-                                          title="Chat with Customer"
-                                        >
-                                          <ForumIcon sx={{ fontSize: 20 }} />
-                                        </button>
-
                                         {(row.status === "Pending" ||
                                           hasHotelPendingRooms(row)) && (
                                           <>
